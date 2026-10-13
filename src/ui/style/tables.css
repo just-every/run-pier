@@ -1,0 +1,26 @@
+/* Tables: fine rules, readable 16px values, quantities right-aligned. At phone
+   width every row becomes a labelled record (each cell's data-label). */
+.pier-app .table-wrap { width: 100%; max-width: 100%; margin: 16px 0 24px; overflow-x: auto; border: 1px solid var(--pier-rule); border-radius: var(--pier-radius); background: var(--pier-panel); }
+.pier-app .table-wrap table { width: 100%; min-width: 720px; border-collapse: collapse; }
+.pier-app .table-wrap th { padding: 14px 16px; border-bottom: 1px solid var(--pier-rule); background: var(--pier-paper); color: var(--pier-ink-2); font-size: 14px; font-weight: 400; line-height: 20px; text-align: left; vertical-align: bottom; }
+.pier-app .table-wrap td { padding: 16px; border-top: 1px solid var(--pier-rule); vertical-align: top; overflow-wrap: break-word; }
+.pier-app .table-wrap tbody tr:first-child td { border-top: 0; }
+.pier-app .table-wrap th + th, .pier-app .table-wrap td + td { border-left: 1px solid var(--pier-rule); }
+.pier-app .table-wrap .num { text-align: right; white-space: nowrap; }
+.pier-app .table-wrap td.action { width: 1%; white-space: nowrap; vertical-align: middle; }
+.pier-app .table-wrap td.action button.link { min-height: 32px; }
+.pier-app .table-wrap tr.selected td { background: var(--pier-teal-surface); }
+.pier-app .table-wrap code { font-family: var(--pier-mono); font-size: 14px; }
+
+@media (max-width: 599px) {
+  .pier-app .table-wrap { overflow: visible; border: 0; background: none; }
+  .pier-app .table-wrap table, .pier-app .table-wrap tbody { display: block; min-width: 0; }
+  .pier-app .table-wrap thead { display: none; }
+  .pier-app .table-wrap tr { position: relative; display: block; margin: 0 0 12px; padding: 12px 16px; border: 1px solid var(--pier-rule); border-radius: var(--pier-radius); background: var(--pier-panel); }
+  .pier-app .table-wrap tr.selected { border-color: var(--pier-teal-border); background: var(--pier-teal-surface); }
+  .pier-app .table-wrap td, .pier-app .table-wrap td + td { display: grid; grid-template-columns: minmax(96px, 42%) minmax(0, 1fr); gap: 12px; padding: 6px 0; border: 0; text-align: left; white-space: normal; }
+  .pier-app .table-wrap td.num { text-align: left; white-space: normal; }
+  .pier-app .table-wrap td[data-label]::before { content: attr(data-label); color: var(--pier-ink-2); font-size: 14px; line-height: 24px; }
+  .pier-app .table-wrap td.action { display: flex; width: auto; justify-content: flex-end; }
+  .pier-app .table-wrap tr.selected td { background: none; }
+}

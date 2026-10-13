@@ -1,0 +1,11 @@
+CREATE TABLE pier_meta (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL);
+INSERT INTO pier_meta VALUES(1,0);
+CREATE TABLE pier_guard (id TEXT PRIMARY KEY, ok INTEGER NOT NULL CHECK(ok=1));
+CREATE TABLE pier_records (kind TEXT NOT NULL, id TEXT NOT NULL, version INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)), PRIMARY KEY(kind,id));
+CREATE TABLE pier_movements (id TEXT PRIMARY KEY, sequence INTEGER NOT NULL UNIQUE, item_id TEXT NOT NULL, location_id TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('sellable','quarantine','transit')), quantity INTEGER NOT NULL, actor_id TEXT NOT NULL, command_id TEXT NOT NULL, document_id TEXT NOT NULL, reversal_id TEXT, import_id TEXT, reason TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX pier_position ON pier_movements(item_id,location_id,status);
+CREATE TRIGGER pier_immutable_movement BEFORE UPDATE ON pier_movements BEGIN SELECT RAISE(ABORT,'append_only_movement'); END;
+CREATE TRIGGER pier_no_delete_movement BEFORE DELETE ON pier_movements WHEN NOT EXISTS(SELECT 1 FROM pier_guard WHERE id='import-undo:'||OLD.import_id AND ok=1) BEGIN SELECT RAISE(ABORT,'append_only_movement'); END;
+CREATE TABLE pier_reservations (id TEXT PRIMARY KEY, order_id TEXT NOT NULL, order_line_id TEXT NOT NULL,item_id TEXT NOT NULL,location_id TEXT NOT NULL,quantity INTEGER NOT NULL CHECK(quantity>0));
+CREATE TABLE pier_commands (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, digest TEXT NOT NULL, result TEXT NOT NULL CHECK(json_valid(result)), created_at TEXT NOT NULL);
+CREATE TABLE pier_import_graphs (id TEXT PRIMARY KEY, revision TEXT NOT NULL, descriptor TEXT NOT NULL CHECK(json_valid(descriptor)));

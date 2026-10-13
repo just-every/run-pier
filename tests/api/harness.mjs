@@ -1,0 +1,204 @@
+import { Miniflare, convertV4MiniflareOptions } from "miniflare";
+import { unstable_splitSqlQuery } from "wrangler";
+import { build } from "esbuild";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { randomUUID, randomBytes } from "node:crypto";
+import assert from "node:assert/strict";
+export async function installation() {
+  const root = await mkdtemp(join(tmpdir(), "pier-api-"));
+  const bundled = await build({
+    entryPoints: ["tests/api/worker.ts"],
+    bundle: true,
+    write: false,
+    format: "esm",
+    platform: "neutral",
+    target: "es2022",
+    external: ["node:*"],
+    loader: { ".css": "text", ".svg": "text" },
+  });
+  let origin = "http://localhost";
+  const setup = randomBytes(32).toString("hex");
+  const options = (port) => ({
+    ...convertV4MiniflareOptions({
+      host: "127.0.0.1",
+      port,
+      modules: true,
+      script: bundled.outputFiles[0].text,
+      compatibilityDate: "2026-09-08",
+      compatibilityFlags: ["nodejs_compat"],
+      d1Databases: ["DB"],
+      bindings: {
+        AUTH_LOCAL: "true",
+        AUTH_ORIGIN: origin,
+        OWNER_EMAIL: "owner@example.test",
+        SESSION_SECRET: randomBytes(32).toString("hex"),
+        SETUP_TOKEN: setup,
+        MAIL_PROVIDER: "development",
+        MAIL_FROM: "auth@example.test",
+        RER_DEV_KEY: randomBytes(32).toString("hex"),
+      },
+    }),
+    resourcePersistencePath: root,
+  });
+  const mf = new Miniflare(options(0));
+  try {
+    const address = await mf.ready;
+    origin = address.origin;
+    // Use the real HTTP listener so URL, Host and Origin all describe this
+    // installation. dispatchFetch rewrites Host to its internal transport.
+    await mf.setOptions(options(Number(address.port)));
+    const db = await mf.getD1Database("DB");
+    for (const file of (await readdir("migrations/core"))
+      .filter((n) => n.endsWith(".sql"))
+      .sort()) {
+      const sql = await readFile("migrations/core/" + file, "utf8");
+      await db.batch(unstable_splitSqlQuery(sql).map((q) => db.prepare(q)));
+    }
+    let cookie = "";
+    const request = (path, { method = "GET", body, as = cookie } = {}) =>
+      fetch(origin + path, {
+        method,
+        redirect: "manual",
+        headers: {
+          origin,
+          "content-type": "application/json",
+          ...(as ? { cookie: as } : {}),
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+    const boot = await request("/auth/bootstrap", {
+      method: "POST",
+      body: { token: setup, displayName: "Owner" },
+    });
+    assert.equal(boot.status, 303, await boot.text());
+    cookie = boot.headers
+      .getSetCookie()
+      .map((v) => v.split(";")[0])
+      .join("; ");
+    const command = async (type, payload, opts = {}) => {
+      const commandId = opts.commandId ?? randomUUID();
+      const res = await request("/api/pier/commands", {
+        method: "POST",
+        body: { commandId, type, payload },
+        ...opts,
+      });
+      const body = await res.json();
+      if (opts.error) {
+        assert.equal(body.ok, false);
+        assert.equal(body.error.code, opts.error);
+        return body;
+      }
+      assert.equal(res.status, 200, JSON.stringify(body));
+      assert.equal(body.ok, true, JSON.stringify(body));
+      return body.result;
+    };
+    const state = async () => {
+      const res = await request("/api/pier/state");
+      assert.equal(res.status, 200);
+      return res.json();
+    };
+    const invariant = async () => {
+      const s = await state();
+      for (const p of s.positions) {
+        const sum = s.movements
+          .filter(
+            (m) =>
+              m.itemId === p.itemId &&
+              m.locationId === p.locationId &&
+              m.status === p.status,
+          )
+          .reduce((n, m) => n + BigInt(m.quantity), 0n);
+        assert.equal(parse(p.quantity), sum);
+        const reserved = s.reservations
+          .filter((r) => r.itemId === p.itemId && r.locationId === p.locationId)
+          .reduce((n, r) => n + BigInt(r.quantity), 0n);
+        assert.equal(
+          parse(p.available),
+          p.status === "sellable" ? sum - reserved : 0n,
+        );
+        assert.ok(sum >= 0n);
+      }
+      return s;
+    };
+    return {
+      mf,
+      origin,
+      db,
+      request,
+      command,
+      state,
+      invariant,
+      async close() {
+        await mf.dispose();
+        await rm(root, { recursive: true, force: true });
+      },
+    };
+  } catch (error) {
+    await mf.dispose().catch(() => {});
+    await rm(root, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  }
+}
+export function parse(v) {
+  const [a, b = ""] = v.split(".");
+  return BigInt(a) * 1000000n + BigInt(b.padEnd(6, "0"));
+}
+export async function basics(h) {
+  const item = await h.command("item.save", {
+    sku: "BOLT",
+    name: "Brass bolt",
+    unit: "each",
+    barcode: "10001",
+    packSize: "0.5",
+  });
+  const source = await h.command("location.save", {
+      name: "A1",
+      warehouse: "North",
+      kind: "bin",
+    }),
+    destination = await h.command("location.save", {
+      name: "B1",
+      warehouse: "South",
+      kind: "bin",
+    }),
+    transit = await h.command("location.save", {
+      name: "Van",
+      warehouse: "Between warehouses",
+      kind: "transit",
+    }),
+    supplier = await h.command("party.save", {
+      name: "Metals",
+      kind: "supplier",
+    }),
+    customer = await h.command("party.save", {
+      name: "Workshop",
+      kind: "customer",
+    });
+  return { item, source, destination, transit, supplier, customer };
+}
+export async function buy(h, b, quantity = "10") {
+  const po = await h.command("po.draft", {
+    supplierId: b.supplier.id,
+    promiseDate: "2026-11-01",
+    reason: "Restock",
+    lines: [{ itemId: b.item.id, quantity, price: "0.25" }],
+  });
+  await h.command("po.approve", { poId: po.id, version: po.version });
+  await h.command("po.commit", { poId: po.id, version: po.version });
+  return po;
+}
+export const receive = (h, b, po, quantity) =>
+  h.command("receipt.create", {
+    poId: po.id,
+    supplierReference: "Delivery 1",
+    lines: [
+      {
+        poLineId: po.lines[0].id,
+        locationId: b.source.id,
+        quantity,
+        cost: "0.25",
+      },
+    ],
+  });

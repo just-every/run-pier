@@ -1,0 +1,35 @@
+/* The stock label: crisp, shallow, one 1px rule, square except the 10px cut
+   upper-right corner (clip-path, with its diagonal drawn by ::after). */
+.stock-label { --label-line: var(--pier-rule); position: relative; min-width: 0; border: 1px solid var(--label-line); background: var(--pier-panel); clip-path: polygon(0 0, calc(100% - var(--pier-chamfer)) 0, 100% var(--pier-chamfer), 100% 100%, 0 100%); }
+.stock-label::after { content: ''; position: absolute; top: -1px; right: -1px; width: var(--pier-chamfer); height: var(--pier-chamfer); background: linear-gradient(to bottom left, transparent calc(50% - .5px), var(--label-line) calc(50% - .5px), var(--label-line) calc(50% + 1px), transparent calc(50% + 1px)); }
+.stock-label-head { display: flex; align-items: baseline; gap: 20px; padding: 12px 24px; border-bottom: 1px solid var(--label-line); font-size: 20px; line-height: 28px; font-weight: 700; }
+.stock-label-step { font-weight: 700; }
+.stock-label-body { padding: 20px 24px 24px; }
+.stock-label-teal { --label-line: var(--pier-teal-border); background: var(--pier-teal-surface); }
+.stock-label-teal .stock-label-head, .stock-label-teal .label-quantity-name, .stock-label-teal .label-quantity-value { color: var(--pier-teal); }
+.stock-label-band { --label-line: var(--pier-teal-border); }
+.stock-label-band .stock-label-head { background: var(--pier-teal-surface); }
+
+.label-quantity { display: flex; flex-direction: column; min-width: 0; }
+.label-quantity-name { color: var(--pier-ink-2); font-size: 16px; line-height: 24px; }
+.label-quantity-value { font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+.label-quantity-hero .label-quantity-value { margin-top: 4px; font-size: 64px; line-height: 68px; letter-spacing: -.03em; }
+.label-note, .label-source { color: var(--pier-ink-2); font-size: 16px; line-height: 24px; }
+.label-actor { font-size: 20px; line-height: 28px; font-weight: 700; }
+.label-status { margin: -4px 0 12px; padding-bottom: 12px; border-bottom: 1px solid var(--pier-rule); color: var(--pier-ink-2); font-size: 16px; line-height: 24px; }
+.label-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.label-columns .label-quantity + .label-quantity { padding-left: 20px; border-left: 1px solid var(--pier-rule); }
+.label-columns .label-quantity:not(:first-child):not(:last-child) { padding-right: 20px; }
+.label-pill { display: block; margin-top: 16px; padding: 12px 24px; border: 1px solid var(--pier-ink); border-radius: 999px; font-size: 16px; line-height: 24px; text-align: center; }
+
+@media (max-width: 760px) {
+  .stock-label-head { padding: 12px 20px; }
+  .stock-label-body { padding: 16px 20px 20px; }
+  .label-quantity-hero .label-quantity-value { font-size: 48px; line-height: 52px; }
+  .label-quantity-value { font-size: 24px; line-height: 32px; }
+}
+@media (max-width: 420px) {
+  .label-columns { grid-template-columns: minmax(0, 1fr); }
+  .label-columns .label-quantity, .label-columns .label-quantity + .label-quantity, .label-columns .label-quantity:not(:first-child):not(:last-child) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; padding: 8px 0; border-left: 0; border-top: 1px solid var(--pier-rule); }
+  .label-columns .label-quantity:first-child { border-top: 0; padding-top: 0; }
+}

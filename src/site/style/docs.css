@@ -1,0 +1,48 @@
+/* The docs: a 224px navigation column, a 64px gap and a reading column up to
+   760px, in the homepage's paper and ink. Code sits in quiet bordered panels. */
+.docs-shell { display: grid; grid-template-columns: 224px minmax(0, 760px); gap: 64px; width: min(1280px, calc(100% - 2 * var(--site-gutter))); margin: 0 auto; padding: 56px 0 96px; }
+.site .docs-main { width: auto; margin: 0; }
+.docs-nav { display: grid; align-content: start; gap: 28px; }
+.docs-nav-section { margin: 0 0 8px; color: var(--pier-ink-2); font-size: 14px; line-height: 20px; }
+.docs-nav ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.docs-nav a { position: relative; display: block; padding: 10px 20px; border: 1px solid transparent; font-size: 18px; line-height: 24px; text-decoration: none; }
+.docs-nav a:hover { color: var(--pier-teal); }
+.docs-nav a[aria-current=page] { border-color: var(--pier-teal-border); background: var(--pier-teal-surface); color: var(--pier-teal); font-weight: 700; clip-path: polygon(0 0, calc(100% - var(--pier-chamfer)) 0, 100% var(--pier-chamfer), 100% 100%, 0 100%); }
+.docs-nav a[aria-current=page]::after { content: ''; position: absolute; top: -1px; right: -1px; width: var(--pier-chamfer); height: var(--pier-chamfer); background: linear-gradient(to bottom left, transparent calc(50% - .5px), var(--pier-teal-border) calc(50% - .5px), var(--pier-teal-border) calc(50% + 1px), transparent calc(50% + 1px)); }
+
+.docs-article h1 { margin: 0 0 24px; font-size: 56px; line-height: 60px; font-weight: 800; letter-spacing: -.04em; }
+.docs-prose { font-size: 18px; line-height: 28px; overflow-wrap: break-word; }
+.site .docs-prose > * + * { margin-top: 16px; }
+.site .docs-prose h2 { margin-top: 48px; font-size: 30px; line-height: 36px; font-weight: 700; letter-spacing: -.02em; }
+.site .docs-prose h3 { margin-top: 32px; font-size: 22px; line-height: 28px; font-weight: 700; }
+.site .docs-prose h2 + *, .site .docs-prose h3 + * { margin-top: 12px; }
+.docs-prose a { color: var(--pier-teal); text-underline-offset: 3px; }
+.docs-prose ul, .docs-prose ol { padding-left: 24px; }
+.site .docs-prose li + li { margin-top: 8px; }
+.docs-prose code { padding: 1px 6px; border: 1px solid var(--pier-rule); border-radius: 4px; background: var(--pier-panel); font-family: var(--pier-mono); font-size: .875em; white-space: nowrap; }
+.site .docs-prose pre { margin-top: 20px; margin-bottom: 4px; padding: 20px 24px; border: 1px solid var(--pier-rule); border-radius: var(--pier-radius); background: var(--pier-panel); white-space: pre; overflow-x: auto; overflow-wrap: normal; }
+.docs-prose pre code { padding: 0; border: 0; background: none; font-size: 16px; line-height: 26px; white-space: pre; overflow-wrap: normal; }
+.docs-prose blockquote { margin: 16px 0 0; padding-left: 20px; border-left: 3px solid var(--pier-teal-border); color: var(--pier-ink-2); }
+.docs-table { overflow-x: auto; margin-top: 20px; border: 1px solid var(--pier-rule); border-radius: var(--pier-radius); background: var(--pier-panel); }
+.docs-table table { width: 100%; border-collapse: collapse; font-size: 16px; line-height: 24px; }
+.docs-table th, .docs-table td { padding: 12px 16px; border-top: 1px solid var(--pier-rule); text-align: left; vertical-align: top; }
+.docs-table th { border-top: 0; background: var(--pier-paper); color: var(--pier-ink-2); font-weight: 400; }
+
+@media (max-width: 1000px) {
+  .docs-shell { grid-template-columns: minmax(0, 1fr); gap: 40px; padding-top: 32px; }
+  .docs-nav { gap: 20px; padding-bottom: 32px; border-bottom: 1px solid var(--pier-rule); }
+}
+@media (max-width: 760px) {
+  .docs-shell { gap: 32px; padding-bottom: 64px; }
+  /* Phones: the links run down two columns in 36px rows, so the article starts on the first screen. */
+  .docs-nav { display: block; columns: 2; column-gap: 8px; padding-bottom: 24px; }
+  .docs-nav li { break-inside: avoid; padding-bottom: 4px; }
+  .docs-nav-group, .docs-nav ul { display: contents; }
+  .docs-nav-section { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .docs-nav a { padding: 6px 12px; font-size: 16px; }
+  .docs-article h1 { font-size: 36px; line-height: 40px; }
+  .docs-prose { font-size: 16px; line-height: 26px; }
+  .site .docs-prose h2 { margin-top: 40px; font-size: 24px; line-height: 30px; }
+  .site .docs-prose pre { padding: 16px; }
+  .docs-prose :not(pre) > code { white-space: normal; overflow-wrap: anywhere; }
+}

@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "projectId": "just-every/inventory-pier",
+  "name": "Pier",
+  "sourceRepository": "https://github.com/just-every/run-pier",
+  "license": "MIT"
+}

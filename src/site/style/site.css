@@ -1,0 +1,41 @@
+/* The run site's frame: warm paper, ink, a 1280px column with 80px gutters, the
+   header and footer, and the pill actions. Colour belongs to the drawings. */
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--pier-paper); color: var(--pier-ink); font: 18px/28px var(--pier-font); font-variant-numeric: lining-nums tabular-nums; -webkit-font-smoothing: antialiased; }
+.site, .site *, .site *::before, .site *::after { box-sizing: border-box; }
+.site { --site-gutter: 80px; display: flex; flex-direction: column; min-height: 100vh; overflow-x: clip; }
+.site a { color: inherit; }
+.site :focus-visible { outline: 2px solid var(--pier-focus); outline-offset: 3px; }
+/* Zero specificity, so each element's own class sets its spacing. */
+:where(.site) :is(h1, h2, h3, p) { margin: 0; }
+.site h1, .site h2, .site h3 { font-family: var(--pier-font-heading); text-wrap: balance; }
+.site p { text-wrap: pretty; }
+.site-header, .site-footer, .site main { width: min(1280px, calc(100% - 2 * var(--site-gutter))); margin-inline: auto; }
+
+.site-header { display: flex; align-items: stretch; justify-content: space-between; min-height: 72px; border-bottom: 1px solid var(--pier-rule); }
+.site-wordmark { align-self: center; font-family: var(--pier-font-heading); font-size: 28px; line-height: 1; letter-spacing: -.02em; text-decoration: none; }
+.site-header nav, .site-footer nav { display: flex; align-items: stretch; gap: 44px; }
+.site-header nav a { position: relative; display: flex; align-items: center; font-size: 18px; text-decoration: none; }
+.site-header nav a:hover, .site-footer nav a:hover { color: var(--pier-teal); }
+.site-header nav a[aria-current=page] { color: var(--pier-teal); }
+.site-header nav a[aria-current=page]::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: var(--pier-teal); }
+
+.site-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 96px; margin-top: auto; border-top: 1px solid var(--pier-rule); font-size: 16px; line-height: 24px; }
+.site-footer .site-wordmark { font-size: 24px; }
+.site-footer nav { align-items: center; gap: 32px; }
+.site-footer nav a { display: inline-flex; align-items: center; min-height: 48px; text-decoration: none; }
+
+.pill { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 44px; border: 1px solid var(--pier-ink); border-radius: 999px; font-size: 18px; line-height: 24px; text-decoration: none; white-space: nowrap; }
+.pill:hover { background: #ece8dd; }
+.site .pill-primary { background: var(--pier-ink); color: var(--pier-panel); }
+.site .pill-primary:hover { background: #33403b; }
+
+@media (max-width: 760px) {
+  .site { --site-gutter: 20px; }
+  .site-header { min-height: 56px; }
+  .site-wordmark { font-size: 24px; }
+  .site-header nav { gap: 28px; }
+  .site-header nav a { font-size: 16px; }
+  .site-footer { flex-wrap: wrap; min-height: 0; padding: 20px 0 24px; }
+  .site-footer nav { flex-wrap: wrap; gap: 0 24px; }
+}

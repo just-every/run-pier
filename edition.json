@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "id": "just-every/inventory-pier",
+  "toolchain": {
+    "id": "runeditrun/edition-authoring",
+    "version": "1.1.0"
+  },
+  "components": [
+    {
+      "id": "just-every/inventory-pier",
+      "role": "edition",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/pier",
+          "src/auth.server.ts",
+          "src/server.ts",
+          "scripts/installer"
+        ]
+      }
+    },
+    {
+      "id": "runeditrun/foundation",
+      "role": "foundation",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/base"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "paths": [
+            "foundation/runtime"
+          ]
+        }
+      }
+    },
+    {
+      "id": "runeditrun/operator-auth",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/operator-auth"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "paths": [
+            "modules/operator-auth"
+          ]
+        }
+      }
+    },
+    {
+      "id": "runeditrun/mail",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/mail"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "paths": [
+            "modules/mail"
+          ]
+        }
+      }
+    },
+    {
+      "id": "runeditrun/ai",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/ai"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "paths": [
+            "modules/ai"
+          ]
+        }
+      }
+    },
+    {
+      "id": "runeditrun/dependencies",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/dependencies"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "paths": [
+            "modules/dependencies"
+          ]
+        }
+      }
+    },
+    {
+      "id": "runeditrun/owner-claim",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/owner-claim"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "paths": [
+            "modules/owner-claim"
+          ]
+        }
+      }
+    },
+    {
+      "id": "runeditrun/import-kit",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/import-kit"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "paths": [
+            "modules/import-kit"
+          ]
+        }
+      }
+    },
+    {
+      "id": "runeditrun/edition-authoring",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "scripts/edition-authoring"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "paths": [
+            "edition-authoring"
+          ]
+        }
+      }
+    }
+  ],
+  "identityKind": "project"
+}

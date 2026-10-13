@@ -1,0 +1,61 @@
+/* Buttons, fields and forms. Primary actions are ink; everything else is a
+   transparent secondary with an ink border; links and link buttons are teal. */
+.pier-app button, .pier-app .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--pier-control-height); padding: 0 20px; border: 1px solid var(--pier-ink); border-radius: var(--pier-radius); background: transparent; color: var(--pier-ink); font: inherit; font-size: 16px; line-height: 20px; text-align: center; text-decoration: none; cursor: pointer; }
+.pier-app button:hover, .pier-app .button:hover { background: var(--pier-panel); }
+.pier-app button.primary, .pier-app .button.primary { background: var(--pier-ink); border-color: var(--pier-ink); color: var(--pier-panel); }
+.pier-app button.primary:hover, .pier-app .button.primary:hover { background: #33403b; }
+.pier-app button:disabled { cursor: not-allowed; opacity: .5; }
+.pier-app button.link, .pier-app button.product-name { min-height: 0; padding: 0; border: 0; background: none; text-align: left; }
+.pier-app button.link { min-height: 48px; color: var(--pier-teal); }
+.pier-app button.link:hover { text-decoration: underline; }
+.pier-app button.product-name { color: var(--pier-ink); font-weight: 700; }
+.pier-app button.product-name:hover { color: var(--pier-teal); }
+.pier-app svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.pier-app input, .pier-app select, .pier-app textarea { min-width: 0; max-width: 100%; font: inherit; }
+.pier-app input:not([type=checkbox]):not([type=file]), .pier-app select, .pier-app textarea { width: 100%; min-height: var(--pier-control-height); padding: 0 12px; border: 1px solid var(--pier-control); border-radius: var(--pier-radius); background: var(--pier-panel); color: var(--pier-ink); font-size: 16px; }
+.pier-app textarea { min-height: 112px; padding: 12px; resize: vertical; }
+.pier-app input::placeholder { color: var(--pier-ink-2); opacity: 1; }
+/* The chevron is drawn with two gradients so selects need no image. */
+.pier-app select { appearance: none; padding-right: 40px; background-image: linear-gradient(45deg, transparent 50%, var(--pier-ink) 50%), linear-gradient(135deg, var(--pier-ink) 50%, transparent 50%); background-position: calc(100% - 22px) 50%, calc(100% - 16px) 50%; background-size: 6px 6px; background-repeat: no-repeat; }
+.pier-app input[type=checkbox] { width: 20px; height: 20px; margin: 2px 0 0; flex: none; accent-color: var(--pier-ink); }
+.pier-app input[type=file] { min-height: var(--pier-control-height); font-size: 16px; }
+.pier-app input[type=file]::file-selector-button { min-height: 40px; margin-right: 12px; padding: 0 16px; border: 1px solid var(--pier-ink); border-radius: var(--pier-radius); background: transparent; color: var(--pier-ink); font: inherit; cursor: pointer; }
+
+.pier-app .field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pier-app .field > span { color: var(--pier-ink); font-size: 16px; line-height: 24px; }
+.pier-app .field > small { margin-top: -2px; }
+.pier-app .check { display: flex; align-items: flex-start; gap: 12px; grid-column: 1 / -1; min-height: 24px; }
+
+.pier-app .panel { min-width: 0; margin: 24px 0; padding: 24px; border: 1px solid var(--pier-rule); border-radius: var(--pier-radius); background: var(--pier-panel); scroll-margin-top: 16px; }
+.pier-app .panel > h2 { margin: 0 0 16px; font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -.01em; }
+.pier-app .panel > h2 + .muted { margin-top: -8px; }
+.pier-app h3 { margin: 32px 0 12px; font-size: 20px; line-height: 28px; font-weight: 700; }
+.pier-app h4 { margin: 24px 0 8px; font-size: 16px; line-height: 24px; font-weight: 700; }
+.pier-app .technical-log > summary { min-height: 44px; font-family: var(--pier-font-heading); font-size: 20px; font-weight: 700; line-height: 44px; cursor: pointer; }
+.pier-app form { margin: 0; }
+.pier-app .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; align-items: start; }
+.pier-app .form-grid > fieldset, .pier-app .form-grid > .line-editor, .pier-app .form-grid > .line-row, .pier-app .form-grid > .check { grid-column: 1 / -1; }
+.pier-app .form-grid > button { grid-column: 1 / -1; justify-self: start; }
+.pier-app .split .form-grid { grid-template-columns: minmax(0, 1fr); }
+.pier-app .form-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.pier-app .line-editor { display: grid; gap: 16px; min-width: 0; }
+.pier-app .line-editor > button { justify-self: start; }
+.pier-app .line-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 16px 24px; align-items: end; min-width: 0; }
+.pier-app fieldset { min-width: 0; margin: 0; padding: 20px; border: 1px solid var(--pier-rule); border-radius: var(--pier-radius); }
+.pier-app legend { padding: 0 8px; color: var(--pier-ink-2); font-size: 14px; overflow-wrap: anywhere; }
+.pier-app .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.pier-app .split > .panel { margin: 0; }
+
+@media (max-width: 1023px) {
+  .pier-app .line-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pier-app .split { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 599px) {
+  .pier-app .panel { padding: 20px; }
+  /* A form inside a document reads as a ruled continuation, not a second box. */
+  .pier-app .panel .panel { margin: 24px 0 0; padding: 20px 0 0; border: 0; border-top: 1px solid var(--pier-rule); border-radius: 0; background: none; }
+  .pier-app .form-grid, .pier-app .line-row { grid-template-columns: minmax(0, 1fr); }
+  .pier-app .form-actions > button, .pier-app .form-grid > button, .pier-app .line-editor > button { width: 100%; }
+  .pier-app fieldset { padding: 16px; }
+}
