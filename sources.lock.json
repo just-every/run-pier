@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "parent": null,
   "edition": "just-every/inventory-pier",
-  "manifest": "9ce3ad1b232156ef14cd13eefa03dcf2dd62b9e8bcdd77dcf056df47274d07cc",
+  "manifest": "589955c161e166c1b764554995b56e3ccdcffac7d8805467eede18ec741436d8",
   "toolchain": {
     "id": "runeditrun/edition-authoring",
     "version": "1.1.0",
@@ -116,16 +116,16 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "revision": "38aa7efdb3cceec585d2344ed54dd559295b9059",
           "paths": [
             "modules/dependencies"
           ]
         }
       },
       "baseline": {
-        "key": "27b9a4468397f3b4038f0e5f199da98add3bcf63c8dd84b4594061246801f641",
-        "digest": "dd6702214401dc1331d16a9dfd61bf3a3e36040e54dc72d25c29e31bfa2b95b7",
-        "sha256": "09c9c46098bceabac7103a0cd5febc27837616d97a70859b284df5a494f0793e"
+        "key": "12658bf9306d73e5c365425c3714ca89f1792162806623c937c36239f7b5e226",
+        "digest": "72e194eb302ffb6159231f0106fabe9872badda5e1cd4e4a2197f204ecf23b16",
+        "sha256": "8dc726dc4effbf0ef176f7c2fbf72bbfd90d161c2d25f34f85b00398f7bf87b6"
       }
     },
     {
@@ -137,16 +137,16 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+          "revision": "38aa7efdb3cceec585d2344ed54dd559295b9059",
           "paths": [
             "modules/owner-claim"
           ]
         }
       },
       "baseline": {
-        "key": "a7c02c39df142ae6ffa419dfc725578a62f94fce4dd0efa73dd58807afa999e9",
-        "digest": "2567a4ad61fdc57fb0dbd79ec84c077f45e05ee7ee7286dac423dbe5b804aa08",
-        "sha256": "e4069034e51ee1fa130216a4688332fc144be2f99363ebede5e624987caee5b0"
+        "key": "78e37774e8ca61abff6680776595816a2a8f9c447e9cce7d6e32b45534d51049",
+        "digest": "fa996037b3e26284b4af3f81b5c8c25e1221ee9bdb784675d9034dfc75617de2",
+        "sha256": "089e15bc9fd427a231ea1e355a2fffcf856b22d8e6da3a00d9ffa63ac94af672"
       }
     },
     {
@@ -295,7 +295,7 @@
       "executable": false
     },
     "edition.json": {
-      "sha256": "9ce3ad1b232156ef14cd13eefa03dcf2dd62b9e8bcdd77dcf056df47274d07cc",
+      "sha256": "589955c161e166c1b764554995b56e3ccdcffac7d8805467eede18ec741436d8",
       "executable": false
     },
     "HOMEPAGE-VARIANTS.md": {
@@ -703,7 +703,7 @@
       "executable": false
     },
     "src/modules/dependencies/auth.mjs": {
-      "sha256": "57e53a75c99cd1f06fd6a7103f232bd4530c089bf15f17094afe8448e2ceca93",
+      "sha256": "c1e864461c204731395555b0235a9cb058a8979fde84ae58abce559053ba27f0",
       "executable": false
     },
     "src/modules/dependencies/authority.mjs": {
@@ -1971,7 +1971,7 @@
       "executable": false
     },
     "src/modules/owner-claim/README.md": {
-      "sha256": "400d900fbe0981f9e6e27ff40b7913ebb140680bd045167cfb9ddb2a45a4c890",
+      "sha256": "ab3ead07f6a21347c4f084c48acbdd5d62ee9abc711982cc09ffb1c53f239459",
       "executable": false
     },
     "src/modules/owner-claim/schema/idp.sql": {
@@ -1983,7 +1983,7 @@
       "executable": false
     },
     "src/modules/owner-claim/transaction.mjs": {
-      "sha256": "ca36db33042d7778d518b407bd9b403dd4bac82d4b89d81beeb78ed47421cca2",
+      "sha256": "56f9cf605a5a4afae2be22012e84035e661fb38c07612ec7d4f8cdc39526aa54",
       "executable": false
     },
     "src/modules/owner-claim/verify.mjs": {
