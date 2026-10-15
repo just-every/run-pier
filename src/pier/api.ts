@@ -90,6 +90,74 @@ async function approver(env: Bindings, c: Context, type: string, p: any) {
     );
   c.approver = { id: record.approval.actorId, role };
 }
+/** One command through Pier's admission: the public endpoint's path, and the
+ * demo seed's (src/demo.ts), which passes its own clock. */
+export async function execute(
+  env: Bindings,
+  actor: Actor,
+  commandId: string,
+  type: string,
+  payload: any,
+  now = () => new Date().toISOString(),
+): Promise<any> {
+  const digest = sha256(canonicalJson({ type, payload }));
+  const previous = await saved(env.DB, commandId, digest, actor);
+  if (previous) return previous;
+  // A losing optimistic admission is recomputed from current stock. This is
+  // database concurrency handling, not a retry of an external effect or model.
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const before = await load(env.DB),
+      s = structuredClone(before),
+      c: Context = { s, actor, commandId, now: now() };
+    await approver(env, c, type, payload);
+    let result: any;
+    for (const handle of [
+      catalogue,
+      orders,
+      purchasing,
+      warehouse,
+      imports,
+      proposals,
+    ]) {
+      result = handle(c, type, payload);
+      if (result !== undefined) break;
+    }
+    if (result === undefined) fail("COMMAND", "Unknown command type.");
+    if (type === "import.commit" || type === "import.undo") {
+      await publishImport(
+        env,
+        c,
+        before,
+        digest,
+        result,
+        type === "import.undo",
+      );
+      const outcome = await saved(env.DB, commandId, digest, actor);
+      if (!outcome)
+        fail(
+          "IMPORT_PUBLICATION",
+          "The reviewed import was not published. Resume the same command.",
+        );
+      return outcome;
+    }
+    try {
+      return await commit(env, c, before, digest, result);
+    } catch (error) {
+      const replay = await saved(env.DB, commandId, digest, actor);
+      if (replay) return replay;
+      const latest = await load(env.DB);
+      if (latest.version !== before.version) {
+        if (attempt < 7) continue;
+        fail(
+          "BUSY",
+          "Stock changed repeatedly. Retry the same command identity.",
+        );
+      }
+      throw error;
+    }
+  }
+  return null;
+}
 export async function pierResponse(
   request: Request,
   original: Bindings,
@@ -243,62 +311,8 @@ export async function pierResponse(
           "Native owners retain owner authority. Assign agent roles only to native members.",
         );
     }
-    const digest = sha256(canonicalJson({ type, payload }));
-    const previous = await saved(env.DB, commandId, digest, actor);
-    if (previous) return json(previous);
-    // A losing optimistic admission is recomputed from current stock. This is
-    // database concurrency handling, not a retry of an external effect or model.
-    for (let attempt = 0; attempt < 8; attempt++) {
-      const before = await load(env.DB),
-        s = structuredClone(before),
-        c: Context = { s, actor, commandId, now: new Date().toISOString() };
-      await approver(env, c, type, payload);
-      let result: any;
-      for (const handle of [
-        catalogue,
-        orders,
-        purchasing,
-        warehouse,
-        imports,
-        proposals,
-      ]) {
-        result = handle(c, type, payload);
-        if (result !== undefined) break;
-      }
-      if (result === undefined) fail("COMMAND", "Unknown command type.");
-      if (type === "import.commit" || type === "import.undo") {
-        await publishImport(
-          env,
-          c,
-          before,
-          digest,
-          result,
-          type === "import.undo",
-        );
-        const outcome = await saved(env.DB, commandId, digest, actor);
-        if (!outcome)
-          fail(
-            "IMPORT_PUBLICATION",
-            "The reviewed import was not published. Resume the same command.",
-          );
-        return json(outcome);
-      }
-      try {
-        return json(await commit(env, c, before, digest, result));
-      } catch (error) {
-        const replay = await saved(env.DB, commandId, digest, actor);
-        if (replay) return json(replay);
-        const latest = await load(env.DB);
-        if (latest.version !== before.version) {
-          if (attempt < 7) continue;
-          fail(
-            "BUSY",
-            "Stock changed repeatedly. Retry the same command identity.",
-          );
-        }
-        throw error;
-      }
-    }
+    const outcome = await execute(env, actor, commandId, type, payload);
+    if (outcome) return json(outcome);
     return json(
       {
         ok: false,

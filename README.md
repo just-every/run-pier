@@ -6,7 +6,7 @@ The public source repository is [just-every/run-pier](https://github.com/just-ev
 
 The project site is at https://run-pier.com.
 
-Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.0 package.
+Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.19 package.
 
 Install the shared command once with either method:
 

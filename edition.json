@@ -15,7 +15,8 @@
           "src/pier",
           "src/auth.server.ts",
           "src/server.ts",
-          "scripts/installer"
+          "scripts/installer",
+          "src/demo.ts"
         ]
       }
     },
@@ -153,6 +154,34 @@
             "edition-authoring"
           ]
         }
+      }
+    },
+    {
+      "id": "runeditrun/demo",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/demo"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "e17843562355e1b6e5068289c8e037951fbc8d3d",
+          "paths": [
+            "modules/demo",
+            "modules/operator-auth/csp.mjs"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/modules/demo",
+            "originPath": "modules/demo"
+          },
+          {
+            "path": "src/modules/demo/csp.mjs",
+            "originPath": "modules/operator-auth/csp.mjs"
+          }
+        ]
       }
     }
   ],

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "domain": "run-pier.com",
+  "name": "Pier",
+  "settings": {
+    "MAIL_PROVIDER": "development",
+    "MAIL_FROM": "Pier demo <demo@demo.invalid>"
+  },
+  "instanceType": "basic"
+}
