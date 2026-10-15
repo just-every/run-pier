@@ -4,7 +4,8 @@
   "name": "Pier",
   "settings": {
     "MAIL_PROVIDER": "development",
-    "MAIL_FROM": "Pier demo <demo@demo.invalid>"
+    "MAIL_FROM": "Pier demo <maya@brisbanecafesupply.example>"
   },
-  "instanceType": "basic"
+  "instanceType": "basic",
+  "ownerEmail": "maya@brisbanecafesupply.example"
 }

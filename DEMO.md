@@ -48,7 +48,7 @@ start and ended pages are Base's. See Base's `export/DEMO.md` for the host.
 
 Every Base copy (`src/base` foundation, `src/modules/demo`, `operator-auth`,
 `mail`, `owner-claim`, `dependencies`, `ai`, `d1-transport`, `import-kit` and
-`scripts/edition-authoring`) is Base at tag `rer-v0.2.22`
-(`1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74`), refreshed together so owner-claim
+`scripts/edition-authoring`) is Base at tag `rer-v0.2.24`
+(`1ee378e41142c673a9098f60af21664c6d8477d1`), refreshed together so owner-claim
 and operator-auth always agree (`edition.json`, `sources.lock.json`).
 `src/base/font-head.ts` is Pier's own (system fonts, no font files).

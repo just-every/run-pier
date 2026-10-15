@@ -1,8 +1,8 @@
 {
-  "key": "7e9b7e681e9d21c2eda232fa18929fbf4434bac75940bcffb5f924347e1bd610",
+  "key": "e8213d383b8faccb39031d94e31b7525a32a05439823e93a910f7d3c9515a299",
   "origin": {
     "repository": "https://github.com/runeditrun/base.git",
-    "revision": "1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74",
+    "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
     "path": ".",
     "paths": [
       "modules/dependencies"
