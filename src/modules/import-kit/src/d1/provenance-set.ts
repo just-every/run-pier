@@ -4,8 +4,7 @@ import { canonicalJson, sha256, attachmentHash } from '../provenance/identity.ts
 import { decodeProvenance, effectIdentity } from '../storage/provenance.ts';
 import type { D1ImportContext, D1Sql, D1ProvenanceRow } from './types.ts';
 import { guard, sql } from './database.ts';
-import { selectKeys, exactRows, jsonChunks } from './sets.ts';
-import { jobColumns, claimColumns, provenanceColumns } from './columns.ts';
+import { selectKeys, exactRows, jobColumns, claimColumns, provenanceColumns, jsonChunks } from './sets.ts';
 import { loadPlans, planGuards } from './plans.ts';
 import { loadReversalState, reversalGuards,snapshotReversalGuards } from './undo-state.ts';
 import { readOriginals } from './originals.ts';

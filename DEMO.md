@@ -7,7 +7,9 @@ six bins across two warehouses, four suppliers with their terms, five customers,
 six sales orders (shipped, reserved and one short of oat milk), four purchase
 orders (received, part received, expected and a draft), transfers (one still in
 the van), counts, returns in quarantine and restocked, the opening stock import,
-and a replenishment proposal waiting for review. `rer demo --stop`, Ctrl-C or
+a replenishment proposal waiting for review, and the owner's team: Jordan takes
+sales orders, Sam runs the floor and Priya buys, each with their Pier role, and
+one invitation is still pending. `rer demo --stop`, Ctrl-C or
 the demo's end (one hour) deletes its folder `.rer/demo/<start>/`; a new demo
 starts afresh. The checkout's own `.wrangler/state` is never touched.
 
@@ -44,6 +46,9 @@ start and ended pages are Base's. See Base's `export/DEMO.md` for the host.
 
 ## Base copy
 
-`src/modules/demo`, `src/modules/operator-auth` and `src/modules/mail` are Base's
-modules at tag `rer-v0.2.20` (`38aa7efdb3cceec585d2344ed54dd559295b9059`),
-unchanged (`edition.json`).
+Every Base copy (`src/base` foundation, `src/modules/demo`, `operator-auth`,
+`mail`, `owner-claim`, `dependencies`, `ai`, `d1-transport`, `import-kit` and
+`scripts/edition-authoring`) is Base at tag `rer-v0.2.22`
+(`1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74`), refreshed together so owner-claim
+and operator-auth always agree (`edition.json`, `sources.lock.json`).
+`src/base/font-head.ts` is Pier's own (system fonts, no font files).

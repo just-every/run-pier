@@ -12,18 +12,37 @@ export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail:
   if ((await env.DB.prepare('SELECT version FROM pier_meta WHERE id=1').first<{ version: number }>())?.version) return
   const owner = await env.DB.prepare("SELECT id,display_name AS name,version FROM oa_operators WHERE email=? AND role='owner' AND status='active'").bind(ownerEmail.toLowerCase()).first<{ id: string; name: string; version: number }>()
   if (!owner) throw new Error('The demo owner does not exist yet')
+  // The owner's team: native members who joined in the first week, and one
+  // invitation still waiting to be accepted.
+  for (const [key, name, email, , status] of team)
+    await env.DB.prepare("INSERT INTO oa_operators(id,email,display_name,role,status,created_at) VALUES(?,?,?,'member',?,?) ON CONFLICT DO NOTHING").bind(`demo-${key}`, email, name, status, now.getTime() - (status === 'active' ? 34 : 2) * 86_400_000).run()
   // Pier admits every write only for a live native session of an active role,
-  // so the seed holds one for the owner (its token is never issued) and deletes it after.
-  const session = crypto.randomUUID(), token = crypto.randomUUID() + crypto.randomUUID()
-  await env.DB.prepare("INSERT INTO oa_sessions(id,token_hash,operator_id,operator_version,kind,created_at,expires_at) VALUES(?,?,?,?,'native',?,?)").bind(session, token, owner.id, owner.version, Date.now(), Date.now() + 600_000).run()
-  const actor: Actor = { id: owner.id, name: owner.name, role: 'owner', sessionId: session, operatorVersion: owner.version }
+  // so the seed holds one per acting operator (its token is never issued) and deletes them after.
+  const sessions: string[] = []
+  const actorFor = async (operator: { id: string; name: string; version: number }, role: string): Promise<Actor> => {
+    const session = crypto.randomUUID(), token = crypto.randomUUID() + crypto.randomUUID()
+    sessions.push(session)
+    await env.DB.prepare("INSERT INTO oa_sessions(id,token_hash,operator_id,operator_version,kind,created_at,expires_at) VALUES(?,?,?,?,'native',?,?)").bind(session, token, operator.id, operator.version, Date.now(), Date.now() + 600_000).run()
+    return { id: operator.id, name: operator.name, role, sessionId: session, operatorVersion: operator.version }
+  }
   try {
-    await story(env, actor, now)
+    const actors: Cast = { owner: await actorFor(owner, 'owner') }
+    for (const [key, name, , role, status] of team) if (status === 'active') actors[key] = await actorFor({ id: `demo-${key}`, name, version: 1 }, role)
+    await story(env, actors, team, now)
     await env.DB.prepare('INSERT INTO oa_first_run (singleton, completed_by, completed_at) VALUES (1, ?, ?) ON CONFLICT(singleton) DO NOTHING').bind(owner.id, now.getTime()).run()
   } finally {
-    await env.DB.prepare('DELETE FROM oa_sessions WHERE id=?').bind(session).run()
+    for (const session of sessions) await env.DB.prepare('DELETE FROM oa_sessions WHERE id=?').bind(session).run()
   }
 }
+
+type Cast = Record<string, Actor>
+// [key, name, email, Pier role, native status]
+const team: [string, string, string, string, 'active' | 'invited'][] = [
+  ['jordan', 'Jordan Lee', 'jordan.lee@example.com', 'operator', 'active'],
+  ['sam', 'Sam Nguyen', 'sam.nguyen@example.com', 'warehouse', 'active'],
+  ['priya', 'Priya Shah', 'priya.shah@example.com', 'buyer', 'active'],
+  ['alex', 'Alex Romero', 'alex.romero@example.com', 'viewer', 'invited'],
+]
 
 const cell = (value: string) => /[",\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
 const csv = (rows: string[][]) => rows.map(row => row.map(cell).join(',')).join('\n') + '\n'
@@ -63,12 +82,18 @@ const opening: [string, string, string, string][] = [
 ]
 const positions = [['key', 'itemKey', 'locationKey', 'status', 'quantity', 'unit', 'cost'], ...opening.map(([item, bin, quantity, cost]) => [`${item}-${bin}`, item, bin, 'sellable', quantity, unit[item], cost])]
 
-async function story(env: Bindings, actor: Actor, now: Date) {
+async function story(env: Bindings, cast: Cast, team: [string, string, string, string, string][], now: Date) {
   let sequence = 0
   const at = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString()
   const day = (days: number) => at(-days).slice(0, 10)
+  // Who does what: Jordan takes sales orders, Sam runs the floor, Priya buys;
+  // the owner reviews, approves and commits.
+  const by: Record<string, string> = {
+    'order.create': 'jordan', 'dispatch.create': 'sam', 'receipt.create': 'sam', 'transfer.send': 'sam', 'transfer.receive': 'sam',
+    'count.capture': 'sam', 'count.record': 'sam', 'return.create': 'sam', 'po.draft': 'priya', 'proposal.prepare': 'priya',
+  }
   const run = async (days: number, type: string, payload: Record<string, unknown>) =>
-    (await execute(env, actor, `demo-seed-${String(++sequence).padStart(3, '0')}`, type, payload, () => at(days))).result
+    (await execute(env, cast[by[type]] ?? cast.owner, `demo-seed-${String(++sequence).padStart(3, '0')}`, type, payload, () => at(days))).result
 
   // Five weeks ago: the opening stock sheet, imported and reviewed stage by stage.
   let batch = await run(35, 'import.stage', {
@@ -78,6 +103,7 @@ async function story(env: Bindings, actor: Actor, now: Date) {
   for (const stage of ['mapped', 'reconciled', 'shadow', 'frozen'])
     batch = await run(35, 'import.review', { batchId: batch.id, version: batch.version, stage, reason: 'Checked against the shelf count taken on Friday' })
   await run(35, 'import.commit', { batchId: batch.id, version: batch.version })
+  for (const [key, , , role] of team) await run(34, 'role.set', { operatorId: `demo-${key}`, role })
 
   const state = (await env.DB.prepare("SELECT kind,data FROM pier_records WHERE kind IN ('items','locations','parties')").all<{ kind: string; data: string }>()).results.map(row => JSON.parse(row.data))
   const id = (name: string) => state.find(row => row.sku === name || row.name === name)?.id ?? (() => { throw new Error(`Demo record ${name} is missing`) })()

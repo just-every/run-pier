@@ -4,8 +4,7 @@ import type { ImportJob, ImportPlan, PlanEntry, ProvenanceRow } from '../types.t
 import { canonicalJson, sha256 } from '../provenance/identity.ts';
 import type { D1ImportContext, D1Sql } from './types.ts';
 import { guard, sql } from './database.ts';
-import { exactRows, selectKeys, selectedCounts } from './sets.ts';
-import { claimColumns } from './columns.ts';
+import { claimColumns, exactRows, selectKeys, selectedCounts } from './sets.ts';
 import { provenanceSet } from './provenance-set.ts';
 import { reversalState } from './undo-state.ts';
 export { custodyGuards } from './original-storage.ts';

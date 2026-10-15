@@ -1,8 +1,8 @@
 {
-  "key": "2a3e0940751614293f4441a1ea9c4187db1d26eaf2970ee6e730b08df9e107f5",
+  "key": "ca9a3014cd0f7be518d4633a9beed859f64e1b924c7b6102be157c4245da946f",
   "origin": {
     "repository": "https://github.com/runeditrun/base.git",
-    "revision": "38aa7efdb3cceec585d2344ed54dd559295b9059",
+    "revision": "1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74",
     "path": ".",
     "paths": [
       "modules/mail"

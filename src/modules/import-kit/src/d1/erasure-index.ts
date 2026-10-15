@@ -5,8 +5,7 @@ import { canonicalJson, sha256 } from '../provenance/identity.ts';
 import { planFingerprint } from '../plan/index.ts';
 import { requestContext } from './budget.ts';
 import { atomic, authorize, guard, sql } from './database.ts';
-import { exactRows, jsonChunks } from './sets.ts';
-import { jobColumns } from './columns.ts';
+import { exactRows, jobColumns, jsonChunks } from './sets.ts';
 import { loadPlans, planGuards } from './plans.ts';
 
 export const targetIdentity = (destination: string, kind: string, id: string): string => sha256(canonicalJson([destination, kind, id]));

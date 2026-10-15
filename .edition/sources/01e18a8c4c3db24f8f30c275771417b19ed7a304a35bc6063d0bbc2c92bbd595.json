@@ -1,8 +1,8 @@
 {
-  "key": "89547a92a9db65e201af0d62475ff27d456e2b2a9ab2dafe6334e4c5d39ffb71",
+  "key": "01e18a8c4c3db24f8f30c275771417b19ed7a304a35bc6063d0bbc2c92bbd595",
   "origin": {
     "repository": "https://github.com/runeditrun/base.git",
-    "revision": "4c83ea57efc3a5b462426c6abc88826b72375112",
+    "revision": "1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74",
     "path": ".",
     "paths": [
       "modules/ai"
