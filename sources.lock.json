@@ -236,7 +236,7 @@
   ],
   "files": {
     ".github/workflows/run-demo.yml": {
-      "sha256": "bad0214746e953710a14f24d4d01a2d6e4ffca2b1916c65048a0377200599e15",
+      "sha256": "122dc25dc88242e09e9ea36bdb9d7d9f31c08d70a99d0414b3f8a75b27b9af42",
       "executable": false
     },
     ".github/workflows/run-site.yml": {
@@ -460,7 +460,7 @@
       "executable": false
     },
     "scripts/demo-admission-watch.mjs": {
-      "sha256": "a49fc600ee934739cd031f938c674b29aa2689eada9ca2b50ff16104cbc64ced",
+      "sha256": "699d0f40c4ab240cf71a13837490576671e7f0404f4bcb4f2c618a6436b594a0",
       "executable": false
     },
     "scripts/edition-authoring/base-copies.mjs": {

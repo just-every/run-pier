@@ -19,7 +19,7 @@ jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch' || vars.RUN_DEMO_DEPLOY == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     environment: run-demo
     steps:
       - name: Require the test environment for removal
