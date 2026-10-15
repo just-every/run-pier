@@ -24,7 +24,7 @@ rer setup
 rer dev
 ```
 
-Open the local URL printed by `rer dev` on this computer and complete the first-owner claim at `/setup`. The app lives under the shared Base Lobby at `/`; open `/app` for Pier. Keep the printed local open URL private because it carries the development sign-in key; later, `rer outbox` prints the local outbox for ordinary sign-in links. Stop the server with `rer dev --stop`.
+Open the local URL printed by `rer dev` on this computer and complete the first-owner claim at `/setup`. The app lives under the shared Base Lobby at `/`; open `/app` for Pier. Keep the printed local open URL private because it carries the development sign-in key; run `rer dev` again for a fresh one-click link. Local mail is suppressed silently. Stop the server with `rer dev --stop`.
 
 The checkout pins Node 22.20.0 and pnpm 10.12.4. `rer build` builds the production Worker, `rer verify` runs the declared local verification command, `rer check` checks the checkout's declared operations and source selections, and `rer describe` reports command effects. The local verification wall and separate browser evidence are recorded in [ACCEPTANCE.md](ACCEPTANCE.md); they do not establish hosted operation, provider integrations or physical warehouse accuracy.
 

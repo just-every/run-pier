@@ -18,13 +18,17 @@ opening stock arrives as a reviewed native CSV import. Base's `modules/demo`
 runs it once after the owner exists, and only with `RER_DEMO=1`, which
 `rer deploy` refuses to carry; a normal installation still starts empty.
 
-## What a demo cannot send
+The app reads **Pier Demo** in its nav and title (Base adds the suffix to the
+`data-rer-name` label); there is no bar and no outbox. Under `rer dev` it reads
+**Pier Dev**.
+
+## Real reads, mocked sends
 
 | Effect | In a demo |
 |---|---|
-| Operator mail (sign-in links, invitations; Resend, SendGrid or Cloudflare in production) | Demo settings use the development mail provider and no key. Locally it lands in the development outbox and the Demo bar. On the hosted demo the outbox does not accept the https origin, so mail is unconfigured and nothing is sent; visitors are signed in by the signed owner claim instead. |
-| Identity providers and RER dependency linking (OIDC discovery and token calls, back-channel logout) | Only after an owner configures one. Base's guard (`src/modules/demo`, `withDemo` first in `src/server.ts`) answers loopback only and lists the refusal in the Demo bar; the hosted container also has no internet. |
-| Anything else (`fetch`, sockets, beacons) | Refused the same way. Pier has no webhooks, payments, AI, supplier messages or public publishing. |
+| Operator mail (sign-in links, invitations; Resend, SendGrid or Cloudflare in production) | Suppressed silently: the invitation is recorded and the owner sees it accepted, but nothing is sent. Visitors are signed in by the signed owner claim, never by mail. |
+| Identity providers and RER dependency linking (OIDC discovery and token calls, back-channel logout) | Only after an owner configures one. Public reads (GET discovery, keys) run for real; writes to a provider return its success without contacting it (Base's guard, `withDemo` first in `src/server.ts`). |
+| Anything else | Pier has no webhooks, payments, AI, supplier messages or public publishing, and no feature that reads the public internet. |
 
 ## Hosted demo
 
@@ -40,8 +44,6 @@ start and ended pages are Base's. See Base's `export/DEMO.md` for the host.
 
 ## Base copy
 
-`src/modules/demo` is Base `modules/demo` at tag `rer-v0.2.19`
-(`e17843562355e1b6e5068289c8e037951fbc8d3d`) with Base's
-`modules/operator-auth/csp.mjs` beside it, because Pier's operator-auth copy
-predates that file: `index.mjs` imports `./csp.mjs`, its only change
-(`edition.json` maps both).
+`src/modules/demo`, `src/modules/operator-auth` and `src/modules/mail` are Base's
+modules at tag `rer-v0.2.20` (`38aa7efdb3cceec585d2344ed54dd559295b9059`),
+unchanged (`edition.json`).

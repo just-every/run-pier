@@ -20,7 +20,7 @@ Stop Pier with `rer dev --stop`. Your records stay on this computer and are ther
 
 ## Sign in again
 
-When the printed link has expired or you signed out, run `rer outbox`. It prints the local outbox address; open it on this computer, request a sign-in link for your email at `/signin`, and open the link from the outbox. `rer outbox --owner-email you@example.com` requests the owner's link for you. Nothing is emailed: the outbox keeps local sign-in on this computer.
+When the printed link has expired or you signed out, run `rer dev` again and open the new link it prints: it signs you in with one click. Nothing is emailed from this computer.
 
 ## Set up your stock
 
@@ -44,7 +44,7 @@ Open **Activity** and use **Invite an operator** with their name and email. A ne
 - **viewer**: reads everything, changes nothing.
 - **agent**: prepares evidence-backed proposals for a person to approve.
 
-Locally, invitation links arrive in the outbox (`rer outbox`), not by email.
+Locally, invitation mail is not sent; try roles with the dev personas instead.
 
 ## Next
 

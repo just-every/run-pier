@@ -1,6 +1,6 @@
 # Pier operations
 
-Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.19 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. The source graph records Base `4c83ea57efc3a5b462426c6abc88826b72375112` separately from the CLI package version. There is no checkout-local copy of the RER CLI.
+Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.20 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. The source graph records Base `4c83ea57efc3a5b462426c6abc88826b72375112` separately from the CLI package version. There is no checkout-local copy of the RER CLI.
 
 ## Local start
 
@@ -15,7 +15,7 @@ rer dev
 
 The alternate installer is `curl -fsSL https://runeditrun.com/install.sh | sh`. `rer install` installs the pinned dependency set. `rer setup` prepares the local application and declared D1 migrations. `rer dev` serves the actual local Worker and persistent D1 with Base's native development identity; open its local URL on this computer and finish the owner claim at `/setup`. The shared Base Lobby owns `/`, and Pier opens at `/app`. Keep the printed local open URL private. Stop the server with `rer dev --stop`.
 
-Node 22.20.0 and pnpm 10.12.4 are pinned. Local setup does not require Cloudflare credentials, an external identity issuer, an email provider, an embedded model or a supplier account. No business fixture is created for the operator. For ordinary local sign-in, run `rer outbox`: it prints the development outbox address on this computer, where one-use links requested at `/signin` arrive, and `rer outbox --owner-email EMAIL` requests the owner's link. It does not send external email.
+Node 22.20.0 and pnpm 10.12.4 are pinned. Local setup does not require Cloudflare credentials, an external identity issuer, an email provider, an embedded model or a supplier account. No business fixture is created for the operator. Local sign-in is one click: open the private `RER_OPEN` link `rer dev` prints. Mail is suppressed silently on this computer; nothing is sent.
 
 ## Commands and their boundaries
 
@@ -31,7 +31,7 @@ All public commands use bare `rer` verbs. `rer export`/`rer import` are the inst
 
 ## Backup and restore
 
-Stop local serving before backup, reset or restore so no command can write during transfer. The installation archive is intended to preserve business records and their stock, reservation, approval, command and import-custody evidence. Durable operator, role and approval identities remain audit evidence, never access grants. Native credentials, sessions, tokens, local outbox and private settings are excluded; establish a fresh native session for the retained owner before operating. The fresh-install restore and new-transaction journey is locally proven by `tests/portable.mjs`, as recorded in [ACCEPTANCE.md](ACCEPTANCE.md).
+Stop local serving before backup, reset or restore so no command can write during transfer. The installation archive is intended to preserve business records and their stock, reservation, approval, command and import-custody evidence. Durable operator, role and approval identities remain audit evidence, never access grants. Native credentials, sessions, tokens and private settings are excluded; establish a fresh native session for the retained owner before operating. The fresh-install restore and new-transaction journey is locally proven by `tests/portable.mjs`, as recorded in [ACCEPTANCE.md](ACCEPTANCE.md).
 
 For a same-checkout local restore:
 
@@ -48,7 +48,7 @@ An archive restores with the Pier release that made it: record the commit (`git 
 
 ## Stock authority and incident handling
 
-The edition roles are `owner`, `buyer`, `operator`, `warehouse`, `viewer` and `agent`. Native sessions establish the actor; the current edition role controls stock and document commands. After signing in with an existing native session, an owner opens Pier at `/app` → Activity → Invite an operator, then assigns a Pier role with Pier's existing operator-role form. A new invitation starts as `viewer`; invitation status is visible in the interface. Base's accepted response confirms the invitation request, not delivery. Local delivery uses the native development outbox; no live email provider is configured. Buyers approve exact purchase commitments; operators approve reservation reallocation; warehouse staff perform and approve physical count/receipt/dispatch work; viewers read; agents prepare proposals. The owner decides source reconciliation. Changing a role or revoking native access must affect the next write.
+The edition roles are `owner`, `buyer`, `operator`, `warehouse`, `viewer` and `agent`. Native sessions establish the actor; the current edition role controls stock and document commands. After signing in with an existing native session, an owner opens Pier at `/app` → Activity → Invite an operator, then assigns a Pier role with Pier's existing operator-role form. A new invitation starts as `viewer`; invitation status is visible in the interface. Base's accepted response confirms the invitation request, not delivery. Locally the invitation mail is suppressed silently; no live email provider is configured. Buyers approve exact purchase commitments; operators approve reservation reallocation; warehouse staff perform and approve physical count/receipt/dispatch work; viewers read; agents prepare proposals. The owner decides source reconciliation. Changing a role or revoking native access must affect the next write.
 
 Trace a position through its append-only movements, source document, actor, reason, command identity and any correction/import link. Retry a response-loss case with the same command identity and same payload. Do not repair a balance by editing a generic record or database row. Receipt reversal, count correction, return restocking and import undo must review downstream dependencies and use linked compensating operations. Already dispatched goods require a real return; restoring a snapshot cannot make them physically available.
 

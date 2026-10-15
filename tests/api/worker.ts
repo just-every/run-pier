@@ -1,6 +1,9 @@
 import { pierResponse } from "../../src/pier/api";
-import { authResponse } from "../../src/auth.server";
-export default {
+import { authConfig, authResponse, runtimeBindings } from "../../src/auth.server";
+import { devPersonas } from "../../src/dev-personas";
+import { withDevIdentity } from "../../src/modules/operator-auth/dev/index.mjs";
+// The local dev layer (as src/server.dev.ts) supplies the member persona; local mail is suppressed.
+export default withDevIdentity({
   async fetch(request: Request, env: any) {
     return (
       (await pierResponse(request, env)) ??
@@ -8,4 +11,4 @@ export default {
       new Response("Not found", { status: 404 })
     );
   },
-};
+}, { bindings: runtimeBindings, config: authConfig, personas: devPersonas });

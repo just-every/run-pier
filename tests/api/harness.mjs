@@ -15,11 +15,12 @@ export async function installation() {
     format: "esm",
     platform: "neutral",
     target: "es2022",
-    external: ["node:*"],
+    external: ["node:*", "cloudflare:*"],
     loader: { ".css": "text", ".svg": "text" },
   });
   let origin = "http://localhost";
-  const setup = randomBytes(32).toString("hex");
+  const setup = randomBytes(32).toString("hex"),
+    devKey = randomBytes(32).toString("hex");
   const options = (port) => ({
     ...convertV4MiniflareOptions({
       host: "127.0.0.1",
@@ -37,7 +38,7 @@ export async function installation() {
         SETUP_TOKEN: setup,
         MAIL_PROVIDER: "development",
         MAIL_FROM: "auth@example.test",
-        RER_DEV_KEY: randomBytes(32).toString("hex"),
+        RER_DEV_KEY: devKey,
       },
     }),
     resourcePersistencePath: root,
@@ -126,6 +127,7 @@ export async function installation() {
       mf,
       origin,
       db,
+      devKey,
       request,
       command,
       state,

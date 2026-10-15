@@ -92,7 +92,7 @@ async function port() {
 }
 async function start(root, p) {
   const runtime = child(root, [
-    "preview",
+    "dev",
     "--port",
     String(p),
     "--no-queue",
@@ -118,29 +118,19 @@ async function start(root, p) {
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
     const open = runtime.output().match(/RER_OPEN (\S+)/)?.[1];
-    assert.ok(open, "Preview supplies the private dev key gate");
-    const key = new URLSearchParams(new URL(open).hash.slice(1)).get("rer-dev");
-    const gate = await request("/__dev/key", "POST", { key });
+    assert.ok(open, "rer dev supplies the private one-click sign-in link");
+    const link = new URL(open), fragment = new URLSearchParams(link.hash.slice(1));
+    const gate = await request(link.pathname, "POST", { key: fragment.get("rer-dev") });
+    assert.equal(gate.status, 204, await gate.text());
     cookie = gate.headers
       .getSetCookie()
       .map((x) => x.split(";")[0])
       .join("; ");
-    await request("/auth/magic-link", "POST", { email: "owner@example.test" });
-    const listing = await (await request("/__dev/outbox")).text();
-    const msg = listing.match(/href="(\/__dev\/outbox\?message=[^"]+)"/)?.[1];
-    assert.ok(msg);
-    const body = await (await request(msg.replaceAll("&amp;", "&"))).text();
-    const href = body.match(/href="([^"]*\/auth\/confirm\?token=[^"]+)"/)?.[1];
-    assert.ok(href);
-    const token = new URL(
-      href.replaceAll("&amp;", "&"),
-      origin,
-    ).searchParams.get("token");
-    const confirmed = await request("/auth/confirm", "POST", { token });
-    assert.equal(confirmed.status, 303);
+    const entered = await request(`/auth/dev/enter?as=${fragment.get("as")}`);
+    assert.equal(entered.status, 303, await entered.text());
     cookie +=
       "; " +
-      confirmed.headers
+      entered.headers
         .getSetCookie()
         .map((x) => x.split(";")[0])
         .join("; ");
@@ -158,13 +148,13 @@ async function start(root, p) {
         return result.result;
       },
       async close() {
-        await command(root, ["preview", "--stop"]);
+        await command(root, ["dev", "--stop"]);
         if (runtime.proc.exitCode === null) runtime.proc.kill("SIGTERM");
         await runtime.done;
       },
     };
   } catch (error) {
-    await command(root, ["preview", "--stop"]).catch(() => {});
+    await command(root, ["dev", "--stop"]).catch(() => {});
     if (runtime.proc.exitCode === null) runtime.proc.kill("SIGTERM");
     await runtime.done;
     throw error;

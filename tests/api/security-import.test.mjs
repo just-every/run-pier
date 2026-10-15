@@ -405,28 +405,14 @@ test("roles, agent preparation, revoked session, stale human approval and direct
   const h = await installation();
   t.after(() => h.close());
   const b = await basics(h);
-  async function invite(email) {
-    const res = await h.request("/auth/invite", {
-      method: "POST",
-      body: { email, displayName: email.split("@")[0], role: "member" },
+  // Local mail is suppressed, so the member signs in as the local dev persona.
+  async function persona(as) {
+    const entered = await fetch(`${h.origin}/auth/dev/enter?as=${as}`, {
+      redirect: "manual",
+      headers: { "x-rer-dev-key": h.devKey },
     });
-    assert.equal(res.status, 202, await res.text());
-    const outbox = await h.db
-      .prepare(
-        "SELECT message FROM rer_mail_development_outbox ORDER BY created_at DESC,sequence DESC LIMIT 1",
-      )
-      .first();
-    const link = String(JSON.parse(outbox.message).text).match(
-      /http[^\s]+\/auth\/confirm\?token=([^\s]+)/,
-    );
-    assert.ok(link);
-    const confirmed = await h.request("/auth/confirm", {
-      method: "POST",
-      as: "",
-      body: { token: decodeURIComponent(link[1]) },
-    });
-    assert.equal(confirmed.status, 303, await confirmed.text());
-    const cookie = confirmed.headers
+    assert.equal(entered.status, 303, await entered.text());
+    const cookie = entered.headers
       .getSetCookie()
       .map((v) => v.split(";")[0])
       .join("; ");
@@ -435,7 +421,7 @@ test("roles, agent preparation, revoked session, stale human approval and direct
     ).json();
     return { cookie, session };
   }
-  const member = await invite("worker@example.test");
+  const member = await persona("member");
   const run = (type, payload, opts = {}) =>
     h.command(type, payload, { as: member.cookie, ...opts });
   await run(
