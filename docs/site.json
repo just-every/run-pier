@@ -17,7 +17,7 @@
     {
       "title": "Reference",
       "pages": [
-        { "slug": "run-it-locally", "label": "Run it locally", "file": "README.md", "summary": "Install the rer command, start Pier on your computer and finish owner setup." },
+        { "slug": "run-it-locally", "label": "Run it locally", "file": "README.md", "summary": "Start Pier on your computer with one line and finish owner setup." },
         { "slug": "contract", "label": "Product contract", "file": "CONTRACT.md", "summary": "What Pier does: its operating rules and twelve first-release journeys." },
         { "slug": "acceptance", "label": "Acceptance record", "file": "ACCEPTANCE.md", "summary": "The local evidence behind each journey and the boundaries it does not cover." },
         { "slug": "operations", "label": "Operations", "file": "OPERATIONS.md", "summary": "Commands, backup and restore, roles and incident handling for an installation." },

@@ -5,8 +5,8 @@ import { repository } from './links'
 export const run: RunData = {
   name: 'Pier',
   repository,
-  clone: `git clone ${repository}.git pier`,
-  folder: 'pier',
+  clone: 'npx -y @runeditrun/rer dev just-every/run-pier',
+  folder: 'run-pier',
   requirements: 'Needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2.',
   licence: 'MIT',
   docs: true,
