@@ -1600,7 +1600,7 @@
       "executable": false
     },
     "src/modules/mail/src/core/validation.mjs": {
-      "sha256": "fa1f79579a96fc7b12964d9515e98135993c18ea1af23922779139abc4221571",
+      "sha256": "038c7dfddac13e19eec708b0d26da1672d094c65ca279fa98a10bcfeaf2f4a83",
       "executable": false
     },
     "src/modules/mail/src/development/index.d.mts": {
