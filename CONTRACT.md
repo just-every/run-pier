@@ -1,6 +1,6 @@
 # Pier product contract
 
-Target edition: **16 October 2026**. US first buyer: the owner or operations manager of a small finished-goods wholesaler or distributor, operating in **USD**, usually keeping QuickBooks Online.
+Target edition: **16 October 2026**, revised 17 October 2026 after buyer review round 1. US first buyer: the owner or operations manager of a small finished-goods wholesaler or distributor, operating in **USD**, usually keeping QuickBooks Online.
 
 Pier is a connected inventory and order management system: know what can be promised, replenish in time, execute warehouse work accurately and carry every order through shipment and reconciled accounting. A buyer switching from **Cin7 Core, inFlow Inventory or Fishbowl Warehouse** must be able to run that whole job. Planning and automation extend beyond the inventory work represented by **Prediko and DOSS**, with actual operational closure rather than forecasts and alerts alone.
 
@@ -8,7 +8,7 @@ This is the product we are building toward, not a description of everything avai
 
 ## Product separation and US operating boundary
 
-Pier owns inventory, wholesale commercial rules, purchasing, warehouse execution, fulfilment and operational reconciliation. [Stall](https://github.com/just-every/run-stall) owns the Shopify-style public/private storefront, cart and checkout experience; Pier is its stock system, including the private trade-ordering connection in SALES-005. [Larder](https://github.com/just-every/run-larder) owns manufacturing/MRP, BOMs, production orders and shop-floor work; Pier exchanges finished-goods demand, availability and receipts through reviewed integration. No manufacturing scope is absorbed from the older research’s Katana/production examples. Neither boundary cuts the connected inventory job.
+Pier owns inventory, wholesale commercial rules, purchasing, warehouse execution, fulfilment and operational reconciliation. [Stall](https://github.com/just-every/run-stall) owns the Shopify-style public/private storefront, cart and checkout experience; Pier is its stock system, including the private trade-ordering connection in SALES-005. [Larder](https://github.com/just-every/run-larder) owns manufacturing/MRP, manufacturing BOMs, production orders and shop-floor work; Pier exchanges finished-goods demand, availability and receipts through reviewed integration. Kits and bundles assembled from stocked finished goods without transforming them (case assortments, display kits, gift sets) are inventory work that Pier owns under KIT-001, as Cin7 Core and inFlow treat them. Larder owns BOMs that transform materials through operations, routings, work in progress, scrap and yield, and a Larder-built SKU arrives in Pier as a reviewed finished-goods receipt. No manufacturing scope is absorbed from the older research’s Katana/production examples. Neither boundary cuts the connected inventory job.
 
 US norms include USD operational valuation, US addresses and time zones, sales-tax/exemption evidence, ACH where used for payments, and explicit accounting period controls. Foreign-currency supplier purchases retain their source value and reviewed USD conversion; they do not change the US first-buyer focus. The current AUD-native defaults in IMPORT.md and the interface remain an implementation gap under COST-001 and MIGRATE-001.
 
@@ -96,9 +96,15 @@ People trace balances to movements, source documents, actors, reasons, command i
 
 ### CAT-001 — Wholesale catalogue and units.
 
-The catalogue adds variant families, categories, supplier and customer item references, images, weights and dimensions, case-pack ordering and exact conversions to the stock definitions above. Bulk import/edit previews collisions and affected documents; used-unit invariants remain. Search and filters work across SKU, barcode, aliases and archived history without hiding duplicate matches.
+The catalogue adds variant families, categories, supplier and customer item references, images, weights and dimensions, case-pack ordering and exact conversions to the stock definitions above. Bulk import/edit previews collisions and affected documents; used-unit invariants remain. Search and filters work across SKU, barcode, aliases and archived history without hiding duplicate matches. Owners define typed custom fields on items, customers, suppliers and orders; those fields appear in filters, imports, exports and PRINT-001 documents.
 
-**Acceptance evidence:** Import variants with supplier/customer aliases, dimensions and fractional packs through catalogue import; preview a bulk change, reject duplicate barcodes and search by each alias. A case-pack quote, pick and label retain the same base-unit quantity.
+**Acceptance evidence:** Import variants with supplier/customer aliases, dimensions and fractional packs through catalogue import; preview a bulk change, reject duplicate barcodes and search by each alias. A case-pack quote, pick and label retain the same base-unit quantity. Add a custom field to items and orders, filter by it, print it on a packing slip and find it in export.
+
+### KIT-001 — Kits and bundles from stocked components.
+
+Owners define a kit SKU from stocked component SKUs with exact per-kit quantities and units, as Cin7 Core assembly kits and inFlow bundles do. A kit has its own price, barcode, documents and channel mapping but no independent physical stock unless pre-assembled. Selling a kit on a quote, sales order or channel order reserves every component atomically at one warehouse; a shortage of any component backorders or blocks the whole kit under the configured policy and never reserves a partial set. Published kit availability is the lowest whole-kit count buildable from each component’s sellable availability net of reservations and channel buffers, recalculated whenever a component moves. Pick lists and packing slips show the kit line with its component picks and bins; dispatch consumes each component reservation once; COGS is the sum of the component cost layers actually consumed, and margin is reported per kit. Owners may pre-assemble kits through a reviewed kitting task that consumes components and receives the kit SKU at a rolled-up cost, and disassemble them the same way. Kit returns are inspected per component. Kit definitions are versioned and an order keeps the version it reserved. Kitting changes no material, so it is inventory work in Pier, not Larder manufacturing.
+
+**Acceptance evidence:** Define a two-component case-assortment kit and a three-component display kit from stocked SKUs. Sell the first on a sales order and through a connected channel concurrently: component reservations, published kit availability (the lowest buildable count across components), the pick list and COGS agree. Drain one component: kit availability drops to zero and a further kit order backorders as a whole kit. Pre-assemble five display kits, ship two, return one and inspect its components: rolled-up kit cost, component stock and kit margin reconcile, and no component is reserved twice.
 
 ### TRACE-001 — Serial, lot and expiry traceability.
 
@@ -108,39 +114,39 @@ Receiving, bin moves, allocations, picking, dispatch and returns retain serial/l
 
 ### SCAN-001 — Generate, scan and print warehouse barcodes.
 
-Operators generate and validate item, bin, lot and shipment barcodes and print appropriate labels on Zebra and DYMO printers. USB/Bluetooth scanners and iOS/Android cameras work through the warehouse workflow, with supported symbologies and label sizes stated. Unknown or ambiguous scans ask for resolution; print failure never marks physical work complete.
+Operators generate and validate item, bin, lot and shipment barcodes and print appropriate labels on Zebra and DYMO printers. USB/Bluetooth scanners, Zebra TC-series and comparable rugged Android handhelds whose built-in scanner works as a keyboard wedge, and iOS/Android cameras work through the warehouse workflow, with supported symbologies and label sizes stated. Unknown or ambiguous scans ask for resolution; print failure never marks physical work complete.
 
-**Acceptance evidence:** At a warehouse device, print a real item/bin label, scan it by USB and phone camera and complete a receive-to-pick handoff. Duplicate/unknown scans, a disconnected printer and a mismatched label produce actionable errors without stock effects; retain device/printer acceptance separately from software tests.
+**Acceptance evidence:** At a warehouse device, print a real item/bin label, scan it by USB scanner, a Zebra TC-series keyboard-wedge handheld and phone camera and complete a receive-to-pick handoff. Duplicate/unknown scans, a disconnected printer and a mismatched label produce actionable errors without stock effects; retain device/printer acceptance separately from software tests.
 
 ### WMS-001 — Mobile receive, put away, pick, pack and count.
 
-Warehouse staff use desktop, handheld and 390px phone screens for scan-driven receiving, directed bin put-away, pick lists, pick verification, packing, transfers and cycle counts. Picks show source bin, unit, lot and shortages; separate picked, packed and shipped states prevent a scan or label purchase from pretending goods shipped. Interrupted work resumes its exact task and command. Network loss is visible; queued work reconciles before committing against current availability.
+Warehouse staff use desktop, handheld and 390px phone screens for scan-driven receiving, directed bin put-away, pick lists, pick verification, packing, transfers and cycle counts. Picks show source bin, unit, lot, kit components and shortages; the pack step prints the PRINT-001 packing slip and carton labels; separate picked, packed and shipped states prevent a scan or label purchase from pretending goods shipped. Interrupted work resumes its exact task and command. Network loss is visible; queued work reconciles before committing against current availability.
 
-**Acceptance evidence:** On phone and desktop, receive and put away a partial PO, follow a pick list across bins, scan a wrong SKU, split a pack and shipment, transfer and cycle-count. Interrupt connectivity mid-task and resume; no stale allocation or double movement posts.
+**Acceptance evidence:** On phone and desktop, receive and put away a partial PO, follow a pick list across bins, scan a wrong SKU, split a pack and shipment, print its packing slip at the pack step, transfer and cycle-count. Interrupt connectivity mid-task and resume; no stale allocation or double movement posts.
 
 ### WMS-002 — Directed replenishment and slotting.
 
-Location policies define capacity, pick faces, replenishment thresholds and permitted stock. Pier proposes put-away and reserve-to-pick replenishment, prioritizes tasks and explains ABC slotting recommendations using velocity, size and travel data. Supervisors approve location changes and physical staff confirm movement; recommendations never relocate inventory on their own.
+Location policies define capacity, pick faces, replenishment thresholds and permitted stock. Pier proposes put-away and reserve-to-pick replenishment, prioritizes tasks and explains ABC slotting recommendations using pick velocity, item size and travel data. Travel data is the walking distance between bins, taken from each location’s aisle, bay and pick-sequence coordinates, together with observed pick-task times. Supervisors approve location changes and physical staff confirm movement; recommendations never relocate inventory on their own.
 
 **Acceptance evidence:** Configure pick-face minimums and bin capacity, receive an oversized item and run a replenishment/ABC plan. An operator completes the approved scan tasks; over-capacity placement is refused and slotting alone changes no stock.
 
 ### SALES-001 — Quote, price and convert orders.
 
-Sales staff create versioned quotes, apply customer price lists, volume breaks, discounts and tax/exemption settings, send customer documents and convert accepted quotes to sales orders without rekeying. Expired pricing and material edits require renewed acceptance. USD totals, units and rounding stay exact and margin/discount permissions are enforced.
+Sales staff create versioned quotes, apply customer price lists, volume breaks, discounts and TAX-001 tax estimates and exemptions, send the PRINT-001 quote and order-confirmation documents by email and convert accepted quotes to sales orders without rekeying. Expired pricing and material edits require renewed acceptance. USD totals, units and rounding stay exact and margin/discount permissions are enforced.
 
-**Acceptance evidence:** Quote a case-pack order at two customer tiers, apply an authorized discount, send and accept one version, then convert once and reserve it. A duplicate acceptance cannot create another order; changing price or quantity invalidates earlier approval.
+**Acceptance evidence:** Quote a case-pack order at two customer tiers, apply an authorized discount, email the quote (its sent PDF kept on the record) and accept one version, then convert once, reserve it and send the order confirmation. A duplicate acceptance cannot create another order; changing price or quantity invalidates earlier approval.
 
 ### SALES-002 — Customer history, credit and financial returns.
 
-Customer records show contacts, addresses, item references, order and shipment history, payment terms, outstanding balances, credit limits and overdue holds. Authorized sales staff review overrides with reasons. Dispatch-linked returns produce partial customer credits/refunds and restock or write-off decisions; physical disposition and financial credit remain separate and reconcile to the ledger.
+Customer records show contacts, addresses, item references, order and shipment history, payment terms, outstanding balances, credit limits and overdue holds. Balances come from SALES-006 invoices and credit notes and PAY-001 payments; Pier produces customer statements and AR aging (current, 1–30, 31–60, 61–90, over 90 days) that reconcile to the ledger. Authorized sales staff review overrides with reasons. Dispatch-linked returns produce partial customer credits/refunds and restock or write-off decisions; physical disposition and financial credit remain separate and reconcile to the ledger.
 
-**Acceptance evidence:** Place an order for a customer over its credit limit, approve an override, partially ship, return damaged and sellable units and issue the correct credit. Customer balance, quarantine, refund and accounting reconciliation agree without restocking damaged units.
+**Acceptance evidence:** Place an order for a customer over its credit limit, approve an override, partially ship, return damaged and sellable units and issue the correct credit note. Customer balance, AR aging, the emailed statement, quarantine, refund and accounting reconciliation agree without restocking damaged units.
 
 ### SALES-003 — Available-to-promise and fulfilment routing.
 
-Sales staff see present availability and dated available-to-promise by warehouse, accounting for committed demand, inbound confirmations, lead times, transit, safety stock and split deliveries. Routing policies weigh service dates, shipping cost and warehouse eligibility. Reprioritizing reservations or changing a customer promise requires authorized review and a customer communication; uncertain inbound supply is labeled rather than guaranteed.
+Sales staff see present availability and dated available-to-promise by warehouse, accounting for committed demand, inbound confirmations, lead times, transit, safety stock and split deliveries. Routing policies weigh service dates, shipping cost and warehouse eligibility. Reprioritizing reservations or changing a customer promise requires authorized review and a customer communication; uncertain inbound supply is labeled rather than guaranteed. When stock arrives, Pier lists the backorders it can now fill, ranked by an owner-set priority rule (promise date, customer priority, order date), and proposes allocations from that receipt. An authorized user releases them in one action, or an AUTO-002 policy releases them within its bounds, without re-authorizing each order.
 
-**Acceptance evidence:** Create competing orders with stock in two warehouses and a late inbound PO; compare split and later shipment options, approve one reallocation and changed promise. Another order cannot lose its allocation silently; stale supplier confirmation forces recalculation.
+**Acceptance evidence:** Create competing orders with stock in two warehouses and a late inbound PO; compare split and later shipment options, approve one reallocation and changed promise. Another order cannot lose its allocation silently; stale supplier confirmation forces recalculation. Receive the late PO: the fill-backorders list ranks the waiting orders by the priority rule and one release allocates them without re-entering any order.
 
 ### SALES-004 — Recurring and dropship orders.
 
@@ -154,6 +160,24 @@ Pier supplies authenticated trade-buyer catalogue availability, customer-specifi
 
 **Acceptance evidence:** A trade buyer signs into a Stall-connected private catalogue, sees only its approved prices, reorders and receives Pier order/tracking status. Another buyer cannot see those prices. An abandoned-cart event sends one authorized reminder, stops after purchase/unsubscribe and creates no stock reservation.
 
+### SALES-006 — Customer invoices, charge lines and credit notes.
+
+Pier creates the customer invoice. An invoicing policy set per customer or order type decides when: on shipment, once per partial shipment, or before shipment for prepay/proforma. A simple sale has one invoice. A split-shipped order is invoiced once per shipment for exactly the shipped quantities. A prepay order is invoiced on acceptance, and its later shipments reconcile against that invoice without a second charge. Invoices carry freight, handling, surcharge and discount charge lines, tax lines from TAX-001, the customer’s payment terms (due on receipt, Net 15/30/60, end of month, early-payment discount) and a due date derived from those terms and the invoice date. An invoice is drafted, reviewed and authorized. Once authorized it is immutable and is corrected only by a linked credit note or void. Credit notes apply against a named invoice for returns (PIER-010, SALES-002), price adjustments or freight refunds and are refunded through PAY-001 or kept as customer credit. Each authorized invoice and credit note posts once to the connected ledger (ACCOUNT-001/002) and drives the SALES-002 customer balance. Customers priced in CAD or another currency are quoted and invoiced in that currency; the exchange rate is retained and the USD value reported.
+
+**Acceptance evidence:** Ship a Net 30 wholesale order in two partial shipments and invoice each shipment with its own freight line. Invoice a prepay order before shipment, then ship it without a second charge. Due dates follow Net 30 from each invoice date. Issue a credit note against the first invoice for a returned line. Each invoice and credit note posts to QBO exactly once (replay creates no duplicate), and the SALES-002 balance equals invoices less credits and payments. An edit to an authorized invoice is refused; a CAD invoice retains its rate and reports its USD value.
+
+### TAX-001 — US sales tax on quotes, orders and invoices.
+
+Owners configure one sales-tax source of truth per company: Avalara AvaTax, Stripe Tax, QuickBooks Online automated sales tax, or Pier’s owner-maintained rate table by jurisdiction. Tax is calculated per line from the ship-to address, product tax code and each state’s rule, including whether freight and handling are taxable; origin-based states follow the provider or table rule. Quotes and orders show an estimate labelled with its source; the invoice amount is final at authorization. With Avalara or Stripe Tax, the authorized invoice commits the transaction, and a credit note or void adjusts or voids that committed transaction. With QBO automated sales tax, Pier adopts the tax QBO returns on the posted invoice and flags any difference from the estimate. Resale and other exempt customers hold exemption certificates by state, with reason, number, expiry and document (DOC-001), linked to the customer’s Avalara exemptions where connected. A missing or expired certificate for the ship-to state stops the exemption and flags the order for review; Pier neither charges nor exempts silently. Marketplace orders whose marketplace collects and remits the tax record it as facilitator-collected. A provider timeout leaves the invoice pending rather than taxed at an invented rate. Nexus registration and filing remain with the accountant or tax provider.
+
+**Acceptance evidence:** For each supported tax source, quote and invoice one taxable and one resale-exempt order to two US states, one that taxes freight and one that does not. Line and freight tax follow each state’s rule and the exempt order cites its certificate; expiring that certificate flags the next order. The authorized invoice’s tax equals the provider’s committed transaction and the QBO-posted invoice; a credit note adjusts the committed amount once; a provider timeout leaves the invoice pending with no invented tax.
+
+### PRINT-001 — Printable and emailable business documents and templates.
+
+Pier generates each business document from its live record: quote, sales order confirmation, proforma/prepay invoice, pick list, packing slip, invoice, credit note, customer statement, purchase order, supplier return authorization, transfer note and shipment/carton manifest. Each document has an owner-editable document template and email template, grouped by sales, purchasing and inventory. Templates carry the logo, company and remit-to details, terms and mail-merge fields, including customer/supplier item codes, case-pack and base-unit quantities, lot/serial, custom fields (CAT-001), tax and charge lines. Templates are versioned: a generated document records the template and record versions it rendered, and a reprint reproduces that document unless it is deliberately regenerated. Documents render to PDF and print at the pack station through browser printing or a configured network printer. Staff email them from the record through the owner’s authorized sending domain or Gmail/Microsoft 365 connection; the sent copy, recipients, time and delivery outcome stay on the record. A failed or bounced send stays visible and is never reported as sent.
+
+**Acceptance evidence:** Generate each named document from a real order, PO, return and transfer, carrying the logo, terms, customer item codes and case-pack quantities. Edit the invoice template: the next invoice shows the change and an earlier invoice reprints unchanged. Print a packing slip at the pack step at 1440px and 390px. Email a quote and an invoice: the sent PDF, recipients and delivery outcome appear on each record, and a bounced send shows as failed.
+
 ### BUY-001 — Demand and lead-time replenishment.
 
 Buyers configure location reorder points, safety stock, service levels, supplier lead times, MOQs and case packs. Scheduled planning combines real sales-channel sell-through, stockouts, backorders, seasonality, promotions, confirmed receipts and transfers to show dated shortages and explain recommended POs. Minimum/recommended/stretch and transfer alternatives show uncertainty and stockout-censored demand; review creates exact supplier-grouped PO drafts without changing on-hand stock.
@@ -162,7 +186,7 @@ Buyers configure location reorder points, safety stock, service levels, supplier
 
 ### BUY-002 — Purchase routing, supplier sends and acknowledgements.
 
-Owners set approval limits by spend, supplier and exception type, with named approvers, delegation and escalation. Buyers approve an exact PO version and supplier recipient; Pier sends it, records acknowledgement and follows confirmation/ASN changes, partial supply and cancellations. A changed price, quantity, destination or promise invalidates approval. Automatic approvals are permitted only within explicit owner policy; agents cannot approve themselves or bypass spend limits.
+Owners set approval limits by spend, supplier and exception type, with named approvers, delegation and escalation. Buyers approve an exact PO version and supplier recipient; Pier sends it as the PRINT-001 purchase-order document by email or as EDI, records acknowledgement and follows confirmation/ASN changes, partial supply and cancellations. A changed price, quantity, destination or promise invalidates approval. Automatic approvals are permitted only within explicit owner policy; agents cannot approve themselves or bypass spend limits.
 
 **Acceptance evidence:** Route a threshold-crossing PO to the correct buyer, deny an agent’s approval, approve/send once and ingest a supplier price/date change. Re-approval is required and timeout/ambiguous send remains visible for reconciliation rather than blind duplicate sending.
 
@@ -180,21 +204,21 @@ Purchasing staff match POs, receipts, supplier invoices and bills of lading by i
 
 ### COST-001 — USD valuation, landed cost and cost of goods.
 
-US first buyers operate in USD with US dates/addresses, named IANA time zones and explicit sales-tax treatment. Configure FIFO or moving-average costing and a controlled opening/cutover policy; allocate freight, duty, insurance and other landed costs by reviewed value, quantity or weight. Receipts, late landed-cost bills, transfers, returns, write-offs and partial shipments produce traceable valuation layers, COGS and margin without rewriting original physical events. Foreign-currency purchases retain source currency/rate and USD value.
+US first buyers operate in USD with US dates/addresses, named IANA time zones and explicit sales-tax treatment. Configure FIFO or moving-average costing and a controlled opening/cutover policy; allocate freight, duty, insurance and other landed costs by reviewed value, quantity or weight. Receipts, late landed-cost bills, transfers, returns, write-offs and partial shipments produce traceable valuation layers, COGS and margin without rewriting original physical events. Foreign-currency purchases and SALES-006 foreign-currency sales retain source currency/rate and USD value. Adjustments and write-offs outside a count carry an owner-maintained reason code mapped to a GL account, need approval above an owner-set value and post their valuation once.
 
-**Acceptance evidence:** Import USD openings, receive two cost layers, allocate freight/duty, partially ship and return units, then receive a late freight bill. Reconcile FIFO and average-cost scenarios, inventory value, COGS and order margin to exact approved accounting postings; rounding and period-lock differences enter review.
+**Acceptance evidence:** Import USD openings, receive two cost layers, allocate freight/duty, partially ship and return units, then receive a late freight bill and write off damaged units with a reason code that posts to its mapped GL account. Reconcile FIFO and average-cost scenarios, inventory value, COGS and order margin to exact approved accounting postings; rounding and period-lock differences enter review.
 
 ### REPORT-001 — Operational reports and saved analysis.
 
-Owners save, filter, schedule and export stock valuation, movement/lot history, warehouse availability, sales, purchasing, gross margin, inventory aging, dead stock, low stock, turnover and overdue-order reports. Reports distinguish on-hand, committed, inbound, transit and quarantine, expose freshness and drill through to source documents. Warehouse, customer, channel, variant and date filters use permission-scoped data; reporting limits and activity-based prices are disclosed before admission, with export available.
+Owners save, filter, schedule and export stock valuation, movement/lot history, warehouse availability, sales, purchasing, gross margin, inventory aging, dead stock, low stock, turnover and overdue-order reports. Reports distinguish on-hand, committed, inbound, transit and quarantine, expose freshness and drill through to source documents. Warehouse, customer, channel, variant and date filters use permission-scoped data. The reporting capacity disclosed before admission is the SCALE-001 envelope measured on PIER-SCALE-1, shown alongside any activity-based prices, with export available.
 
 **Acceptance evidence:** For a wholesaler with two warehouses, backorders, aged stock, landed costs and returns, save a filtered report on mobile and desktop, schedule it, export details and reconcile totals to ledger/source documents. A restricted user cannot infer another warehouse’s figures.
 
 ### CHANNEL-001 — Connected channel orders and stock.
 
-Pier connects [Stall](https://github.com/just-every/run-stall), Shopify, WooCommerce and Amazon for item/variant mapping, orders, cancellations, refunds, fulfilment status and stock publication. External IDs link source records to Pier; webhook intake and scheduled reconciliation handle duplicates, out-of-order changes and missed events. Channel buffers and sales-location policies publish sellable availability after reservations, never raw physical stock. Unmapped SKUs, lag and oversell risk enter a visible queue with an owner and repair action.
+Pier connects [Stall](https://github.com/just-every/run-stall), Faire, Shopify, WooCommerce, BigCommerce, Amazon, eBay and Etsy for item/variant/kit mapping, orders, cancellations, refunds, fulfilment status and stock publication. External IDs link source records to Pier; webhook intake and scheduled reconciliation handle duplicates, out-of-order changes and missed events. Channel buffers and sales-location policies publish sellable availability after reservations, never raw physical stock. Unmapped SKUs, lag and oversell risk enter a visible queue with an owner and repair action. Faire wholesale orders are accepted or declined within Faire’s window, lines can be backordered with a ship date, shipments and tracking return to Faire, retailer cancellations release reservations, and Faire payouts reconcile net of commission to the SALES-006 invoice and the ledger. Per channel, owners choose manual fulfilment or automatic pick, pack and ship when the channel, a 3PL or another system reports the shipment; automatic fulfilment dispatches the reservations once, on that shipment evidence.
 
-**Acceptance evidence:** For each named channel, authorize a connection, import an order, reserve the last units across concurrent channels, partially ship and cancel/refund the remainder. Duplicate/reordered webhooks and a missed event yield one business effect; disconnect/reconnect catches up and reconciles published availability.
+**Acceptance evidence:** For each named channel, authorize a connection, import an order, reserve the last units across concurrent channels, partially ship and cancel/refund the remainder. Duplicate/reordered webhooks and a missed event yield one business effect; disconnect/reconnect catches up and reconciles published availability. For Faire: connect, import and accept an order, backorder one line, publish availability net of reservations, ship and send tracking back, handle a retailer cancellation and reconcile the payout and commission. An auto-fulfil channel dispatches once on its shipment report.
 
 ### EDI-001 — Retail EDI trading partners.
 
@@ -210,7 +234,7 @@ Warehouse staff compare UPS, FedEx and USPS services through ShipStation and Eas
 
 ### ACCOUNT-001 — Two-way QuickBooks Online reconciliation.
 
-Connect QuickBooks Online using revocable least-privilege authorization. Map items, customers/vendors, tax/exemption codes, accounts and opening balances; exchange sales orders where supported, invoices, credits, purchase documents, bills, payments, COGS and inventory value with explicit supported-object mappings. Pier owns operational quantity and approved valuation; the ledger owns posted financial records and period locks. Two-way edits, rounding, deleted objects and closed periods create a visible reconciliation queue rather than silent overwrites or double posting.
+Connect QuickBooks Online using revocable least-privilege authorization. Map items, customers/vendors, tax/exemption codes, accounts and opening balances; exchange sales orders where supported, the SALES-006 invoices and credit notes Pier authorizes with their TAX-001 tax lines, purchase documents, bills, payments, COGS and inventory value with explicit supported-object mappings. Pier owns operational quantity and approved valuation; the ledger owns posted financial records and period locks. Two-way edits, rounding, deleted objects and closed periods create a visible reconciliation queue rather than silent overwrites or double posting.
 
 **Acceptance evidence:** Connect a US QBO company, map a USD cutover and run purchase-to-receipt-to-bill plus quote-to-shipment-to-invoice/payment/credit. Compare inventory and COGS, then change a mapped object in QBO, close a period, expire authorization and replay events. Each difference is either reconciled or visibly assigned, with one posting per document.
 
@@ -222,7 +246,7 @@ Xero is a supported alternative ledger, with its own item/contact, invoice/credi
 
 ### PAY-001 — Provider-backed customer payments.
 
-Customers pay invoices through Square and a supported Stripe card/ACH connection; staff see authorized, settled, failed, refunded and disputed states and reconcile fees, deposits and partial payments to the ledger. US sales tax and exemption evidence can come from the ledger or Stripe Tax under explicit source-of-truth configuration. Pier retains provider references and financial status, never raw card or bank credentials; refunds require current authorized approval.
+Customers pay invoices through Square and a supported Stripe card/ACH connection; staff see authorized, settled, failed, refunded and disputed states and reconcile fees, deposits and partial payments to the ledger. Paid invoices are SALES-006 invoices whose tax comes from the TAX-001 source of truth. Pier retains provider references and financial status, never raw card or bank credentials; refunds require current authorized approval.
 
 **Acceptance evidence:** Take a partial card payment and ACH payment, observe settlement/failure, refund part of a dispatch-linked return and replay provider events. Customer balance, provider settlement/fees, tax and ledger reconcile exactly; denied refunds and revoked connections have no financial effect.
 
@@ -318,13 +342,19 @@ Authorized people trace every consequential decision, approval, destructive acti
 
 ### UX-001 — Usable desktop and mobile operations.
 
-All buyer journeys, reports, reviews and exceptions are usable at 1440px and 390px with realistic multi-warehouse data, keyboard access, labels, focus/error recovery and textual stock/status/freshness. Mobile staff can complete work, rather than merely view a desktop table. Network/provider failure preserves entered work and truthful pending/unknown states; busy actions prevent accidental duplicates. Search, saved filters and drill-through remain practical as order volume grows; any measured capacity and plan limits are disclosed.
+All buyer journeys, reports, reviews and exceptions are usable at 1440px and 390px with realistic multi-warehouse data, keyboard access, labels, focus/error recovery and textual stock/status/freshness. Mobile staff can complete work, rather than merely view a desktop table. Network/provider failure preserves entered work and truthful pending/unknown states; busy actions prevent accidental duplicates. Search, saved filters, drill-through and pick lists meet the SCALE-001 bounds on the named PIER-SCALE-1 fixture, and the measured figures are recorded with this clause’s evidence.
 
-**Acceptance evidence:** Complete receive-to-ship, a stale approval, a return, an exception and report drill-through at both widths using keyboard and phone controls. Interrupt a request and refresh: the exact action is recoverable, errors persist and no color-only or invented stock state appears.
+**Acceptance evidence:** On PIER-SCALE-1, complete receive-to-ship, a stale approval, a return, an exception and report drill-through at both widths using keyboard and phone controls. Interrupt a request and refresh: the exact action is recoverable, errors persist and no color-only or invented stock state appears.
+
+### SCALE-001 — Measured performance at wholesale volume.
+
+Pier defines a named wholesale scale fixture, PIER-SCALE-1, built only through public commands and imports: 3 warehouses with 600 bins, 10,000 SKUs including 2,500 variants and 100 kits, 2,000 customers, 200 suppliers, 1,000 open sales orders with 6,000 open lines, 300 open POs with 1,500 lines, and 12 months of history holding 500,000 stock movements, 60,000 shipments and 50,000 invoices. On that fixture and the documented reference deployment, at the 95th percentile: SKU, barcode, alias and customer search returns in under 1 second; the first page of a filtered stock, sales or valuation report in under 3 seconds; drill-through from a report figure to its source documents in under 1 second; a 50-order pick list in under 2 seconds; and a scan-to-confirmation step in under 500 milliseconds. Full exports run as background jobs with visible progress. Pier sets no per-plan cap on orders, SKUs or users. The capacity disclosed in OPS-001 and REPORT-001 is the envelope measured on this fixture, republished when it changes. Work beyond the envelope is admitted with a stated slowdown and is never silently truncated.
+
+**Acceptance evidence:** Generate PIER-SCALE-1 through public commands, then run search, three filtered reports with drill-through, a 50-order pick list, a scanned pick and a full movement export at 1440px and 390px. Record the fixture counts and measured p95 timings in the UX-001 evidence: each meets its stated bound, no result is truncated without notice, and the capacity shown in OPS-001 and REPORT-001 equals the figure measured on this fixture.
 
 ### OPS-001 — Owned operation, health and onboarding.
 
-Installations start with empty real business state and use the published rer install/setup/dev/build/check/verify/export/import/reset/deploy command contract. Repeat setup preserves owner, business data and private settings. Health exposes actual dependency readiness, not invented balances; operators can diagnose provider failures, backup, restore and update with migrations intact. Onboarding names the next required connection/cutover action and unresolved differences, with documented recovery and support paths, bounded job/compute/storage limits and prices visible before commitment.
+Installations start with empty real business state and use the published rer install/setup/dev/build/check/verify/export/import/reset/deploy command contract. Repeat setup preserves owner, business data and private settings. Health exposes actual dependency readiness, not invented balances; operators can diagnose provider failures, backup, restore and update with migrations intact. Onboarding names the next required connection/cutover action and unresolved differences, with documented recovery and support paths, bounded job/compute/storage limits, the SCALE-001 measured capacity and prices visible before commitment.
 
 **Acceptance evidence:** Install and set up twice, enter real-shaped business data through public commands, restart, back up and restore; inspect health with a failed dependency and follow cutover/connector diagnostics. No demo stock, hidden reset, lost settings or false healthy state appears.
 
@@ -393,6 +423,7 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | PIER-011 | done | `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (11) |
 | PIER-012 | done | `src/pier/api.ts`; `src/pier/native-export.ts`; `tests/api/flows.test.mjs` (12); `tests/portable.mjs` |
 | CAT-001 | partial | `src/pier/catalogue.ts`; `tests/api/flows.test.mjs` (01, 02): SKU, barcode and exact units only; variants, dimensions and customer aliases absent |
+| KIT-001 | missing | No kit definition, component reservation, kit availability or kitting task exists; `src/pier/orders.ts` reserves single SKUs only. |
 | TRACE-001 | missing | No lot/serial/expiry model or journey exists at the inspected commit. |
 | SCAN-001 | partial | `src/pier/catalogue.ts`: stored unique barcodes; generation, printer adapters and scan flows absent |
 | WMS-001 | partial | `src/ui/purchasing.tsx`; `src/ui/sales.tsx`; `src/ui/warehouse.tsx`; `tests/browser/journey.spec.ts`: responsive manual workflows, no scan/task pipeline |
@@ -402,13 +433,16 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | SALES-003 | partial | `src/pier/orders.ts`; `src/pier/proposals.ts`; `tests/api/flows.test.mjs` (04, 09): bin allocation/backorders and reviewed reallocation only |
 | SALES-004 | missing | No recurring-order or dropship workflow exists. |
 | SALES-005 | missing | No Stall/private-portal adapter or cart follow-up exists; the inventory’s portal capability is fulfilled through the sibling boundary. |
+| SALES-006 | missing | No invoice, charge-line, payment-term or credit-note model exists; `src/pier/orders.ts` records shipment references only. |
+| TAX-001 | missing | No tax calculation, provider adapter or exemption-certificate record exists. |
+| PRINT-001 | missing | No document generation, template, print or email-send path exists. |
 | BUY-001 | partial | `src/pier/proposals.ts`; `src/pier/catalogue.ts`; `tests/api/flows.test.mjs` (05): observed shortages, MOQ/lead-time terms and PO drafts; no scheduled forecast/reorder policy |
 | BUY-002 | partial | `src/pier/purchasing.ts`; `src/pier/api.ts`; `tests/api/flows.test.mjs` (05): exact human approval only; routing, outbound sends and supplier acknowledgement absent |
 | BUY-003 | partial | `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (06, 07): partial receipts and corrections, no supplier-return documents |
 | BUY-004 | partial | `src/pier/purchasing.ts`: PO-linked receipt/cost records only; invoice/BOL matching and scorecards absent |
 | COST-001 | partial | `src/pier/model.ts`; `src/pier/purchasing.ts`; `src/pier/native-export.ts`: exact receipt costs only; current AUD defaults and lack of valuation/landed cost remain gaps |
 | REPORT-001 | partial | `src/ui/activity.tsx`; `src/pier/native-export.ts`: position/document/cost views and export only; valuation and saved/scheduled reports absent |
-| CHANNEL-001 | missing | No Stall, Shopify, WooCommerce or Amazon connector exists. |
+| CHANNEL-001 | missing | No Stall, Faire, Shopify, WooCommerce, BigCommerce, Amazon, eBay or Etsy connector exists. |
 | EDI-001 | missing | No retail EDI documents, mapping or transport adapter exists. |
 | SHIP-001 | partial | `src/pier/orders.ts`; `tests/api/flows.test.mjs` (09): shipment references and partial dispatch only; no shipping adapters, labels or notifications |
 | ACCOUNT-001 | missing | No QuickBooks Online adapter or financial reconciliation queue exists. |
@@ -430,6 +464,7 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | DATA-002 | missing | No complete product erasure/retention/hold workflow or archive-erasure fence exists. |
 | AUDIT-001 | partial | `src/pier/model.ts`; `src/ui/activity.tsx`; `src/pier/api.ts`; `tests/api/flows.test.mjs` (12): movement/review/command provenance; comprehensive external and erasure audit absent |
 | UX-001 | partial | `src/ui/`; `tests/browser/journey.spec.ts`: existing twelve journeys at 1440/390; new connected/scan/report paths absent |
+| SCALE-001 | missing | No named scale fixture or performance measurement exists; `src/pier/native-capacity.ts` bounds native import size only. |
 | OPS-001 | partial | `OPERATIONS.json`; `scripts/installer/local.mjs`; `tests/runtime.mjs`; `tests/portable.mjs`: local lifecycle/archive evidence; connected diagnostics and scale/onboarding targets incomplete |
 | BASE-001 | partial | `SEED-COMMAND-CONTRACT.md`; `src/pier/storage.ts`; `scripts/installer/local.mjs`; `tests/api/security-import.test.mjs`; `tests/portable.mjs`: stock/lifecycle guarantees, not full inherited-baseline acceptance |
 | AGENT-001 | done | `src/pier/proposals.ts`; `src/pier/api.ts`; `tests/api/flows.test.mjs` (05, 11, 12); `tests/api/security-import.test.mjs` |
@@ -439,4 +474,4 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | AGENT-005 | partial | `src/pier/imports.ts`; `src/pier/native-export.ts`; `tests/api/native-exit.test.mjs`: reviewed native reconciliation; incumbent and accounting mapping/closure absent |
 | AGENT-006 | partial | `src/pier/proposals.ts`: scoped context/proposals; no embedded live question or bulk-plan interface |
 
-**58 clauses: 15 done, 27 partial, 16 missing.**
+**63 clauses: 15 done, 27 partial, 21 missing.**
