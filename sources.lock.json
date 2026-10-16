@@ -1680,7 +1680,7 @@
       "executable": false
     },
     "src/modules/mail/src/inbound/headers.mjs": {
-      "sha256": "79673d562647f4e15e7fe10ca3b13241acd5b2cc25a651a32918cee45e02235c",
+      "sha256": "d8036a3d0387c37d4bb46d0401d4c3fd71dda0569fdcc70e73962e9a61e947d2",
       "executable": false
     },
     "src/modules/mail/src/inbound/index.mjs": {
