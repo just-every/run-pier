@@ -6,6 +6,5 @@
     "MAIL_PROVIDER": "development",
     "MAIL_FROM": "Pier demo <maya@brisbanecafesupply.example>"
   },
-  "instanceType": "basic",
   "ownerEmail": "maya@brisbanecafesupply.example"
 }

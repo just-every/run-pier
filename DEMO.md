@@ -7,7 +7,8 @@ six bins across two warehouses, four suppliers with their terms, five customers,
 six sales orders (shipped, reserved and one short of oat milk), four purchase
 orders (received, part received, expected and a draft), transfers (one still in
 the van), counts, returns in quarantine and restocked, the opening stock import,
-a replenishment proposal waiting for review, and the owner's team: Jordan takes
+a replenishment proposal waiting for review, and the owner's team (an owner
+still named "Owner" by the claim becomes Maya Collins, whose business it is): Jordan takes
 sales orders, Sam runs the floor and Priya buys, each with their Pier role, and
 one invitation is still pending. `rer demo --stop`, Ctrl-C or
 the demo's end (one hour) deletes its folder `.rer/demo/<start>/`; a new demo
@@ -35,20 +36,36 @@ The app reads **Pier Demo** in its nav and title (Base adds the suffix to the
 ## Hosted demo
 
 `deploy-demo.json` puts the demo at `https://demo.run-pier.com/`;
-`.github/workflows/run-demo.yml` deploys it by manual dispatch from the
-`run-demo` environment, and with `test_only` deploys the separate test host
-`demo.test.run-pier.com` with Turnstile's test keys (`remove_test` takes that
-host down). Each visitor gets their own container running Pier's image
-(`deploy.json` `platforms` includes `container`, workerd engine), signed in
-through the signed owner claim at `/auth/owner-claim`, which Pier serves with
-`createOwnerClaimHandler` whenever `RER_OWNER_CLAIM_PUBLIC_KEYS` is set. The
-start and ended pages are Base's. See Base's `export/DEMO.md` for the host.
+`.github/workflows/run-demo.yml` (Base's `export/run-demo.yml`, recorded in
+`base-copies.json`) deploys it by manual dispatch from the `run-demo`
+environment, and with `test_only` deploys the separate test host
+`demo.test.run-pier.com` with Turnstile's test keys (`remove` with `test_only`
+takes that host down). The environment holds the variable
+`CLOUDFLARE_ACCOUNT_ID` and the secrets `CLOUDFLARE_API_TOKEN`,
+`TURNSTILE_SECRET_KEY` and `RER_DEMO_MEASUREMENT_TOKEN`; test starts send the
+measurement token as the `rer_demo_measure` cookie, and it is never committed.
+
+Each visitor gets their own native Worker Loader isolate running Pier's
+ordinary Worker bundle, with a SQLite facet standing in for Pier's D1 and the
+static files served at the edge. Base's start page admits them through
+Turnstile and signs them in as the demo owner through the signed owner claim at
+`/auth/owner-claim`, which Pier serves with `createOwnerClaimHandler` whenever
+`RER_OWNER_CLAIM_PUBLIC_KEYS` is set; `seedDemo` then fills the workspace. A
+copy ends after 60 minutes or 15 idle minutes and its storage is erased. The
+start and ended pages are Base's; see "Hosting the
+demo" in Base's demo guide. `deploy.json` `platforms` still lists `container`: that is portable
+container hosting for installations, not the demo.
 
 ## Base copy
 
-Every Base copy (`src/base` foundation, `src/modules/demo`, `operator-auth`,
-`mail`, `owner-claim`, `dependencies`, `ai`, `d1-transport`, `import-kit` and
-`scripts/edition-authoring`) is Base at tag `rer-v0.2.24`
-(`1ee378e41142c673a9098f60af21664c6d8477d1`), refreshed together so owner-claim
-and operator-auth always agree (`edition.json`, `sources.lock.json`).
-`src/base/font-head.ts` is Pier's own (system fonts, no font files).
+Every Base copy (`src/base` foundation files, `src/modules/demo`,
+`operator-auth`, `mail`, `owner-claim`, `dependencies`, `ai`, `d1-transport`,
+`import-kit`, `scripts/edition-authoring`, the installer and template files and
+`run-demo.yml`) is Base at tag `rer-v0.2.30`
+(`d434ea67989fe10b6ddff01daba8bb350975e54a`), recorded in `base-copies.json`
+and refreshed together with `refresh-base`, so owner-claim and operator-auth
+always agree (`edition.json`, `sources.lock.json`). Three files carry Pier's
+linear-time parsing fixes on top of Base's bytes and are kept out of the record
+as adapted source: the mail module's `core/validation.mjs` and
+`inbound/headers.mjs`, and the dependencies module's `logout.mjs`. `src/base/font-head.ts` is Pier's own
+(system fonts, no font files).

@@ -1,8 +1,8 @@
 {
-  "key": "705c1ea67ec1f88ca19ee185a8bd6f5546120c5e509aba32cac56d54e1243a63",
+  "key": "a20f15727911b83f0b81e841e867590327dfac2fbb1c59317b92981b1d4c7d0f",
   "origin": {
     "repository": "https://github.com/runeditrun/base.git",
-    "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+    "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
     "path": ".",
     "paths": [
       "modules/d1-transport"

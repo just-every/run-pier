@@ -1,8 +1,8 @@
 {
-  "key": "f8e4775b621f80d03ef6d017873bd1583f60069f79b693ec579970a135b857c8",
+  "key": "0b0866d03ab8206235ba4da602586711614e15072bf492d939fec851149093a6",
   "origin": {
     "repository": "https://github.com/runeditrun/base.git",
-    "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+    "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
     "path": ".",
     "paths": [
       "modules/owner-claim"

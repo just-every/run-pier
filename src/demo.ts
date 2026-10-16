@@ -12,6 +12,11 @@ export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail:
   if ((await env.DB.prepare('SELECT version FROM pier_meta WHERE id=1').first<{ version: number }>())?.version) return
   const owner = await env.DB.prepare("SELECT id,display_name AS name,version FROM oa_operators WHERE email=? AND role='owner' AND status='active'").bind(ownerEmail.toLowerCase()).first<{ id: string; name: string; version: number }>()
   if (!owner) throw new Error('The demo owner does not exist yet')
+  // The owner claim names the owner "Owner"; the sample business is Maya Collins's.
+  if (owner.name === 'Owner') {
+    await env.DB.prepare("UPDATE oa_operators SET display_name='Maya Collins' WHERE id=? AND display_name='Owner'").bind(owner.id).run()
+    owner.name = 'Maya Collins'
+  }
   // The owner's team: native members who joined in the first week, and one
   // invitation still waiting to be accepted.
   for (const [key, name, email, , status] of team)
