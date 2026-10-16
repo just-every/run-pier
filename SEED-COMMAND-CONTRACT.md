@@ -1,6 +1,6 @@
 # Pier command contract
 
-Pier uses package mode: exact `@runeditrun/rer` 0.2.22 in package.json and pnpm-lock.yaml, public aliases `rer VERB`, and the edition adapter in scripts/installer/local.mjs. There is no vendored dispatcher or CLI tree. Runtime pins are Node 22.20.0 and pnpm 10.12.4. OPERATIONS.json is the machine-readable command/effect descriptor; `rer describe` lists current flags.
+Pier uses package mode: exact `@runeditrun/rer` 0.2.30 in package.json and pnpm-lock.yaml, public aliases `rer VERB`, and the edition adapter in scripts/installer/local.mjs. There is no vendored dispatcher or CLI tree. Runtime pins are Node 22.20.0 and pnpm 10.12.4. OPERATIONS.json is the machine-readable command/effect descriptor; `rer describe` lists current flags.
 
 | Command | Effect |
 |---|---|

@@ -30,7 +30,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "foundation/runtime"
           ]
@@ -47,7 +47,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "modules/operator-auth"
           ]
@@ -64,7 +64,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "modules/mail"
           ]
@@ -81,7 +81,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "modules/ai"
           ]
@@ -98,7 +98,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "modules/dependencies"
           ]
@@ -115,7 +115,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "modules/owner-claim"
           ]
@@ -132,7 +132,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "modules/d1-transport"
           ]
@@ -149,7 +149,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "modules/import-kit"
           ]
@@ -166,7 +166,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "edition-authoring"
           ]
@@ -183,7 +183,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "1ee378e41142c673a9098f60af21664c6d8477d1",
+          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
           "paths": [
             "modules/demo"
           ]

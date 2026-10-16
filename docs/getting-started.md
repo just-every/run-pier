@@ -4,13 +4,13 @@ Pier runs on your own computer with one command and starts empty: no sample stoc
 
 ## Start Pier
 
-Install the `rer` command once per computer, then get Pier and start it:
+One line installs the `rer` command, gets Pier and starts it:
 
 ```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
-git clone https://github.com/just-every/run-pier.git pier
-cd pier && rer dev
+npx -y @runeditrun/rer dev just-every/run-pier
 ```
+
+To start it again later, run `cd run-pier && rer dev`.
 
 `rer dev` installs everything, makes you the owner and prints a link that opens Pier signed in. Keep that link private: it carries this computer's development sign-in key. Pier needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2.
 

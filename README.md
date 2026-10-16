@@ -8,15 +8,13 @@ The project site is at https://run-pier.com.
 
 Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.19 package.
 
-Install the shared command once with either method:
+One line installs the shared command, clones Pier and starts it:
 
 ```sh
-npx -y @runeditrun/rer cli install
-# or
-curl -fsSL https://runeditrun.com/install.sh | sh
+npx -y @runeditrun/rer dev just-every/run-pier
 ```
 
-From this checkout, use the shared commands:
+To start it again later, run `cd run-pier && rer dev`. From a checkout, to choose the owner yourself, use the shared commands:
 
 ```sh
 rer install
