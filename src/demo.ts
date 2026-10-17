@@ -254,7 +254,9 @@ function workingClock(now: Date) {
     const time = now.getTime() - days * 86_400_000, key = dateKey(time)
     if (key === dateKey(now.getTime())) return new Date(time).toISOString()
     const n = perDay.get(key) ?? 0; perDay.set(key, n + 1)
-    const w = wall(time), minutes = Math.min(8 * 60 + 7 + n * 21 + (n * 7) % 11, 17 * 60 + 40)
+    // Each day starts somewhere between 7:40 and 10:10, so days do not share a clock time.
+    const seed = [...key].reduce((sum, char) => sum * 31 + char.charCodeAt(0), 7) % 151
+    const w = wall(time), minutes = Math.min(7 * 60 + 40 + seed + n * 21 + (n * 7) % 11, 17 * 60 + 40)
     const guess = Date.UTC(w.year, w.month - 1, w.day, 0, minutes), seen = wall(guess)
     return new Date(guess - (Date.UTC(seen.year, seen.month - 1, seen.day, seen.hour, seen.minute) - guess)).toISOString()
   }
