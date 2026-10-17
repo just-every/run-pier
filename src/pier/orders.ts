@@ -4,6 +4,7 @@ import {
   get,
   id,
   item,
+  fresh,
   nextReference,
   row,
   text,
@@ -15,7 +16,7 @@ import {
   type Context,
   type Row,
 } from "./model";
-import { orderPrice } from "./pricing";
+import { orderPrice, priceUnpricedLines } from "./pricing";
 import { money } from "./money";
 export function reserve(c: Context, o: Row) {
   for (const l of o.lines) {
@@ -69,6 +70,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     ![
       "order.create",
       "order.reserve",
+      "order.price",
       "order.cancel",
       "dispatch.create",
       "return.create",
@@ -120,6 +122,16 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
       lines,
     });
     reserve(c, o);
+    return orderView(c, o);
+  }
+  if (type === "order.price") {
+    const o = get(c.s, "orders", p.orderId);
+    fresh(o, p.version);
+    if (!Array.isArray(p.lines) || !p.lines.length)
+      fail("LINES", "Enter a unit price for each unpriced line.");
+    if (!p.lines.some((x: any) => o.lines.some((l: any) => l.id === x.orderLineId && l.price === null)))
+      fail("PRICED", "Every line of this order already has a price. Saved prices do not change.");
+    priceUnpricedLines(c, o, p.lines, "reviewed");
     return orderView(c, o);
   }
   if (type === "order.reserve") {

@@ -55,6 +55,16 @@ test('channel order reserves once and publishes net stock to every channel withi
   edge.setStallOrder(native); await h.command('channel.sync', {});
   s = await h.state(); assert.equal(s.orders.length, orderCount + 2);
   assert.equal(s.channelOrders.find(o => o.externalId === 'stall-paid-one').orderId, native.id);
+  // A reservation made without prices takes the price Stall charged, so its invoice can post.
+  const linked = s.orders.find(o => o.id === native.id);
+  assert.deepEqual([linked.pricingStatus, linked.lines[0].price, linked.channel], ['priced', '12.5', 'stall']);
+  assert.equal(Number(linked.total), 12.5);
+  // Any other unpriced order is priced once from its order page; saved prices never change.
+  const unpriced = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: ruby.id, quantity: '2' }] });
+  const priced = await h.command('order.price', { orderId: unpriced.id, version: unpriced.version, lines: [{ orderLineId: unpriced.lines[0].id, price: '9.75' }] });
+  assert.deepEqual([priced.pricingStatus, priced.lines[0].price], ['priced', '9.75']);
+  assert.equal(Number(priced.total), 19.5);
+  await h.command('order.price', { orderId: unpriced.id, version: priced.version, lines: [{ orderLineId: unpriced.lines[0].id, price: '1' }] }, { error: 'PRICED' });
   // A missed event is recovered by the same one-minute scheduled transport.
   edge.extraOrders.push({ id: 903, number: '903', status: 'processing', currency: 'USD', billing: { first_name: 'Ari', last_name: 'Rivera' }, refunds: [], line_items: [{ id: 9030, sku: 'CASE-BLUE', quantity: 1, price: 12.5 }] });
   const scheduled = await (await h.mf.getWorker()).scheduled({ scheduledTime: new Date(), cron: '* * * * *' });

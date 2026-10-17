@@ -1,5 +1,6 @@
 import { SourceBooks } from './books/source-status'
 import { BackorderPromises } from './backorder-promises'
+import { OrderPricing } from './order-pricing'
 import { useEffect, useState } from 'react'
 import { itemLabel, label, records, unit, type PierState, type RunCommand } from './api'
 import { day, ItemName, reference, when, words } from './display'
@@ -21,6 +22,7 @@ export function Sales({ state, run, busy, documentId = '' }: { state: PierState;
       {orders.map(row => <tr key={row.id}><td>{reference(row)}</td><td>{label(parties, row.customerId)}</td><td>{row.channel || '—'}</td><td>{row.promiseDate ? day(row.promiseDate) : '—'}</td><td><Amount value={row.total} unknown="Unpriced" /></td><td><Badge>{orderStatus(row)}</Badge></td><td><button onClick={() => { setSelected(row.id); window.location.hash = `sales/${row.id}` }}>Open order</button></td></tr>)}
     </Table>}
     {order && <section id={`document-${order.id}`} className="panel"><h2>Order {reference(order)}</h2><Facts values={[{ label: 'Customer', value: label(parties, order.customerId) }, { label: 'Promise', value: order.promiseDate ? day(order.promiseDate) : 'Not set' }, { label: 'Status', value: orderStatus(order) }, { label: 'Created', value: when(order.createdAt) }, { label: 'Channel', value: order.channel || '—' }, { label: 'Total USD', value: <Amount value={order.total} unknown="Unpriced" /> }]} /><Table numeric={[1, 2, 3, 4, 5, 6, 7]} headings={['Item', 'Ordered', 'Reserved', 'Backorder', 'Dispatched', 'Canceled', 'Unit price USD', 'Line total USD']}>{order.lines.map((line: any) => <tr key={line.id}><td><ItemName state={state} id={line.itemId} /></td>{['quantity', 'reserved', 'backorder', 'dispatched', 'cancelled'].map(key => <td key={key}>{line[key]} {unit(state, line.itemId)}</td>)}<td><Amount value={line.price} unknown="Unpriced" /></td><td><Amount value={line.lineTotal} unknown="Unpriced" /></td></tr>)}</Table>{orderStatus(order) !== 'Closed' && <div className="actions"><button disabled={busy} onClick={() => run('order.reserve', { orderId: order.id })}>Reserve newly available stock</button></div>}
+      <OrderPricing state={state} order={order} run={run} busy={busy} />
       <SourceBooks state={state} sourceId={order.id} sourceKind="order" />
       <BackorderPromises state={state} order={order} run={run} busy={busy} />
       <h3>Reserved sources for physical picking</h3><Table numeric={[2]} headings={['Item', 'Reserved source bin', 'Reserved quantity']}>{records(state, 'reservations').filter(reservation => reservation.orderId === order.id || order.lines.some((line: any) => line.id === reservation.orderLineId)).map(reservation => <tr key={reservation.id}><td><ItemName state={state} id={reservation.itemId} /></td><td>{label(locations, reservation.locationId)}</td><td>{fromMillionths(String(reservation.quantity))} {unit(state, reservation.itemId)}</td></tr>)}</Table>

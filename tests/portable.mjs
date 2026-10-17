@@ -91,10 +91,16 @@ async function port() {
   await new Promise((r) => server.close(r));
   return p;
 }
+// Stop this script's own foreground server as Ctrl-C does, by its process only.
+async function interrupt(runtime) {
+  if (runtime.proc.exitCode === null) runtime.proc.kill("SIGINT");
+  await runtime.done;
+}
 async function start(root, p) {
+  let launched;
   const runtime = await admittedServer(
-    () => child(root, ["dev", "--port", String(p), "--no-queue"]),
-    () => command(root, ["dev", "--stop"]),
+    () => (launched = child(root, ["dev", "--port", String(p), "--foreground"])),
+    () => interrupt(launched),
     clean,
   );
   try {
@@ -138,15 +144,11 @@ async function start(root, p) {
         return result.result;
       },
       async close() {
-        await command(root, ["dev", "--stop"]);
-        if (runtime.proc.exitCode === null) runtime.proc.kill("SIGTERM");
-        await runtime.done;
+        await interrupt(runtime);
       },
     };
   } catch (error) {
-    await command(root, ["dev", "--stop"]).catch(() => {});
-    if (runtime.proc.exitCode === null) runtime.proc.kill("SIGTERM");
-    await runtime.done;
+    await interrupt(runtime);
     throw error;
   }
 }
@@ -162,7 +164,6 @@ try {
     "--port",
     String(p),
     "--non-interactive",
-    "--no-queue",
   ]);
   running = await start(source, p);
   const item = await running.cmd("item.save", {
@@ -283,13 +284,12 @@ try {
   await running.close();
   running = null;
   const archive = join(parent, "installation.rer");
-  await command(source, ["export", "--output", archive, "--no-queue"]);
+  await command(source, ["export", "--output", archive]);
   await command(destination, [
     "import",
     "--input",
     archive,
     "--yes",
-    "--no-queue",
   ]);
   const p2 = await port();
   await command(destination, [
@@ -299,7 +299,6 @@ try {
     "--port",
     String(p2),
     "--non-interactive",
-    "--no-queue",
   ]);
   running = await start(destination, p2);
   assert.equal(
@@ -387,7 +386,6 @@ try {
     "export",
     "--output",
     join(parent, "restored.rer"),
-    "--no-queue",
   ]);
   console.log(
     "Fresh rer export/import retained business identity and exact history; a new native session continued receipt to 0.3.",

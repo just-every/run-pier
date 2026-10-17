@@ -12,7 +12,7 @@ type Issued = { key: string; origin: string; customerId: string }
 export function StallSteps() {
   return <div className="stall-steps"><h3>Before you start, in Stall</h3><ol className="steps">
     <li>Open Stall and sign in as its owner. No Stall yet? Start one on this computer with <code>rer dev just-every/run-stall</code> (the <code>rer</code> command from <a href="https://run-pier.com/run" target="_blank" rel="noreferrer">run-pier.com/run</a>).</li>
-    <li>On Stall's owner page, scroll to <strong>Agent access</strong> and choose <strong>Create agent credential</strong>. Copy the credential it shows into <strong>Access token</strong> below. Stall's agent credentials last seven days; create a new one here when Pier reports that Stall refused access.</li>
+    <li>In Stall, open <strong>Settings</strong> and scroll to <strong>Agent access</strong> and choose <strong>Create agent credential</strong>. Copy the credential it shows into <strong>Access token</strong> below. Stall's agent credentials last seven days; create a new one here when Pier reports that Stall refused access.</li>
     <li>For <strong>Store API address</strong>, copy Stall's address from its browser tab, for example <code>http://localhost:8791</code>.</li>
   </ol><p className="muted">After you connect, Pier shows the key Stall needs to read Pier's stock. Guide: <a href="https://run-pier.com/docs/channels" target="_blank" rel="noreferrer">Channels</a>.</p></div>
 }
@@ -23,6 +23,8 @@ export function StallLink({ state, run, busy, row }: ChannelProps & { row: Conne
   // The customer just added with “Add Online shop (Stall)” is selected for the key.
   useEffect(() => { if (!customerId) { const shop = customers.find(p => /stall|shop|online/i.test(String(p.name))); if (shop) setCustomerId(shop.id) } }, [customers.length])
   const [issued, setIssued] = useState<Issued | null>(null)
+  // The key is shown once: leaving this page (any navigation) puts it away for good.
+  useEffect(() => { if (!issued) return; const away = () => setIssued(null); addEventListener('hashchange', away); return () => removeEventListener('hashchange', away) }, [issued])
   const [problem, setProblem] = useState('')
   const [working, setWorking] = useState(false)
   async function create() {
@@ -54,7 +56,7 @@ export function StallLink({ state, run, busy, row }: ChannelProps & { row: Conne
       <ol className="steps">
         <li>In Stall, sign in as the owner and open <strong>Settings</strong>, then <strong>Provider connections</strong> (Stall's address followed by <code>/app#connections</code>).</li>
         <li>In <strong>Connect Pier</strong>, paste the Pier address and the Pier key above and choose <strong>Connect Pier</strong>. Stall checks the key with Pier and shows <strong>Connected</strong>. This works the same for a Stall on this computer and a Stall online.</li>
-        <li>Stall takes payments through Stripe, on your own Stripe account. On the same Stall page, fill in <strong>Connect Stripe</strong> with your Stripe secret key and webhook signing secret (test keys first).</li>
+        <li>Stall takes payments through Stripe, on your own Stripe account. On the same Stall page, fill in <strong>Connect Stripe</strong> with your Stripe secret key (test keys first). A Stall on this computer confirms payments by asking Stripe; a Stall online also takes its Stripe webhook signing secret, and the form says where to find it.</li>
         <li>In Stall, publish a product whose SKU matches a Pier item. Its stock shows in Stall at once, and each paid Stall order appears here under Orders, reserved in Pier.</li>
       </ol>
       <div className="actions"><button className="link" onClick={() => setIssued(null)}>Done</button></div>

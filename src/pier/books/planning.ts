@@ -60,7 +60,7 @@ export function planBooks(c: Context) {
     add(`invoice:${shipment.id}`,'invoice',shipment,'order',ref('INV',shipment.id),() => {
       const lines = shipment.lines.map((l:any) => {
         const ol = order.lines.find((line:any)=>line.id===l.orderLineId);
-        if (typeof ol?.price !== 'string') throw new Error('This shipped order has no sales price. Open the sales order and review its pricing before posting.');
+        if (typeof ol?.price !== 'string') throw new Error('This shipped order has no sales price. Open the sales order and choose Price this order; the invoice posts on the next sync.');
         const total=dollars(money(extended(l.quantity,ol.price)));
         if (amount(total) === 0n) throw new Error('A zero-price shipment needs an accountant decision before invoicing.');
         return {itemId:l.itemId,description:`${c.s.items.find(i=>i.id===l.itemId)?.sku} · shipped ${l.quantity} · ${shipment.reference}`,quantity:'1',unitPrice:total,amount:total,account:connection.revenueAccountId};

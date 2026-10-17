@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server';
 import { available, decimal, fail, format, fresh, get, id, item, min, requireRole, row, text, type Context, type Row } from '../model';
 import { orders } from '../orders';
+import { priceUnpricedLines } from '../pricing';
 import { seal } from './secrets';
 import type { ChannelOrder, Listing } from './adapters/types';
 
@@ -17,6 +18,12 @@ function importOrders(c: Context, channel: Row) {
       if (!existing) { incoming.problem = 'Stall reserved this order in another Pier installation. Reconnect the original stock system.'; continue; }
       if (!source.lines.every(l => existing.lines.some((x: any) => c.s.items.find(i => i.id === x.itemId)?.sku === l.sku && x.quantity === l.quantity))) { incoming.problem = 'The Stall reservation lines need review.'; continue; }
       Object.assign(existing, { channel: channel.provider, channelId: channel.id, channelOrderId: source.externalId, channelReference: source.reference });
+      // A reservation made before Stall sent prices takes the prices Stall charged.
+      const charged = existing.lines.filter((x: any) => x.price === null).flatMap((x: any) => {
+        const price = source.lines.find(l => c.s.items.find(i => i.id === x.itemId)?.sku === l.sku)?.price;
+        return price === undefined ? [] : [{ orderLineId: x.id, price }];
+      });
+      if (charged.length) priceUnpricedLines(c, existing, charged, 'channel');
       incoming.orderId = existing.id; incoming.reservedAt = existing.createdAt; incoming.problem = null; incoming.version++; continue;
     }
     const lines = source.lines.map(line => ({ ...line, listing: c.s.channelListings.find(l => l.channelId === channel.id && l.externalId === line.externalId) ?? c.s.channelListings.find(l => l.channelId === channel.id && l.sku && l.sku === line.sku) }));

@@ -51,7 +51,7 @@ export async function command(executable, args, cwd, env) {
 
 export async function startDev(root, port) {
   const executable = join(root, 'node_modules/.bin/rer')
-  const runtime = child(executable, ['dev', '--port', String(port), '--no-queue'], root)
+  const runtime = child(executable, ['dev', '--port', String(port)], root)
   const deadline = Date.now() + 10 * 60 * 1000
   try {
     while (Date.now() < deadline) {
