@@ -1,18 +1,25 @@
-# Run it locally
+<p><img src="public/brand/mark.svg" width="72" height="72" alt=""></p>
+
+# Pier
+
+Know what’s on every shelf. Pier is open source inventory and order management for wholesalers and distributors, a free alternative to Cin7, inFlow and Fishbowl. The project site is https://run-pier.com, with [the docs](https://run-pier.com/docs).
+
+## Run it locally
 
 Pier is an MIT-licensed stock and wholesale-order seed for small finished-goods wholesalers. Its contract covers item and location records, stock movements, hard reservations, purchasing, fulfilment, counts, migration review and portable backup. All twelve first-release journeys have local proof across authenticated Worker/D1, responsive browser and fresh-install portability checks; [ACCEPTANCE.md](ACCEPTANCE.md) records the test coverage and scope.
 
 The public source repository is [just-every/run-pier](https://github.com/just-every/run-pier).
 
-The project site is at https://run-pier.com.
+Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.38 package.
 
-Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.19 package.
-
-One line installs the shared command, clones Pier and starts it:
+Two lines, the same as [run-pier.com/run](https://run-pier.com/run). Install `rer`, then start Pier; rer gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
 
 ```sh
-npx -y @runeditrun/rer dev just-every/run-pier
+curl -fsSL https://runeditrun.com/install.sh | sh
+rer dev just-every/run-pier
 ```
+
+The installer changes no shell settings: if it prints an `export PATH=…` line, run that line before `rer dev`. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-pier` does both steps in one line.
 
 To start it again later, run `cd run-pier && rer dev`. From a checkout, to choose the owner yourself, use the shared commands:
 

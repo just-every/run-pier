@@ -19,7 +19,7 @@
     "test:email-link": "node tests/email-link.mjs",
     "onboard": "node scripts/install.mjs",
     "build:app": "vite build",
-    "verify:app": "pnpm run build && pnpm run typecheck && pnpm run test:api && node tests/email-link.mjs && node tests/portable.mjs",
+    "verify:app": "pnpm run build && pnpm run typecheck && pnpm run test:api && pnpm run test:site && node tests/email-link.mjs && node tests/portable.mjs",
     "reset": "rer reset",
     "export": "rer export",
     "import": "rer import",
@@ -32,7 +32,8 @@
     "test:api": "node --test --test-concurrency=1 tests/api/*.test.mjs",
     "test:portable": "node tests/portable.mjs",
     "source:lock": "node scripts/edition-authoring/cli.mjs lock",
-    "source:check": "node scripts/edition-authoring/cli.mjs check"
+    "source:check": "node scripts/edition-authoring/cli.mjs check",
+    "test:site": "node --test tests/site/*.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.33",
@@ -45,7 +46,7 @@
     "@cloudflare/vite-plugin": "1.54.5",
     "@cloudflare/workers-types": "5.20260908.1",
     "@playwright/test": "1.63.0",
-    "@runeditrun/rer": "0.2.30",
+    "@runeditrun/rer": "0.2.38",
     "@types/node": "22.18.6",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",

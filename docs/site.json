@@ -3,25 +3,23 @@
     {
       "title": "Start here",
       "pages": [
-        { "slug": "", "label": "Getting started", "file": "docs/getting-started.md", "summary": "From a fresh Pier to your first bins, items, stock and team." }
+        { "slug": "getting-started", "label": "Getting started", "file": "docs/getting-started.md", "summary": "Start Pier on your computer in two lines, finish setup, add your first bins, items and team." }
       ]
     },
     {
-      "title": "Guides",
+      "title": "Daily work",
       "pages": [
-        { "slug": "daily-work", "label": "Daily stock work", "file": "docs/daily-work.md", "summary": "Take and dispatch orders, buy and receive, transfer, count and trace every movement." },
-        { "slug": "moving-in", "label": "Moving in", "file": "docs/moving-in.md", "summary": "Bring items, bins, opening stock and open orders from CSV, reviewed before cutover." },
+        { "slug": "orders", "label": "Orders and dispatch", "file": "docs/orders.md", "summary": "Take an order that reserves real stock, dispatch it in parts and bring returns back through quarantine." },
+        { "slug": "buying", "label": "Buy and receive", "file": "docs/buying.md", "summary": "Keep supplier terms, approve the exact purchase order and receive what arrives into named bins." },
+        { "slug": "transfers-and-counts", "label": "Transfers and counts", "file": "docs/warehouse.md", "summary": "Move stock between warehouses through transit, and count a bin without overwriting work in progress." },
+        { "slug": "activity", "label": "Activity and proposals", "file": "docs/activity.md", "summary": "Follow any quantity to the document, person and reason behind it, and review an agent's proposals." }
+      ]
+    },
+    {
+      "title": "Move in and keep it safe",
+      "pages": [
+        { "slug": "moving-in", "label": "Moving in from CSV", "file": "docs/moving-in.md", "summary": "Bring items, bins, opening stock and open orders from CSV files, reviewed before one cutover." },
         { "slug": "backup-and-restore", "label": "Backup and restore", "file": "docs/backup-and-restore.md", "summary": "Keep a complete archive of your installation and restore it with the release that made it." }
-      ]
-    },
-    {
-      "title": "Reference",
-      "pages": [
-        { "slug": "run-it-locally", "label": "Run it locally", "file": "README.md", "summary": "Start Pier on your computer with one line and finish owner setup." },
-        { "slug": "contract", "label": "Product contract", "file": "CONTRACT.md", "summary": "What Pier does: its operating rules and twelve first-release journeys." },
-        { "slug": "acceptance", "label": "Acceptance record", "file": "ACCEPTANCE.md", "summary": "The local evidence behind each journey and the boundaries it does not cover." },
-        { "slug": "operations", "label": "Operations", "file": "OPERATIONS.md", "summary": "Commands, backup and restore, roles and incident handling for an installation." },
-        { "slug": "import", "label": "Native CSV contract", "file": "IMPORT.md", "summary": "The exact CSV files, headers and review rules for moving stock into Pier." }
       ]
     }
   ]

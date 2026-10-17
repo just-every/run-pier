@@ -1,14 +1,17 @@
-import { repository } from '../links'
+import { links } from '../links'
+import { Lockup } from './Lockup'
 
-/** The run site's header: the Pier wordmark, Docs and Source. */
-export function SiteHeader({ current }: { current?: 'docs' }) {
-  return (
-    <header className="site-header">
-      <a className="site-wordmark" href="/">Pier</a>
-      <nav aria-label="Site">
-        <a href="/docs" aria-current={current === 'docs' ? 'page' : undefined}>Docs</a>
-        <a href={repository}>Source</a>
+/** The header on every run-site page: the lockup on the left, Docs and Source on the right, one row on phones too.
+ * `overArt` lays it over the homepage's painted hero. */
+export function SiteHeader({ current, overArt = false }: { current?: 'docs'; overArt?: boolean }) {
+  return <header className={`site-header${overArt ? ' over-art' : ''}`}>
+    <a className="skip-link" href="#main">Skip to content</a>
+    <div className="site-wrap"><div className="site-header-row">
+      <Lockup />
+      <nav aria-label="Main">
+        <a href={links.docs} aria-current={current === 'docs' ? 'page' : undefined}>Docs</a>
+        <a href={links.source}>Source</a>
       </nav>
-    </header>
-  )
+    </div></div>
+  </header>
 }

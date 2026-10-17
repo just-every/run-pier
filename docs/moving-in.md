@@ -1,4 +1,4 @@
-# Moving in
+# Moving in from CSV
 
 Bring your items, bins, customers and suppliers, opening stock and open orders into Pier from CSV files. Pier keeps your original files, shows exactly what each row became, and posts opening stock once, only after you have reviewed it.
 

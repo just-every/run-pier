@@ -102,7 +102,7 @@ async function story(env: Bindings, cast: Cast, team: [string, string, string, s
 
   // Five weeks ago: the opening stock sheet, imported and reviewed stage by stage.
   let batch = await run(35, 'import.stage', {
-    namespace: 'opening-stock', sourceVersion: 'stock-sheet-v3', exportedAt: at(35.1), filters: 'all active lines', cutoffTimezone: 'Australia/Brisbane', currency: 'AUD', mappingRevision: '1',
+    namespace: 'opening-stock', sourceVersion: 'stock-sheet-v3', exportedAt: at(35.1), filters: 'all active lines', cutoffTimezone: 'America/Chicago', currency: 'AUD', mappingRevision: '1',
     files: [{ name: 'items.csv', kind: 'items', csv: csv(items) }, { name: 'locations.csv', kind: 'locations', csv: csv(locations) }, { name: 'parties.csv', kind: 'parties', csv: csv(parties) }, { name: 'positions.csv', kind: 'positions', csv: csv(positions) }],
   })
   for (const stage of ['mapped', 'reconciled', 'shadow', 'frozen'])

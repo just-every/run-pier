@@ -1,21 +1,19 @@
-import { Actions } from './Actions'
-import { Quantity, StockLabel } from './StockLabel'
+import { Actions } from '../shell/Actions'
+import { HeroTags } from './HeroTags'
+import { Painting } from './parts'
 
-/** The hero: the promise, then the sum that makes it: on hand less reserved is what you can promise. */
+/** The painted harbour at sunrise, the promise and the action, with the day's stock work tagged on the scene. */
 export function Hero() {
-  return (
-    <section className="landing-hero" aria-labelledby="hero-title">
-      <h1 id="hero-title">Promise stock you can ship.</h1>
-      <p className="landing-sub">Stock, orders and every movement, together.</p>
-      <p className="landing-proof">100% free, open source alternative to Cin7, Zoho Inventory and Katana.</p>
+  return <section className="hero" aria-labelledby="hero-title">
+    <div className="hero-scene">
+      <Painting className="hero-art" name="hero" widths={[768, 1152, 1536]} sizes="100vw" eager phone={{ name: 'hero-phone', widths: [780, 900], media: '(max-width: 760px)' }} />
+      <HeroTags />
+    </div>
+    <div className="site-wrap hero-copy">
+      <h1 id="hero-title">Know what’s on every shelf.</h1>
+      <p className="hero-sub">Pier tracks stock across your warehouses, runs orders from channel to carrier, reorders before you run out, and keeps the books in step.</p>
+      <p className="hero-alt">100% free, open source alternative to <strong>Cin7</strong>, <strong>inFlow</strong> and <strong>Fishbowl</strong></p>
       <Actions />
-      <div className="hero-sum" role="group" aria-label="120 on hand less 24 reserved leaves 96 available">
-        <StockLabel step={1} title="Stock"><Quantity size="hero" label="On hand (sellable)" value="120" /></StockLabel>
-        <span className="hero-operator" aria-hidden="true">−</span>
-        <StockLabel step={2} title="Sales orders"><Quantity size="hero" label="Reserved" value="24" /></StockLabel>
-        <span className="hero-operator" aria-hidden="true">=</span>
-        <StockLabel step={3} title="Stock" tone="teal"><Quantity size="hero" label="Available" value="96" /></StockLabel>
-      </div>
-    </section>
-  )
+    </div>
+  </section>
 }

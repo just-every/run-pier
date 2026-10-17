@@ -4,7 +4,7 @@ import { Marked } from 'marked'
 // the page title; raw HTML is shown as text; headings get GitHub-style ids so
 // links written for GitHub work on the site; `link` decides where each link goes.
 
-export type RenderedPage = { title: string; html: string; ids: string[]; problems: string[] }
+export type RenderedPage = { title: string; html: string; ids: string[]; toc: { id: string; text: string }[]; problems: string[] }
 
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 const decodeHtml = (value: string) => value.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
@@ -22,7 +22,7 @@ export function githubSlugger() {
 }
 
 export function renderMarkdown(markdown: string, link: (href: string) => string): RenderedPage {
-  const slug = githubSlugger(), ids: string[] = [], problems: string[] = []
+  const slug = githubSlugger(), ids: string[] = [], toc: RenderedPage['toc'] = [], problems: string[] = []
   let title = ''
   const marked = new Marked({
     gfm: true,
@@ -36,10 +36,12 @@ export function renderMarkdown(markdown: string, link: (href: string) => string)
         }
         const id = slug(text)
         ids.push(id)
+        if (depth === 2) toc.push({ id, text })
         return `<h${depth} id="${id}">${this.parser.parseInline(tokens)}</h${depth}>\n`
       },
       code({ text }) {
-        return `<pre><code>${escapeHtml(text.replace(/\n$/, ''))}</code></pre>\n`
+        // A code card; its Copy button stays hidden until the page's script can copy.
+        return `<div class="docs-code"><div class="docs-code-head"><button type="button" class="docs-copy" hidden>Copy</button></div><pre><code>${escapeHtml(text.replace(/\n$/, ''))}</code></pre></div>\n`
       },
       html({ text }) {
         return escapeHtml(text)
@@ -57,5 +59,5 @@ export function renderMarkdown(markdown: string, link: (href: string) => string)
     .replace(/<table>/g, '<div class="docs-table" role="region" tabindex="0" aria-label="Table"><table>')
     .replace(/<\/table>/g, '</table></div>')
   if (!title) problems.push('has no level-1 heading to title the page')
-  return { title, html, ids, problems }
+  return { title, html, ids, toc, problems }
 }

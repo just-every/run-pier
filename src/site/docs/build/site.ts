@@ -15,7 +15,7 @@ export type DocsSite = { sections: DocsSection[]; bodies: Record<string, DocsBod
 
 /** An absolute path on the build machine must never reach a published page. */
 const machinePath = /(?<![\w.@~-])\/(?:Users|home|private|tmp|var|Volumes|root)\/[^\s"'`<\\]*/g
-const docsPath = (slug: string) => (slug ? `/docs/${slug}` : '/docs')
+const docsPath = (slug: string) => `/docs/${slug}`
 
 export function buildDocs(root: string, repository: string): DocsSite {
   const sections = readManifest(root)
@@ -45,6 +45,6 @@ export function buildDocs(root: string, repository: string): DocsSite {
   }))
   for (const anchor of anchors) if (!rendered.get(anchor.slug)!.ids.includes(anchor.id)) problems.push(`${anchor.from}: links to #${anchor.id}, which is not a heading on ${docsPath(anchor.slug)}`)
   if (problems.length) throw new Error(`Docs: ${problems.length} problem(s) in the Markdown:\n- ${problems.join('\n- ')}`)
-  const bodies = Object.fromEntries(pages.map(page => { const { title, html } = rendered.get(page.slug)!; return [page.slug, { title, html }] }))
+  const bodies = Object.fromEntries(pages.map(page => { const { title, html, toc } = rendered.get(page.slug)!; return [page.slug, { title, html, toc }] }))
   return { sections, bodies, files }
 }

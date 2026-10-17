@@ -1,15 +1,12 @@
-import { licence, repository } from '../links'
+import { links } from '../links'
+import { Lockup } from './Lockup'
 
-/** The run site's footer: Pier, Docs, Source and the licence. */
+/** One line: the lockup, then Docs, Source and the licence. */
 export function SiteFooter() {
-  return (
-    <footer className="site-footer">
-      <a className="site-wordmark" href="/">Pier</a>
-      <nav aria-label="Footer">
-        <a href="/docs">Docs</a>
-        <a href={repository}>Source</a>
-        <a href={licence}>MIT licensed</a>
-      </nav>
-    </footer>
-  )
+  return <footer className="site-footer">
+    <div className="site-wrap"><div className="site-footer-row">
+      <Lockup size={30} />
+      <nav aria-label="Footer"><a href={links.docs}>Docs</a><a href={links.source}>Source</a><a href={links.licence}>MIT licensed</a></nav>
+    </div></div>
+  </footer>
 }

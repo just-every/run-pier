@@ -1,13 +1,13 @@
 import type { RunData } from '../base/run-site'
-import { repository } from './links'
+import { links } from './links'
 
-/** Every string and command on the run site's Run page (/run). */
+/** Every string and command on the run site's Run page (/run): Base's two-line Run page. */
 export const run: RunData = {
   name: 'Pier',
-  repository,
+  repository: links.source,
   clone: 'npx -y @runeditrun/rer dev just-every/run-pier',
   folder: 'run-pier',
-  requirements: 'Needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2.',
+  requirements: 'Runs on macOS, Linux or Windows with WSL2, with git. The installer brings Node when it is missing, and rer brings pnpm.',
   licence: 'MIT',
   docs: true,
   hosted: [],

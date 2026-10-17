@@ -11,17 +11,19 @@ function instant(value: unknown) {
   if (Number.isNaN(date.getTime())) throw new Error('Invalid saved time in records')
   return date
 }
-/** A saved instant in this browser's timezone: "14 Oct 2026, 04:00". */
-export const when = (value: unknown) => { const date = instant(value); return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}, ${pad(date.getHours())}:${pad(date.getMinutes())}` }
-/** A calendar date ("2026-10-16") or the day of an instant: "16 Oct 2026". */
+/** A clock time the US way: 4:05 AM. */
+const clock = (date: Date) => `${date.getHours() % 12 || 12}:${pad(date.getMinutes())} ${date.getHours() < 12 ? 'AM' : 'PM'}`
+/** A saved instant in this browser's timezone: "Oct 14, 2026, 4:00 AM". */
+export const when = (value: unknown) => { const date = instant(value); return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}, ${clock(date)}` }
+/** A calendar date ("2026-10-16") or the day of an instant: "Oct 16, 2026". */
 export function day(value: unknown) {
   const calendar = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value))
-  if (calendar) return `${Number(calendar[3])} ${months[Number(calendar[2]) - 1]} ${calendar[1]}`
+  if (calendar) return `${months[Number(calendar[2]) - 1]} ${Number(calendar[3])}, ${calendar[1]}`
   const date = instant(value)
-  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`
+  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`
 }
 
-/** An exact AUD decimal shown to the cent, rounded half away from zero: "108.000000" reads "108.00". */
+/** An exact USD decimal shown to the cent, rounded half away from zero: "108.000000" reads "108.00". */
 export function money(value: unknown) {
   const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(String(value))
   if (!match) throw new Error('Invalid saved amount in records')
@@ -32,7 +34,7 @@ export function money(value: unknown) {
 }
 
 const labels: Record<string, string> = {
-  review: 'In review', transit: 'In transit', bin: 'Warehouse bin', shadow: 'Shadow checked', inactive: 'Inactive',
+  review: 'In review', cancelled: 'Canceled', transit: 'In transit', bin: 'Warehouse bin', shadow: 'Shadow checked', inactive: 'Inactive',
   reallocation: 'Shortage reallocation', 'count-drift': 'Count drift correction', migration: 'Migration mapping and reconciliation',
 }
 /** A saved state or kind in words: committed reads "Committed", review "In review". */

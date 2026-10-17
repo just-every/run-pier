@@ -1,7 +1,6 @@
-// The run site's styles: Pier's shared tokens, the page frame, the stock-label
-// drawings, the homepage and the docs.
-import '../../style/tokens.css'
+// The run site's styles: the frame, the homepage and its drawn cards, and the docs.
+// The tokens they read are in public/site/theme.css, which every page links.
 import './site.css'
-import './label.css'
 import './landing.css'
+import './cards.css'
 import './docs.css'

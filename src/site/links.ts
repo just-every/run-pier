@@ -1,5 +1,16 @@
+// Where the run site's links go. The source repository is package.json's; the run
+// site never links an instance-only route (/signin, /setup, /app).
 import pkg from '../../package.json'
 
-// Where the run site's links go: the public source repository is package.json's.
-export const repository: string = pkg.repository
-export const licence = `${repository}/blob/main/LICENSE`
+const repository: string = pkg.repository
+
+export const links = {
+  home: '/',
+  run: '/run',
+  docs: '/docs',
+  source: repository,
+  licence: `${repository}/blob/main/LICENSE`,
+  // The hosted demo (DEMO.md): a throwaway Pier filled through its own commands.
+  demo: 'https://demo.run-pier.com/',
+}
+export const docsPath = (slug: string) => `/docs/${slug}`

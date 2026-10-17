@@ -4,12 +4,12 @@ import { join } from 'node:path'
 import type { DocsSection } from '../types.ts'
 
 // docs/site.json lists the published pages in reading order, grouped in sections.
-// Each page names its slug ('' is /docs itself), its navigation label, its
+// Each page names its slug (served at /docs/<slug>; /docs lists them all), its navigation label, its
 // Markdown file (relative to the repository root, so README.md and the contract
 // files publish as they are) and a one-sentence summary for the page's description.
 
 export const manifestPath = 'docs/site.json'
-const slugPattern = /^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/
+const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
 export function readManifest(root: string): DocsSection[] {
@@ -39,7 +39,6 @@ export function readManifest(root: string): DocsSection[] {
       }),
     }
   })
-  if (!slugs.has('')) problems.push('no page has the empty slug, so /docs would have no page')
   if (problems.length) throw new Error(`${manifestPath} is invalid:\n- ${problems.join('\n- ')}`)
   return sections
 }

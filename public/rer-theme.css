@@ -2,8 +2,15 @@
    the Lobby read these --rer-* tokens, and the app and
    run site map them onto Pier's own tokens in src/style/tokens.css. Warm paper,
    dark ink and one quiet teal. Body text is the system Arial stack; headings
-   are Geist (SIL Open Font License 1.1), self-hosted from /fonts/geist, so no
-   page asks another site for a font. */
+   are Geist and the "Pier" wordmark is Pier Display (both SIL Open Font License
+   1.1, public/fonts/README.md), self-hosted, so no page asks another site for a font. */
+@font-face {
+  font-family: 'Pier Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/pier-display/pier-display-latin-400-normal.woff2') format('woff2');
+}
 @font-face {
   font-family: Geist;
   font-style: normal;
@@ -33,7 +40,9 @@
   --rer-accent: #202825;
   --rer-accent-text: #fffdf8;
   --rer-radius: 6px;
+  --rer-logo: url('/brand/mark.svg');
 }
 
-/* Pier's mark is its wordmark: the Lobby and the Run page show the name alone. */
-.lockup .mark, .bar .brand img { display: none; }
+/* The lockup: the boat mark beside "Pier" in Pier Display, on the Lobby, sign-in and setup. */
+.lockup .word, .bar .brand span, .rer-brand, .rer-themed .brand { font-family: 'Pier Display', Impact, sans-serif; font-weight: 400; letter-spacing: .005em; }
+.rer-brand, .rer-themed .brand { font-size: 28px; }

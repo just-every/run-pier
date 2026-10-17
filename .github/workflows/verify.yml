@@ -1,8 +1,8 @@
 name: Verify
 on:
   push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
 jobs:
   verify:
     runs-on: ubuntu-latest

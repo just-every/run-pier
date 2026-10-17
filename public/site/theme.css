@@ -1,0 +1,74 @@
+/* The run site's tokens, defined once: the homepage, the docs, /run and the 404
+   link this file (Base's Run and not-found pages read its --rer-* tokens).
+   Pier's look (design desk, 16 Oct 2026): near-white harbour paper, the mark's
+   navy as ink, its cobalt as the accent, its yellow, orange and wave blue in the
+   drawings; Pier Display headings over Inter body text. */
+:root {
+  --rer-font-body: 'Inter', Arial, Helvetica, sans-serif;
+  --rer-font-heading: 'Pier Display', 'Arial Narrow', Impact, sans-serif;
+  --rer-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --rer-page: #f9f8f4;
+  --rer-surface: #ffffff;
+  --rer-text: #0b1020;
+  --rer-muted: #505667;
+  --rer-border: #8a90a0;
+  --rer-focus: #1c50dc;
+  --rer-link: #0b1020;
+  --rer-accent: #0b1020;
+  --rer-accent-text: #ffffff;
+  --rer-code-background: #12151c;
+  --rer-code-text: #e8eaf0;
+  --rer-wordmark-weight: 400;
+  --rer-wordmark-tracking: 0;
+  --rer-logo: url('/brand/mark.svg');
+
+  --paper: var(--rer-page);
+  --surface: var(--rer-surface);
+  --ink: var(--rer-text);
+  --body: #3d4354;
+  --soft: #6b7182;
+  --faint: #9ca1ae;
+  --line: #e8e7e2;
+  --row: #efeeea;
+  --cobalt: #1c50dc;
+  --cobalt-ink: #1746c9;
+  --cobalt-tint: #e8eefc;
+  --navy: #050f21;
+  --yellow: #fac018;
+  --yellow-ink: #b98200;
+  --yellow-tint: #fdf3d3;
+  --orange: #f1552a;
+  --red: #e0362b;
+  --red-ink: #d0301f;
+  --red-tint: #fdebe5;
+  --green: #22a052;
+  --green-ink: #19813f;
+  --green-tint: #e3f5e9;
+  --violet: #7e57e0;
+  --amber: #f39c12;
+  --terminal: #12151c;
+  --terminal-bar: #1b1f28;
+
+  --font-head: var(--rer-font-heading);
+  --font-body: var(--rer-font-body);
+  --font-mono: var(--rer-font-mono);
+
+  --radius-card: 16px;
+  --shadow-card: 0 1px 2px rgba(11, 16, 32, .04), 0 18px 44px -24px rgba(11, 16, 32, .28);
+  --shadow-float: 0 2px 6px rgba(11, 16, 32, .08), 0 22px 44px -18px rgba(11, 16, 32, .34);
+  --wrap: 1324px;
+  --wrap-feature: 1240px;
+  --gutter: clamp(16px, 4vw, 58px);
+}
+
+/* Base's Run page (/run) and not-found page, in the same look: the display face
+   for headings, white step cards on the paper, navy numerals and code cards. */
+body:has(> main > .intro) h1, body:has(> main > .hero) h1 { font-weight: 400; letter-spacing: -.005em; line-height: 1; }
+body:has(> main > .intro) .step { border-radius: 18px; border-color: var(--line); background: var(--surface); box-shadow: var(--shadow-card); }
+body:has(> main > .intro) .num { background: var(--ink); color: #fff; font-weight: 700; }
+body:has(> main > .intro) .step h2 { font-family: var(--font-body); font-weight: 700; letter-spacing: -.02em; }
+body:has(> main > .intro) .code { background: var(--terminal); }
+body:has(> main) .brand span { font-family: var(--font-head); font-weight: 400; letter-spacing: 0; }
+body:has(> main > .intro), body:has(> main > .hero) {
+  background: radial-gradient(50% 45% at 92% 4%, rgba(241, 85, 42, .07), transparent 70%), radial-gradient(46% 40% at 2% 30%, rgba(28, 80, 220, .06), transparent 70%), var(--paper);
+}
