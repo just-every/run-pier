@@ -13,7 +13,7 @@ rer export --output exports/pier.rer
 
 Keep the archive somewhere safe and private; it holds your business records. It does not contain passwords, sign-in sessions, tokens or private settings.
 
-Note which Pier release made the archive: the commit you are running (`git rev-parse HEAD`). An archive restores with the same Pier release that made it, so restore into a checkout of that commit.
+An archive restores with the same Pier release that made it. Restore it into the same Pier folder, or into a copy of Pier at the same version; if you update Pier in between, restore first and update after.
 
 ## Restore it
 

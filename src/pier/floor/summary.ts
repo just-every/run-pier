@@ -20,7 +20,8 @@ function notShipped(s: State, o: Row) {
   const lines = inWaves.flatMap((w) => w.lines.filter((l: any) => l.orderId === o.id));
   const reserved = (lineId: string) => s.reservations.filter((r) => r.orderLineId === lineId).reduce((n, r) => n + BigInt(r.quantity), 0n);
   const backorder = o.lines.some((l: any) => decimal(l.quantity) - decimal(l.dispatched) - decimal(l.cancelled) - reserved(l.id) > 0n);
-  if (backorder || lines.some((l: any) => l.short && l.short.unfilled !== "0")) return "short";
+  if (lines.some((l: any) => l.short && l.short.unfilled !== "0")) return "short at the bin";
+  if (backorder) return "backordered";
   if (!lines.length || lines.some((l: any) => l.status === "open")) return "unpicked";
   const pack = s.packs.filter((p) => p.orderId === o.id).at(-1);
   if (!pack || pack.status === "packing") return "unpacked";

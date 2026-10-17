@@ -217,7 +217,7 @@ try {
     exportedAt: "2026-10-13T00:00:00Z",
     filters: "all",
     cutoffTimezone: "Australia/Brisbane",
-    currency: "AUD",
+    currency: "USD",
     mappingRevision: "1",
     files: [
       {

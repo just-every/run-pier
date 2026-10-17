@@ -166,7 +166,7 @@ export function nativeExport(s: State) {
     filters:
       "current positions and remaining documents; receipt-cost history in business export; transit requires completed transfer before cutover",
     cutoffTimezone: "Australia/Brisbane",
-    currency: "AUD",
+    currency: "USD",
     mappingRevision: "1",
     files,
     transit: positions(s).filter(

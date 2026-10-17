@@ -13,6 +13,7 @@ import { catalogue } from "./catalogue";
 import { orders, reserve } from "./orders";
 import { purchasing } from "./purchasing";
 import { applyReservationImport } from "./native-reservations";
+import { inUsd, usdRate } from "./import-currency";
 const kinds = [
   "items",
   "locations",
@@ -35,6 +36,13 @@ export function materialHash(c: Context) {
     movements: c.s.movements,
     reservations: c.s.reservations,
   });
+}
+/** A purchase line's USD price; a non-USD source keeps its amount, currency and rate. */
+function linePrice(b: Row, p: any) {
+  const rate = usdRate(b, p.currency);
+  if (rate === null) return fail("CONVERSION_RATE", `Enter the reviewed USD rate for ${p.currency} before committing.`);
+  const price = inUsd(format(decimal(p.price)), rate);
+  return p.currency && p.currency !== "USD" ? { price, source: { price: format(decimal(p.price)), currency: p.currency, usdRate: format(rate) } } : { price };
 }
 export function applyImport(c: Context, b: Row) {
   const before = structuredClone(c.s),
@@ -156,6 +164,7 @@ export function applyImport(c: Context, b: Row) {
           locationId,
           quantity: p.quantity,
           cost: format(decimal(p.cost)),
+          ...(p.currency ? { currency: p.currency } : {}),
         });
       } else {
         const documentKey = r.kind === "orders" ? p.orderKey : p.poKey;
@@ -254,7 +263,7 @@ export function applyImport(c: Context, b: Row) {
           ...(group.kind === "orders"
             ? { dispatched: "0", cancelled: "0" }
             : {
-                price: format(decimal(x.p.price)),
+                ...linePrice(b, x.p),
                 received: "0",
                 terms: null,
               }),
@@ -291,7 +300,7 @@ export function applyImport(c: Context, b: Row) {
       const lines = group.rows.map((x: any) => ({
         itemId: x.itemId,
         quantity: x.p.quantity,
-        price: x.p.price,
+        ...(group.kind === "orders" ? { price: x.p.price } : linePrice(b, x.p)),
       }));
       if (group.kind === "orders")
         result = orders(c, "order.create", {
@@ -315,9 +324,10 @@ export function applyImport(c: Context, b: Row) {
         };
       }
       created.push({ kind: group.kind, id: result.id });
-      group.rows.forEach(
-        (x: any, n: number) => (x.lineId = result.lines[n].id),
-      );
+      group.rows.forEach((x: any, n: number) => {
+        x.lineId = result.lines[n].id;
+        if ((lines[n] as any).source) result.lines[n].source = (lines[n] as any).source;
+      });
     }
     for (const x of group.rows) {
       links[x.r.kind + ":" + x.r.sourceId] = result.id;

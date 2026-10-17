@@ -107,6 +107,8 @@ export function incumbentSource(p: any) {
         if (!('unit' in payload) && item) payload.unit = item.unit;
         if (kind === 'positions' && !('cost' in payload) && item?.openingCost !== undefined) payload.cost = item.openingCost;
       }
+      // Name the field and its source column instead of a bare number-format refusal.
+      if (kind === 'positions' && (items.has(payload.itemKey) || 'cost' in row.payload) && !/^\d{1,10}(\.\d{1,6})?$/.test(payload.cost ?? '')) fail('COST', payload.cost?.trim() ? `Unit cost “${payload.cost}” for ${payload.itemKey} is not a plain number with at most 6 decimal places.` : `${payload.itemKey} has no unit cost. Map the cost column: Unit Cost on the stock file, or the product file's average cost (AverageCost in Cin7 Core).`);
       if (kind === 'positions' && !('key' in payload)) payload.key = JSON.stringify([payload.itemKey, payload.locationKey, payload.status]);
       text(payload.key, 'Stable source key');
       const identity = `${kind}:${payload.key}`;

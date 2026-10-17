@@ -4,11 +4,11 @@ Pier connects to two apps from the same family: **Stall**, an online shop that s
 
 ## Start them
 
-In a folder of your choice (not inside Pier's folder), run each line once:
+In a folder of your choice (not inside Pier's folder), run each line once. `rer` is the command the installer on [run-pier.com/run](https://run-pier.com/run) put on your computer; without it, put `npx -y @runeditrun/rer` in place of `rer`.
 
 ```sh
-npx -y @runeditrun/rer dev just-every/run-pantry
-npx -y @runeditrun/rer dev just-every/run-stall
+rer dev just-every/run-pantry
+rer dev just-every/run-stall
 ```
 
 Each command clones the app into its own folder, sets up a local owner, starts it and prints a sign-in link with its address, for example `http://127.0.0.1:8790`. Open the link and finish that app's setup. `rer list` in the parent folder shows each app and the address it is running on.
@@ -18,7 +18,7 @@ The address in the browser tab is the one you give the other app: copy it up to 
 ## Connect them
 
 - **Pantry**: create a credential for Pier in Pantry, then connect from Pier's **Books → Books settings**. Step by step: [Books and Pantry](books.md).
-- **Stall**: create an agent credential in Stall for Pier, then create Stall's key in Pier and put it in Stall's settings. Step by step: [Sales channels](channels.md#stall).
+- **Stall**: create an agent credential in Stall for Pier, then create Stall's key in Pier and paste it into Stall's **Settings → Provider connections → Connect Pier**. Step by step: [Sales channels](channels.md#stall).
 
 ## Stop and start again
 

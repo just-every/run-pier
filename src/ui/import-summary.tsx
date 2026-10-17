@@ -20,7 +20,7 @@ export function ImportSummary({ state, batch }: { state: PierState; batch: Recor
     <h4>Expected receipts</h4>
     {expected.length ? <Table numeric={[3]} headings={['Purchase order', 'Supplier', 'Item', 'Expected']}>{expected.map(({ po, line, open }: any) => <tr key={line.id}><td>{reference(po)}</td><td>{name(po.supplierId)}</td><td>{name(line.itemId)}</td><td>{open} {each(line.itemId)}</td></tr>)}</Table> : <Empty>No expected receipts.</Empty>}
     <h4>Opening cost evidence</h4>
-    {result.costEvidence?.length ? <Table numeric={[2, 3]} headings={['Source row', 'Item / bin', 'Quantity', `Unit cost ${batch.currency}`]}>{result.costEvidence.map((row: any) => <tr key={row.sourceKey}><td>{row.sourceKey}</td><td>{name(row.itemId)}<small>{name(row.locationId)}</small></td><td>{row.quantity} {each(row.itemId)}</td><td>{money(row.cost)}</td></tr>)}</Table> : <Empty>No opening costs in this batch.</Empty>}
+    {result.costEvidence?.length ? <Table numeric={[2, 3]} headings={['Source row', 'Item / bin', 'Quantity', 'Unit cost']}>{result.costEvidence.map((row: any) => <tr key={row.sourceKey}><td>{row.sourceKey}</td><td>{name(row.itemId)}<small>{name(row.locationId)}</small></td><td>{row.quantity} {each(row.itemId)}</td><td>{money(row.cost)} {row.currency ?? batch.currency}{(row.currency ?? batch.currency) !== 'USD' && batch.conversionRates?.[row.currency ?? batch.currency] && <small>at {batch.conversionRates[row.currency ?? batch.currency].rate} USD each</small>}</td></tr>)}</Table> : <Empty>No opening costs in this batch.</Empty>}
   </>
 }
 

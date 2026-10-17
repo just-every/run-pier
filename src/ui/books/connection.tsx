@@ -19,8 +19,8 @@ const guess = (rows: PantryAccount[], words: RegExp, saved?: string) => saved &&
 
 export function PantryIntro() {
   return <section className="panel"><h2>What Pantry is</h2>
-    <p>Pantry is the bookkeeping app from the same family as Pier: invoices, bills, payments and reports, on your own computer or your own Cloudflare account. Pier sends it a bill for each supplier invoice you approve, an invoice and cost of goods for each shipment, and credits for returns, then reads back what was paid.</p>
-    <p><strong>No Pantry yet?</strong> Start one on this computer with <code>npx -y @runeditrun/rer dev just-every/run-pantry</code>, or follow the steps on <a href="https://run-pantry.com/run" target="_blank" rel="noreferrer">run-pantry.com/run</a>. Open the link it prints, finish Pantry's setup, and choose its chart of accounts.</p>
+    <p>Pantry is the bookkeeping app from the same family as Pier: invoices, bills, payments and reports, on your own computer or your own Cloudflare account. Pier sends it a bill for each supplier invoice you approve, the freight and duty it adds to received stock, an invoice and cost of goods for each shipment, and credits for returns, then reads back what was paid.</p>
+    <p><strong>No Pantry yet?</strong> Start one on this computer with <code>rer dev just-every/run-pantry</code> (the <code>rer</code> command from <a href="https://run-pier.com/run" target="_blank" rel="noreferrer">run-pier.com/run</a>), or follow the steps on <a href="https://run-pantry.com/run" target="_blank" rel="noreferrer">run-pantry.com/run</a>. Open the link it prints, finish Pantry's setup, and choose its chart of accounts.</p>
     <p className="muted">Step-by-step guide: <a href="https://run-pier.com/docs/books" target="_blank" rel="noreferrer">Books and Pantry</a>.</p>
   </section>
 }
@@ -43,7 +43,7 @@ export function BookConnectionForm({ run, busy, connection, close }: BooksProps 
     const ok = await run('book.connect', {
       baseUrl: baseUrl.trim(), integrationToken: token.trim(),
       inventoryAccountId: text(data, 'inventoryAccountId'), cogsAccountId: text(data, 'cogsAccountId'),
-      revenueAccountId: text(data, 'revenueAccountId'), writeOffAccountId: text(data, 'writeOffAccountId'),
+      revenueAccountId: text(data, 'revenueAccountId'), writeOffAccountId: text(data, 'writeOffAccountId'), landedCostAccountId: text(data, 'landedCostAccountId'),
       taxCode: text(data, 'taxCode'),
     })
     if (ok) { setToken(''); close() }
@@ -75,6 +75,7 @@ export function BookConnectionForm({ run, busy, connection, close }: BooksProps 
         <label className="field"><span>Cost of goods sold</span><select aria-label="Cost of goods sold account" name="cogsAccountId" required defaultValue={guess(expenses, /cost of goods|cogs/i, connection?.cogsAccountId)}><option value="">Choose an expense account</option>{expenses.map(option)}</select><small>The expense account for the cost of what you ship.</small></label>
         <label className="field"><span>Sales</span><select aria-label="Sales account" name="revenueAccountId" required defaultValue={guess(income, /product|sales/i, connection?.revenueAccountId)}><option value="">Choose an income account</option>{income.map(option)}</select><small>The income account for what customers pay for goods.</small></label>
         <label className="field"><span>Damaged stock (optional)</span><select aria-label="Damaged stock account" name="writeOffAccountId" defaultValue={guess(expenses, /damage|write.?off|shrink/i, connection?.writeOffAccountId ?? undefined)}><option value="">Not yet: damaged returns wait for this</option>{expenses.map(option)}</select><small>The expense account for damaged returns you write off.</small></label>
+        <label className="field"><span>Freight and duty (needed once a receipt carries them)</span><select aria-label="Freight and duty account" name="landedCostAccountId" defaultValue={guess(expenses, /freight|duty|customs|shipping|postage/i, connection?.landedCostAccountId ?? undefined)}><option value="">Not yet: receipts with freight or duty wait for this</option>{expenses.map(option)}</select><small>The expense account you enter carrier and customs bills against in Pantry. Pier moves the freight and duty it spreads over received stock from there into Inventory.</small></label>
         <label className="field"><span>Sales tax on invoices</span><select aria-label="Tax treatment for exported invoices" name="taxCode" required defaultValue={connection ? 'exempt' : ''}><option value="">Choose tax treatment</option><option value="exempt">All invoices Pier sends are tax-exempt (wholesale)</option></select><small>Pier does not yet send taxable invoices to Pantry. Choose this only for tax-exempt wholesale sales.</small></label>
       </div><div className="form-actions"><button className="primary" type="submit" disabled={busy || inventory.length === 0 || expenses.length === 0 || income.length === 0}>{busy ? 'Saving…' : connection ? 'Save and reconnect' : 'Connect Pantry'}</button></div></form>
     </section>}

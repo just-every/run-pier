@@ -17,7 +17,7 @@ export function BookReview({ state, run, busy }: BooksProps) {
         <td><a href={sourceLink(state, job)}>{job.reference}</a><small>{words(job.kind)}</small></td>
         <td><Badge>{job.status === 'uncertain' ? 'Outcome unknown' : 'In review'}</Badge></td>
         <td>{job.reason || (job.status === 'uncertain' ? 'Pantry has not confirmed whether this document posted.' : 'This document is blocked. Review its source before retrying.')}</td>
-        <td>{job.fix || (job.status === 'uncertain' ? 'Check Pantry for the existing document before any further posting.' : 'Correct the source or account mapping, then retry.')} {job.status === 'uncertain' && <small>Checking looks for a remote posting. It does not create another document.</small>}</td>
+        <td>{job.fix || (job.status === 'uncertain' ? 'Choose Check Pantry. Pier looks for the posting first and, if Pantry has none, re-sends the same request, which Pantry never records twice.' : 'Correct the source or account mapping, then retry.')}</td>
         <td>{owner ? <div className="actions"><button disabled={busy} onClick={() => void run('book.retry', { jobId: job.id, version: job.version })}>{job.status === 'uncertain' ? 'Check Pantry' : 'Retry'}</button>{canSkip(job) && <button disabled={busy} onClick={() => setResolvingId(job.id)}>Skip…</button>}</div> : 'Owner action required'}</td>
       </tr>)}
     </Table>}

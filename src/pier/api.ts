@@ -14,6 +14,7 @@ import {
 import { load, saved, commit, authority, activeAutomationActors } from "./storage";
 import { channelWebhook } from './channels/webhook';
 import { shipping, unavailable as shippingUnavailable } from './shipping/commands';
+import { business } from './business';
 import { performShipping } from './shipping/transport';
 import { shippingWebhook } from './shipping/webhook';
 import { labelUrl } from './shipping/easypost';
@@ -144,6 +145,7 @@ export async function execute(
     await approver(env, c, type, payload);
     let result: any = supplierBills(c, type, payload);
     if (result === undefined) result = await shipping(c, type, payload, env);
+    if (result === undefined) result = business(c, type, payload);
     if (result === undefined) result = await edi(c, type, payload, env);
     if (result === undefined) result = await books(c, type, payload, env);
     if (result === undefined) result = await itemAgent(c, type, payload, env);

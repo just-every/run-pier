@@ -1,5 +1,5 @@
 import { decimal, type Row, type State } from './model';
-import { money } from './money';
+import { money, share } from './money';
 import { takeLayers, valuationLedger } from './valuation-ledger';
 
 /** Reverse the dispatched line's actual USD cost, preserving cumulative
@@ -18,5 +18,5 @@ export function returnCost(s: State, returned: Row, end: string): string | null 
   if (cost.some(l => l.value === null)) return null;
   const before = s.returns.slice(0, s.returns.findIndex(r => r.id === returned.id)).filter(r => r.shipmentLineId === line.id).reduce((n, r) => n + decimal(r.quantity), 0n);
   const total = cost.reduce((n, l) => n + l.value!, 0n), shipped = decimal(line.quantity);
-  return money(total * (before + decimal(returned.quantity)) / shipped - total * before / shipped);
+  return money(share(total, before + decimal(returned.quantity), shipped) - share(total, before, shipped));
 }
