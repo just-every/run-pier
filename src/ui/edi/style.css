@@ -1,0 +1,10 @@
+.edi-source { grid-column: 1 / -1; }
+.edi-source textarea { width: 100%; min-height: 11rem; font: 12px/1.6 monospace; padding: 12px; color: var(--ink); background: var(--paper, #fff); border: 1px solid var(--line, #d8dcd6); border-radius: 6px; resize: vertical; }
+.edi-x12 { max-width: 100%; overflow: auto; padding: 16px; font: 12px/1.6 monospace; background: #f5f5f0; }
+.edi-barcode { display: block; width: min(100%, 560px); height: auto; margin: 16px 0; }
+.edi-line { border: 1px solid #d8dcd6; padding: 16px; min-width: 0; }
+[data-view="edi"] summary { cursor: pointer; font-weight: 600; }
+[data-view="edi"] .record { overflow-wrap: anywhere; }
+
+@media (min-width: 760px) { .edi-line { display: grid; grid-template-columns: 1fr 140px 2fr; gap: 16px; } }
+[data-view="edi"] th:first-child { min-width: 4rem; }

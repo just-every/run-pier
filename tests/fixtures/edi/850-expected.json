@@ -1,0 +1,85 @@
+{
+  "senderId": "RETAILER",
+  "receiverId": "PIER",
+  "interchangeControl": "000000101",
+  "groupControl": "101",
+  "transactionControl": "0101",
+  "unmappedSegments": [],
+  "poNumber": "PO-SYN-101",
+  "poDate": "2026-10-17",
+  "purposeCode": "00",
+  "orderType": "NE",
+  "arrivalDate": "2026-10-23",
+  "shipTo": {
+    "name": "Synthetic Target DC 0593",
+    "qualifier": "92",
+    "code": "0593",
+    "address1": "100 TEST AVENUE",
+    "city": "PORTLAND",
+    "state": "OR",
+    "postalCode": "97201",
+    "country": "US"
+  },
+  "lines": [
+    {
+      "lineNumber": "1",
+      "quantity": "4",
+      "unit": "EA",
+      "unitPrice": "2.50",
+      "identifiers": [
+        {
+          "qualifier": "BP",
+          "value": "MUG-BLUE"
+        },
+        {
+          "qualifier": "UP",
+          "value": "036000291452"
+        },
+        {
+          "qualifier": "VN",
+          "value": "SUP-MUG"
+        }
+      ]
+    },
+    {
+      "lineNumber": "2",
+      "quantity": "3",
+      "unit": "EA",
+      "unitPrice": "1.00",
+      "identifiers": [
+        {
+          "qualifier": "BP",
+          "value": "TOWEL"
+        },
+        {
+          "qualifier": "UP",
+          "value": "4006381333931"
+        },
+        {
+          "qualifier": "VN",
+          "value": "SUP-TOWEL"
+        }
+      ]
+    },
+    {
+      "lineNumber": "3",
+      "quantity": "1",
+      "unit": "EA",
+      "unitPrice": "5.00",
+      "identifiers": [
+        {
+          "qualifier": "BP",
+          "value": "UNKNOWN"
+        },
+        {
+          "qualifier": "UP",
+          "value": "012345678905"
+        },
+        {
+          "qualifier": "ZZ",
+          "value": "UNMAPPED-ITEM"
+        }
+      ]
+    }
+  ]
+}

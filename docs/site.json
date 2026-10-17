@@ -73,6 +73,12 @@
           "label": "Item checks and AI setup",
           "file": "docs/item-agent.md",
           "summary": "Check an item against saved stock, demand, receipts and sell-through, then review exact changes."
+        },
+        {
+          "slug": "edi",
+          "label": "Retail EDI",
+          "file": "docs/edi.md",
+          "summary": "Receive retailer purchase orders, review acknowledgments, prepare carton ASNs and invoices, and print SSCC labels."
         }
       ]
     },

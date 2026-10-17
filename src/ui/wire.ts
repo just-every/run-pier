@@ -2,7 +2,7 @@ import type { PierState } from './api'
 
 type CommandReply = { ok: true; result: unknown; version: number } | { ok: false; error: { code: string; message: string; details?: unknown } }
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
-const collections = ['items', 'locations', 'parties', 'supplierItems', 'orders', 'purchaseOrders', 'receipts', 'transfers', 'shipments', 'returns', 'counts', 'proposals', 'imports', 'roles', 'receivings', 'carriers', 'waves', 'packs', 'dispatchDays', 'movements', 'reservations', 'commands', 'operators', 'people', 'priceLists', 'costingMethods', 'aiSettings']
+const collections = ['items', 'locations', 'parties', 'supplierItems', 'orders', 'purchaseOrders', 'receipts', 'transfers', 'shipments', 'returns', 'counts', 'proposals', 'imports', 'roles', 'receivings', 'carriers', 'waves', 'packs', 'dispatchDays', 'movements', 'reservations', 'commands', 'operators', 'people', 'priceLists', 'costingMethods', 'aiSettings', 'ediPartners', 'ediMappings', 'ediOrders', 'ediDocuments', 'ediLabelEvents']
 
 export function readState(value: unknown): PierState {
   const actor = object(value) ? value.actor : null

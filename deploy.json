@@ -39,6 +39,16 @@
     {
       "binding": "MAIL_FROM",
       "environment": "MAIL_FROM"
+    },
+    {
+      "binding": "EDI_BRIDGE_URL",
+      "environment": "EDI_BRIDGE_URL",
+      "optional": true
+    },
+    {
+      "binding": "EDI_BRIDGE_TOKEN",
+      "environment": "EDI_BRIDGE_TOKEN",
+      "optional": true
     }
   ],
   "platforms": [

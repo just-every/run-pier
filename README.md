@@ -10,7 +10,7 @@ Pier is an MIT-licensed stock and wholesale-order seed for small finished-goods 
 
 The public source repository is [just-every/run-pier](https://github.com/just-every/run-pier).
 
-Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.38 package.
+Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.45 package.
 
 One line, the same as [run-pier.com/run](https://run-pier.com/run). It installs `rer`, gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
 

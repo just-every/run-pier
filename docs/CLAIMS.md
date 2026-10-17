@@ -15,12 +15,14 @@ Updated 17 October 2026 for channels (rows 2, 19–22 and 46): live Stall/WooCom
 
 Updated 17 October 2026 for books (rows 4, 35, 36 and 41): real Pantry financial HTTP/D1 flow, one queue and accountant exports; QBO/Xero remain fixture-only and the Pantry catalogue/scoped-token boundaries remain explicit. The second books round adds three-way supplier invoice matching, standalone settings, final-receipt readiness evidence on the existing payable and supplier payment closure. Rows 4, 35 and 41 remain partly because scoped Pantry financial credentials/native readiness and real QBO/Xero account acceptance remain external boundaries.
 
+Updated 17 October 2026 for EDI (rows 7, 23–25): the X12 core flow and SSCC labels are implemented with synthetic network-edge fixtures; retailer transport/certification and physical printer acceptance remain pending. [Retail EDI](edi.md) names the owner setup and Managed egress boundary.
+
 ## Totals
 
 | Status | Claims |
 |---|---|
-| backed | 39 |
-| partly | 12 |
+| backed | 42 |
+| partly | 13 |
 | contract, not yet in code | 4 |
 | **all claims** | **55** |
 
@@ -34,7 +36,7 @@ Updated 17 October 2026 for books (rows 4, 35, 36 and 41): real Pantry financial
 | 4 | "and keeps the books in step" | partly | Pantry matched supplier-invoice payables, shipment invoices/COGS, payment readback and inventory balance reconciliation: `src/pier/books/`, `tests/api/books.test.mjs`. Buyer-reviewed supplier invoices now match PO/receipt quantities and prices with explicit tolerances and hold/approve; payments close the payable. Standalone Books settings uses Pantry’s supported seven-day owner session: scoped financial credentials/refresh remain unavailable; QBO/Xero await owner apps. |
 | 5 | "100% free, open source alternative to Cin7, inFlow and Fishbowl" | backed | MIT licence: `LICENSE`, `package.json` `license`. (Feature parity with those products is the contract; the free/open-source claim is true today) |
 | 6 | Tag "PO-1048 · 480 of 500 received · 20 short" | backed | Partial receipts into bins, the rest stays expected: `receipt.create` `src/pier/purchasing.ts:121` |
-| 7 | Tag "EDI 856 sent · Target DC 0593" | contract, not yet in code | No EDI; CONTRACT.md EDI clause (SPS Commerce/Orderful) |
+| 7 | Tag "EDI 856 sent · Target DC 0593" | partly | X12 856 generation from closed packs, retained SSCC cartons and bridge send records: `src/pier/edi/`, `tests/api/edi.test.mjs`. No live retailer transport or Target certification; the DC 0593 fixture is synthetic. |
 | 8 | Tag "Count mismatch · A-14 · recounted" | backed | Counts capture a bin's movement frontier, show drift and ask for a recount when stock moved: `count.capture/count.record/count.recount` `src/pier/warehouse.ts:119-147`, `src/ui/stock.tsx:18-19` |
 | 9 | Tag "Picked 38 orders · 6:40 am" | backed | A pick wave records each line's picker and time and reads "Picked N orders · time" when its last line is picked: `wave.release`, `pick.scan` `src/pier/floor/waves.ts`, Floor → Pick `src/ui/floor/pick.tsx`. The count of 38 is a story figure |
 | 10 | Tag "Bin A-14 · 212 units" | backed | Stock by bin: `src/ui/stock.tsx:24-25` |
@@ -65,9 +67,9 @@ Updated 17 October 2026 for books (rows 4, 35, 36 and 41): real Pantry financial
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 23 | "Take EDI purchase orders from Target, Walmart and Home Depot" | contract, not yet in code | CONTRACT.md EDI clause |
-| 24 | "send the acknowledgment, ship notice and invoice on time" (855/856/810 card) | contract, not yet in code | No EDI documents or invoices; priced sales orders are covered by claim 54 |
-| 25 | "Carton 7 label reprinted · GS1-128" | contract, not yet in code | No carton labels |
+| 23 | "Take EDI purchase orders from Target, Walmart and Home Depot" | partly | 850 intake with BP/UPC and exact unit mapping, named unresolved lines, fixed-warehouse sales orders and 997: `src/pier/edi/intake.ts`, `src/ui/edi/`. Actual Target/Walmart/Home Depot guides, network account and certification remain pending; see [Retail EDI](edi.md). |
+| 24 | "send the acknowledgment, ship notice and invoice on time" (855/856/810 card) | partly | Reviewed accept/change/reject 855, pickup/arrival-window 856 from packs, and shipped-value 810; required/sent/late compliance and retained 997 outcomes: `tests/api/edi.test.mjs`. Sends proven at the synthetic bridge edge only; RER Managed delivery is unavailable. |
+| 25 | "Carton 7 label reprinted · GS1-128" | partly | GS1-128 SSCC SVG, 4×6 browser print sheet and Zebra ZPL match the ASN; print/reprint actor and reason retain the same carton serial and contents: `src/pier/edi/sscc.ts`, `src/pier/edi-labels.ts`. Physical printer/scanner and retailer artwork certification remain pending. |
 | 26 | "Pier compares UPS, FedEx and USPS through ShipStation or EasyPost" | partly | EasyPost v2 adapter compares returned UPS/FedEx/USPS rates from measured pack cartons, with cheapest/fastest markers. `src/pier/shipping/`, `src/ui/shipping/`, `tests/api/shipping.test.mjs`. Documented synthetic network recordings only; no owner EasyPost account yet. [Shipping](shipping.md). |
 | 27 | "prints the label and sends tracking to your customer" | partly | Per-carton label purchase/reconciliation, authenticated PDF/ZPL downloads, stored shipment tracking, install-mail submission and signed canonical tracking updates. `tests/api/shipping.test.mjs`; synthetic 4×6 carrier files at the network edge. Real tracking mail was received and standalone hosted setup exercised; live carrier postage, physical printers and Managed egress remain pending. [Shipping](shipping.md). |
 | 28 | "Address corrected" | partly | Delivery verification blocks undeliverable addresses; original and standardized street/ZIP+4/residential flag are shown for explicit accept or keep, retained on the order. `src/pier/shipping/commands.ts`, `tests/api/shipping.test.mjs`. Provider responses are documented synthetic recordings pending an EasyPost account. [Shipping](shipping.md). |

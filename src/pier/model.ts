@@ -91,6 +91,11 @@ export const collections = [
   "aiSettings",
   "shippingSettings",
   "shippingJobs",
+  "ediPartners",
+  "ediMappings",
+  "ediOrders",
+  "ediDocuments",
+  "ediLabelEvents",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {
