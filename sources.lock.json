@@ -496,7 +496,7 @@
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "6c3ce11bee522880e3626a467be11fbe7c3e600d737f4480709ba0f9d0fff54a",
+      "sha256": "0fefba8f5c92fc401e40da1e15663d48cf7daf9b5055417b54868513461ed9c8",
       "executable": false
     },
     "public/apple-touch-icon.png": {
@@ -2077,6 +2077,10 @@
     },
     "src/modules/operator-auth/accounts/credentials.mjs": {
       "sha256": "2f3d762e2e16145d56d45ab1ce53797a2a05fa818f2a796f086effe4c49f3e02",
+      "executable": false
+    },
+    "src/modules/operator-auth/accounts/display-name.mjs": {
+      "sha256": "f4134112fb448f2baa75e9f7f4a4a54b90594ba14d64cc3bbcd0858afdaaadbb",
       "executable": false
     },
     "src/modules/operator-auth/accounts/editor-owner.mjs": {
