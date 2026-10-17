@@ -8,6 +8,7 @@ export const links = {
   home: '/',
   run: '/run',
   docs: '/docs',
+  contract: '/contract',
   source: repository,
   licence: `${repository}/blob/main/LICENSE`,
   // The hosted demo (DEMO.md): a throwaway Pier filled through its own commands.

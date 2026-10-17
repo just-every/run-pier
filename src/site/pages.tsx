@@ -1,9 +1,10 @@
 // The run site (run-pier.com) `rer build --site` writes: the homepage with its Run action,
-// /run, the docs from the repository's Markdown, and the not-found page. Every Run page
+// /run, the docs from the repository's Markdown, /contract from CONTRACT.md, and the not-found page. Every Run page
 // string and command is in run.ts; nothing here reads installation data.
 import type { ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { EditionIdentity } from '../base/identity'
+import { contractPageHtml } from '../base/contract-page'
 import { runPageHtml, siteNotFoundHtml, type SiteBuild, type SiteContext } from '../base/run-site'
 import { identity } from '../identity'
 import { DocsArticle } from './docs/DocsArticle'
@@ -19,7 +20,7 @@ const COPY = "document.querySelectorAll('.docs-copy').forEach(b=>{b.hidden=false
 const siteIdentity: EditionIdentity = { ...identity, theme: '/site/theme.css', fonts: '/fonts/fonts.css', band: undefined }
 const SHARE_IMAGE = `${identity.runSite}/site/share.jpg`
 
-export function sitePages({ styles }: SiteContext): SiteBuild {
+export function sitePages({ styles, contract }: SiteContext): SiteBuild {
   const document = (title: string, description: string, body: ReactElement, script = '') => '<!doctype html>' + renderToStaticMarkup(
     <html lang="en">
       <head>
@@ -51,10 +52,11 @@ export function sitePages({ styles }: SiteContext): SiteBuild {
   return {
     pages: [
       { path: '/', html: document('Pier — Know what’s on every shelf', 'Open source inventory and order management for US wholesalers and distributors: stock across warehouses, orders from channel to carrier, reorders and books in step. A free alternative to Cin7, inFlow and Fishbowl.', <Landing />) },
-      { path: '/run', html: runPageHtml(siteIdentity, run) },
+      { path: '/run', html: runPageHtml(siteIdentity, run, contract) },
+      ...(contract ? [{ path: '/contract', html: contractPageHtml(siteIdentity, run, contract) }] : []),
       { path: '/docs', html: document(...docsHead(), <DocsIndex />) },
       ...docsPages.map(page => ({ path: `/docs/${page.slug}`, html: document(...docsHead(page.slug), <DocsArticle slug={page.slug} />, COPY) })),
-      { path: '/404', html: siteNotFoundHtml(siteIdentity, run) },
+      { path: '/404', html: siteNotFoundHtml(siteIdentity, run, contract) },
     ],
     assets: ['rer-theme.css', 'fonts', 'brand', 'site', 'favicon.ico', 'apple-touch-icon.png'],
   }

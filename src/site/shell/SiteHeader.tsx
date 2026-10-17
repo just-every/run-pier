@@ -1,7 +1,7 @@
 import { links } from '../links'
 import { Lockup } from './Lockup'
 
-/** The header on every run-site page: the lockup on the left, Docs and Source on the right, one row on phones too.
+/** The header on every run-site page: the lockup on the left, Docs, Contract and Source on the right, one row on phones too.
  * `overArt` lays it over the homepage's painted hero. */
 export function SiteHeader({ current, overArt = false }: { current?: 'docs'; overArt?: boolean }) {
   return <header className={`site-header${overArt ? ' over-art' : ''}`}>
@@ -10,6 +10,7 @@ export function SiteHeader({ current, overArt = false }: { current?: 'docs'; ove
       <Lockup />
       <nav aria-label="Main">
         <a href={links.docs} aria-current={current === 'docs' ? 'page' : undefined}>Docs</a>
+        <a href={links.contract}>Contract</a>
         <a href={links.source}>Source</a>
       </nav>
     </div></div>
