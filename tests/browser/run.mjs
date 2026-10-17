@@ -17,7 +17,7 @@ try {
   await freshCopy(workspace, root)
   prepared = true
   const port = await freePort()
-  await command(join(root, 'node_modules/.bin/rer'), ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(port), '--no-queue'], root)
+  await command(join(root, 'node_modules/.bin/rer'), ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(port)], root)
   runtime = await startDev(root, port)
   const output = await command(join(workspace, 'node_modules/.bin/playwright'), ['test', '--config', join(workspace, 'tests/browser/playwright.config.ts'), '--workers=1'], workspace, { PIER_BASE_URL: runtime.origin, PIER_OPEN: runtime.entry, PIER_SCREENSHOTS: screenshots, PIER_BROWSER_OUTPUT: evidence })
   console.log(redact(output))

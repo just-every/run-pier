@@ -31,7 +31,7 @@ Everything starts on the **Stock** view.
 3. **Add an item** with **Add item**: SKU, product name, barcode, the base unit every quantity uses (for example `each`) and its exact pack conversion. Once stock or documents use an item, its unit and pack stay fixed, so choose them carefully.
 4. **Put stock on the shelf.** Either import your opening stock (see [Moving in](moving-in.md)) or receive a purchase order into the bin (see [Buy and receive](buying.md)).
 
-The ledger then shows each item by bin with **On hand (sellable)**, **Reserved**, **Available**, **Quarantine** and **Expected**. Available is what you can promise: sellable stock on hand less what open orders have reserved. Quarantine, transit and expected receipts are never available.
+The ledger then shows each item by bin with **On hand** (sellable), **Reserved**, **Available**, **Quarantine** and **Expected**. Available is what you can promise: sellable stock on hand less what open orders have reserved. Quarantine, transit and expected receipts are never available.
 
 ## Invite your team
 

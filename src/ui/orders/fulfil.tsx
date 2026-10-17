@@ -4,6 +4,7 @@ import { fromMillionths } from '../quantity'
 import { Field, Form, Table, text } from '../controls'
 import { SourceBooks } from '../books/source-status'
 import { BackorderPromises } from '../backorder-promises'
+import { OrderPricing } from '../order-pricing'
 import { orderStatus } from './model'
 
 // What can be done with the selected order: reserve stock that arrived, see the
@@ -13,6 +14,7 @@ export function Fulfil({ state, order, run, busy, prefill }: { state: PierState;
   const locations = records(state, 'locations').filter(location => location.kind === 'bin'), open = orderStatus(order) !== 'Closed'
   return <div className="fulfil">
     {open && <div className="actions"><button disabled={busy} onClick={() => run('order.reserve', { orderId: order.id })}>Reserve newly available stock</button></div>}
+    <OrderPricing state={state} order={order} run={run} busy={busy} />
     <SourceBooks state={state} sourceId={order.id} sourceKind="order" />
     <div id={`promise-${order.id}`}><BackorderPromises state={state} order={order} run={run} busy={busy} /></div>
     <section className="panel"><h3>Reserved sources for physical picking</h3><Table numeric={[2]} headings={['Item', 'Reserved source bin', 'Reserved quantity']}>{records(state, 'reservations').filter(reservation => reservation.orderId === order.id || order.lines.some((line: any) => line.id === reservation.orderLineId)).map(reservation => <tr key={reservation.id}><td><ItemName state={state} id={reservation.itemId} /></td><td>{label(locations, reservation.locationId)}</td><td>{fromMillionths(String(reservation.quantity))} {unit(state, reservation.itemId)}</td></tr>)}</Table></section>

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Stall orders arrive priced: Stall sends each line's unit price and USD, so the sales order has a total and its shipment invoice posts to Pantry with cost of goods. A Stall reservation made before that takes the price Stall charged when the channel links it, and any order still unpriced shows **Price this order** on its page (saved prices never change). The Books review reason now has that fix.
+- The key Pier shows for Stall disappears when you leave the page. The Connect Stall steps point to Stall's Settings, and say a Stall on this computer needs only its Stripe secret key.
+- Local mail: an approved email that could not be sent says nothing was sent and what to do next (send it yourself, or set up a mail provider and process due emails); supplier chases show they wait for the first email.
+- Move-in screens use plain field names (Item, Bin, Purchase order number, Opening unit cost) and show source identities and amounts as people read them. "1 item", "1 carton".
+- Tests: nested `rer` commands no longer pass `--no-queue` (rer 0.2.47+ accepts it only from a real CI caller); they share the outer verification's queue slot. Pinned rer 0.2.48.
+
 - Books match the shelf with freight and duty: a receipt's freight and duty split over its lines in whole cents (largest remainder, parts sum exactly to what was entered), stock cost layers stay in whole cents, and cost of goods, return-cost and valuation journals post to Pantry instead of waiting on fractions of a cent. A freight-and-duty journal moves the landed part into Pantry's inventory from a freight account picked in Books settings, so Pantry's inventory equals Pier's valuation. Receipts landed before this are re-split once on the next sync. Unit costs show at cents.
 - Books: a document stuck at "Outcome unknown" because Pantry never received it is re-sent with its original idempotency keys when the owner chooses Check Pantry; a return credit refused because its invoice was not posted yet is no longer marked as sent. After a restore, Books says the credential was not carried rather than revoked.
 - Stall connects from the two apps' pages: Pier's Stall card shows Pier's address and the key with steps for Stall's Settings → Provider connections, and says Stall takes payments through Stripe. "Add Online shop (Stall)" selects the customer it creates.

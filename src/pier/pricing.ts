@@ -124,3 +124,29 @@ export function orderPrice(
     },
   };
 }
+
+/** Price the still-unpriced lines of an existing order (a channel order that
+ * arrived without prices). Priced lines and dispatched history never change. */
+export function priceUnpricedLines(
+  c: Context,
+  o: Row,
+  prices: { orderLineId: string; price: unknown }[],
+  source: string,
+) {
+  for (const { orderLineId, price } of prices) {
+    const line = o.lines.find((l: any) => l.id === orderLineId);
+    if (!line) fail("LINE", "Each price must belong to a line of this order.");
+    if (line.price !== null && line.price !== undefined) continue;
+    if (typeof price !== "string" || !price.trim())
+      fail("PRICE", "Enter a unit price in USD for each unpriced line.");
+    Object.assign(line, orderPrice(c, o.customerId, line.itemId, decimal(line.quantity), String(price).trim()));
+    line.priceSnapshot.source = source;
+  }
+  const priced = o.lines.every((l: any) => typeof l.price === "string");
+  o.pricingStatus = priced ? "priced" : "unpriced";
+  o.total = priced
+    ? money(o.lines.reduce((sum: bigint, l: any) => sum + decimal(l.quantity) * decimal(l.price), 0n))
+    : null;
+  o.version++;
+  return o;
+}
