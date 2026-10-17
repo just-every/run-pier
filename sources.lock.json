@@ -584,43 +584,43 @@
       "executable": false
     },
     "public/site/hero-1152.avif": {
-      "sha256": "812feba2b683a00c8cb15e20cead157cfd94b13d2e23a40e0c8b496714826882",
+      "sha256": "9507aad3486da4d13658b80afa3396832ccf134697d3a6dd4d725703477f9b9a",
       "executable": false
     },
     "public/site/hero-1152.webp": {
-      "sha256": "7e178519fd0ff722ca078a3628419cbe6893d83b1fc37a0e4f717b33a4ecd5ca",
+      "sha256": "2cd75c1bbd2dfd99d49fd88512c6bd86373bae921801797567e9fbe6f6e5c05d",
       "executable": false
     },
     "public/site/hero-1536.avif": {
-      "sha256": "79573b3d16c7a891b090172c277a2a31c220d05bb3439455950d966841a1f2c5",
+      "sha256": "e312a7473dc8a54d971603675eb188128cdf23afdfacf1cd73e31bb4d2f4d3c4",
       "executable": false
     },
     "public/site/hero-1536.webp": {
-      "sha256": "1f2f0bf7da4430557a5c7c2cab7c10c2edecce1b84d04794e041a723c95ac3f9",
+      "sha256": "691c7f368d493b3f0ffa7a834f0ce92f14c03bfb8b9fc0e6e2f9f494e55d3585",
       "executable": false
     },
     "public/site/hero-768.avif": {
-      "sha256": "ed66c7f262e38957701c903af0461ccedd19851a687d13b9ee473ca60546b1dd",
+      "sha256": "0a071d849d88625064fc9b92e8296f732d5c14d23a34bbb3cfd76a86f6d7b8dd",
       "executable": false
     },
     "public/site/hero-768.webp": {
-      "sha256": "b7262da093e263341cf3a38666970dce1b9eb8f4f761da344f7a37479d92bd0b",
+      "sha256": "57b151fe029657b59f33b0be7191575ddd2bdce4b17ee6afb26c6706e79cde9c",
+      "executable": false
+    },
+    "public/site/hero-phone-1170.avif": {
+      "sha256": "59a6fbfafde1eeeab1b1bdf1e1a0a2219f1e79a9828773677c1acae3564f93e3",
+      "executable": false
+    },
+    "public/site/hero-phone-1170.webp": {
+      "sha256": "a667a39cf93dfdc538a639b02e8e2f5b446674ca6b019eba2a46c6769b1a7d78",
       "executable": false
     },
     "public/site/hero-phone-780.avif": {
-      "sha256": "b9b2a78d3209df1d5a182c9ca74f02684da8970afb250879ac4803b7496260c2",
+      "sha256": "bf266faaf12705b3401b5c0eb5093582259c92020e5b03cae76141433ff95ba9",
       "executable": false
     },
     "public/site/hero-phone-780.webp": {
-      "sha256": "ef1cee252b981d5be0399a2b4daa2cd7246b4cf59b32a30159755038dea1542d",
-      "executable": false
-    },
-    "public/site/hero-phone-900.avif": {
-      "sha256": "f03798600a115d4b644f23a5e29649e8a379943750c65d8c4632fce7c23caf2c",
-      "executable": false
-    },
-    "public/site/hero-phone-900.webp": {
-      "sha256": "a1983a4ce7af3e642f82b59da8d9e028d4948f0db1d70cb8f5e07d7f1771d8ce",
+      "sha256": "3046eedc51dc2d9b9837d1788f1d70bc6ab2fafa4cf4f7b5627a1158b1c04b85",
       "executable": false
     },
     "public/site/interlude-1152.avif": {
@@ -2664,11 +2664,11 @@
       "executable": false
     },
     "src/site/landing/Hero.tsx": {
-      "sha256": "09e7b28db7180340692b78624a32dc0cf5ff523927db1fe3d7f824093ee3861d",
+      "sha256": "b84dff0cf2357add557e737c7fe910a7297e6463c4045c7e3d0dbb8c8688f5e6",
       "executable": false
     },
     "src/site/landing/HeroTags.tsx": {
-      "sha256": "f2822cde524a6e6c8b5f6d5a2533098045556e5b99466919dd3bb95c6c8a0083",
+      "sha256": "0d57761cf207a37324d4f25df74e687a9dbf890e31d39cc9b6a8f456949ab123",
       "executable": false
     },
     "src/site/landing/Landing.tsx": {
@@ -2752,7 +2752,7 @@
       "executable": false
     },
     "src/site/style/landing.css": {
-      "sha256": "8c33e259f85ec4a953c3760f475b22072cee25f14f7c1707724ad27308b3e268",
+      "sha256": "9b8446bea47d254d752c340bcc04241dc93e470d29fe2297f39abc9ae38d7c37",
       "executable": false
     },
     "src/site/style/site.css": {

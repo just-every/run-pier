@@ -6,7 +6,7 @@ import { Painting } from './parts'
 export function Hero() {
   return <section className="hero" aria-labelledby="hero-title">
     <div className="hero-scene">
-      <Painting className="hero-art" name="hero" widths={[768, 1152, 1536]} sizes="100vw" eager phone={{ name: 'hero-phone', widths: [780, 900], media: '(max-width: 760px)' }} />
+      <Painting className="hero-art" name="hero" widths={[768, 1152, 1536]} sizes="100vw" eager phone={{ name: 'hero-phone', widths: [780, 1170], media: '(max-width: 760px)' }} />
       <HeroTags />
     </div>
     <div className="site-wrap hero-copy">
