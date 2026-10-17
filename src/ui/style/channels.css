@@ -2,37 +2,37 @@
    shell, type and controls; scope the converted cards, ruled ledger and lower
    two-column layout to this view. */
 .pier-app .channels-page { min-width: 0; }
-.pier-app .channel-subtitle { margin: 8px 0 0; color: var(--pier-ink-2); }
-.pier-app .channel-read-only { padding: 12px 16px; border-left: 3px solid var(--pier-teal-border); }
+.pier-app .channel-subtitle { margin: 8px 0 0; color: var(--app-soft); }
+.pier-app .channel-read-only { padding: 12px 16px; border-left: 3px solid var(--app-line-strong); }
 .pier-app .channel-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 17px; }
-.pier-app .channel-card { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; padding: 20px; border: 1px solid var(--pier-rule); border-radius: var(--pier-radius); background: var(--pier-panel); }
+.pier-app .channel-card { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; padding: 18px; border: 1px solid var(--app-line); border-radius: 10px; background: var(--surface); box-shadow: var(--app-shadow); }
 .pier-app .channel-brand { width: 44px; height: 44px; object-fit: contain; flex: none; }
 .pier-app .channel-card-content { min-width: 0; overflow-wrap: anywhere; }
-.pier-app .channel-card h2 { margin: 0 0 6px; font: 700 18px/24px var(--pier-font); }
+.pier-app .channel-card h2 { margin: 0 0 6px; font: 700 18px/24px var(--font-body); }
 .pier-app .channel-provider { margin: 0 0 12px; font-size: 14px; }
-.pier-app .channel-status { display: inline-block; margin-bottom: 12px; padding: 2px 8px; border-radius: var(--pier-radius); background: var(--pier-paper); color: var(--pier-ink-2); font-size: 13px; line-height: 20px; }
+.pier-app .channel-status { display: inline-block; margin-bottom: 12px; padding: 2px 8px; border-radius: var(--app-radius); background: var(--app-ground); color: var(--app-soft); font-size: 13px; line-height: 20px; }
 .pier-app .channel-provider .channel-status { margin: 4px 0 0; }
-.pier-app .channel-status-enabled { color: var(--pier-teal); background: var(--pier-teal-surface); }
-.pier-app .channel-status-problem { color: var(--pier-error); background: var(--pier-error-surface); }
+.pier-app .channel-status-enabled { color: var(--cobalt-ink); background: var(--cobalt-tint); }
+.pier-app .channel-status-problem { color: var(--red-ink); background: var(--red-tint); }
 .pier-app .channel-card dl { margin: 0; font-size: 14px; line-height: 20px; }
-.pier-app .channel-card dt { margin-top: 10px; color: var(--pier-ink-2); }
+.pier-app .channel-card dt { margin-top: 10px; color: var(--app-soft); }
 .pier-app .channel-card dd { margin: 3px 0 0; }
 .pier-app .channel-card-content > small { margin-top: 12px; }
 .pier-app .channel-card-content > .muted { margin: 0 0 16px; font-size: 14px; }
-.pier-app .channel-problem { color: var(--pier-error); }
+.pier-app .channel-problem { color: var(--red-ink); }
 .pier-app p.channel-problem { margin-top: 12px; margin-bottom: 0; }
-.pier-app .channel-current { color: var(--pier-teal); }
+.pier-app .channel-current { color: var(--cobalt-ink); }
 .pier-app .channel-webhook { margin-top: 12px; font-size: 14px; }
 .pier-app .channel-webhook summary { cursor: pointer; min-height: 44px; }
 .pier-app .channel-webhook code { display: block; margin-bottom: 8px; overflow-wrap: anywhere; font-size: 12px; }
-.pier-app .channel-listings, .pier-app .channel-orders { margin-top: 24px; border-top: 1px solid var(--pier-rule); }
-.pier-app .channel-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 24px; padding: 12px 0; border-bottom: 1px solid var(--pier-rule); }
-.pier-app .channel-section-heading h2 { display: flex; align-items: center; gap: 16px; margin: 0; font-size: 26px; line-height: 32px; }
-.pier-app .channel-diamond { display: inline-block; flex: none; width: 9px; height: 9px; margin: 0 3px 3px; background: var(--pier-ink); transform: rotate(45deg); }
+.pier-app .channel-listings, .pier-app .channel-orders { margin-top: 24px; border-top: 1px solid var(--app-line); }
+.pier-app .channel-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 24px; padding: 12px 0; border-bottom: 1px solid var(--app-line); }
+.pier-app .channel-section-heading h2 { display: flex; align-items: center; gap: 12px; margin: 0; font-size: 18px; line-height: 24px; font-weight: 650; }
+.pier-app .channel-diamond { display: inline-block; flex: none; width: 9px; height: 9px; margin: 0 3px 3px; background: var(--cobalt); transform: rotate(45deg); }
 .pier-app .channel-section-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; font-size: 14px; }
-.pier-app .channel-search { display: flex; align-items: center; gap: 10px; width: 409px; max-width: 100%; padding: 0 12px; border: 1px solid var(--pier-control); border-radius: var(--pier-radius); background: var(--pier-panel); }
+.pier-app .channel-search { display: flex; align-items: center; gap: 10px; width: 409px; max-width: 100%; padding: 0 12px; border: 1px solid var(--app-line-strong); border-radius: var(--app-radius); background: var(--surface); }
 .pier-app .channel-search input:not([type=checkbox]) { border: 0; background: none; padding-left: 0; font-size: 14px; }
-.pier-app .channel-table-note { margin: 12px 0; color: var(--pier-ink-2); font-size: 14px; }
+.pier-app .channel-table-note { margin: 12px 0; color: var(--app-soft); font-size: 14px; }
 .pier-app .channel-product { display: flex; align-items: flex-start; gap: 16px; }
 .pier-app .channel-product .channel-brand { width: 30px; height: 30px; }
 .pier-app .channel-held-reasons { max-width: 220px; white-space: normal; }
@@ -41,23 +41,23 @@
 .pier-app .channel-bottom .panel { margin: 0; }
 .pier-app .channel-side { display: grid; gap: 20px; min-width: 0; }
 .pier-app .channel-panel-title { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-.pier-app .channel-panel-title h2 { margin: 0; font-size: 24px; line-height: 30px; }
+.pier-app .channel-panel-title h2 { margin: 0; font-size: 18px; line-height: 24px; }
 .pier-app .channel-bottom h2 .channel-diamond { margin-right: 12px; }
 .pier-app .channel-match { display: grid; gap: 8px; min-width: 150px; }
 .pier-app .channel-match button { justify-self: start; }
-.pier-app .channel-hold-notice { padding: 12px; border: 1px solid var(--pier-teal-border); border-radius: var(--pier-radius); background: var(--pier-teal-surface); }
+.pier-app .channel-hold-notice { padding: 12px; border: 1px solid var(--app-line-strong); border-radius: var(--app-radius); background: var(--cobalt-tint); }
 .pier-app .channel-hold-list { list-style: none; padding: 0; margin: 0 0 16px; }
-.pier-app .channel-hold-list li { display: flex; justify-content: space-between; align-items: start; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--pier-rule); }
+.pier-app .channel-hold-list li { display: flex; justify-content: space-between; align-items: start; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--app-line); }
 .pier-app .channel-hold-list li > div { min-width: 0; overflow-wrap: anywhere; }
 .pier-app .channel-hold-list p { margin: 8px 0 0; }
-.pier-app .channel-hold-editor > summary { min-height: 48px; line-height: 28px; padding: 10px 0; cursor: pointer; color: var(--pier-teal); }
+.pier-app .channel-hold-editor > summary { min-height: 48px; line-height: 28px; padding: 10px 0; cursor: pointer; color: var(--cobalt-ink); }
 .pier-app .channel-hold-editor form { margin-top: 12px; }
-.pier-app .channel-setup-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--pier-rule); }
+.pier-app .channel-setup-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--app-line); }
 .pier-app .channel-setup-row .channel-brand { width: 30px; height: 30px; }
 .pier-app .channel-setup-row strong { overflow-wrap: anywhere; }
 .pier-app .channel-setup-row .actions { gap: 8px; }
 .pier-app .channel-setup-row button { padding: 0 12px; }
-.pier-app .channel-boundary { margin: 16px 0 0; font-size: 14px; line-height: 22px; color: var(--pier-ink-2); }
+.pier-app .channel-boundary { margin: 16px 0 0; font-size: 14px; line-height: 22px; color: var(--app-soft); }
 .pier-app .channel-connection-editor { margin-bottom: 24px; scroll-margin-top: 24px; }
 .pier-app .channel-connection-editor > .panel { margin-bottom: 12px; }
 @media (min-width: 600px) {
@@ -76,7 +76,7 @@
   .pier-app .channel-section-heading { align-items: flex-start; }
   .pier-app .channel-section-tools { width: 100%; gap: 12px; }
   .pier-app .channel-search { width: 100%; }
-  .pier-app .channel-panel-title h2, .pier-app .channel-bottom .panel > h2 { font-size: 22px; line-height: 28px; }
+  .pier-app .channel-panel-title h2, .pier-app .channel-bottom .panel > h2 { font-size: 17px; line-height: 24px; }
   .pier-app .channel-match { min-width: 0; }
   .pier-app .channel-match select { font-size: 16px; }
   .pier-app .channel-match button { justify-self: stretch; }

@@ -47,6 +47,9 @@ test(`owner completes real UI journeys at ${width}px`, async ({ page, context })
   }
   await page.setViewportSize({ width, height: 1000 })
   await page.goto(`${origin}/app`)
+  // The app opens on the order workbench; Stock is one rail link away.
+  await expect(page.getByRole('heading', { name: 'Sales orders', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Stock', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Stock', exact: true })).toBeVisible()
   const tag = `UI-${crypto.randomUUID().slice(0, 8)}`
   const itemName = `${tag} test item`, itemOption = `${tag} test item · ${tag} (each)`, supplier = `${tag} supplier`, customer = `${tag} customer`, source = `${tag} A`, destination = `${tag} B`, transit = `${tag} transit`
@@ -121,7 +124,7 @@ test(`owner completes real UI journeys at ${width}px`, async ({ page, context })
   await form.getByLabel('Item 1', { exact: true }).selectOption({ label: itemOption })
   await form.getByLabel('Quantity (base units)', { exact: true }).fill('2.25')
   await submit(page, form, 'Create and reserve available stock')
-  await page.getByRole('row').filter({ hasText: customer }).getByRole('button', { name: 'Open order', exact: true }).click()
+  await page.getByRole('row').filter({ hasText: customer }).getByRole('button', { name: /^Open order SO-/ }).click()
   await expect(page.getByRole('heading', { name: 'Reserved sources for physical picking' })).toBeVisible()
   form = section(page, 'Pick and dispatch reserved lines')
   await form.getByLabel('Shipment reference', { exact: true }).fill(`${tag}-shipment`)
@@ -186,6 +189,8 @@ test(`owner completes real UI journeys at ${width}px`, async ({ page, context })
   await form.getByLabel('Correction reason', { exact: true }).fill('Use reviewed count; retain dispatched history')
   await submit(page, form, 'Approve linked count correction')
   await page.getByRole('link', { name: 'Imports', exact: true }).click()
+  // The native CSV kit sits behind the move-in form's disclosure.
+  await page.getByText('Import Pier native CSV instead', { exact: true }).click()
   form = section(page, 'Capture native CSV files')
   const sources = [
     ['items', 'key,sku,name,barcode,unit,packSize\nitem,' + tag + '-IMPORT,' + tag + ' imported item,,each,1\n'],

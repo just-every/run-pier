@@ -2,14 +2,18 @@
 
 After the ordinary `rer setup`, run `rer demo` (`rer dev --demo`) and open its
 private `RER_OPEN` link. It opens signed in as the saved owner, on a finished
-first run, in five weeks of a Brisbane café supply wholesaler: twelve items in
-six bins across two warehouses, four suppliers with their terms, five customers,
-six sales orders (shipped, reserved and one short of oat milk), four purchase
-orders (received, part received, expected and a draft), transfers (one still in
-the van), counts, returns in quarantine and restocked, the opening stock import,
-a replenishment proposal waiting for review, and the owner's team (an owner
-still named "Owner" by the claim becomes Maya Collins, whose business it is): Jordan takes
-sales orders, Sam runs the floor and Priya buys, each with their Pier role, and
+first run, in five weeks of a US hardware and housewares distributor shipping
+from Reno DC and Newark DC: twelve items in seventeen bins and a truck between
+the warehouses, four suppliers with their terms, sixteen customers, a queue of
+open sales orders priced in USD (most reserved in full, three backordered, one
+of them Hartwell Hardware's order 28 Blue Mug 12oz short after Harbor Ceramics'
+delivery arrived 20 short), shipped orders including two today, purchase orders
+(received, part received, expected and a draft), a UPS Ground pick wave half
+scanned, a transfer, a count, returns in quarantine and restocked, the opening
+stock import, a replenishment proposal the agent prepared waiting for review,
+and the owner's team (an owner still named "Owner" by the claim becomes Maya
+Collins, whose business it is): Jordan takes sales orders, Sam runs the floor,
+Priya buys and the Pier agent prepares proposals, each with their Pier role, and
 one invitation is still pending. `rer demo --stop`, Ctrl-C or
 the demo's end (one hour) deletes its folder `.rer/demo/<start>/`; a new demo
 starts afresh. The checkout's own `.wrangler/state` is never touched.

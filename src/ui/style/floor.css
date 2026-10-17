@@ -1,24 +1,24 @@
 /* The warehouse floor: step tabs, the scan box sized for a thumb, the current
    pick task and the pack station's cartons. */
 .pier-app .floor-steps { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 24px; }
-.pier-app .floor-steps a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--pier-rule); border-radius: var(--pier-radius); background: var(--pier-panel); color: var(--pier-ink); text-decoration: none; }
-.pier-app .floor-steps a[aria-current=page] { border-color: var(--pier-teal-border); background: var(--pier-teal-surface); color: var(--pier-ink); font-weight: 700; }
-.pier-app .scan-box { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 16px 24px; align-items: start; margin: 16px 0; padding: 20px; border: 1px solid var(--pier-teal-border); border-radius: var(--pier-radius); background: var(--pier-teal-surface); }
-.pier-app .scan-box .scan-field input { min-height: 56px; font-family: var(--pier-mono); font-size: 20px; }
+.pier-app .floor-steps a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--surface); color: var(--ink); text-decoration: none; }
+.pier-app .floor-steps a[aria-current=page] { border-color: var(--app-line-strong); background: var(--cobalt-tint); color: var(--ink); font-weight: 700; }
+.pier-app .scan-box { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 16px 24px; align-items: start; margin: 16px 0; padding: 20px; border: 1px solid var(--app-line-strong); border-radius: var(--app-radius); background: var(--cobalt-tint); }
+.pier-app .scan-box .scan-field input { min-height: 56px; font-family: var(--font-mono); font-size: 20px; }
 .pier-app .scan-box .scan-count input { min-height: 56px; }
 .pier-app .scan-box:not(:has(.scan-count)) { grid-template-columns: minmax(0, 1fr); }
 .pier-app .scan-actions { display: flex; flex-wrap: wrap; gap: 12px; grid-column: 1 / -1; }
-.pier-app .scan-video { grid-column: 1 / -1; width: 100%; max-height: 320px; border-radius: var(--pier-radius); background: #000; object-fit: cover; }
+.pier-app .scan-video { grid-column: 1 / -1; width: 100%; max-height: 320px; border-radius: var(--app-radius); background: #000; object-fit: cover; }
 .pier-app .scan-note { grid-column: 1 / -1; margin: 0; }
 .pier-app .scan-refusal { margin: 0 0 16px; }
 .pier-app .pick-task { margin: 0 0 24px; }
 .pier-app .pick-step { margin: 0; font-size: 20px; line-height: 28px; }
-.pier-app tr.selected td { background: var(--pier-teal-surface); }
+.pier-app tr.selected td { background: var(--cobalt-tint); }
 .pier-app .carton-lines { margin: 0 0 8px; padding-left: 20px; }
 .pier-app .pack-close { margin-top: 24px; }
-.pier-app .dispatch-headline { margin: 24px 0 16px; font-family: var(--pier-font-heading); font-size: 32px; line-height: 38px; font-weight: 700; letter-spacing: -.01em; }
+.pier-app .dispatch-headline { margin: 24px 0 16px; font-family: var(--font-head); font-size: 32px; line-height: 38px; font-weight: 700; letter-spacing: -.01em; }
 .pier-app .exceptions { margin: 0; padding: 0; list-style: none; }
-.pier-app .exceptions li { padding: 10px 0; border-top: 1px solid var(--pier-rule); }
+.pier-app .exceptions li { padding: 10px 0; border-top: 1px solid var(--app-line); }
 .pier-app .exceptions li:first-child { border-top: 0; }
 .pier-app .exceptions .badge { margin: 0 8px 0 0; }
 

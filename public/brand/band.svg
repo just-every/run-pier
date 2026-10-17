@@ -1,24 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 300" preserveAspectRatio="xMidYMax slice">
-  <!-- Pier's floor art: a low shelf of shallow stock labels on one fine rule; one is teal. -->
+  <!-- Pier's floor art: a low shelf of shallow stock labels on one fine rule; one is cobalt. -->
   <g stroke-width="1.5">
-    <path d="M24 290V246H166L174 254V290Z" fill="#fffdf8" stroke="#c9d0ca"/>
-    <path d="M24 262H174" stroke="#c9d0ca"/>
-    <path d="M202 290V254H304L312 262V290Z" fill="#fffdf8" stroke="#c9d0ca"/>
-    <path d="M202 270H312" stroke="#c9d0ca"/>
-    <path d="M328 290V236H510L518 244V290Z" fill="#fffdf8" stroke="#c9d0ca"/>
-    <path d="M328 252H518" stroke="#c9d0ca"/>
-    <path d="M534 290V250H656L664 258V290Z" fill="#fffdf8" stroke="#c9d0ca"/>
-    <path d="M534 266H664" stroke="#c9d0ca"/>
-    <path d="M692 290V240H854L862 248V290Z" fill="#fffdf8" stroke="#c9d0ca"/>
-    <path d="M692 256H862" stroke="#c9d0ca"/>
-    <path d="M878 290V254H990L998 262V290Z" fill="#fffdf8" stroke="#c9d0ca"/>
-    <path d="M878 270H998" stroke="#c9d0ca"/>
-    <path d="M1014 290V232H1216L1224 240V290Z" fill="#e5f1ed" stroke="#7ca7a0"/>
-    <path d="M1014 248H1224" stroke="#7ca7a0"/>
-    <path d="M1252 290V248H1384L1392 256V290Z" fill="#fffdf8" stroke="#c9d0ca"/>
-    <path d="M1252 264H1392" stroke="#c9d0ca"/>
-    <path d="M1408 290V242H1560L1568 250V290Z" fill="#fffdf8" stroke="#c9d0ca"/>
-    <path d="M1408 258H1568" stroke="#c9d0ca"/>
+    <path d="M24 290V246H166L174 254V290Z" fill="#ffffff" stroke="#d3dbe5"/>
+    <path d="M24 262H174" stroke="#d3dbe5"/>
+    <path d="M202 290V254H304L312 262V290Z" fill="#ffffff" stroke="#d3dbe5"/>
+    <path d="M202 270H312" stroke="#d3dbe5"/>
+    <path d="M328 290V236H510L518 244V290Z" fill="#ffffff" stroke="#d3dbe5"/>
+    <path d="M328 252H518" stroke="#d3dbe5"/>
+    <path d="M534 290V250H656L664 258V290Z" fill="#ffffff" stroke="#d3dbe5"/>
+    <path d="M534 266H664" stroke="#d3dbe5"/>
+    <path d="M692 290V240H854L862 248V290Z" fill="#ffffff" stroke="#d3dbe5"/>
+    <path d="M692 256H862" stroke="#d3dbe5"/>
+    <path d="M878 290V254H990L998 262V290Z" fill="#ffffff" stroke="#d3dbe5"/>
+    <path d="M878 270H998" stroke="#d3dbe5"/>
+    <path d="M1014 290V232H1216L1224 240V290Z" fill="#e8eefc" stroke="#1c50dc"/>
+    <path d="M1014 248H1224" stroke="#1c50dc"/>
+    <path d="M1252 290V248H1384L1392 256V290Z" fill="#ffffff" stroke="#d3dbe5"/>
+    <path d="M1252 264H1392" stroke="#d3dbe5"/>
+    <path d="M1408 290V242H1560L1568 250V290Z" fill="#ffffff" stroke="#d3dbe5"/>
+    <path d="M1408 258H1568" stroke="#d3dbe5"/>
   </g>
-  <path d="M0 290.75H1440" stroke="#aab5af" stroke-width="1.5"/>
+  <path d="M0 290.75H1440" stroke="#b9c3d1" stroke-width="1.5"/>
 </svg>

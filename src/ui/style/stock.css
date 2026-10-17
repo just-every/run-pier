@@ -1,14 +1,14 @@
 /* The Stock ledger: search and filters, the caption row, the position table and
-   the inline selected-item summary. Available and the selected record are teal. */
-.pier-app .filters { display: grid; grid-template-columns: minmax(240px, 2.2fr) repeat(3, minmax(150px, 1fr)) auto; gap: 12px; align-items: center; margin: 0 0 16px; }
-.pier-app .filters .search { display: flex; align-items: center; gap: 12px; min-height: var(--pier-control-height); padding: 0 12px; border: 1px solid var(--pier-control); border-radius: var(--pier-radius); background: var(--pier-panel); color: var(--pier-ink); }
-.pier-app .filters .search:focus-within { outline: 2px solid var(--pier-focus); outline-offset: 3px; }
-.pier-app .filters .search input { min-height: 46px; padding: 0; border: 0; outline: 0; background: none; }
+   the inline selected-item summary. Available and the selected record are cobalt. */
+.pier-app .filters { display: grid; grid-template-columns: minmax(240px, 2.4fr) repeat(2, minmax(150px, 1fr)) auto; gap: 10px; align-items: center; margin: 0 0 12px; }
+.pier-app .filters .search { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 11px; border: 1px solid var(--app-line-strong); border-radius: var(--app-radius); background: var(--surface); color: var(--app-soft); }
+.pier-app .filters .search:focus-within { border-color: var(--cobalt); box-shadow: 0 0 0 3px rgba(28, 80, 220, .16); }
+.pier-app .filters .search input { min-height: 36px !important; padding: 0 !important; border: 0 !important; outline: 0; background: none !important; box-shadow: none !important; }
 .pier-app .filters > button.link { justify-self: end; padding: 0 4px; }
-.pier-app .table-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; margin: 0 0 12px; color: var(--pier-ink-2); }
+.pier-app .table-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; margin: 0 0 12px; color: var(--app-soft); }
 .pier-app .table-tools-right { display: flex; align-items: center; gap: 0; }
-.pier-app .table-tools-right > span { padding-right: 20px; border-right: 1px solid var(--pier-rule); color: var(--pier-ink); }
-.pier-app .table-tools-right .select select { width: auto; min-height: 40px; padding: 0 32px 0 20px; border: 0; background-color: transparent; background-position: calc(100% - 14px) 50%, calc(100% - 8px) 50%; color: var(--pier-ink); }
+.pier-app .table-tools-right > span { padding-right: 20px; border-right: 1px solid var(--app-line); color: var(--ink); }
+.pier-app .table-tools-right .select select { width: auto; min-height: 40px; padding: 0 32px 0 20px; border: 0; background-color: transparent; background-position: calc(100% - 14px) 50%, calc(100% - 8px) 50%; color: var(--ink); }
 
 .pier-app .stock-table { margin-top: 0; }
 .pier-app .stock-table table { min-width: 1120px; table-layout: fixed; }
@@ -19,28 +19,28 @@
 .pier-app .stock-table th:nth-child(10) { width: 92px; }
 .pier-app .stock-table td { vertical-align: middle; }
 .pier-app .stock-table th + th, .pier-app .stock-table td + td { border-left: 0; }
-.pier-app .stock-table td.available { color: var(--pier-teal); font-weight: 700; }
-.pier-app .stock-table .product-name { font-size: 16px; }
+.pier-app .stock-table td.available { color: var(--cobalt-ink); font-weight: 700; }
+.pier-app .stock-table .product-name { font-size: 14px; }
 
-.pier-app .stock-detail { position: relative; display: grid; grid-template-columns: minmax(200px, 1.1fr) minmax(0, 3.4fr) auto; gap: 16px 24px; align-items: center; margin: 0 0 24px; padding: 24px; border: 1px solid var(--pier-rule); border-radius: var(--pier-radius); background: var(--pier-panel); }
-.pier-app .stock-detail h2 { margin: 0 0 4px; font-size: 24px; line-height: 30px; font-weight: 700; }
-.pier-app .stock-detail .detail-variant { margin: 0 0 12px; color: var(--pier-ink-2); }
+.pier-app .stock-detail { position: relative; display: grid; grid-template-columns: minmax(200px, 1.1fr) minmax(0, 3.4fr) auto; gap: 14px 22px; align-items: center; margin: 0 0 18px; padding: 18px 20px; border: 1px solid var(--app-line); border-radius: 10px; background: var(--surface); box-shadow: var(--app-shadow); }
+.pier-app .stock-detail h2 { margin: 0 0 4px; font: 400 30px/1 var(--font-head); }
+.pier-app .stock-detail .detail-variant { margin: 0 0 12px; color: var(--app-soft); }
 .pier-app .stock-detail dl { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 4px 12px; margin: 0; }
 .pier-app .stock-detail dd { margin: 0; }
 .pier-app .stock-detail .metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.pier-app .stock-detail .metric { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; padding: 4px 20px; border-left: 1px solid var(--pier-rule); }
-.pier-app .stock-detail .metric-label { flex-basis: 100%; color: var(--pier-ink-2); font-size: 14px; line-height: 20px; }
-.pier-app .stock-detail .metric-value { font-size: 28px; line-height: 36px; font-weight: 700; }
-.pier-app .stock-detail .metric small { display: inline; color: var(--pier-ink); font-size: 20px; }
-.pier-app .stock-detail .metric.available .metric-value, .pier-app .stock-detail .metric.available small { color: var(--pier-teal); }
-.pier-app .stock-detail .detail-actions { display: grid; gap: 12px; padding-left: 24px; border-left: 1px solid var(--pier-rule); }
+.pier-app .stock-detail .metric { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; padding: 4px 20px; border-left: 1px solid var(--app-line); }
+.pier-app .stock-detail .metric-label { flex-basis: 100%; color: var(--app-soft); font-size: 14px; line-height: 20px; }
+.pier-app .stock-detail .metric-value { font-size: 24px; line-height: 32px; font-weight: 700; }
+.pier-app .stock-detail .metric small { display: inline; color: var(--body); font-size: 15px; }
+.pier-app .stock-detail .metric.available .metric-value, .pier-app .stock-detail .metric.available small { color: var(--cobalt-ink); }
+.pier-app .stock-detail .detail-actions { display: grid; gap: 12px; padding-left: 24px; border-left: 1px solid var(--app-line); }
 .pier-app .stock-detail .detail-head { grid-column: 1 / -1; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .pier-app .stock-detail .detail-head .detail-variant { margin: 0; }
 .pier-app .stock-detail .collapse { flex: none; width: 44px; min-height: 44px; margin: -8px -8px 0 0; padding: 0; border: 0; }
 .pier-app .stock-detail .collapse svg { transform: rotate(180deg); }
 
 @media (max-width: 1180px) {
-  .pier-app .filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pier-app .filters { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
   .pier-app .filters .search { grid-column: 1 / -1; }
   .pier-app .stock-detail { grid-template-columns: minmax(0, 1fr) auto; }
   .pier-app .stock-detail .metrics { grid-column: 1 / -1; grid-row: 3; }
@@ -49,21 +49,20 @@
 }
 @media (max-width: 599px) {
   .pier-app .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pier-app .filters > select:nth-of-type(3) { grid-column: 1 / -1; }
   .pier-app .filters > button.link { justify-self: start; }
   .pier-app .table-tools { flex-wrap: nowrap; font-size: 14px; }
   .pier-app .table-tools-right > span { padding-right: 12px; }
   .pier-app .table-tools-right .select select { padding-left: 12px; font-size: 14px; }
   .pier-app .stock-table table { min-width: 0; table-layout: auto; }
   .pier-app .stock-table tr { padding: 16px; }
-  .pier-app .stock-table td:first-child { display: block; padding: 0 96px 12px 0; margin-bottom: 8px; border-bottom: 1px solid var(--pier-rule); }
+  .pier-app .stock-table td:first-child { display: block; padding: 0 96px 12px 0; margin-bottom: 8px; border-bottom: 1px solid var(--app-line); }
   .pier-app .stock-table td:first-child::before { content: none; }
-  .pier-app .stock-table .product-name { font-size: 20px; line-height: 28px; }
+  .pier-app .stock-table .product-name { font-size: 16px; line-height: 22px; }
   .pier-app .stock-table td.action { position: absolute; top: 12px; right: 16px; padding: 0; }
-  .pier-app .stock-table td.action button.link { min-height: 40px; padding: 0 14px; border: 1px solid var(--pier-ink); border-radius: var(--pier-radius); color: var(--pier-ink); }
+  .pier-app .stock-table td.action button.link { min-height: 32px; padding: 0 12px; border: 1px solid var(--app-line-strong); border-radius: var(--app-radius); color: var(--ink); }
   .pier-app .stock-detail { display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding: 20px; }
   .pier-app .stock-detail .metrics { grid-template-columns: minmax(0, 1fr); }
-  .pier-app .stock-detail .metric, .pier-app .stock-detail .metric:first-child { flex-wrap: nowrap; padding: 8px 0; border-left: 0; border-top: 1px solid var(--pier-rule); }
+  .pier-app .stock-detail .metric, .pier-app .stock-detail .metric:first-child { flex-wrap: nowrap; padding: 8px 0; border-left: 0; border-top: 1px solid var(--app-line); }
   .pier-app .stock-detail .metric-label { flex: 0 0 42%; }
   .pier-app .stock-detail .metric-value { font-size: 20px; line-height: 28px; }
   .pier-app .stock-detail .metric small { font-size: 16px; }

@@ -2,7 +2,7 @@
 .pier-app .item-agent-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .pier-app .item-agent-head > div { min-width: 0; }
 .pier-app .item-agent-head > button { flex: none; }
-.pier-app .item-agent-check, .pier-app .item-agent-action { padding: 18px 0; border-top: 1px solid var(--pier-rule); }
+.pier-app .item-agent-check, .pier-app .item-agent-action { padding: 18px 0; border-top: 1px solid var(--app-line); }
 .pier-app .item-agent h3, .pier-app .item-agent h4 { margin: 0 0 10px; }
 .pier-app .item-agent h5 { font-size: 14px; margin: 16px 0 8px; }
 .pier-app .item-agent details { padding: 10px 0; min-width: 0; }

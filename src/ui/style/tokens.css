@@ -1,0 +1,17 @@
+/* The app's own tokens. The brand palette (--ink, --cobalt, --red, --yellow,
+   --green and their tints) and the faces are the run site's, defined once in
+   public/site/theme.css and public/rer-theme.css, which the app links; these
+   add the workbench's cool near-white ground, hairlines, density and depth. */
+:root {
+  --app-ground: #f8fafc;
+  --app-line: #e3e8ef;
+  --app-line-strong: #cfd7e2;
+  --app-row: #f2f6fb;
+  --app-soft: #5a6478;
+  --app-selected: #e9f0fd;
+  --app-radius: 8px;
+  --app-shadow: 0 1px 2px rgba(11, 16, 32, .04), 0 6px 18px -12px rgba(11, 16, 32, .18);
+  --app-control: 36px;
+  --app-rail: 172px;
+  --app-bar: 64px;
+}

@@ -1,48 +1,55 @@
-/* Pier's declared theme: the installer, sign-in, confirmation, /setup and
-   the Lobby read these --rer-* tokens, and the app and
-   run site map them onto Pier's own tokens in src/style/tokens.css. Warm paper,
-   dark ink and one quiet teal. Body text is the system Arial stack; headings
-   are Geist and the "Pier" wordmark is Pier Display (both SIL Open Font License
-   1.1, public/fonts/README.md), self-hosted, so no page asks another site for a font. */
+/* Pier's declared theme for the installed pages: the installer, sign-in,
+   confirmation, /setup and the Lobby read these --rer-* tokens (Base's theme
+   grammar: :root tokens and @font-face only). The values are the brand's, as
+   the run site declares them in public/site/theme.css: near-white harbour
+   paper, the mark's navy as ink, cobalt as the one action colour; Pier Display
+   headings over Inter (SIL Open Font License 1.1, public/fonts/README.md),
+   self-hosted, so no page asks another site for a font. The app reads the
+   brand palette from public/site/theme.css. */
 @font-face {
   font-family: 'Pier Display';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
   src: url('/fonts/pier-display/pier-display-latin-400-normal.woff2') format('woff2');
-}
-@font-face {
-  font-family: Geist;
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url('/fonts/geist/geist-latin-wght-normal.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: Geist;
+  font-family: 'Pier Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/pier-display/pier-display-latin-ext-400-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url('/fonts/geist/geist-latin-ext-wght-normal.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  src: url('/fonts/inter/inter-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter/inter-latin-ext-wght-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 :root {
-  --rer-font-body: Arial, Helvetica, sans-serif;
-  --rer-font-heading: Geist, Arial, Helvetica, sans-serif;
-  --rer-page: #f8f6ef;
-  --rer-surface: #fffdf8;
-  --rer-text: #202825;
-  --rer-muted: #57615d;
-  --rer-border: #85918b;
-  --rer-focus: #276f69;
-  --rer-link: #276f69;
-  --rer-accent: #202825;
-  --rer-accent-text: #fffdf8;
-  --rer-radius: 6px;
+  --rer-font-body: 'Inter', Arial, Helvetica, sans-serif;
+  --rer-font-heading: 'Pier Display', 'Arial Narrow', Impact, sans-serif;
+  --rer-page: #f9f8f4;
+  --rer-surface: #ffffff;
+  --rer-text: #0b1020;
+  --rer-muted: #505667;
+  --rer-border: #8a90a0;
+  --rer-focus: #1c50dc;
+  --rer-link: #1746c9;
+  --rer-accent: #1c50dc;
+  --rer-accent-text: #ffffff;
+  --rer-radius: 8px;
   --rer-logo: url('/brand/mark.svg');
 }
-
-/* The lockup: the boat mark beside "Pier" in Pier Display, on the Lobby, sign-in and setup. */
-.lockup .word, .bar .brand span, html.rer-themed .rer-brand, html.rer-themed .brand { font-family: 'Pier Display', Impact, sans-serif; font-weight: 400; letter-spacing: .005em; }
-html.rer-themed .rer-brand, html.rer-themed .brand { font-size: 26px; }
