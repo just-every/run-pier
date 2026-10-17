@@ -41,11 +41,14 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
   const closing = valueOf(allLayers);
   const consumed = new Map([...ledger.consumed].map(([key, layers]) => [key, structuredClone(layers)]));
   const rows: Margin[] = [];
+  const lineCosts = new Map<string, Layer[]>();
+  const costed = (orderLineId: string, layers: Layer[]) => lineCosts.set(orderLineId, [...(lineCosts.get(orderLineId) ?? []), ...layers]);
   for (const shipment of s.shipments.filter(sh => sh.createdAt <= end)) {
     const order = s.orders.find(o => o.id === shipment.orderId)!;
     for (const line of shipment.lines) {
       const source = consumed.get(`${shipment.id}:${line.itemId}`) ?? [];
       const layers = takeLayers(source, decimal(line.quantity));
+      costed(line.orderLineId, layers);
       if (shipment.createdAt.slice(0, 10) < from || shipment.createdAt.slice(0, 10) > to) continue;
       const orderLine = order.lines.find((l: any) => l.id === line.orderLineId);
       const revenue = typeof orderLine?.price === 'string' ? extended(line.quantity, orderLine.price) : null;
@@ -55,6 +58,15 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
         revenue: display(revenue), cost: display(cost), margin: display(revenue === null || cost === null ? null : revenue - cost) });
     }
   }
+  // Reserved quantities take their bin's sellable layers in reservation order,
+  // the order dispatch will consume them in; a shortfall leaves the line unvalued.
+  const reservedLayers = new Map(ledger.positions.filter(p => p.status === 'sellable').map(p => [`${p.itemId}:${p.locationId}`, structuredClone(p.layers.filter(l => l.quantity > 0n))]));
+  for (const reservation of s.reservations) {
+    const layers = reservedLayers.get(`${reservation.itemId}:${reservation.locationId}`) ?? [];
+    const quantity = BigInt(reservation.quantity), held = layers.reduce((n, l) => n + l.quantity, 0n);
+    costed(reservation.orderLineId, quantity > held ? [...takeLayers(layers, held), { quantity: quantity - held, value: null, sourceId: '', receivedAt: '' }] : takeLayers(layers, quantity));
+  }
+  const orderCosts = Object.fromEntries([...lineCosts].map(([orderLineId, layers]) => [orderLineId, { quantity: format(layers.reduce((n, l) => n + l.quantity, 0n)), cost: display(valueOf(layers)) }]));
   const threshold = new Date(Date.parse(end) - days * 86400000).toISOString();
   const deadRows: any[] = [];
   const byBin = new Map<string, typeof valuationRows>();
@@ -79,6 +91,8 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
       reconciliation: { ...Object.fromEntries(Object.entries(t).map(([key, n]) => [key, ledger.incomplete.has(key as keyof typeof t) ? null : money(n)])), closing: display(closing), difference: closing === null || ledger.incomplete.size ? null : money(closing - expected) } },
     margin: { rows, bySku: group(rows, 'itemId'), byChannel: group(rows, 'channel'), byCustomer: group(rows, 'customerId'), ...marginTotal(rows),
       unpricedLines: rows.filter(r => r.revenue === null).length, unvaluedLines: rows.filter(r => r.cost === null).length },
+    // Each order line's own cost: the layers its dispatches consumed and its reservations hold.
+    orderCosts,
     deadStock: { days, rows: deadRows, total: deadRows.some(r => r.value === null) ? null : money(deadRows.reduce((n, r) => n + amount(r.value), 0n)) },
   };
 }

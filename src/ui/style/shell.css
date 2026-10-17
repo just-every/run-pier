@@ -56,15 +56,16 @@ body:has(.pier-app) { margin: 0; padding: 0; background: var(--app-ground); }
 .rail { position: sticky; top: var(--app-bar); display: flex; flex-direction: column; justify-content: space-between; height: calc(100vh - var(--app-bar)); padding: 14px 0 20px; overflow-y: auto; border-right: 1px solid var(--app-line); background: var(--surface); }
 .rail-main, .rail-foot { display: flex; flex-direction: column; gap: 2px; }
 .rail-foot { padding-top: 12px; }
-.pier-app .rail a { position: relative; display: flex; align-items: center; gap: 11px; min-height: 42px; padding: 0 10px 0 16px; color: var(--ink); font-size: 14.5px; text-decoration: none; white-space: nowrap; }
+.pier-app .rail a { position: relative; display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 6px 0 12px; color: var(--ink); font-size: 14px; text-decoration: none; white-space: nowrap; }
 .pier-app .rail a svg { width: 21px; height: 21px; color: #5b6c88; }
 .pier-app .rail a:hover { background: var(--app-row); }
 .pier-app .rail a[aria-current=page] { background: var(--cobalt-tint); color: var(--cobalt-ink); font-weight: 600; }
 .pier-app .rail a[aria-current=page] svg { color: var(--cobalt); }
 .pier-app .rail a[aria-current=page]::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--cobalt); }
-.rail-count { margin-left: auto; padding: 1px 7px; border-radius: 10px; background: #d5e1fb; color: var(--cobalt-ink); font-size: 12.5px; font-weight: 600; line-height: 19px; }
+/* The open-order count sits inside the rail, even at three digits. */
+.rail-count { flex: none; margin-left: auto; padding: 1px 6px; border-radius: 10px; background: #d5e1fb; color: var(--cobalt-ink); font-size: 12.5px; font-weight: 600; line-height: 19px; }
 
-.app-main { min-width: 0; padding: 16px 20px 72px; }
+.app-main { min-width: 0; padding: 16px 16px 72px; }
 .pier-app .page-title { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; margin: 0 0 18px; }
 .pier-app .page-title h1 { margin: 0; font: 400 64px/.95 var(--font-head); letter-spacing: 0; }
 .pier-app .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

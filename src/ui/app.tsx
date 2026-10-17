@@ -14,15 +14,18 @@ import { Edi } from './edi'
 import { Channels } from './channels'
 import { AISetup } from './item-agent'
 import { Rail, TopBar, tabs } from './shell'
+import { openingWarehouse } from './orders/model'
 import './style'
 
 // The chosen warehouse is a per-browser convenience; the app works the same without it.
-const savedWarehouse = () => { try { return localStorage.getItem('pier.warehouse') || '' } catch { return '' } }
+// Nothing saved (null) opens on the warehouse that needs attention; '' is a saved choice of All.
+const savedWarehouse = () => { try { return localStorage.getItem('pier.warehouse') } catch { return null } }
 
 export function PierApp() {
-  const [tab, setTab] = useState('sales'), [historyItem, setHistoryItem] = useState(''), [documentId, setDocumentId] = useState(''), [sessionError, setSessionError] = useState(''), [warehouse, setWarehouseState] = useState('')
+  const [tab, setTab] = useState('sales'), [historyItem, setHistoryItem] = useState(''), [documentId, setDocumentId] = useState(''), [sessionError, setSessionError] = useState(''), [warehouse, setWarehouseState] = useState<string | null>(null)
   const { state, run, refresh, error, details, notice, busy, recoverable, recover, dismiss } = usePier()
   useEffect(() => { let first = true; const update = () => { if (!first) dismiss(); first = false; const [selected, id = ''] = window.location.hash.slice(1).split('/'); setDocumentId(id); if (selected === 'activity' && id) setHistoryItem(''); setTab(tabs.some(row => row.id === selected) ? selected : 'sales') }; update(); setWarehouseState(savedWarehouse()); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update) }, [dismiss])
+  useEffect(() => { if (state && warehouse === null) setWarehouseState(openingWarehouse(state)) }, [state, warehouse])
   useEffect(() => { if (documentId) requestAnimationFrame(() => document.getElementById(`document-${documentId}`)?.scrollIntoView({ block: 'start' })) }, [documentId, tab, state])
   function setWarehouse(value: string) { setWarehouseState(value); try { localStorage.setItem('pier.warehouse', value) } catch { /* the choice lasts this visit */ } }
   function history(itemId: string) { setHistoryItem(itemId); window.location.hash = 'activity'; setTab('activity') }
@@ -30,7 +33,7 @@ export function PierApp() {
     try { const response = await fetch('/auth/signout', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}' }); if (!response.ok) throw new Error(); window.location.href = '/signin' }
     catch { setSessionError('Sign out could not be confirmed. Reload or sign in again.') }
   }
-  const known = state && warehouse && !state.locations?.some((row: any) => row.warehouse === warehouse) ? '' : warehouse
+  const known = !warehouse || (state && !state.locations?.some((row: any) => row.warehouse === warehouse)) ? '' : warehouse
   return <div className="pier-app"><TopBar state={state} warehouse={known} setWarehouse={setWarehouse} signOut={() => void signOut()} /><div className="app-body"><Rail tab={tab} state={state} warehouse={known} /><main className="app-main" data-view={tab} aria-busy={busy}>
     {error && <section className="error" role="alert"><strong>Action needs attention</strong><p>{error}</p>{details !== null && <Evidence value={details} />}{(recoverable || !state) && <><button onClick={() => void refresh().catch(() => {})}>Reload current records</button><a href="/signin?returnTo=%2Fapp">Sign in again</a></>}</section>}
     {sessionError && <p className="error" role="alert">{sessionError} <a href="/signin?returnTo=%2Fapp">Sign in</a></p>}

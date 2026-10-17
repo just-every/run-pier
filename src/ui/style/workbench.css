@@ -1,7 +1,8 @@
 /* The order workbench (the owner's pick, 17 Oct 2026): the dense queue with
    status chips on the left; on the right the open order card, its red
    shortage banner and the Pier agent docked beneath in harbour yellow. */
-.pier-app .workbench { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+/* Two columns once both fit whole: the queue's single-line rows beside the order card's single-line lines. */
+.pier-app .workbench { display: grid; grid-template-columns: minmax(636px, 1.08fr) minmax(560px, 1fr); gap: 14px; align-items: start; }
 .pier-app .workbench-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
 .pier-app .workbench-side > .fulfil > .panel:first-child, .pier-app .fulfil .panel { margin: 12px 0 0; }
 
@@ -19,8 +20,11 @@
 .pier-app .queue-tools svg { width: 18px; height: 18px; }
 .pier-app .queue-tools select { width: auto; min-height: 32px; padding: 0 30px 0 10px; font-size: 13px; background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%; }
 .pier-app .queue-empty { padding: 26px 20px; border: 1px dashed var(--app-line-strong); border-radius: 10px; background: var(--surface); color: var(--app-soft); }
-.pier-app .queue-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13.5px; }
-.pier-app .queue-table col.c-ref { width: 84px; } .pier-app .queue-table col.c-where { width: 92px; } .pier-app .queue-table col.c-channel { width: 66px; } .pier-app .queue-table col.c-lines { width: 46px; } .pier-app .queue-table col.c-total { width: 100px; } .pier-app .queue-table col.c-ship { width: 90px; } .pier-app .queue-table col.c-status { width: 110px; }
+.pier-app .queue-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* Every column but the customer shrinks to its widest value on one line; the customer takes the rest
+   (width 100% with max-width 0), so "Needs attention" always shows whole. */
+.pier-app .queue-table th.q-customer, .pier-app .queue-table td.q-customer { width: 100%; max-width: 0; }
+.pier-app .queue-table .pill { padding: 2px 8px; }
 .pier-app .queue-table th { padding: 8px 6px 9px; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--app-line); color: var(--app-soft); font-size: 11px; font-weight: 600; letter-spacing: 0; text-align: left; text-transform: uppercase; white-space: nowrap; }
 .pier-app .queue-table td { height: 34px; padding: 4px 6px; border-bottom: 1px solid var(--app-line); overflow: hidden; text-overflow: ellipsis; vertical-align: middle; white-space: nowrap; }
 .pier-app .queue-table .num { text-align: right; }
@@ -31,7 +35,8 @@
 .pier-app .queue-table tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--cobalt); }
 .pier-app .queue-table .q-ref button { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: #a9b4c6; text-underline-offset: 3px; }
 
-.pier-app .queue-table td.q-customer { white-space: normal; line-height: 17px; overflow-wrap: anywhere; }
+/* One line per order: a long customer name ends after its last whole word (WordClip), full name on hover. */
+.pier-app .queue-table td.q-customer { white-space: nowrap; }
 .pier-app .queue-table .q-where { color: var(--body); }
 .pier-app .queue-table .q-unit { display: none; }
 .pier-app .queue-table .late { color: var(--red-ink); font-weight: 500; }
@@ -64,19 +69,26 @@
 .pier-app .track i { display: block; height: 100%; border-radius: 6px; background: var(--cobalt); }
 .pier-app .pick-progress p { margin: 0; color: var(--body); font-size: 13px; line-height: 17px; text-align: right; }
 .pier-app .order-lines { margin: 0 -18px; overflow-x: auto; border-top: 1px solid var(--app-line); }
+/* Every line is one row of text: columns shrink to their values, the product name takes the rest
+   and ends in an ellipsis (full name on hover). */
 .pier-app .order-lines table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.pier-app .order-lines th { padding: 9px 5px 8px; border-bottom: 1px solid var(--app-line); color: var(--app-soft); font-size: 11px; font-weight: 600; letter-spacing: 0; text-align: left; text-transform: uppercase; white-space: nowrap; }
-.pier-app .order-lines td { padding: 6px 5px; border-bottom: 1px solid var(--app-line); vertical-align: middle; }
+.pier-app .order-lines td { white-space: nowrap; }
+.pier-app .order-lines .line-name { width: 100%; max-width: 0; }
+.pier-app .order-lines th { padding: 9px 4px 8px; border-bottom: 1px solid var(--app-line); color: var(--app-soft); font-size: 11px; font-weight: 600; letter-spacing: 0; text-align: left; text-transform: uppercase; white-space: nowrap; }
+.pier-app .order-lines td { padding: 6px 4px; border-bottom: 1px solid var(--app-line); vertical-align: middle; }
 .pier-app .order-lines th:first-child, .pier-app .order-lines td:first-child { width: 30px; padding-left: 12px; }
-.pier-app .order-lines .line-name { min-width: 92px; }
-.pier-app .order-lines th:last-child, .pier-app .order-lines td:last-child { padding-right: 16px; }
+.pier-app .order-lines .line-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pier-app .order-lines th:last-child, .pier-app .order-lines td:last-child { padding-right: 12px; }
 .pier-app .order-lines .num { text-align: right; white-space: nowrap; }
+@media (min-width: 600px) { .pier-app .order-lines .num { padding-left: 10px; } }
 .pier-app .order-lines .num small { color: var(--red-ink); font-size: 11.5px; line-height: 14px; }
 .pier-app .order-lines .line-state svg { width: 17px; height: 17px; color: #31507a; }
 .pier-app .order-lines tr.short td { background: #fdeeea; color: var(--red-ink); }
 .pier-app .order-lines tr.short .line-state svg { color: var(--red); }
-.pier-app .order-lines .line-sku, .pier-app .order-lines td:nth-child(4) { white-space: nowrap; }
-.pier-app .order-lines .line-sku span { display: block; font-weight: 550; }
+.pier-app .order-lines .line-sku, .pier-app .order-lines .line-bin { white-space: nowrap; }
+.pier-app .order-lines .line-sku span { display: block; font-weight: 550; line-height: 17px; }
+/* The scanner barcode sits under the SKU at the SKU's own width, so each line stays one row of text. */
+.pier-app .order-lines .line-sku .barcode { width: 100%; height: 8px; margin-top: 2px; }
 .pier-app .barcode { display: block; width: 60px; height: 11px; margin-top: 3px; fill: var(--navy); }
 .pier-app tr.short .barcode { fill: #8e2016; }
 .pier-app .order-total { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 6px 14px; padding: 10px 0 2px; font-size: 13.5px; }
@@ -87,7 +99,12 @@
 
 /* ---------- The exception ---------- */
 .pier-app .exception { margin: 10px -8px 2px; padding: 12px 12px 14px; border: 1px solid #f6cfc6; border-radius: 10px; background: linear-gradient(120deg, #fff1ee, #fdeae6); }
-.pier-app .exception-head { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 236px); gap: 10px; align-items: start; }
+/* The title takes the banner's full width; the stock line and the PO tag share the row beneath. */
+.pier-app .exception-head { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 236px); grid-template-areas: 'icon title title' 'icon text po'; gap: 4px 10px; align-items: start; }
+.pier-app .exception-head > svg { grid-area: icon; }
+.pier-app .exception-head > h3 { grid-area: title; }
+.pier-app .exception-head > p { grid-area: text; }
+.pier-app .exception-head > .po-tag { grid-area: po; }
 .pier-app .exception-head > svg { width: 30px; height: 30px; margin-top: 2px; color: var(--red); stroke-width: 1.9; }
 .pier-app .exception-head h3 { margin: 3px 0 4px; color: var(--red-ink); font-size: 16px; line-height: 21px; }
 .pier-app .exception-head p { margin: 0; font-size: 13.5px; }
@@ -110,7 +127,7 @@
 .pier-app .resolution dl { display: grid; gap: 2px; margin: auto 0 0; padding-top: 7px; border-top: 1px solid var(--app-line); font-size: 12.5px; }
 .pier-app .resolution dl > div { display: flex; justify-content: space-between; gap: 8px; }
 .pier-app .resolution dt { font-size: 12.5px; }
-.pier-app .resolution dd { margin: 0; font-weight: 600; text-align: right; }
+.pier-app .resolution dd { margin: 0; font-weight: 600; text-align: right; white-space: nowrap; }
 .pier-app .exception-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
 .pier-app .exception-actions button { min-height: 34px; padding: 0 22px; font-size: 13.5px; }
 
@@ -121,10 +138,14 @@
 .pier-app .agent-head h2 { margin: 0; font: 400 25px/1 var(--font-head); }
 .pier-app .agent-head small { color: var(--app-soft); font-size: 12px; }
 .pier-app .agent-head a { margin-left: auto; font-size: 13.5px; }
-.pier-app .agent-proposal { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #f6e3a3; border-radius: 9px; background: var(--yellow-tint); }
+.pier-app .agent-proposal { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #f6e3a3; border-radius: 9px; background: var(--yellow-tint); }
 .pier-app .agent-proposal .dot { align-self: flex-start; margin-top: 5px; width: 10px; height: 10px; }
 .pier-app .agent-proposal p { flex: 1; min-width: 0; margin: 0; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
 .pier-app .agent-actions { display: flex; flex: none; gap: 8px; }
+.pier-app .agent-proposal.stale { border-color: var(--app-line-strong); background: var(--app-row); }
+.pier-app .agent-stale { color: var(--ink); font-weight: 600; }
+.pier-app .agent-proposal .agent-error { flex: 0 0 100%; margin: 0 0 0 20px; color: var(--red-ink); font-size: 13px; }
+.pier-app .cost-failed { color: var(--red-ink); }
 .pier-app .agent-actions > * { min-height: 32px; padding: 0 14px; font-size: 13px; }
 .pier-app .agent-idle { margin: 0 2px 6px; color: var(--app-soft); font-size: 13px; }
 .pier-app .agent-log { margin: 4px 0 0; padding: 0; list-style: none; }
@@ -136,7 +157,7 @@
 .pier-app .fulfil > .actions { margin: 4px 0 0; }
 .pier-app .workbench-side .table-wrap table { min-width: 0; }
 
-@media (max-width: 1279px) {
+@media (max-width: 1399px) {
   .pier-app .workbench { grid-template-columns: minmax(0, 1fr); }
   .pier-app .queue { position: static; max-height: none; overflow: visible; }
 }
@@ -156,7 +177,7 @@
   .pier-app .queue-table .q-ref { grid-area: ref; }
   .pier-app .queue-table .q-ship { grid-area: ship; font-size: 13px; }
   .pier-app .queue-table .q-status { grid-area: status; justify-self: end; }
-  .pier-app .queue-table .q-customer { grid-area: customer; max-width: none; color: var(--body); }
+  .pier-app .queue-table td.q-customer { grid-area: customer; width: auto; max-width: none; color: var(--body); }
   .pier-app .queue-table .q-lines { grid-area: lines; color: var(--body); font-size: 13px; }
   .pier-app .queue-table .q-unit { display: inline; }
   .pier-app .queue-table .q-total { grid-area: total; justify-self: end; font-weight: 600; }
@@ -176,22 +197,22 @@
   .pier-app .order-lines tr.short td { background: none; }
   .pier-app .order-lines .line-state { grid-area: state; padding-top: 2px; }
   .pier-app .order-lines .line-sku { grid-area: sku; }
-  .pier-app .order-lines .line-name { grid-area: name; }
-  .pier-app .order-lines td:nth-child(4) { grid-area: bin; color: var(--body); }
-  .pier-app .order-lines td:nth-child(5) { grid-area: ord; }
-  .pier-app .order-lines td:nth-child(6) { grid-area: res; }
-  .pier-app .order-lines td:nth-child(7) { grid-area: disp; text-align: right; }
-  .pier-app .order-lines td:nth-child(4)::before { content: 'Bin '; color: var(--app-soft); }
-  .pier-app .order-lines td:nth-child(5)::before { content: 'Ordered '; color: var(--app-soft); }
-  .pier-app .order-lines td:nth-child(6)::before { content: 'Reserved '; color: var(--app-soft); }
-  .pier-app .order-lines td:nth-child(7)::before { content: 'Dispatched '; color: var(--app-soft); }
-  .pier-app .order-lines td:nth-child(6) small { display: none; }
-  .pier-app .order-lines td:nth-child(8) { grid-area: price; text-align: right; font-weight: 600; }
-  .pier-app .order-lines td:nth-child(9) { grid-area: margin; text-align: right; color: var(--body); }
+  .pier-app .order-lines .line-sku .barcode { width: 72px; }
+  .pier-app .order-lines .line-name { grid-area: name; max-width: none; }
+  .pier-app .order-lines .line-bin { grid-area: bin; color: var(--body); }
+  .pier-app .order-lines .line-ordered { grid-area: ord; }
+  .pier-app .order-lines .line-reserved { grid-area: res; }
+  .pier-app .order-lines .line-dispatched { grid-area: disp; text-align: right; }
+  .pier-app .order-lines .line-bin::before { content: 'Bin '; color: var(--app-soft); }
+  .pier-app .order-lines .line-ordered::before { content: 'Ordered '; color: var(--app-soft); }
+  .pier-app .order-lines .line-reserved::before { content: 'Reserved '; color: var(--app-soft); }
+  .pier-app .order-lines .line-dispatched::before { content: 'Shipped '; color: var(--app-soft); }
+  .pier-app .order-lines .line-price { grid-area: price; text-align: right; font-weight: 600; }
+  .pier-app .order-lines .line-margin { grid-area: margin; text-align: right; color: var(--body); }
   .pier-app .order-total { justify-content: flex-start; }
   .pier-app .order-total button.link { flex-basis: 100%; }
   .pier-app .exception { margin: 10px -6px 2px; padding: 12px 10px; }
-  .pier-app .exception-head { grid-template-columns: 28px minmax(0, 1fr); }
+  .pier-app .exception-head { grid-template-columns: 28px minmax(0, 1fr); grid-template-areas: 'icon title' 'icon text' 'po po'; }
   .pier-app .exception-head > svg { width: 26px; height: 26px; }
   .pier-app .po-tag { grid-column: 1 / -1; }
   .pier-app .resolutions { grid-template-columns: minmax(0, 1fr); }

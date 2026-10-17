@@ -45,8 +45,11 @@ export function backorderDates(c: Context) {
     const waiting = lines.filter((l: any) => decimal(l.backorder) > 0n);
     const expectedDate = waiting.some((l: any) => !l.expectedDate) ? null : waiting.reduce((d: string | null, l: any) => latest(d, l.expectedDate), null);
     const fingerprint = JSON.stringify(waiting.map((l: any) => ({ line: l.orderLineId, date: l.expectedDate, sources: l.sources, uncovered: l.uncovered, estimated: l.estimated })));
+    // `needsRepromise` is any move from the promise (earlier supply may re-promise
+    // earlier); `late` is the exception: waiting lines that will not fill by the promise.
+    const late = waiting.length > 0 && !!order.promiseDate && (!expectedDate || expectedDate > order.promiseDate);
     return { orderId: order.id, expectedDate, estimated: waiting.some((l: any) => l.estimated), lines, fingerprint,
-      needsRepromise: !!expectedDate && expectedDate !== order.promiseDate };
+      needsRepromise: !!expectedDate && expectedDate !== order.promiseDate, late };
   });
 }
 

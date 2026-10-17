@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { records, type PierState, type RunCommand } from '../api'
 import { Field, Form, Lines, Select, text } from '../controls'
 import { AgentDock } from './agent'
-import { useUnitCosts } from './costs'
+import { useLineCosts } from './costs'
 import { OrderCard } from './detail'
 import { Fulfil } from './fulfil'
 import { needsAttention } from './model'
@@ -17,7 +17,7 @@ export function Sales({ state, run, busy, documentId = '', warehouse = '' }: { s
   const [selected, setSelected] = useState(documentId), [filter, setFilter] = useState<QueueFilter>({ chip: 'open', channel: '', carrier: '', sort: 'promise' }), [prefill, setPrefill] = useState(false)
   const [lines, setLines] = useState<{ itemId: string; quantity: string; price?: string }[]>([])
   const orders = records(state, 'orders'), items = records(state, 'items').filter(item => !item.archived), parties = records(state, 'parties'), locations = records(state, 'locations').filter(location => location.kind === 'bin')
-  const costs = useUnitCosts(state.version)
+  const costs = useLineCosts(state.version)
   useEffect(() => { if (documentId) { const shipment = records(state, 'shipments').find(row => row.id === documentId); setSelected(shipment?.orderId || documentId) } }, [documentId, state])
   const visible = visibleOrders(state, warehouse, filter)
   const order = orders.find(row => row.id === selected) ?? visible.find(needsAttention) ?? visible[0]

@@ -33,6 +33,7 @@ test('sell-through drafts an approved supplier PO and re-promises backorders by 
   assert.equal(po.lines[0].quantity, '30'); assert.equal(po.expectedLandedCost.total, '68.000000000000');
   assert.equal(s.positions.find(p => p.itemId === b.item.id && p.locationId === b.source.id).quantity, '30');
   assert.equal(s.orders.find(o => o.id === demand.id).lines[0].backorder, '10');
+  assert.equal(s.orders.find(o => o.id === demand.id).backorderPlan.late, true, 'supply after the promise is the exception');
   await h.command('replenishment.plan', {});
   assert.equal((await h.state()).purchaseOrders.filter(p => p.status === 'draft').length, 1, 'rerunning does not duplicate covered demand');
   await h.command('po.send', { poId: po.id, version: po.version, recipient: 'supplier@example.test', confirm: true }, { error: 'PO_STATE' });
@@ -57,6 +58,8 @@ test('sell-through drafts an approved supplier PO and re-promises backorders by 
   await h.command('po.confirm', { poId: po.id, version: po.version, promiseDate: date, source: 'Supplier email 14', body: 'Confirmed full delivery on this date.', confirm: true });
   assert.equal(mail.length, 4); assert.match(mail[3].message.text, new RegExp(date));
   order = (await h.state()).orders.find(o => o.id === demand.id);
+  // Re-promised to the confirmed supply date, the order is no longer late.
+  assert.equal(order.backorderPlan.late, false);
   assert.equal(order.promiseDate, date); assert.equal(order.backorderPlan.estimated, false);
   assert.equal(order.backorderPlan.lines[0].sources[0].quantity, '10');
   const later = new Date(Date.now() + 20 * 86400000).toISOString().slice(0,10);

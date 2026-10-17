@@ -29,7 +29,7 @@ export function TopBar({ state, warehouse, setWarehouse, signOut }: { state: Pie
     {names.length > 0 && <div className="switcher" role="group" aria-label="Warehouse">{[...names, ''].map(value => <button key={value || 'all'} type="button" aria-pressed={warehouse === value} onClick={() => setWarehouse(value)}>{value || 'All'}</button>)}</div>}
     {state && <GlobalSearch state={state} />}
     {state && <SyncLine state={state} />}
-    <div className="account"><span className="avatar" aria-hidden="true">{initials(name)}</span><span className="account-name"><span title={name}>{name}</span>{role.toLowerCase() !== name.trim().toLowerCase() && <small>{role}</small>}</span><button type="button" onClick={signOut}>Sign out</button></div>
+    {state && <div className="account"><span className="avatar" aria-hidden="true">{initials(name)}</span><span className="account-name"><span title={name}>{name}</span>{role.toLowerCase() !== name.trim().toLowerCase() && <small>{role}</small>}</span><button type="button" onClick={signOut}>Sign out</button></div>}
   </header>
 }
 
@@ -52,14 +52,19 @@ function GlobalSearch({ state }: { state: PierState }) {
   </div>
 }
 
-/** The connected sales channels and books, and when each last reported. */
+/** The connected sales channels and books, and when each last reported; then
+ * each retailer EDI connection and when its last purchase order arrived. */
 function SyncLine({ state }: { state: PierState }) {
   const channels = connections(state).filter(row => row.enabled), books = records(state, 'bookConnections').filter(row => row.enabled)
   const sources = [...channels.map(row => ({ name: row.name || providerName(row.provider), at: row.lastReceivedAt, problem: row.problem })), ...books.map(row => ({ name: 'Pantry', at: row.lastSync, problem: row.problem }))]
+  const edi = records(state, 'ediPartners').filter(row => row.enabled !== false).map(row => ({ name: `${row.name} EDI`, at: records(state, 'ediOrders').filter(order => order.partnerId === row.id).map(order => String(order.receivedAt)).sort().at(-1) }))
   const problem = sources.find(row => row.problem), latest = sources.map(row => row.at).filter(Boolean).sort().at(-1)
+  const lastEdi = edi.map(row => row.at).filter(Boolean).sort().at(-1)
+  const ediText = !edi.length ? '' : `${edi.length === 1 ? edi[0].name : `EDI from ${edi.length} retailers`}${lastEdi ? ` · last order ${ago(lastEdi)}` : ''}`
   let body: ReactNode
-  if (!sources.length) body = <><i className="dot idle" /><a href="#channels">No channels or books connected</a></>
-  else if (problem) body = <><i className="dot problem" /><a href={channels.some(row => row.problem) ? '#channels' : '#books'}>{problem.name} needs attention</a></>
-  else body = <><i className="dot ok" /><span>{sources.map(row => row.name).join(', ')} {latest ? `synced ${ago(latest)}` : 'connected'}</span></>
+  if (problem) body = <><i className="dot problem" /><a href={channels.some(row => row.problem) ? '#channels' : '#books'}>{problem.name} needs attention</a></>
+  else if (sources.length) body = <><i className="dot ok" /><span>{sources.map(row => row.name).join(', ')} {latest ? `synced ${ago(latest)}` : 'connected'}{ediText ? ` · ${ediText}` : ''}</span></>
+  else if (edi.length) body = <><i className="dot ok" /><a href="#edi">{ediText}</a></>
+  else body = <><i className="dot idle" /><a href="#channels">No channels or books connected</a></>
   return <p className="sync">{body}</p>
 }

@@ -52,6 +52,8 @@ test('landed receipts, priced shipments and dated FIFO/average reports reconcile
   assert.equal(r.deadStock.rows[0].itemId, slow.id);
   assert.equal(r.deadStock.total, '88.000000000000');
   for (const key of ['bySku', 'byChannel', 'byCustomer']) assert.equal(r.margin[key][0].margin, '90.000000000000');
+  // The order line keeps its own cost once shipped: the layers its dispatch consumed.
+  assert.deepEqual(r.orderCosts[order.lines[0].id], { quantity: '12', cost: '30.000000000000' });
   const before = (await h.state()).version;
   await h.command('costing.method', { method: 'average', reason: 'Reviewed policy change' }, { error: 'COSTING_CONFIRM' });
   assert.equal((await h.state()).version, before);
@@ -67,6 +69,7 @@ test('landed receipts, priced shipments and dated FIFO/average reports reconcile
   assert.equal(r.method, 'average');
   assert.equal(r.margin.rows.find(row => row.shipmentId === shipment.id).cost, '30.000000000000');
   assert.equal(r.margin.rows.find(row => row.shipmentId === secondShipment.id).cost, '26.000000000000');
+  assert.deepEqual(r.orderCosts[order.lines[0].id], { quantity: '12', cost: '30.000000000000' }, 'a later receipt at another cost leaves a shipped line\'s cost');
   assert.equal(r.margin.margin, '104.000000000000');
   assert.equal(r.valuation.total, '182.000000000000');
   assert.equal(r.valuation.reconciliation.difference, '0.000000000000');

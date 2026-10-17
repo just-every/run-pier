@@ -4,13 +4,17 @@ After the ordinary `rer setup`, run `rer demo` (`rer dev --demo`) and open its
 private `RER_OPEN` link. It opens signed in as the saved owner, on a finished
 first run, in five weeks of a US hardware and housewares distributor shipping
 from Reno DC and Newark DC: twelve items in seventeen bins and a truck between
-the warehouses, four suppliers with their terms, sixteen customers, a queue of
-open sales orders priced in USD (most reserved in full, three backordered, one
-of them Hartwell Hardware's order 28 Blue Mug 12oz short after Harbor Ceramics'
-delivery arrived 20 short), shipped orders including two today, purchase orders
-(received, part received, expected and a draft), a UPS Ground pick wave half
-scanned, a transfer, a count, returns in quarantine and restocked, the opening
-stock import, a replenishment proposal the agent prepared waiting for review,
+the warehouses, moved in from inFlow five weeks ago with USD opening costs (so
+every report values the whole stock), four suppliers with their terms and
+reorder points at both warehouses, sixteen customers, two of them retailers
+that send X12 850 purchase orders over EDI, a queue of open sales orders priced
+in USD (most reserved in full, three backordered: Hartwell Hardware's order 28
+Blue Mug 12oz short at Reno DC after Harbor Ceramics' delivery arrived 20 short,
+Trinity Contractors' drill drivers at Newark DC with no inbound order, and Valley
+Supply's screws, which arrive before their promise), shipped orders including
+two today, purchase orders (received, part received, expected and a draft), a
+UPS Ground pick wave half scanned, a transfer, a count, returns in quarantine
+and restocked, a replenishment proposal the agent prepared waiting for review,
 and the owner's team (an owner still named "Owner" by the claim becomes Maya
 Collins, whose business it is): Jordan takes sales orders, Sam runs the floor,
 Priya buys and the Pier agent prepares proposals, each with their Pier role, and
@@ -20,8 +24,14 @@ starts afresh. The checkout's own `.wrangler/state` is never touched.
 
 `src/demo.ts` (`seedDemo`) builds that workspace through Pier's own commands
 (`execute` in `src/pier/api.ts`), the same admission the public command
-endpoint uses, as the owner and dated back from the moment the demo starts. The
-opening stock arrives as a reviewed native CSV import. Base's `modules/demo`
+endpoint uses, as the owner and dated back from the moment the demo starts;
+earlier days' events fall in Reno working hours. The opening stock arrives as a
+reviewed inFlow move-in (its export files with independent per-bin USD
+controls), and the retailers' orders as X12 850 documents through `edi.receive`.
+A first visit opens Sales orders on the warehouse with the most orders needing
+attention, Reno DC, with Hartwell's order open. Store channels (Shopify,
+Amazon, WooCommerce, Stall) need a live store to sync, so the demo connects
+none; its orders are entered in Pier or arrive over EDI. Base's `modules/demo`
 runs it once after the owner exists, and only with `RER_DEMO=1`, which
 `rer deploy` refuses to carry; a normal installation still starts empty.
 

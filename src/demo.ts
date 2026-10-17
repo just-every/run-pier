@@ -67,55 +67,69 @@ const catalogue: string[][] = [
   ['sh', 'SH-RP', 'Round Point Shovel', '085012400819', 'each', '1', '22.90'],
   ['pb', 'PB-200', 'Paint Brush 2in', '085012400888', 'each', '12', '3.40'],
 ]
-const items = [['key', 'sku', 'name', 'barcode', 'unit', 'packSize'], ...catalogue.map(row => row.slice(0, 6))]
 const price = Object.fromEntries(catalogue.map(row => [row[0], row[6]]))
-const locations = [
-  ['key', 'name', 'warehouse', 'kind'],
-  ...['A-01', 'A-03', 'A-05', 'A-14', 'A-15', 'B-03', 'B-07', 'C-02', 'D-01', 'D-02', 'D-04', 'E-02', 'Q-01 Returns'].map(name => [name.toLowerCase().replace(/[^a-z0-9]+/g, ''), name, 'Reno DC', 'bin']),
-  ...['N-01', 'N-02', 'N-03', 'N-04'].map(name => [name.toLowerCase().replace('-', ''), name, 'Newark DC', 'bin']),
-  ['truck', 'Truck 4', 'Between warehouses', 'transit'],
-]
+const unit = Object.fromEntries(catalogue.map(row => [row[0], row[4]]))
+const code = Object.fromEntries(catalogue.map(row => [row[0], row[1]]))
+// [bin, warehouse]: Reno DC's bins and Newark DC's; Q-01 Returns and the truck hold no opening stock.
+const bins: [string, string][] = [...['A-01', 'A-03', 'A-05', 'A-14', 'A-15', 'B-03', 'B-07', 'C-02', 'D-01', 'D-02', 'D-04', 'E-02'].map(name => [name, 'Reno DC'] as [string, string]), ...['N-01', 'N-02', 'N-03', 'N-04'].map(name => [name, 'Newark DC'] as [string, string])]
 const customers = ['Hartwell Hardware', 'Crescent Supply', 'Builders Warehouse', 'Lakeside Tools', 'Pine State Supply', 'Trinity Contractors', 'Granite City Supply', 'Riverside Building', 'Metro Materials', 'Summit Industrial', 'Valley Supply Co', 'Red Rock Hardware', 'Cobalt Construction', 'Frontier Supply', 'Sterling Builders', 'High Plains Supply']
 const suppliers = ['Harbor Ceramics', 'Keystone Tool Co.', 'Pacific Fastener Supply', 'Sierra Garden Goods']
-const parties = [['key', 'name', 'kind'], ...suppliers.map((name, index) => [`s${index}`, name, 'supplier']), ...customers.map((name, index) => [`c${index}`, name, 'customer'])]
-const unit = Object.fromEntries(items.slice(1).map(row => [row[0], row[4]]))
-// [item, bin key, quantity, unit cost USD]
+// [item, bin, quantity, unit cost USD]
 const opening: [string, string, string, string][] = [
-  ['hm', 'a01', '400', '7.75'], ['sc', 'b03', '6000', '0.07'], ['blu', 'a14', '60', '6.24'], ['nvy', 'a15', '146', '6.70'], ['pl', 'c02', '180', '9.51'], ['tk', 'b07', '150', '16.80'],
-  ['tm', 'a03', '220', '5.40'], ['lv', 'a05', '90', '11.20'], ['wg', 'd01', '800', '2.10'], ['dd', 'd04', '12', '58.00'], ['sh', 'e02', '80', '14.30'], ['pb', 'd02', '600', '1.85'],
-  ['hm', 'n01', '120', '7.75'], ['tk', 'n02', '40', '16.80'], ['nvy', 'n03', '48', '6.70'], ['sc', 'n04', '2000', '0.07'],
+  ['hm', 'A-01', '400', '7.75'], ['sc', 'B-03', '6000', '0.07'], ['blu', 'A-14', '60', '6.24'], ['nvy', 'A-15', '146', '6.70'], ['pl', 'C-02', '180', '9.51'], ['tk', 'B-07', '150', '16.80'],
+  ['tm', 'A-03', '220', '5.40'], ['lv', 'A-05', '90', '11.20'], ['wg', 'D-01', '800', '2.10'], ['dd', 'D-04', '12', '58.00'], ['sh', 'E-02', '80', '14.30'], ['pb', 'D-02', '600', '1.85'],
+  ['hm', 'N-01', '120', '7.75'], ['tk', 'N-02', '40', '16.80'], ['nvy', 'N-03', '48', '6.70'], ['sc', 'N-04', '2000', '0.07'],
 ]
-const positions = [['key', 'itemKey', 'locationKey', 'status', 'quantity', 'unit', 'cost'], ...opening.map(([item, bin, quantity, cost]) => [`${item}-${bin}`, item, bin, 'sellable', quantity, unit[item], cost])]
+const warehouseOf = (bin: string) => bins.find(row => row[0] === bin)![1]
+const cents = (value: string) => Math.round(Number(value) * 100)
+/** The business's last inventory system was inFlow: its own export files, mapped
+ * column by column, with the stock report's per-bin totals as independent controls. */
+function inflowExport() {
+  const controls = new Map<string, { bin: string; unit: string; quantity: number; cents: number }>()
+  for (const [item, bin, quantity, cost] of opening) {
+    const key = JSON.stringify([warehouseOf(bin), bin, unit[item]]), total = controls.get(key) ?? { bin, unit: unit[item], quantity: 0, cents: 0 }
+    total.quantity += Number(quantity); total.cents += Number(quantity) * cents(cost); controls.set(key, total)
+  }
+  return [
+    { name: 'products.csv', kind: 'items', csv: csv([['ProductName', 'Description', 'SKU', 'Uom', 'BarCode', 'Cost', 'CaseQuantity'], ...catalogue.map(([key, code, name, barcode, each, pack]) => [code, name, code, each, barcode, opening.find(row => row[0] === key)![3], pack])]), columns: { key: 'ProductName', sku: 'SKU', name: 'Description', unit: 'Uom', barcode: 'BarCode', openingCost: 'Cost', packSize: 'CaseQuantity' } },
+    { name: 'stock-levels.csv', kind: 'positions', csv: csv([['ProductName', 'Location', 'Sublocation', 'Quantity'], ...opening.map(([item, bin, quantity]) => [code[item], warehouseOf(bin), bin, quantity])]), columns: { itemKey: 'ProductName', warehouse: 'Location', bin: 'Sublocation', quantity: 'Quantity' }, constants: { status: 'sellable' } },
+    { name: 'locations.csv', kind: 'locations', csv: csv([['Key', 'Location', 'Sublocation', 'Kind'], ['reno-returns', 'Reno DC', 'Q-01 Returns', 'bin'], ['truck-4', 'Between warehouses', 'Truck 4', 'transit']]), columns: { key: 'Key', warehouse: 'Location', name: 'Sublocation', kind: 'Kind' } },
+    { name: 'vendors.csv', kind: 'suppliers', csv: csv([['Name', 'CurrencyCode'], ...suppliers.map(name => [name, 'USD'])]), columns: { key: 'Name', name: 'Name' }, archivedColumns: { CurrencyCode: 'USD verified.' } },
+    { name: 'customers.csv', kind: 'customers', csv: csv([['Name'], ...customers.map(name => [name])]), columns: { key: 'Name', name: 'Name' } },
+    { name: 'stock-report-totals.csv', kind: 'controls', csv: csv([['Bin identity', 'Base unit', 'Units', 'USD value'], ...[...controls.values()].map(total => [JSON.stringify([warehouseOf(total.bin), total.bin]), total.unit, String(total.quantity), (total.cents / 100).toFixed(2)])]), columns: { locationKey: 'Bin identity', unit: 'Base unit', quantity: 'Units', value: 'USD value' } },
+  ]
+}
 
 async function story(env: Bindings, cast: Cast, team: [string, string, string, string, string][], now: Date) {
   let sequence = 0
-  const at = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString()
-  const day = (days: number) => at(-days).slice(0, 10)
+  const at = workingClock(now)
+  const day = (days: number) => new Date(now.getTime() + days * 86_400_000).toISOString().slice(0, 10)
   // Who does what: Jordan takes sales orders, Sam runs the floor, Priya buys,
   // the agent prepares proposals; the owner reviews, approves and commits.
   const by: Record<string, string> = {
     'order.create': 'jordan', 'order.reserve': 'jordan', 'dispatch.create': 'sam', 'receipt.create': 'sam', 'transfer.send': 'sam', 'transfer.receive': 'sam',
-    'count.capture': 'sam', 'count.record': 'sam', 'return.create': 'sam', 'carrier.save': 'sam', 'wave.release': 'sam', 'pick.scan': 'sam', 'po.draft': 'priya', 'proposal.prepare': 'agent',
+    'count.capture': 'sam', 'count.record': 'sam', 'return.create': 'sam', 'carrier.save': 'sam', 'wave.release': 'sam', 'pick.scan': 'sam', 'po.draft': 'priya', 'replenishment.save': 'priya', 'proposal.prepare': 'agent',
+    'edi.receive': 'jordan', 'edi.acknowledge': 'jordan',
   }
-  const run = async (days: number, type: string, payload: Record<string, unknown>) =>
-    (await execute(env, cast[by[type]] ?? cast.owner, `demo-seed-${String(++sequence).padStart(3, '0')}`, type, payload, () => at(days))).result
+  const run = async (days: number, type: string, payload: Record<string, unknown>) => {
+    const time = at(days)
+    return (await execute(env, cast[by[type]] ?? cast.owner, `demo-seed-${String(++sequence).padStart(3, '0')}`, type, payload, () => time)).result
+  }
 
-  // Five weeks ago: the opening stock sheet, imported and reviewed stage by stage.
-  // Native CSV is AUD-only today (src/pier/imports.ts), so its opening costs stay
-  // unvalued; the USD purchase orders received below carry the valued stock.
+  // Five weeks ago: the move from inFlow, staged from its export files and reviewed stage by stage.
   let batch = await run(35, 'import.stage', {
-    namespace: 'opening-stock', sourceVersion: 'stock-sheet-v3', exportedAt: at(35.1), filters: 'all active lines', cutoffTimezone: 'America/Los_Angeles', currency: 'AUD', mappingRevision: '1',
-    files: [{ name: 'items.csv', kind: 'items', csv: csv(items) }, { name: 'locations.csv', kind: 'locations', csv: csv(locations) }, { name: 'parties.csv', kind: 'parties', csv: csv(parties) }, { name: 'positions.csv', kind: 'positions', csv: csv(positions) }],
+    provider: 'inflow', namespace: 'inflow:pier-demo-distributor', sourceVersion: 'inFlow export, Sep 2026', mappingRevision: 'reviewed-1', exportedAt: at(35.1), cutoffTimezone: 'America/Los_Angeles', currency: 'USD',
+    filters: 'Active stocked products, untracked; per-bin totals from the separately run stock valuation report', files: inflowExport(),
   })
   for (const stage of ['mapped', 'reconciled', 'shadow', 'frozen'])
-    batch = await run(35, 'import.review', { batchId: batch.id, version: batch.version, stage, reason: 'Checked against the shelf count taken on Friday' })
+    batch = await run(35, 'import.review', { batchId: batch.id, version: batch.version, stage, reason: 'Checked against the shelf count taken on Friday and the inFlow valuation report' })
   await run(35, 'import.commit', { batchId: batch.id, version: batch.version })
   for (const [key, , , role] of team) await run(34, 'role.set', { operatorId: `demo-${key}`, role })
 
   const state = (await env.DB.prepare("SELECT kind,data FROM pier_records WHERE kind IN ('items','locations','parties')").all<{ kind: string; data: string }>()).results.map(row => JSON.parse(row.data))
   const id = (name: string) => state.find(row => row.sku === name || row.name === name)?.id ?? (() => { throw new Error(`Demo record ${name} is missing`) })()
-  const sku = (key: string) => id(catalogue.find(row => row[0] === key)![1])
-  const bin = (key: string) => id(locations.find(row => row[0] === key)![1])
+  const sku = (key: string) => id(code[key])
+  const bin = (name: string) => id(name)
   const [harbor, keystone, pacific, sierra] = suppliers.map(id)
   const [hartwell, crescent, builders, lakeside, pine, trinity, granite, riverside, metro, summit, valley, redrock, cobalt, frontier, sterling, plains] = customers.map(id)
 
@@ -126,6 +140,22 @@ async function story(env: Bindings, cast: Cast, team: [string, string, string, s
   ]
   for (const [supplierId, item, code, packSize, cost, minimum, leadDays] of terms)
     await run(34, 'supplierItem.save', { supplierId, itemId: sku(item), code, packSize, price: cost, minimum, leadDays })
+  // Priya's reorder points and quantities at both warehouses, each with its supplier, so planning prices every suggestion.
+  for (const [supplierId, item, , , , , ] of terms) {
+    const [point, quantity] = reorderPolicy[item]
+    for (const warehouse of ['Reno DC', 'Newark DC'])
+      await run(34, 'replenishment.save', { itemId: sku(item), warehouse, supplierId, method: 'fixed', safetyStock: '0', reorderPoint: point, reorderQuantity: quantity, version: 0 })
+  }
+  // Two retailers send purchase orders as X12 850s; Pier maps their UPCs to its items.
+  const retailers = { builders: await run(34, 'edi.partner.save', { name: 'Builders Warehouse', customerId: builders, warehouse: 'Newark DC', senderId: 'PIERDEMO', receiverId: 'BUILDERSWH', gs1Prefix: '0614141', ackMinutes: 1440, asnBeforeArrivalMinutes: 120, invoiceMinutes: 1440, transport: 'pending' }),
+    summit: await run(34, 'edi.partner.save', { name: 'Summit Industrial', customerId: summit, warehouse: 'Reno DC', senderId: 'PIERDEMO', receiverId: 'SUMMITIND', gs1Prefix: '0614141', ackMinutes: 1440, asnBeforeArrivalMinutes: 120, invoiceMinutes: 1440, transport: 'pending' }) }
+  for (const partner of Object.values(retailers)) for (const row of catalogue)
+    await run(34, 'edi.mapping.save', { partnerId: partner.id, upc: row[3], itemId: sku(row[0]), unit: row[4] === 'pair' ? 'PR' : 'EA', packQuantity: '1' })
+  let control = 0
+  const ediOrder = async (days: number, partner: any, promise: number, shipTo: string[], lines: [string, string][]) => {
+    const incoming = await run(days, 'edi.receive', { partnerId: partner.id, x12: purchaseOrder850(partner, ++control, at(days), day(promise), shipTo, lines.map(([item, quantity]) => ({ upc: catalogue.find(row => row[0] === item)![3], quantity, unit: unit[item] === 'pair' ? 'PR' : 'EA', price: price[item] }))) })
+    await run(days, 'edi.acknowledge', { ediOrderId: incoming.id, version: incoming.version, lines: incoming.lines.map((line: any) => ({ lineId: line.id, decision: 'accept', quantity: line.quantity })) })
+  }
 
   const sell = (days: number, customerId: string, promise: number, lines: [string, string][], warehouse = 'Reno DC') =>
     run(days, 'order.create', { customerId, promiseDate: day(promise), warehouse, lines: lines.map(([item, quantity]) => ({ itemId: sku(item), quantity, price: price[item] })) })
@@ -148,25 +178,25 @@ async function story(env: Bindings, cast: Cast, team: [string, string, string, s
   const so1 = await sell(31, crescent, -29, [['hm', '48'], ['tk', '10'], ['tm', '24']])
   const sh1 = await dispatch(30, so1, 'UPS 1Z84F2W70312045521')
   const po1 = await buy(27, keystone, -20, 'Hammers, toolkits and drills for the spring contractor season', [['hm', '120', '7.75'], ['tk', '60', '16.80'], ['dd', '12', '58.00'], ['tm', '120', '5.40'], ['lv', '48', '11.20']])
-  await receive(27, screwPo, 'Pacific Fastener invoice 7731', [['b03', '4000']])
-  await receive(26, gardenPo, 'Sierra Garden packing slip 5120', [['d01', '400'], ['d02', '200'], ['e02', '40']])
-  await receive(25, navyPo, 'Harbor Ceramics invoice 20412', [['a15', '96']])
+  await receive(27, screwPo, 'Pacific Fastener invoice 7731', [['B-03', '4000']])
+  await receive(26, gardenPo, 'Sierra Garden packing slip 5120', [['D-01', '400'], ['D-02', '200'], ['E-02', '40']])
+  await receive(25, navyPo, 'Harbor Ceramics invoice 20412', [['A-15', '96']])
   const so2 = await sell(25, builders, -23, [['blu', '60'], ['pl', '24'], ['sh', '10']])
   const sh2 = await dispatch(24, so2, 'UPS 1Z84F2W70312047730')
-  const back = await run(23, 'return.create', { shipmentId: sh2.id, shipmentLineId: sh2.lines[2].id, locationId: bin('q01returns'), quantity: '2', reason: 'Two shovels returned unused; cartons sealed' })
+  const back = await run(23, 'return.create', { shipmentId: sh2.id, shipmentLineId: sh2.lines[2].id, locationId: bin('Q-01 Returns'), quantity: '2', reason: 'Two shovels returned unused; cartons sealed' })
   await run(23, 'return.approve', { returnId: back.id, version: back.version })
   await run(22, 'return.restock', { returnId: back.id, version: back.version })
-  await receive(21, po1, 'Keystone invoice 44812', [['a01', '120'], ['b07', '60'], ['d04', '12'], ['a03', '120'], ['a05', '48']])
+  await receive(21, po1, 'Keystone invoice 44812', [['A-01', '120'], ['B-07', '60'], ['D-04', '12'], ['A-03', '120'], ['A-05', '48']])
   const so3 = await sell(20, lakeside, -18, [['wg', '120'], ['pb', '48']])
   await dispatch(19, so3, 'UPS 1Z84F2W70312051184')
-  const move = await run(18, 'transfer.send', { itemId: sku('tk'), fromLocationId: bin('b07'), toLocationId: bin('n02'), transitLocationId: bin('truck'), quantity: '20', reason: 'Newark DC toolkits for the East Coast accounts' })
+  const move = await run(18, 'transfer.send', { itemId: sku('tk'), fromLocationId: bin('B-07'), toLocationId: bin('N-02'), transitLocationId: bin('Truck 4'), quantity: '20', reason: 'Newark DC toolkits for the East Coast accounts' })
   await run(17, 'transfer.receive', { transferId: move.id })
-  const count = await run(16, 'count.capture', { locationId: bin('a05') })
+  const count = await run(16, 'count.capture', { locationId: bin('A-05') })
   const recorded = await run(16, 'count.record', { countId: count.id, version: count.version, reason: 'Cycle count: two levels found with cracked vials', lines: count.lines.map((line: any) => ({ itemId: line.itemId, status: line.status, quantity: line.itemId === sku('lv') ? '88' : line.quantity })) })
   await run(16, 'count.approve', { countId: count.id, version: recorded.version })
   const so4 = await sell(14, pine, -12, [['hm', '36'], ['sc', '1000']], 'Newark DC')
   await dispatch(13, so4, 'FedEx 7789 4410 2265')
-  await run(12, 'return.create', { shipmentId: sh1.id, shipmentLineId: sh1.lines[2].id, locationId: bin('q01returns'), quantity: '2', reason: 'Two tape measures returned with cracked cases' })
+  await run(12, 'return.create', { shipmentId: sh1.id, shipmentLineId: sh1.lines[2].id, locationId: bin('Q-01 Returns'), quantity: '2', reason: 'Two tape measures returned with cracked cases' })
   const po2 = await buy(12, harbor, -2, 'Mugs and planters for the holiday housewares reset', [['blu', '500', '6.24'], ['pl', '100', '9.51']])
   await buy(11, pacific, 3, 'Screws for Valley Supply and the contractor accounts', [['sc', '5000', '0.07']])
 
@@ -174,7 +204,7 @@ async function story(env: Bindings, cast: Cast, team: [string, string, string, s
   const cobaltOrder = await sell(9, cobalt, 11, [['blu', '148'], ['hm', '24'], ['pb', '60']])
   await sell(8, metro, 4, [['tk', '16'], ['lv', '12'], ['tm', '24']])
   const riversideOrder = await sell(7, riverside, 3, [['blu', '120'], ['nvy', '24'], ['pl', '36']])
-  await sell(6, trinity, 2, [['dd', '30'], ['wg', '24']])
+  await sell(6, trinity, 2, [['dd', '30'], ['wg', '24']], 'Newark DC')
   const hartwellOrder = await sell(5, hartwell, 6, [['hm', '24'], ['sc', '200'], ['blu', '240'], ['pl', '48'], ['tk', '12'], ['tm', '36'], ['lv', '10'], ['wg', '48']])
   await sell(5, granite, 4, [['sh', '20'], ['wg', '96']])
   await sell(4, valley, 8, [['sc', '12000'], ['hm', '30']])
@@ -182,22 +212,22 @@ async function story(env: Bindings, cast: Cast, team: [string, string, string, s
   await sell(3, frontier, 8, [['wg', '60'], ['pb', '24'], ['sh', '6']])
   await sell(2, sterling, 9, [['lv', '20'], ['tm', '30']])
   await sell(2, plains, 10, [['hm', '18'], ['nvy', '36']])
-  await sell(2, builders, 4, [['hm', '40'], ['sc', '800']], 'Newark DC')
-  await sell(1.5, summit, 12, [['pb', '72'], ['wg', '48']])
+  await ediOrder(2, retailers.builders, 4, ['Builders Warehouse DC 12', '0012', '400 Meadowlands Pkwy', 'Secaucus', 'NJ', '07094'], [['hm', '40'], ['sc', '800']])
+  await ediOrder(1.5, retailers.summit, 12, ['Summit Industrial Boise', '0207', '2150 S Federal Way', 'Boise', 'ID', '83705'], [['pb', '72'], ['wg', '48']])
   const crescentOrder = await sell(1.2, crescent, 1, [['tk', '6'], ['hm', '12']])
   const pineOrder = await sell(1.1, pine, 2, [['nvy', '24']], 'Newark DC')
   await sell(0.6, lakeside, 13, [['sh', '12'], ['tm', '12']])
 
   // This morning: Harbor Ceramics' delivery arrives 20 mugs short; the mugs are
   // reserved in order of entry, so Hartwell Hardware's order is 28 short.
-  await receive(0.15, po2, 'Harbor Ceramics invoice 20931', [['a14', '480'], ['c02', '100']])
+  await receive(0.15, po2, 'Harbor Ceramics invoice 20931', [['A-14', '480'], ['C-02', '100']])
   for (const order of [cobaltOrder, riversideOrder, hartwellOrder]) await run(0.14, 'order.reserve', { orderId: order.id })
   const ups = await run(0.13, 'carrier.save', { name: 'UPS Ground', warehouse: 'Reno DC', dock: 'Dock 2', cutoff: '16:00', timeZone: 'America/Los_Angeles' })
   await run(0.13, 'carrier.save', { name: 'FedEx Ground', warehouse: 'Newark DC', dock: 'Dock 1', cutoff: '17:00', timeZone: 'America/New_York' })
   const wave = await run(0.12, 'wave.release', { carrierId: ups.id, orderIds: [hartwellOrder.id, riversideOrder.id] })
   const picks = wave.lines.filter((line: any) => line.orderId === hartwellOrder.id && [sku('hm'), sku('sc'), sku('pl'), sku('tm')].includes(line.itemId))
   for (const [index, line] of picks.entries()) {
-    const item = catalogue.find(row => sku(row[0]) === line.itemId)!, binName = locations.slice(1).find(row => bin(row[0]) === line.locationId)![1]
+    const item = catalogue.find(row => sku(row[0]) === line.itemId)!, binName = bins.find(([name]) => bin(name) === line.locationId)![0]
     await run(0.07 - index * 0.004, 'pick.scan', { waveId: wave.id, lineId: line.id, binCode: binName, itemCode: item[3], quantity: line.quantity })
   }
   await dispatch(0.05, crescentOrder, 'UPS 1Z84F2W70312066402')
@@ -206,4 +236,36 @@ async function story(env: Bindings, cast: Cast, team: [string, string, string, s
   // The agent's proposal, last so its evidence is current: reorder mugs to cover the shortfall.
   const reorder = await run(0.03, 'po.draft', { supplierId: harbor, promiseDate: day(10), destinationWarehouse: 'Reno DC', reason: 'Blue Mug 12oz short for Hartwell Hardware after the Harbor Ceramics delivery arrived 20 short', lines: [{ itemId: sku('blu'), quantity: '600', price: '6.24' }] })
   await run(0.02, 'proposal.prepare', { kind: 'replenishment', assumptions: `Hartwell Hardware's ${hartwellOrder.reference} is 28 Blue Mug 12oz short after ${po2.reference} arrived 20 short. Reorder 600 from Harbor Ceramics ($3,744.00, draft ${reorder.reference}) to cover open demand and restore the reorder point; re-promise ${hartwellOrder.reference} once the supplier confirms a date.`, evidence: [hartwellOrder.id, cobaltOrder.id, po2.id], plan: { poId: reorder.id } })
+}
+
+// [reorder point, reorder quantity] per item, at each warehouse.
+const reorderPolicy: Record<string, [string, string]> = {
+  blu: ['120', '480'], nvy: ['48', '96'], pl: ['40', '80'], hm: ['80', '120'], tk: ['24', '48'], tm: ['48', '96'],
+  lv: ['24', '48'], dd: ['6', '12'], sc: ['2000', '5000'], sh: ['12', '24'], wg: ['240', '480'], pb: ['120', '240'],
+}
+
+/** Seeded instants: today's events keep their exact time; earlier ones fall on
+ * their Reno calendar day in working hours, a little later for each event that day. */
+function workingClock(now: Date) {
+  const zone = 'America/Los_Angeles', perDay = new Map<string, number>()
+  const wall = (time: number) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(time)).filter(part => part.type !== 'literal').map(part => [part.type, Number(part.value)]))
+  const dateKey = (time: number) => { const w = wall(time); return `${w.year}-${w.month}-${w.day}` }
+  return (days: number) => {
+    const time = now.getTime() - days * 86_400_000, key = dateKey(time)
+    if (key === dateKey(now.getTime())) return new Date(time).toISOString()
+    const n = perDay.get(key) ?? 0; perDay.set(key, n + 1)
+    const w = wall(time), minutes = Math.min(8 * 60 + 7 + n * 21 + (n * 7) % 11, 17 * 60 + 40)
+    const guess = Date.UTC(w.year, w.month - 1, w.day, 0, minutes), seen = wall(guess)
+    return new Date(guess - (Date.UTC(seen.year, seen.month - 1, seen.day, seen.hour, seen.minute) - guess)).toISOString()
+  }
+}
+
+/** A retailer's X12 004010 850 purchase order to Pier, as its EDI translator writes it. */
+function purchaseOrder850(partner: { senderId: string; receiverId: string }, control: number, sent: string, arrival: string, [name, code, street, city, state, zip]: string[], lines: { upc: string; quantity: string; unit: string; price: string }[]) {
+  const pad = (value: string) => value.padEnd(15, ' '), compact = sent.slice(0, 10).replaceAll('-', ''), clock = sent.slice(11, 16).replace(':', '')
+  const interchange = String(control).padStart(9, '0'), group = String(200 + control), transaction = String(control).padStart(4, '0')
+  const body = [`ST*850*${transaction}`, `BEG*00*NE*${partner.receiverId.slice(0, 4)}-${String(48100 + control * 17)}**${compact}`, 'CUR*BY*USD', `DTM*002*${arrival.replaceAll('-', '')}`, `N1*ST*${name}*92*${code}`, `N3*${street}`, `N4*${city}*${state}*${zip}*US`,
+    ...lines.map((line, index) => `PO1*${index + 1}*${line.quantity}*${line.unit}*${line.price}**UP*${line.upc}`), `CTT*${lines.length}`]
+  return [`ISA*00*          *00*          *ZZ*${pad(partner.receiverId)}*ZZ*${pad(partner.senderId)}*${compact.slice(2)}*${clock}*U*00401*${interchange}*0*T*:`, `GS*PO*${partner.receiverId}*${partner.senderId}*${compact}*${clock}*${group}*X*004010`,
+    ...body, `SE*${body.length + 1}*${transaction}`, `GE*1*${group}`, `IEA*1*${interchange}`].join('~') + '~'
 }

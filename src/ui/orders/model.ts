@@ -7,8 +7,8 @@ import { difference, sum } from '../quantity'
 export type OrderStatus = 'Reserved' | 'Backorder' | 'Partially dispatched' | 'Closed'
 export const orderStatus = (order: RecordData): OrderStatus => order.lines.every((line: any) => difference(sum([line.dispatched, line.cancelled]), line.quantity) === '0') ? 'Closed' : order.lines.some((line: any) => line.dispatched !== '0') ? 'Partially dispatched' : order.lines.some((line: any) => line.backorder !== '0') ? 'Backorder' : 'Reserved'
 export const isOpen = (order: RecordData) => orderStatus(order) !== 'Closed'
-/** A backordered order whose computed fill date has moved since the customer's promise. */
-export const needsAttention = (order: RecordData) => isOpen(order) && order.lines.some((line: any) => line.backorder !== '0') && !!order.backorderPlan?.needsRepromise
+/** A backordered order that will not fill by its promise: the expected fill date is later, or there is none. */
+export const needsAttention = (order: RecordData) => isOpen(order) && order.lines.some((line: any) => line.backorder !== '0') && !!order.backorderPlan?.late
 
 /** The warehouses an order draws on: its own, else the bins its reservations and shipments name. */
 export function orderWarehouses(state: PierState, order: RecordData): string[] {
@@ -19,6 +19,13 @@ export function orderWarehouses(state: PierState, order: RecordData): string[] {
 }
 export const warehouses = (state: PierState) => [...new Set(records(state, 'locations').filter(row => row.kind === 'bin' && row.warehouse !== 'Between warehouses').map(row => String(row.warehouse)))].sort()
 export const inWarehouse = (state: PierState, order: RecordData, warehouse: string) => !warehouse || orderWarehouses(state, order).includes(warehouse)
+/** Where a first visit opens: the warehouse with the most orders needing attention, then the most open orders; All when nothing is open. */
+export function openingWarehouse(state: PierState) {
+  const open = records(state, 'orders').filter(isOpen)
+  const rank = warehouses(state).map(name => { const here = open.filter(order => orderWarehouses(state, order).includes(name)); return { name, attention: here.filter(needsAttention).length, open: here.length } })
+    .filter(row => row.open > 0).sort((a, b) => b.attention - a.attention || b.open - a.open || a.name.localeCompare(b.name))
+  return rank[0]?.name ?? ''
+}
 
 /** The wave lines that pick this order, in bin order. */
 export const pickLines = (state: PierState, order: RecordData) => records(state, 'waves').flatMap(wave => wave.lines.filter((line: any) => line.orderId === order.id).map((line: any) => ({ ...line, waveId: wave.id, carrierId: wave.carrierId })))
@@ -48,8 +55,9 @@ export function ago(value: unknown, now = Date.now()) {
   if (minutes < 1) return 'just now'
   if (minutes < 60) return `${minutes} min ago`
   const hours = Math.round(minutes / 60)
-  if (hours < 48) return `${hours} hr ago`
-  return `${Math.round(hours / 24)} days ago`
+  if (hours < 24) return `${hours} hr ago`
+  const days = Math.round(hours / 24)
+  return days === 1 ? '1 day ago' : `${days} days ago`
 }
 /** A calendar date with its weekday, the US way: "Fri Oct 23". */
 export function shipDay(value: string, withYear = false) {
@@ -59,4 +67,4 @@ export function shipDay(value: string, withYear = false) {
 }
 
 /** An order's channel in words. */
-export const channelName = (value: string) => ({ manual: 'Entered in Pier', shopify: 'Shopify', amazon: 'Amazon', woocommerce: 'WooCommerce', stall: 'Stall' } as Record<string, string>)[value] ?? value
+export const channelName = (value: string) => ({ manual: 'Entered in Pier', shopify: 'Shopify', amazon: 'Amazon', woocommerce: 'WooCommerce', stall: 'Stall', edi: 'EDI' } as Record<string, string>)[value] ?? value

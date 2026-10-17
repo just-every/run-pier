@@ -2,6 +2,7 @@ import { label, records, type PierState, type RecordData } from '../api'
 import { Amount } from '../controls'
 import { Icon } from '../icons'
 import { ChannelMark } from './channel'
+import { WordClip } from './clip'
 import { channelName, inWarehouse, isOpen, needsAttention, orderStatus, orderWarehouses, shipDay } from './model'
 
 // The order queue: filter chips over one dense row per order, newest promise
@@ -44,10 +45,10 @@ export function Queue({ state, warehouse, filter, setFilter, selected, open }: {
       <select aria-label="Sort orders" value={filter.sort} onChange={event => setFilter({ ...filter, sort: event.target.value })}><option value="promise">Ship by date</option><option value="reference">Newest order</option></select>
     </div>
     {!rows.length ? <p className="queue-empty">{scoped.length ? 'No orders match these filters.' : warehouse ? `No sales orders ship from ${warehouse}.` : 'No sales orders. Add a customer and items in Stock, then enter an order.'}</p> :
-    <table className="queue-table"><colgroup><col className="c-ref" /><col />{!warehouse && <col className="c-where" />}<col className="c-channel" />{!!warehouse && <col className="c-lines" />}<col className="c-total" /><col className="c-ship" /><col className="c-status" /></colgroup><thead><tr><th scope="col">Order</th><th scope="col">Customer</th>{!warehouse && <th scope="col">Warehouse</th>}<th scope="col">Channel</th>{!!warehouse && <th scope="col" className="num">Lines</th>}<th scope="col" className="num">Order total</th><th scope="col">Ship by</th><th scope="col">Status</th></tr></thead>
+    <table className="queue-table"><thead><tr><th scope="col">Order</th><th scope="col" className="q-customer">Customer</th>{!warehouse && <th scope="col">Warehouse</th>}<th scope="col">Channel</th>{!!warehouse && <th scope="col" className="num">Lines</th>}<th scope="col" className="num">Order total</th><th scope="col">Ship by</th><th scope="col">Status</th></tr></thead>
       <tbody>{rows.map(order => <tr key={order.id} className={order.id === selected ? 'selected' : undefined} onClick={event => { if (!(event.target as HTMLElement).closest('button')) open(order.id) }}>
         <td className="q-ref"><button type="button" className="link" aria-label={`Open order ${order.reference}`} aria-current={order.id === selected ? 'true' : undefined} onClick={() => open(order.id)}>{order.reference}</button></td>
-        <td className="q-customer" title={label(parties, order.customerId)}>{label(parties, order.customerId)}</td>
+        <WordClip className="q-customer" text={label(parties, order.customerId)} />
         {!warehouse && <td className="q-where" title={orderWarehouses(state, order).join(', ')}>{orderWarehouses(state, order).join(', ') || '—'}</td>}
         <td className="q-channel"><ChannelMark channel={order.channel} /></td>
         {!!warehouse && <td className="q-lines num">{order.lines.length}<span className="q-unit"> lines</span></td>}

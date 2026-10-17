@@ -3,7 +3,9 @@ import { readReply, readState } from './wire'
 
 export type RecordData = { id: string; version: number; [key: string]: any }
 export type PierState = { version: number; actor: { id: string; name: string; role: string }; [key: string]: any }
-export type RunCommand = (type: string, payload: object) => Promise<boolean>
+// `onRefused` keeps a refused command's message beside the control that sent it instead of the page banner.
+export type Refusal = { code: string; message: string }
+export type RunCommand = (type: string, payload: object, options?: { onRefused?: (refusal: Refusal) => void }) => Promise<boolean>
 
 export function usePier() {
   const [state, setState] = useState<PierState | null>(null)
@@ -19,7 +21,7 @@ export function usePier() {
   const refresh = useCallback(async () => {
     const response = await fetch('/api/pier/state', { credentials: 'same-origin', cache: 'no-store' })
     const body = await response.json()
-    if (!response.ok) { const failure = readReply(body); throw new Error(!failure.ok ? failure.error.message : 'Stock could not be loaded. Sign in again or retry.') }
+    if (!response.ok) { const failure = readReply(body); throw Object.assign(new Error(!failure.ok ? failure.error.message : 'Stock could not be loaded. Sign in again or retry.'), { status: response.status }) }
     setState(readState(body))
   }, [])
   useEffect(() => {
@@ -27,11 +29,12 @@ export function usePier() {
       const saved = sessionStorage.getItem('pier.pending-command')
       if (saved) { const value = JSON.parse(saved); pending.current = value; setRecoverable({ ...JSON.parse(value.signature), commandId: value.commandId }) }
     } catch { sessionStorage.removeItem('pier.pending-command') }
-    refresh().catch(cause => setError(cause.message))
+    // Without a session the app has nothing to show: go to sign-in and come back here.
+    refresh().catch(cause => { if (cause.status === 401) window.location.replace('/signin?returnTo=%2Fapp'); else setError(cause.message) })
     const timer = window.setInterval(() => { if (!inFlight.current) void refresh().catch(() => {}) }, 15000)
     return () => window.clearInterval(timer)
   }, [refresh])
-  const run: RunCommand = async (type, payload) => {
+  const run: RunCommand = async (type, payload, options) => {
     if (inFlight.current) return false
     const signature = JSON.stringify({ type, payload })
     if (recoverable && signature !== JSON.stringify({ type: recoverable.type, payload: recoverable.payload })) {
@@ -55,7 +58,8 @@ export function usePier() {
         }
         pending.current = null
         sessionStorage.removeItem('pier.pending-command'); setRecoverable(null)
-        setError(body.error?.message || 'This action could not be completed.'); setDetails(body.error?.details)
+        if (options?.onRefused) options.onRefused({ code: body.error?.code ?? '', message: body.error?.message || 'This action could not be completed.' })
+        else { setError(body.error?.message || 'This action could not be completed.'); setDetails(body.error?.details) }
         await refresh(); return false
       }
       pending.current = null
