@@ -13,13 +13,15 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 
 Updated 17 October 2026 for channels (rows 2, 19–22 and 46): live Stall/WooCommerce, Shopify/Amazon documented API adapters with synthetic recorded network fixtures, listing matching, source holds and accepted stock publication. Broader CHANNEL-001 remains partial; see [Sales channels](channels.md).
 
+Updated 17 October 2026 for books (rows 4, 35, 36 and 41): real Pantry financial HTTP/D1 flow, one queue and accountant exports; QBO/Xero remain fixture-only and the Pantry catalogue/scoped-token boundaries remain explicit.
+
 ## Totals
 
 | Status | Claims |
 |---|---|
-| backed | 38 |
-| partly | 6 |
-| contract, not yet in code | 11 |
+| backed | 39 |
+| partly | 9 |
+| contract, not yet in code | 7 |
 | **all claims** | **55** |
 
 ## Hero
@@ -29,7 +31,7 @@ Updated 17 October 2026 for channels (rows 2, 19–22 and 46): live Stall/WooCom
 | 1 | "Pier tracks stock across your warehouses" | backed | Warehouses and bins: `location.save` (`src/pier/catalogue.ts:44,83`); stock per item, warehouse and bin with on hand, reserved, available, quarantine, expected: `src/pier/model.ts` availability, `src/ui/stock.tsx:23-25` |
 | 2 | "runs orders from channel to carrier" | partly | Channel orders reserve through `src/pier/channels/commands.ts`; Stall links its paid checkout reservation and WooCommerce imports processing orders. Dispatch is native; carrier integration remains SHIP-001. |
 | 3 | "reorders before you run out" | backed | Buyer-applied learned points, stock-position netting, case packs/MOQs and automatic unapproved drafts: `src/pier/replenishment.ts`, Purchasing. Native shipment history only; broader connected planning remains partial. |
-| 4 | "and keeps the books in step" | contract, not yet in code | No accounting integration; CONTRACT.md QuickBooks Online/Xero clauses |
+| 4 | "and keeps the books in step" | partly | Pantry receipt-valued bills, shipment invoices/COGS, payment readback and inventory balance reconciliation: `src/pier/books/`, `tests/api/books.test.mjs`. Native Pantry catalogue and scoped integration credentials remain unavailable; QBO/Xero await owner apps. |
 | 5 | "100% free, open source alternative to Cin7, inFlow and Fishbowl" | backed | MIT licence: `LICENSE`, `package.json` `license`. (Feature parity with those products is the contract; the free/open-source claim is true today) |
 | 6 | Tag "PO-1048 · 480 of 500 received · 20 short" | backed | Partial receipts into bins, the rest stays expected: `receipt.create` `src/pier/purchasing.ts:121` |
 | 7 | Tag "EDI 856 sent · Target DC 0593" | contract, not yet in code | No EDI; CONTRACT.md EDI clause (SPS Commerce/Orderful) |
@@ -85,8 +87,8 @@ Updated 17 October 2026 for channels (rows 2, 19–22 and 46): live Stall/WooCom
 | 32 | "with landed cost" (card: "$4.82 per unit · freight and duty included") | backed | `src/pier/landed-cost.ts`; `receipt.create` allocates freight and duty by received value or quantity, retains exact landed line totals and unit cost; `tests/api/costing.test.mjs`. |
 | 33 | "backorders get a real date" | backed | Quantity-limited inbound supply is allocated in promise/order priority. Lines show confirmed dates or labeled lead-time estimates and source POs. `src/pier/backorders.ts`. |
 | 34 | "Send PO-1052" (to the supplier) | backed | Buyer approves the exact committed PO, recipient and bounded reminders. The configured install mail submits it with durable provider outcomes. `src/pier/purchasing-workflow.ts`, `src/pier/correspondence-delivery.ts`. RER Managed email is not available yet. |
-| 35 | "Two-way sync with QuickBooks Online and Xero: items, invoices, bills, cost of goods and inventory value" | contract, not yet in code | No accounting integration |
-| 36 | "Anything off waits in one short queue" (review queue, bill 7731) | contract, not yet in code | No accounting review queue |
+| 35 | "Two-way sync with QuickBooks Online and Xero: items, invoices, bills, cost of goods and inventory value" | partly | Shared Pantry/QBO/Xero adapter interface. Real Pantry financial API core flow; QBO/Xero documented synthetic protocol fixtures only, pending owner apps. Items and valuation snapshots are Pantry evidence, not its native catalogue. See [Books](books.md). |
+| 36 | "Anything off waits in one short queue" (review queue, bill 7731) | backed | Books has one review queue for provider refusals, missing source values, inventory differences and uncertain responses, with source links and guarded retry/skip actions: `src/ui/books/`, `src/pier/books/sync.ts`. |
 
 ## Inventory agent and move in (page 6)
 
@@ -96,7 +98,7 @@ Updated 17 October 2026 for channels (rows 2, 19–22 and 46): live Stall/WooCom
 | 38 | "sends the PO" | backed | The agent can prepare evidence and drafts; a buyer approves exact commitment, recipient and send, then Pier sends through the install mail. `po.send`, `src/pier/correspondence-delivery.ts`. RER Managed email is not available yet. |
 | 39 | "chases the supplier" | backed | Buyer authorizes 0–5 confirmation chases at 1–30-day intervals; cron sends only while the initial PO was accepted, supply is open and no confirmation, policy revocation or material change intervened. Supplier replies/confirmed dates are recorded on the PO. `src/pier/scheduled.ts`, `src/pier/purchasing-workflow.ts`. |
 | 40 | "re-promises affected orders" (and "customers emailed") | backed | A human approves a computed customer promise or an order-specific exact-recipient date-update policy. Confirmation/date changes recompute promises and submit customer emails; history and provider outcomes remain visible. `src/pier/backorders.ts`, `src/pier/purchasing-workflow.ts`. RER Managed email is not available yet. |
-| 41 | "checks the receipt closes in the books" | contract, not yet in code | No accounting |
+| 41 | "checks the receipt closes in the books" | partly | Receipt evidence attaches to its native Pantry bill and Pier checks its open balance/payment allocations. Receipt never invents payment. Native Pantry receiving/three-way matching and dedicated machine credentials remain unavailable: `docs/books.md`. |
 | 42 | Agent log as a whole (an agent working the item's record) | partly | Agents act through the same commands with the `agent` role and prepare evidence-backed proposals a person approves: `src/pier/proposals.ts`, `src/ui/proposals.tsx`, `API.md` |
 | 43 | "Move from Cin7, inFlow or Fishbowl" ("Importing from Cin7 Core") | partly | The native CSV importer with staged review, frozen cutover and undo: `import.stage`, `import.review`, `import.commit` and `import.undo` `src/pier/imports.ts:243-383`. No Cin7, inFlow or Fishbowl adapter; files are arranged in Pier's CSV shape (IMPORT.md) |
 | 44 | "with your items, bins, stock on hand, customers, suppliers and open orders" | backed | The native kinds `items`, `locations`, `parties`, `positions`, `orders`, `purchaseOrders`, plus `reservations` (`IMPORT.md`, `src/pier/imports.ts`) |

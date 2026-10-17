@@ -1,0 +1,1052 @@
+{
+  "provenance": "Authored synthetic protocol examples, not captured account traffic. See README.md.",
+  "provider": "qbo",
+  "baseUrl": "https://synthetic-qbo.example.invalid",
+  "credentials": {
+    "accessToken": "synthetic-test-token-not-valid",
+    "realmId": "991000000001"
+  },
+  "cases": [
+    {
+      "name": "item",
+      "document": {
+        "key": "fixture-pier-qbo-item-v1",
+        "kind": "item",
+        "date": "2026-10-17",
+        "reference": "SYN-WIDGET",
+        "lines": [
+          {
+            "description": "Synthetic widget",
+            "quantity": "1",
+            "unitPrice": "12.55",
+            "amount": "12.55",
+            "account": "79"
+          }
+        ],
+        "total": "12.55"
+      },
+      "post": {
+        "request": {
+          "method": "POST",
+          "path": "/v3/company/991000000001/item",
+          "query": {
+            "requestid": "747e7029cc3094f54be9085407a31fe515a646cc7e9c01e4"
+          },
+          "json": {
+            "Name": "SYN-WIDGET",
+            "Sku": "SYN-WIDGET",
+            "Type": "NonInventory",
+            "Description": "Synthetic widget",
+            "TrackQtyOnHand": false,
+            "IncomeAccountRef": {
+              "value": "79"
+            },
+            "UnitPrice": 12.55
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Item": {
+              "Name": "SYN-WIDGET",
+              "Sku": "SYN-WIDGET",
+              "Type": "NonInventory",
+              "Description": "Synthetic widget",
+              "TrackQtyOnHand": false,
+              "IncomeAccountRef": {
+                "value": "79"
+              },
+              "UnitPrice": 12.55,
+              "Id": "910001",
+              "SyncToken": "0",
+              "Active": true
+            }
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-qbo-item-v1",
+          "kind": "item",
+          "date": "2026-10-17",
+          "reference": "SYN-WIDGET",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "1",
+              "unitPrice": "12.55",
+              "amount": "12.55",
+              "account": "79"
+            }
+          ],
+          "total": "12.55",
+          "remoteId": "910001"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/v3/company/991000000001/item/910001"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Item": {
+              "Name": "SYN-WIDGET",
+              "Sku": "SYN-WIDGET",
+              "Type": "NonInventory",
+              "Description": "Synthetic widget",
+              "TrackQtyOnHand": false,
+              "IncomeAccountRef": {
+                "value": "79"
+              },
+              "UnitPrice": 12.55,
+              "Id": "910001",
+              "SyncToken": "0",
+              "Active": true
+            }
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "910001",
+          "status": "active"
+        },
+        "read": {
+          "id": "910001",
+          "status": "active"
+        }
+      },
+      "lookup": {
+        "document": {
+          "key": "fixture-pier-qbo-item-v1",
+          "kind": "item",
+          "date": "2026-10-17",
+          "reference": "SYN-WIDGET",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "1",
+              "unitPrice": "12.55",
+              "amount": "12.55",
+              "account": "79"
+            }
+          ],
+          "total": "12.55"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/v3/company/991000000001/query",
+          "query": {
+            "query": "select * from Item where Name = 'SYN-WIDGET' maxresults 2"
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "QueryResponse": {
+              "Item": [
+                {
+                  "Name": "SYN-WIDGET",
+                  "Sku": "SYN-WIDGET",
+                  "Type": "NonInventory",
+                  "Description": "Synthetic widget",
+                  "TrackQtyOnHand": false,
+                  "IncomeAccountRef": {
+                    "value": "79"
+                  },
+                  "UnitPrice": 12.55,
+                  "Id": "910001",
+                  "SyncToken": "0",
+                  "Active": true
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "invoice",
+      "document": {
+        "key": "fixture-pier-qbo-invoice-v1",
+        "kind": "invoice",
+        "date": "2026-10-17",
+        "reference": "SYN-INV-0001",
+        "lines": [
+          {
+            "description": "Synthetic widget",
+            "quantity": "10",
+            "unitPrice": "12.55",
+            "amount": "125.50",
+            "account": "79",
+            "itemId": "910001"
+          }
+        ],
+        "total": "125.50",
+        "party": {
+          "id": "910901",
+          "name": "Synthetic Trading Co",
+          "kind": "customer"
+        }
+      },
+      "post": {
+        "request": {
+          "method": "POST",
+          "path": "/v3/company/991000000001/invoice",
+          "query": {
+            "requestid": "9973137d0406bc409f0c34ef4849431a08d8755c1fa7f621"
+          },
+          "json": {
+            "TxnDate": "2026-10-17",
+            "DocNumber": "SYN-INV-0001",
+            "CurrencyRef": {
+              "value": "USD"
+            },
+            "CustomerRef": {
+              "value": "910901"
+            },
+            "Line": [
+              {
+                "Description": "Synthetic widget",
+                "Amount": 125.5,
+                "DetailType": "SalesItemLineDetail",
+                "SalesItemLineDetail": {
+                  "ItemRef": {
+                    "value": "910001"
+                  },
+                  "Qty": 10,
+                  "UnitPrice": 12.55,
+                  "TaxCodeRef": {
+                    "value": "NON"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Invoice": {
+              "TxnDate": "2026-10-17",
+              "DocNumber": "SYN-INV-0001",
+              "CurrencyRef": {
+                "value": "USD"
+              },
+              "CustomerRef": {
+                "value": "910901"
+              },
+              "Line": [
+                {
+                  "Description": "Synthetic widget",
+                  "Amount": 125.5,
+                  "DetailType": "SalesItemLineDetail",
+                  "SalesItemLineDetail": {
+                    "ItemRef": {
+                      "value": "910001"
+                    },
+                    "Qty": 10,
+                    "UnitPrice": 12.55,
+                    "TaxCodeRef": {
+                      "value": "NON"
+                    }
+                  }
+                }
+              ],
+              "Id": "910002",
+              "SyncToken": "0",
+              "TotalAmt": 125.5,
+              "Balance": 125.5
+            }
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-qbo-invoice-v1",
+          "kind": "invoice",
+          "date": "2026-10-17",
+          "reference": "SYN-INV-0001",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "10",
+              "unitPrice": "12.55",
+              "amount": "125.50",
+              "account": "79",
+              "itemId": "910001"
+            }
+          ],
+          "total": "125.50",
+          "party": {
+            "id": "910901",
+            "name": "Synthetic Trading Co",
+            "kind": "customer"
+          },
+          "remoteId": "910002"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/v3/company/991000000001/invoice/910002"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Invoice": {
+              "TxnDate": "2026-10-17",
+              "DocNumber": "SYN-INV-0001",
+              "CurrencyRef": {
+                "value": "USD"
+              },
+              "CustomerRef": {
+                "value": "910901"
+              },
+              "Line": [
+                {
+                  "Description": "Synthetic widget",
+                  "Amount": 125.5,
+                  "DetailType": "SalesItemLineDetail",
+                  "SalesItemLineDetail": {
+                    "ItemRef": {
+                      "value": "910001"
+                    },
+                    "Qty": 10,
+                    "UnitPrice": 12.55,
+                    "TaxCodeRef": {
+                      "value": "NON"
+                    }
+                  }
+                }
+              ],
+              "Id": "910002",
+              "SyncToken": "0",
+              "TotalAmt": 125.5,
+              "Balance": 100.25
+            }
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "910002",
+          "status": "open",
+          "paid": "0.00"
+        },
+        "read": {
+          "id": "910002",
+          "status": "partial",
+          "paid": "25.25"
+        }
+      },
+      "lookup": {
+        "document": {
+          "key": "fixture-pier-qbo-invoice-v1",
+          "kind": "invoice",
+          "date": "2026-10-17",
+          "reference": "SYN-INV-0001",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "10",
+              "unitPrice": "12.55",
+              "amount": "125.50",
+              "account": "79",
+              "itemId": "910001"
+            }
+          ],
+          "total": "125.50",
+          "party": {
+            "id": "910901",
+            "name": "Synthetic Trading Co",
+            "kind": "customer"
+          }
+        },
+        "request": {
+          "method": "GET",
+          "path": "/v3/company/991000000001/query",
+          "query": {
+            "query": "select * from Invoice where DocNumber = 'SYN-INV-0001' maxresults 2"
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "QueryResponse": {
+              "Invoice": [
+                {
+                  "TxnDate": "2026-10-17",
+                  "DocNumber": "SYN-INV-0001",
+                  "CurrencyRef": {
+                    "value": "USD"
+                  },
+                  "CustomerRef": {
+                    "value": "910901"
+                  },
+                  "Line": [
+                    {
+                      "Description": "Synthetic widget",
+                      "Amount": 125.5,
+                      "DetailType": "SalesItemLineDetail",
+                      "SalesItemLineDetail": {
+                        "ItemRef": {
+                          "value": "910001"
+                        },
+                        "Qty": 10,
+                        "UnitPrice": 12.55,
+                        "TaxCodeRef": {
+                          "value": "NON"
+                        }
+                      }
+                    }
+                  ],
+                  "Id": "910002",
+                  "SyncToken": "0",
+                  "TotalAmt": 125.5,
+                  "Balance": 100.25
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "bill",
+      "document": {
+        "key": "fixture-pier-qbo-bill-v1",
+        "kind": "bill",
+        "date": "2026-10-17",
+        "reference": "SYN-BILL-0001",
+        "lines": [
+          {
+            "description": "Synthetic supplier goods",
+            "quantity": "3",
+            "unitPrice": "24.75",
+            "amount": "74.25",
+            "account": "81"
+          }
+        ],
+        "total": "74.25",
+        "party": {
+          "id": "910901",
+          "name": "Synthetic Trading Co",
+          "kind": "supplier"
+        }
+      },
+      "post": {
+        "request": {
+          "method": "POST",
+          "path": "/v3/company/991000000001/bill",
+          "query": {
+            "requestid": "0f9d361d1d24fff0872b7bf7b8d296bbae596a2b3cadd8a0"
+          },
+          "json": {
+            "TxnDate": "2026-10-17",
+            "DocNumber": "SYN-BILL-0001",
+            "CurrencyRef": {
+              "value": "USD"
+            },
+            "VendorRef": {
+              "value": "910901"
+            },
+            "Line": [
+              {
+                "Description": "Synthetic supplier goods",
+                "Amount": 74.25,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                  "AccountRef": {
+                    "value": "81"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Bill": {
+              "TxnDate": "2026-10-17",
+              "DocNumber": "SYN-BILL-0001",
+              "CurrencyRef": {
+                "value": "USD"
+              },
+              "VendorRef": {
+                "value": "910901"
+              },
+              "Line": [
+                {
+                  "Description": "Synthetic supplier goods",
+                  "Amount": 74.25,
+                  "DetailType": "AccountBasedExpenseLineDetail",
+                  "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {
+                      "value": "81"
+                    }
+                  }
+                }
+              ],
+              "Id": "910003",
+              "SyncToken": "0",
+              "TotalAmt": 74.25,
+              "Balance": 74.25
+            }
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-qbo-bill-v1",
+          "kind": "bill",
+          "date": "2026-10-17",
+          "reference": "SYN-BILL-0001",
+          "lines": [
+            {
+              "description": "Synthetic supplier goods",
+              "quantity": "3",
+              "unitPrice": "24.75",
+              "amount": "74.25",
+              "account": "81"
+            }
+          ],
+          "total": "74.25",
+          "party": {
+            "id": "910901",
+            "name": "Synthetic Trading Co",
+            "kind": "supplier"
+          },
+          "remoteId": "910003"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/v3/company/991000000001/bill/910003"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Bill": {
+              "TxnDate": "2026-10-17",
+              "DocNumber": "SYN-BILL-0001",
+              "CurrencyRef": {
+                "value": "USD"
+              },
+              "VendorRef": {
+                "value": "910901"
+              },
+              "Line": [
+                {
+                  "Description": "Synthetic supplier goods",
+                  "Amount": 74.25,
+                  "DetailType": "AccountBasedExpenseLineDetail",
+                  "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {
+                      "value": "81"
+                    }
+                  }
+                }
+              ],
+              "Id": "910003",
+              "SyncToken": "0",
+              "TotalAmt": 74.25,
+              "Balance": 0
+            }
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "910003",
+          "status": "open",
+          "paid": "0.00"
+        },
+        "read": {
+          "id": "910003",
+          "status": "paid",
+          "paid": "74.25"
+        }
+      },
+      "lookup": {
+        "document": {
+          "key": "fixture-pier-qbo-bill-v1",
+          "kind": "bill",
+          "date": "2026-10-17",
+          "reference": "SYN-BILL-0001",
+          "lines": [
+            {
+              "description": "Synthetic supplier goods",
+              "quantity": "3",
+              "unitPrice": "24.75",
+              "amount": "74.25",
+              "account": "81"
+            }
+          ],
+          "total": "74.25",
+          "party": {
+            "id": "910901",
+            "name": "Synthetic Trading Co",
+            "kind": "supplier"
+          }
+        },
+        "request": {
+          "method": "GET",
+          "path": "/v3/company/991000000001/query",
+          "query": {
+            "query": "select * from Bill where DocNumber = 'SYN-BILL-0001' maxresults 2"
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "QueryResponse": {
+              "Bill": [
+                {
+                  "TxnDate": "2026-10-17",
+                  "DocNumber": "SYN-BILL-0001",
+                  "CurrencyRef": {
+                    "value": "USD"
+                  },
+                  "VendorRef": {
+                    "value": "910901"
+                  },
+                  "Line": [
+                    {
+                      "Description": "Synthetic supplier goods",
+                      "Amount": 74.25,
+                      "DetailType": "AccountBasedExpenseLineDetail",
+                      "AccountBasedExpenseLineDetail": {
+                        "AccountRef": {
+                          "value": "81"
+                        }
+                      }
+                    }
+                  ],
+                  "Id": "910003",
+                  "SyncToken": "0",
+                  "TotalAmt": 74.25,
+                  "Balance": 0
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "journal",
+      "document": {
+        "key": "fixture-pier-qbo-journal-v1",
+        "kind": "journal",
+        "date": "2026-10-17",
+        "reference": "SYN-COGS-0001",
+        "lines": [
+          {
+            "description": "Shipment cost of goods",
+            "quantity": "1",
+            "unitPrice": "74.25",
+            "amount": "74.25",
+            "account": "82",
+            "debit": "74.25"
+          },
+          {
+            "description": "Inventory asset relieved",
+            "quantity": "1",
+            "unitPrice": "74.25",
+            "amount": "74.25",
+            "account": "81",
+            "credit": "74.25"
+          }
+        ],
+        "total": "74.25"
+      },
+      "post": {
+        "request": {
+          "method": "POST",
+          "path": "/v3/company/991000000001/journalentry",
+          "query": {
+            "requestid": "65ecf2306affdfe2aec154223ca203e8db2f2b69774953a1"
+          },
+          "json": {
+            "TxnDate": "2026-10-17",
+            "DocNumber": "SYN-COGS-0001",
+            "CurrencyRef": {
+              "value": "USD"
+            },
+            "Line": [
+              {
+                "Description": "Shipment cost of goods",
+                "Amount": 74.25,
+                "DetailType": "JournalEntryLineDetail",
+                "JournalEntryLineDetail": {
+                  "PostingType": "Debit",
+                  "AccountRef": {
+                    "value": "82"
+                  }
+                }
+              },
+              {
+                "Description": "Inventory asset relieved",
+                "Amount": 74.25,
+                "DetailType": "JournalEntryLineDetail",
+                "JournalEntryLineDetail": {
+                  "PostingType": "Credit",
+                  "AccountRef": {
+                    "value": "81"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "JournalEntry": {
+              "TxnDate": "2026-10-17",
+              "DocNumber": "SYN-COGS-0001",
+              "CurrencyRef": {
+                "value": "USD"
+              },
+              "Line": [
+                {
+                  "Description": "Shipment cost of goods",
+                  "Amount": 74.25,
+                  "DetailType": "JournalEntryLineDetail",
+                  "JournalEntryLineDetail": {
+                    "PostingType": "Debit",
+                    "AccountRef": {
+                      "value": "82"
+                    }
+                  }
+                },
+                {
+                  "Description": "Inventory asset relieved",
+                  "Amount": 74.25,
+                  "DetailType": "JournalEntryLineDetail",
+                  "JournalEntryLineDetail": {
+                    "PostingType": "Credit",
+                    "AccountRef": {
+                      "value": "81"
+                    }
+                  }
+                }
+              ],
+              "Id": "910004",
+              "SyncToken": "0",
+              "TotalAmt": 74.25
+            }
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-qbo-journal-v1",
+          "kind": "journal",
+          "date": "2026-10-17",
+          "reference": "SYN-COGS-0001",
+          "lines": [
+            {
+              "description": "Shipment cost of goods",
+              "quantity": "1",
+              "unitPrice": "74.25",
+              "amount": "74.25",
+              "account": "82",
+              "debit": "74.25"
+            },
+            {
+              "description": "Inventory asset relieved",
+              "quantity": "1",
+              "unitPrice": "74.25",
+              "amount": "74.25",
+              "account": "81",
+              "credit": "74.25"
+            }
+          ],
+          "total": "74.25",
+          "remoteId": "910004"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/v3/company/991000000001/journalentry/910004"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "JournalEntry": {
+              "TxnDate": "2026-10-17",
+              "DocNumber": "SYN-COGS-0001",
+              "CurrencyRef": {
+                "value": "USD"
+              },
+              "Line": [
+                {
+                  "Description": "Shipment cost of goods",
+                  "Amount": 74.25,
+                  "DetailType": "JournalEntryLineDetail",
+                  "JournalEntryLineDetail": {
+                    "PostingType": "Debit",
+                    "AccountRef": {
+                      "value": "82"
+                    }
+                  }
+                },
+                {
+                  "Description": "Inventory asset relieved",
+                  "Amount": 74.25,
+                  "DetailType": "JournalEntryLineDetail",
+                  "JournalEntryLineDetail": {
+                    "PostingType": "Credit",
+                    "AccountRef": {
+                      "value": "81"
+                    }
+                  }
+                }
+              ],
+              "Id": "910004",
+              "SyncToken": "0",
+              "TotalAmt": 74.25
+            }
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "910004",
+          "status": "posted"
+        },
+        "read": {
+          "id": "910004",
+          "status": "posted"
+        }
+      },
+      "lookup": {
+        "document": {
+          "key": "fixture-pier-qbo-journal-v1",
+          "kind": "journal",
+          "date": "2026-10-17",
+          "reference": "SYN-COGS-0001",
+          "lines": [
+            {
+              "description": "Shipment cost of goods",
+              "quantity": "1",
+              "unitPrice": "74.25",
+              "amount": "74.25",
+              "account": "82",
+              "debit": "74.25"
+            },
+            {
+              "description": "Inventory asset relieved",
+              "quantity": "1",
+              "unitPrice": "74.25",
+              "amount": "74.25",
+              "account": "81",
+              "credit": "74.25"
+            }
+          ],
+          "total": "74.25"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/v3/company/991000000001/query",
+          "query": {
+            "query": "select * from JournalEntry where DocNumber = 'SYN-COGS-0001' maxresults 2"
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "QueryResponse": {
+              "JournalEntry": [
+                {
+                  "TxnDate": "2026-10-17",
+                  "DocNumber": "SYN-COGS-0001",
+                  "CurrencyRef": {
+                    "value": "USD"
+                  },
+                  "Line": [
+                    {
+                      "Description": "Shipment cost of goods",
+                      "Amount": 74.25,
+                      "DetailType": "JournalEntryLineDetail",
+                      "JournalEntryLineDetail": {
+                        "PostingType": "Debit",
+                        "AccountRef": {
+                          "value": "82"
+                        }
+                      }
+                    },
+                    {
+                      "Description": "Inventory asset relieved",
+                      "Amount": 74.25,
+                      "DetailType": "JournalEntryLineDetail",
+                      "JournalEntryLineDetail": {
+                        "PostingType": "Credit",
+                        "AccountRef": {
+                          "value": "81"
+                        }
+                      }
+                    }
+                  ],
+                  "Id": "910004",
+                  "SyncToken": "0",
+                  "TotalAmt": 74.25
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "receipt",
+      "document": {
+        "key": "fixture-pier-qbo-receipt-v1",
+        "kind": "receipt",
+        "date": "2026-10-17",
+        "reference": "SYN-RECEIPT-0001",
+        "lines": [],
+        "total": "74.25",
+        "remoteId": "910003",
+        "attachment": {
+          "name": "pier-synthetic-receipt.txt",
+          "content": "Supplier receipt SYN-RECEIPT-0001\nGoods received: 3 units.\n"
+        }
+      },
+      "post": {
+        "request": {
+          "method": "POST",
+          "path": "/v3/company/991000000001/upload",
+          "query": {
+            "requestid": "d9f4259a8df047f4e80cd57a9b06f6c009f35c71c0a5ae01"
+          },
+          "form": {
+            "file_metadata_0": {
+              "FileName": "pier-synthetic-receipt.txt",
+              "ContentType": "text/plain",
+              "Note": "Pier receipt fixture-pier-qbo-receipt-v1",
+              "AttachableRef": [
+                {
+                  "EntityRef": {
+                    "type": "Bill",
+                    "value": "910003"
+                  }
+                }
+              ]
+            },
+            "file_content_0": "Supplier receipt SYN-RECEIPT-0001\nGoods received: 3 units.\n"
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "AttachableResponse": [
+              {
+                "Attachable": {
+                  "FileName": "pier-synthetic-receipt.txt",
+                  "ContentType": "text/plain",
+                  "Note": "Pier receipt fixture-pier-qbo-receipt-v1",
+                  "AttachableRef": [
+                    {
+                      "EntityRef": {
+                        "type": "Bill",
+                        "value": "910003"
+                      }
+                    }
+                  ],
+                  "Id": "910005",
+                  "Size": 59
+                }
+              }
+            ]
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-qbo-receipt-v1",
+          "kind": "receipt",
+          "date": "2026-10-17",
+          "reference": "SYN-RECEIPT-0001",
+          "lines": [],
+          "total": "74.25",
+          "remoteId": "910003",
+          "attachment": {
+            "name": "pier-synthetic-receipt.txt",
+            "content": "Supplier receipt SYN-RECEIPT-0001\nGoods received: 3 units.\n"
+          }
+        },
+        "request": {
+          "method": "GET",
+          "path": "/v3/company/991000000001/query",
+          "query": {
+            "query": "select * from Attachable where AttachableRef.EntityRef.value = '910003' and AttachableRef.EntityRef.type = 'Bill'"
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "QueryResponse": {
+              "Attachable": [
+                {
+                  "FileName": "pier-synthetic-receipt.txt",
+                  "ContentType": "text/plain",
+                  "Note": "Pier receipt fixture-pier-qbo-receipt-v1",
+                  "AttachableRef": [
+                    {
+                      "EntityRef": {
+                        "type": "Bill",
+                        "value": "910003"
+                      }
+                    }
+                  ],
+                  "Id": "910005",
+                  "Size": 59
+                }
+              ]
+            }
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "910003",
+          "status": "attached",
+          "received": true
+        },
+        "read": {
+          "id": "910003",
+          "status": "attached",
+          "received": true
+        }
+      }
+    }
+  ],
+  "errors": [
+    {
+      "name": "revoked-authorization",
+      "response": {
+        "status": 401,
+        "body": {
+          "Fault": {
+            "type": "AUTHENTICATION",
+            "Error": [
+              {
+                "code": "3200",
+                "Message": "Synthetic authentication failure"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "rate-limited",
+      "response": {
+        "status": 429,
+        "body": {
+          "error": "Synthetic rate limit"
+        }
+      }
+    }
+  ]
+}

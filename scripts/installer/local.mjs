@@ -56,6 +56,7 @@ export const commandAdapter = createCommandAdapter(lifecycle, {
         "pier_guard",
         "pier_channel_secrets",
         "pier_channel_locks",
+        "pier_book_locks",
       ],
       product: "inventory-pier",
       replaceableTables: ["pier_meta"],

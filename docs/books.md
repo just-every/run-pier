@@ -1,0 +1,33 @@
+# Books and reconciliation
+
+Open **Books** in Pier. An owner connects a Pantry installation, chooses its inventory asset, cost of goods expense and sales income account IDs, and explicitly confirms that the exported wholesale invoices are tax exempt. This first transport does not map sales tax. Get the account IDs from Pantry's authenticated `/api/pantry/state` account list; they are different from account codes.
+
+Sign in to Pantry as its owner and copy the session cookie as `name=value` from the browser's Application → Cookies panel. Paste it into the password field. Pier encrypts it with the installation secret; neither business exports, installation archives nor pending browser commands include the credential. This is an expiring owner session, with the owner's financial authority. Reconnect when it expires. Pantry's current agent token only prepares proposals and cannot create invoices or bills or read payments; a dedicated scoped integration credential remains a Pantry dependency. Use HTTPS; loopback HTTP is accepted only by a local Pier installation.
+
+## What posts
+
+- Item versions become exact item-definition evidence attachments. Pantry has no native item catalogue. Pier remains the quantity and cost subledger.
+- Each posted receipt creates one supplier bill for its USD landed value, debiting the mapped inventory account. Its receipt evidence attaches to that bill. Partial receipts create separate receipt-valued bills; supplier invoice ingestion and three-way matching are not implemented.
+- Each shipment creates one sales invoice for its shipped lines and one balanced cost-of-goods journal: debit cost of goods, credit inventory. Shipment quantities and original references stay in the descriptions. Financial line amounts are retained exactly; amounts with fractions of a cent, missing prices, unknown USD costs and zero-cost/zero-price financial documents wait for review rather than silently rounding or inventing values.
+- Each movement frontier sends an inventory valuation evidence attachment. Pier also compares its current valuation to Pantry's posted inventory account balance. A difference stays in the same review queue, including unsupported returns, receipt reversals and other adjustments until the accountant reconciles them. Valuation snapshots do not post inventory a second time.
+- Payments and allocations recorded in Pantry return to Pier's Books view, order details and receipt/bill details. Reversed payments reopen the balance. Cash payments are shown separately from the open balance, which may also include credits.
+
+A goods receipt closes missing receipt evidence in the books. It does **not** pay a supplier. A bill becomes reconciled only when Pantry confirms its open balance is zero. No payment is fabricated by receiving stock.
+
+## One review queue
+
+Every refused, unpriced, unvalued, mismatched or uncertain document appears with a reason and next action. Open its source, resolve the issue or renew the Pantry session, then retry. An owner may skip a source that has never been sent, recording a reason. A request that may have reached Pantry cannot be skipped or sent again merely because a lookup found nothing.
+
+Pier commits intent before contacting Pantry and serializes outgoing work with a database lease. Stable invoice numbers, bill references, journal memos and evidence names identify the immutable source. Known remote drafts resume by ID; successful remote records are checked for matching dates, amounts, accounts and parties. A lost response is reconciled by readback. If Pantry cannot show the outcome, it stays uncertain; there is no blind create retry. Pantry's current sales view exposes at most 500 invoices/bills and has no pagination; an older undiscoverable record remains unresolved, never recreated.
+
+Sync runs after Pier writes, on the minute schedule and with **Sync now**. Approval belongs to the still-active connecting Pier owner; disconnecting or revoking that owner stops future sends. Restored archives retain jobs and source identities but exclude credentials and leases; reconnect before resuming.
+
+## QuickBooks and Xero
+
+Direct QBO and Xero connections remain unavailable until the owner supplies authorized apps and real company accounts. Both use the same document adapter interface; their HTTP requests, payment readback and receipt attachments are exercised against authored synthetic examples recorded from their documented API shapes. These are protocol fixtures, not captured account traffic or provider acceptance. [Fixture provenance](https://github.com/just-every/run-pier/blob/main/tests/fixtures/books/README.md) names the official sources and remaining mapping/OAuth boundaries.
+
+**Download CSV** exports real source documents, mapped debit/credit lines and review reasons. It is an accountant handoff that must be mapped to the destination's import shape. **Download QuickBooks Desktop IIF** exports balanced invoice, bill and general-journal entries; it refuses unpriced or unvalued documents. It names `Inventory Asset`, `Cost of Goods Sold`, `Sales`, `Accounts Receivable` and `Accounts Payable`; review the account/customer/vendor lists and tax treatment in a backup QuickBooks company before importing. IIF is a Desktop format, not a QuickBooks Online import. Export is a separate manual posting workflow, never confirmation that the connected ledger posted; do not import the same documents twice.
+
+The single books core-flow test runs real Pier and Pantry Workers/D1 through authenticated HTTP, including a lost response after the remote journal draft saved, native payments in both directions, independent posted inventory balance, receiver refusal and recovery, and duplicate suppression. The same test exercises QBO/Xero protocol fixtures. The compatible Pantry source is fetched when `PANTRY_SOURCE` is not supplied; no sibling application implementation is copied into Pier.
+
+Cloudflare installs enable `global_fetch_strictly_public` so the configured public Pantry URL is reached through its public Worker route, including when both installations share an account. See [Cloudflare Worker-to-Worker fetch](https://developers.cloudflare.com/workers/runtime-apis/fetch/).

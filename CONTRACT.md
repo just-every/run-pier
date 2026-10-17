@@ -586,11 +586,11 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 12 | 0 | 0 | 12 |
-| Target | 2 | 34 | 19 | 55 |
+| Target | 2 | 36 | 17 | 55 |
 | Push further | 1 | 5 | 0 | 6 |
-| All | 15 | 39 | 19 | 73 |
+| All | 15 | 41 | 17 | 73 |
 
-**73 clauses: 15 done, 39 partial, 19 missing.**
+**73 clauses: 15 done, 41 partial, 17 missing.**
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -637,10 +637,10 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | CHANNEL-002 | Channel order money: tax as charged, payments, clearing accounts and payouts | target | missing |  | No channel tax/payment mapping, clearing account, channel refund or payout reconciliation exists. |
 | EDI-001 | Retail EDI trading partners | target | missing |  | No retail EDI documents, mapping or transport adapter exists. |
 | SHIP-001 | US rates, labels, tracking and notifications | target | partial | `src/pier/orders.ts`; `tests/api/flows.test.mjs` (09) | Shipment references and partial dispatch only; no shipping adapters, labels or notifications; no ship-to address validation |
-| ACCOUNT-001 | Two-way QuickBooks Online reconciliation | target | missing |  | No QuickBooks Online adapter or financial reconciliation queue exists. |
-| ACCOUNT-002 | Two-way Xero reconciliation | target | missing |  | No Xero adapter exists. |
+| ACCOUNT-001 | Two-way QuickBooks Online reconciliation | target | partial | `src/pier/books/`; `src/ui/books/`; `tests/api/books.test.mjs`; [Books](docs/books.md) | Real Pantry receipt bills/evidence, shipment invoices/COGS, payment allocations back, inventory-value comparison and one refusal/uncertainty queue. QBO adapter uses documented synthetic protocol fixtures; CSV/IIF export is available. Owner QBO app/OAuth, actual company acceptance, taxable sales, late bills/credits and full period/reversal mapping remain. Pantry item/valuation snapshots are evidence documents, and its expiring owner-session connection awaits a scoped integration API. |
+| ACCOUNT-002 | Two-way Xero reconciliation | target | partial | `src/pier/books/adapters/xero.ts`; `tests/fixtures/books/`; `tests/api/books.test.mjs` | Shared typed transport for untracked items, USD invoices/bills, balanced journals, payment readback and receipt attachments on documented synthetic protocol fixtures. Owner app/OAuth, actual tenant acceptance, mappings and full reconciliation remain unavailable. |
 | PAY-001 | Provider-backed customer payments | target | missing |  | No Square, Stripe payments/ACH or tax adapter exists. |
-| SYNC-001 | Visible integration health and safe recovery | target | partial | `src/pier/api.ts`; `src/pier/storage.ts`; `tests/api/flows.test.mjs` (04, 06, 09) | Durable native command recovery only; provider event/reconciliation machinery absent |
+| SYNC-001 | Visible integration health and safe recovery | target | partial | `src/pier/api.ts`; `src/pier/storage.ts`; `tests/api/flows.test.mjs` (04, 06, 09) | Durable native command recovery, channel transport and Pantry books job identities/leases, intent-before-send, matching remote readback and visible uncertainty. Generic connector recovery and full provider acceptance remain incomplete |
 | THIRDPL-001 | 3PL fulfilment and daily stock reconciliation | target | missing |  | No ShipHero or Extensiv adapter exists. |
 | API-001 | Documented authenticated stock commands | target | done | `API.md`; `src/pier/api.ts`; `tests/api/flows.test.mjs`; `tests/api/security-import.test.mjs` |  |
 | API-002 | Webhooks and Zapier automation | target | missing |  | No outbound business webhook or Zapier connector exists. |
@@ -669,3 +669,5 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | AGENT-006 | Live questions and reviewed bulk work | push-further | partial | `src/pier/proposals.ts` | Scoped context/proposals; no embedded live question or bulk-plan interface |
 
 The 17 October replenishment round, exercised locally and on a disposable RunEditRun install with PO and customer messages received in the fleet QA mailbox (SPF/DKIM pass), adds one authenticated Worker/D1 core-flow test for native sell-through → learned parameters → automatic PO draft → approved supplier send/chase → confirmation and delayed-date customer re-promises. Purchasing, Sales and contact entry are exercised at 1440px and 390px. Full clauses above retain their named gaps; no homepage copy changed.
+
+The 17 October books round implements the ACCOUNT-001/002 subsets above. One public HTTP core-flow test uses real Pantry and Pier D1 runtimes, tests response-loss recovery without duplicate documents, brings customer/supplier payments and reversals back, and independently compares posted inventory value. QBO/Xero transport fixtures share the typed interface but do not enable real accounts. Books, Sales and Purchasing payment/receipt states are exercised locally and on temporary RunEditRun installations at 1440px and 390px. Pantry catalogue/scoped-credential, supplier invoice matching and live QBO/Xero boundaries remain explicit in [Books](docs/books.md).
