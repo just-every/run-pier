@@ -12,6 +12,9 @@ import { channelWebhook } from './channels/webhook';
 import { channels } from './channels/commands';
 import { channelState, markChannelPending } from './channels/availability';
 import { syncChannels } from './channels/sync';
+import { books } from "./books/commands";
+import { syncBooks } from "./books/sync";
+import { booksExport } from "./books/export";
 import { nativeExport } from "./native-export";
 import { catalogue } from "./catalogue";
 import { orders, orderView } from "./orders";
@@ -125,7 +128,8 @@ export async function execute(
       s = structuredClone(before),
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, automationActors: await activeAutomationActors(env.DB) };
     await approver(env, c, type, payload);
-    let result: any = await channels(c, type, payload, env);
+    let result: any = await books(c, type, payload, env);
+    if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
       catalogue,
@@ -225,6 +229,10 @@ export async function pierResponse(
           null,
           401,
         );
+      if (["/api/pier/books/export.csv","/api/pier/books/export.iif"].includes(url.pathname)) {
+        const format = url.pathname.endsWith(".iif") ? "iif" : "csv";
+        try { return new Response(booksExport(s, format), {headers:{"content-type":format === "csv" ? "text/csv; charset=utf-8" : "text/plain; charset=utf-8","content-disposition":`attachment; filename="pier-books.${format}"`,"cache-control":"no-store"}}); } catch(error) { fail("BOOK_EXPORT", error instanceof Error ? error.message : "Review the financial documents before exporting."); }
+      }
       if (url.pathname === "/api/pier/native-export")
         return json(nativeExport(s));
       if (url.pathname === "/api/pier/reports") return json(reports(s, url.searchParams));
@@ -364,6 +372,11 @@ export async function pierResponse(
           "Native owners retain owner authority. Assign agent roles only to native members.",
         );
     }
+    if (["book.plan","book.begin","book.record","book.checked","book.reconcile"].includes(type)) fail("BOOK_INTERNAL","Pier records books traffic itself.");
+    if (type === "book.sync") {
+      if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can sync the books.",null,403);
+      return json({ok:true,result:await syncBooks(env),version:(await load(env.DB)).version});
+    }
     if (["channel.ingest", "channel.published", "channel.failed"].includes(type)) fail("CHANNEL_INTERNAL", "Pier records channel traffic itself.");
     if (type === "channel.sync") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN", "Only an owner can synchronize external connections.", null, 403);
@@ -379,8 +392,8 @@ export async function pierResponse(
     if (outcome && ['po.send','order.repromise','order.promisePolicy','po.confirm'].includes(type)) await deliverCorrespondence(env);
     if (outcome && type === "dispatch.close") return json(await deliver(env, actor, commandId, outcome));
     if (outcome) {
-      if (execution) execution.waitUntil(syncChannels(env));
-      else await syncChannels(env);
+      if (execution) execution.waitUntil(Promise.all([syncChannels(env),syncBooks(env)]));
+      else await Promise.all([syncChannels(env),syncBooks(env)]);
       return json(outcome);
     }
     return json(

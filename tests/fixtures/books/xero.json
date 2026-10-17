@@ -1,0 +1,973 @@
+{
+  "provenance": "Authored synthetic protocol examples, not captured account traffic. See README.md.",
+  "provider": "xero",
+  "baseUrl": "https://synthetic-xero.example.invalid",
+  "credentials": {
+    "accessToken": "synthetic-test-token-not-valid",
+    "tenantId": "00000000-0000-4000-8000-000000000001"
+  },
+  "cases": [
+    {
+      "name": "item",
+      "document": {
+        "key": "fixture-pier-xero-item-v1",
+        "kind": "item",
+        "date": "2026-10-17",
+        "reference": "SYN-WIDGET",
+        "lines": [
+          {
+            "description": "Synthetic widget",
+            "quantity": "1",
+            "unitPrice": "12.55",
+            "amount": "12.55",
+            "account": "200"
+          }
+        ],
+        "total": "12.55"
+      },
+      "post": {
+        "request": {
+          "method": "PUT",
+          "path": "/api.xro/2.0/Items",
+          "headers": {
+            "Idempotency-Key": "fixture-pier-xero-item-v1",
+            "Content-Type": "application/json"
+          },
+          "json": {
+            "Items": [
+              {
+                "Code": "SYN-WIDGET",
+                "Name": "Synthetic widget",
+                "Description": "Synthetic widget",
+                "IsTrackedAsInventory": false,
+                "IsSold": true,
+                "IsPurchased": false,
+                "SalesDetails": {
+                  "AccountCode": "200",
+                  "UnitPrice": 12.55
+                }
+              }
+            ]
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "Items": [
+              {
+                "Code": "SYN-WIDGET",
+                "Name": "Synthetic widget",
+                "Description": "Synthetic widget",
+                "IsTrackedAsInventory": false,
+                "IsSold": true,
+                "IsPurchased": false,
+                "SalesDetails": {
+                  "AccountCode": "200",
+                  "UnitPrice": 12.55
+                },
+                "ItemID": "00000000-0000-4000-8000-000000000001"
+              }
+            ]
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-xero-item-v1",
+          "kind": "item",
+          "date": "2026-10-17",
+          "reference": "SYN-WIDGET",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "1",
+              "unitPrice": "12.55",
+              "amount": "12.55",
+              "account": "200"
+            }
+          ],
+          "total": "12.55",
+          "remoteId": "00000000-0000-4000-8000-000000000001"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/api.xro/2.0/Items/00000000-0000-4000-8000-000000000001"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "Items": [
+              {
+                "Code": "SYN-WIDGET",
+                "Name": "Synthetic widget",
+                "Description": "Synthetic widget",
+                "IsTrackedAsInventory": false,
+                "IsSold": true,
+                "IsPurchased": false,
+                "SalesDetails": {
+                  "AccountCode": "200",
+                  "UnitPrice": 12.55
+                },
+                "ItemID": "00000000-0000-4000-8000-000000000001"
+              }
+            ]
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "status": "active"
+        },
+        "read": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "status": "active"
+        }
+      },
+      "lookup": {
+        "document": {
+          "key": "fixture-pier-xero-item-v1",
+          "kind": "item",
+          "date": "2026-10-17",
+          "reference": "SYN-WIDGET",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "1",
+              "unitPrice": "12.55",
+              "amount": "12.55",
+              "account": "200"
+            }
+          ],
+          "total": "12.55"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/api.xro/2.0/Items",
+          "query": {
+            "where": "Code==\"SYN-WIDGET\""
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "Items": [
+              {
+                "Code": "SYN-WIDGET",
+                "Name": "Synthetic widget",
+                "Description": "Synthetic widget",
+                "IsTrackedAsInventory": false,
+                "IsSold": true,
+                "IsPurchased": false,
+                "SalesDetails": {
+                  "AccountCode": "200",
+                  "UnitPrice": 12.55
+                },
+                "ItemID": "00000000-0000-4000-8000-000000000001"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "invoice",
+      "document": {
+        "key": "fixture-pier-xero-invoice-v1",
+        "kind": "invoice",
+        "date": "2026-10-17",
+        "reference": "SYN-INV-0001",
+        "lines": [
+          {
+            "description": "Synthetic widget",
+            "quantity": "10",
+            "unitPrice": "12.55",
+            "amount": "125.50",
+            "account": "200",
+            "itemId": "SYN-WIDGET"
+          }
+        ],
+        "total": "125.50",
+        "party": {
+          "id": "00000000-0000-4000-8000-000000000901",
+          "name": "Synthetic Trading Co",
+          "kind": "customer"
+        }
+      },
+      "post": {
+        "request": {
+          "method": "PUT",
+          "path": "/api.xro/2.0/Invoices",
+          "headers": {
+            "Idempotency-Key": "fixture-pier-xero-invoice-v1",
+            "Content-Type": "application/json"
+          },
+          "json": {
+            "Invoices": [
+              {
+                "Type": "ACCREC",
+                "Contact": {
+                  "ContactID": "00000000-0000-4000-8000-000000000901"
+                },
+                "Date": "2026-10-17",
+                "InvoiceNumber": "SYN-INV-0001",
+                "Reference": "SYN-INV-0001",
+                "CurrencyCode": "USD",
+                "Status": "AUTHORISED",
+                "LineAmountTypes": "NoTax",
+                "LineItems": [
+                  {
+                    "Description": "Synthetic widget",
+                    "AccountCode": "200",
+                    "Quantity": 10,
+                    "UnitAmount": 12.55,
+                    "LineAmount": 125.5,
+                    "ItemCode": "SYN-WIDGET"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "Invoices": [
+              {
+                "Type": "ACCREC",
+                "Contact": {
+                  "ContactID": "00000000-0000-4000-8000-000000000901"
+                },
+                "Date": "2026-10-17",
+                "InvoiceNumber": "SYN-INV-0001",
+                "Reference": "SYN-INV-0001",
+                "CurrencyCode": "USD",
+                "Status": "AUTHORISED",
+                "LineAmountTypes": "NoTax",
+                "LineItems": [
+                  {
+                    "Description": "Synthetic widget",
+                    "AccountCode": "200",
+                    "Quantity": 10,
+                    "UnitAmount": 12.55,
+                    "LineAmount": 125.5,
+                    "ItemCode": "SYN-WIDGET"
+                  }
+                ],
+                "InvoiceID": "00000000-0000-4000-8000-000000000002",
+                "Total": 125.5,
+                "AmountPaid": 0,
+                "AmountDue": 125.5,
+                "AmountCredited": 0
+              }
+            ]
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-xero-invoice-v1",
+          "kind": "invoice",
+          "date": "2026-10-17",
+          "reference": "SYN-INV-0001",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "10",
+              "unitPrice": "12.55",
+              "amount": "125.50",
+              "account": "200",
+              "itemId": "SYN-WIDGET"
+            }
+          ],
+          "total": "125.50",
+          "party": {
+            "id": "00000000-0000-4000-8000-000000000901",
+            "name": "Synthetic Trading Co",
+            "kind": "customer"
+          },
+          "remoteId": "00000000-0000-4000-8000-000000000002"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/api.xro/2.0/Invoices/00000000-0000-4000-8000-000000000002"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "Invoices": [
+              {
+                "Type": "ACCREC",
+                "Contact": {
+                  "ContactID": "00000000-0000-4000-8000-000000000901"
+                },
+                "Date": "2026-10-17",
+                "InvoiceNumber": "SYN-INV-0001",
+                "Reference": "SYN-INV-0001",
+                "CurrencyCode": "USD",
+                "Status": "AUTHORISED",
+                "LineAmountTypes": "NoTax",
+                "LineItems": [
+                  {
+                    "Description": "Synthetic widget",
+                    "AccountCode": "200",
+                    "Quantity": 10,
+                    "UnitAmount": 12.55,
+                    "LineAmount": 125.5,
+                    "ItemCode": "SYN-WIDGET"
+                  }
+                ],
+                "InvoiceID": "00000000-0000-4000-8000-000000000002",
+                "Total": 125.5,
+                "AmountPaid": 25.25,
+                "AmountDue": 100.25,
+                "AmountCredited": 0
+              }
+            ]
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "status": "open",
+          "paid": "0.00"
+        },
+        "read": {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "status": "partial",
+          "paid": "25.25"
+        }
+      },
+      "lookup": {
+        "document": {
+          "key": "fixture-pier-xero-invoice-v1",
+          "kind": "invoice",
+          "date": "2026-10-17",
+          "reference": "SYN-INV-0001",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "10",
+              "unitPrice": "12.55",
+              "amount": "125.50",
+              "account": "200",
+              "itemId": "SYN-WIDGET"
+            }
+          ],
+          "total": "125.50",
+          "party": {
+            "id": "00000000-0000-4000-8000-000000000901",
+            "name": "Synthetic Trading Co",
+            "kind": "customer"
+          }
+        },
+        "request": {
+          "method": "GET",
+          "path": "/api.xro/2.0/Invoices",
+          "query": {
+            "where": "InvoiceNumber==\"SYN-INV-0001\" AND Type==\"ACCREC\"",
+            "page": "1",
+            "pageSize": "2"
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "Invoices": [
+              {
+                "Type": "ACCREC",
+                "Contact": {
+                  "ContactID": "00000000-0000-4000-8000-000000000901"
+                },
+                "Date": "2026-10-17",
+                "InvoiceNumber": "SYN-INV-0001",
+                "Reference": "SYN-INV-0001",
+                "CurrencyCode": "USD",
+                "Status": "AUTHORISED",
+                "LineAmountTypes": "NoTax",
+                "LineItems": [
+                  {
+                    "Description": "Synthetic widget",
+                    "AccountCode": "200",
+                    "Quantity": 10,
+                    "UnitAmount": 12.55,
+                    "LineAmount": 125.5,
+                    "ItemCode": "SYN-WIDGET"
+                  }
+                ],
+                "InvoiceID": "00000000-0000-4000-8000-000000000002",
+                "Total": 125.5,
+                "AmountPaid": 25.25,
+                "AmountDue": 100.25,
+                "AmountCredited": 0
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "bill",
+      "document": {
+        "key": "fixture-pier-xero-bill-v1",
+        "kind": "bill",
+        "date": "2026-10-17",
+        "reference": "SYN-BILL-0001",
+        "lines": [
+          {
+            "description": "Synthetic supplier goods",
+            "quantity": "3",
+            "unitPrice": "24.75",
+            "amount": "74.25",
+            "account": "140"
+          }
+        ],
+        "total": "74.25",
+        "party": {
+          "id": "00000000-0000-4000-8000-000000000901",
+          "name": "Synthetic Trading Co",
+          "kind": "supplier"
+        }
+      },
+      "post": {
+        "request": {
+          "method": "PUT",
+          "path": "/api.xro/2.0/Invoices",
+          "headers": {
+            "Idempotency-Key": "fixture-pier-xero-bill-v1",
+            "Content-Type": "application/json"
+          },
+          "json": {
+            "Invoices": [
+              {
+                "Type": "ACCPAY",
+                "Contact": {
+                  "ContactID": "00000000-0000-4000-8000-000000000901"
+                },
+                "Date": "2026-10-17",
+                "InvoiceNumber": "SYN-BILL-0001",
+                "Reference": "SYN-BILL-0001",
+                "CurrencyCode": "USD",
+                "Status": "AUTHORISED",
+                "LineAmountTypes": "NoTax",
+                "LineItems": [
+                  {
+                    "Description": "Synthetic supplier goods",
+                    "AccountCode": "140",
+                    "Quantity": 3,
+                    "UnitAmount": 24.75,
+                    "LineAmount": 74.25
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "Invoices": [
+              {
+                "Type": "ACCPAY",
+                "Contact": {
+                  "ContactID": "00000000-0000-4000-8000-000000000901"
+                },
+                "Date": "2026-10-17",
+                "InvoiceNumber": "SYN-BILL-0001",
+                "Reference": "SYN-BILL-0001",
+                "CurrencyCode": "USD",
+                "Status": "AUTHORISED",
+                "LineAmountTypes": "NoTax",
+                "LineItems": [
+                  {
+                    "Description": "Synthetic supplier goods",
+                    "AccountCode": "140",
+                    "Quantity": 3,
+                    "UnitAmount": 24.75,
+                    "LineAmount": 74.25
+                  }
+                ],
+                "InvoiceID": "00000000-0000-4000-8000-000000000003",
+                "Total": 74.25,
+                "AmountPaid": 0,
+                "AmountDue": 74.25,
+                "AmountCredited": 0
+              }
+            ]
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-xero-bill-v1",
+          "kind": "bill",
+          "date": "2026-10-17",
+          "reference": "SYN-BILL-0001",
+          "lines": [
+            {
+              "description": "Synthetic supplier goods",
+              "quantity": "3",
+              "unitPrice": "24.75",
+              "amount": "74.25",
+              "account": "140"
+            }
+          ],
+          "total": "74.25",
+          "party": {
+            "id": "00000000-0000-4000-8000-000000000901",
+            "name": "Synthetic Trading Co",
+            "kind": "supplier"
+          },
+          "remoteId": "00000000-0000-4000-8000-000000000003"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/api.xro/2.0/Invoices/00000000-0000-4000-8000-000000000003"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "Invoices": [
+              {
+                "Type": "ACCPAY",
+                "Contact": {
+                  "ContactID": "00000000-0000-4000-8000-000000000901"
+                },
+                "Date": "2026-10-17",
+                "InvoiceNumber": "SYN-BILL-0001",
+                "Reference": "SYN-BILL-0001",
+                "CurrencyCode": "USD",
+                "Status": "PAID",
+                "LineAmountTypes": "NoTax",
+                "LineItems": [
+                  {
+                    "Description": "Synthetic supplier goods",
+                    "AccountCode": "140",
+                    "Quantity": 3,
+                    "UnitAmount": 24.75,
+                    "LineAmount": 74.25
+                  }
+                ],
+                "InvoiceID": "00000000-0000-4000-8000-000000000003",
+                "Total": 74.25,
+                "AmountPaid": 74.25,
+                "AmountDue": 0,
+                "AmountCredited": 0
+              }
+            ]
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "status": "open",
+          "paid": "0.00"
+        },
+        "read": {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "status": "paid",
+          "paid": "74.25"
+        }
+      },
+      "lookup": {
+        "document": {
+          "key": "fixture-pier-xero-bill-v1",
+          "kind": "bill",
+          "date": "2026-10-17",
+          "reference": "SYN-BILL-0001",
+          "lines": [
+            {
+              "description": "Synthetic supplier goods",
+              "quantity": "3",
+              "unitPrice": "24.75",
+              "amount": "74.25",
+              "account": "140"
+            }
+          ],
+          "total": "74.25",
+          "party": {
+            "id": "00000000-0000-4000-8000-000000000901",
+            "name": "Synthetic Trading Co",
+            "kind": "supplier"
+          }
+        },
+        "request": {
+          "method": "GET",
+          "path": "/api.xro/2.0/Invoices",
+          "query": {
+            "where": "InvoiceNumber==\"SYN-BILL-0001\" AND Type==\"ACCPAY\"",
+            "page": "1",
+            "pageSize": "2"
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "Invoices": [
+              {
+                "Type": "ACCPAY",
+                "Contact": {
+                  "ContactID": "00000000-0000-4000-8000-000000000901"
+                },
+                "Date": "2026-10-17",
+                "InvoiceNumber": "SYN-BILL-0001",
+                "Reference": "SYN-BILL-0001",
+                "CurrencyCode": "USD",
+                "Status": "PAID",
+                "LineAmountTypes": "NoTax",
+                "LineItems": [
+                  {
+                    "Description": "Synthetic supplier goods",
+                    "AccountCode": "140",
+                    "Quantity": 3,
+                    "UnitAmount": 24.75,
+                    "LineAmount": 74.25
+                  }
+                ],
+                "InvoiceID": "00000000-0000-4000-8000-000000000003",
+                "Total": 74.25,
+                "AmountPaid": 74.25,
+                "AmountDue": 0,
+                "AmountCredited": 0
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "journal",
+      "document": {
+        "key": "fixture-pier-xero-journal-v1",
+        "kind": "journal",
+        "date": "2026-10-17",
+        "reference": "SYN-COGS-0001",
+        "lines": [
+          {
+            "description": "Shipment cost of goods",
+            "quantity": "1",
+            "unitPrice": "74.25",
+            "amount": "74.25",
+            "account": "500",
+            "debit": "74.25"
+          },
+          {
+            "description": "Inventory asset relieved",
+            "quantity": "1",
+            "unitPrice": "74.25",
+            "amount": "74.25",
+            "account": "140",
+            "credit": "74.25"
+          }
+        ],
+        "total": "74.25"
+      },
+      "post": {
+        "request": {
+          "method": "PUT",
+          "path": "/api.xro/2.0/ManualJournals",
+          "headers": {
+            "Idempotency-Key": "fixture-pier-xero-journal-v1",
+            "Content-Type": "application/json"
+          },
+          "json": {
+            "ManualJournals": [
+              {
+                "Date": "2026-10-17",
+                "Narration": "SYN-COGS-0001",
+                "Status": "POSTED",
+                "LineAmountTypes": "NoTax",
+                "JournalLines": [
+                  {
+                    "Description": "Shipment cost of goods",
+                    "AccountCode": "500",
+                    "LineAmount": 74.25
+                  },
+                  {
+                    "Description": "Inventory asset relieved",
+                    "AccountCode": "140",
+                    "LineAmount": -74.25
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "ManualJournals": [
+              {
+                "Date": "2026-10-17",
+                "Narration": "SYN-COGS-0001",
+                "Status": "POSTED",
+                "LineAmountTypes": "NoTax",
+                "JournalLines": [
+                  {
+                    "Description": "Shipment cost of goods",
+                    "AccountCode": "500",
+                    "LineAmount": 74.25
+                  },
+                  {
+                    "Description": "Inventory asset relieved",
+                    "AccountCode": "140",
+                    "LineAmount": -74.25
+                  }
+                ],
+                "ManualJournalID": "00000000-0000-4000-8000-000000000004"
+              }
+            ]
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-xero-journal-v1",
+          "kind": "journal",
+          "date": "2026-10-17",
+          "reference": "SYN-COGS-0001",
+          "lines": [
+            {
+              "description": "Shipment cost of goods",
+              "quantity": "1",
+              "unitPrice": "74.25",
+              "amount": "74.25",
+              "account": "500",
+              "debit": "74.25"
+            },
+            {
+              "description": "Inventory asset relieved",
+              "quantity": "1",
+              "unitPrice": "74.25",
+              "amount": "74.25",
+              "account": "140",
+              "credit": "74.25"
+            }
+          ],
+          "total": "74.25",
+          "remoteId": "00000000-0000-4000-8000-000000000004"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/api.xro/2.0/ManualJournals/00000000-0000-4000-8000-000000000004"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "ManualJournals": [
+              {
+                "Date": "2026-10-17",
+                "Narration": "SYN-COGS-0001",
+                "Status": "POSTED",
+                "LineAmountTypes": "NoTax",
+                "JournalLines": [
+                  {
+                    "Description": "Shipment cost of goods",
+                    "AccountCode": "500",
+                    "LineAmount": 74.25
+                  },
+                  {
+                    "Description": "Inventory asset relieved",
+                    "AccountCode": "140",
+                    "LineAmount": -74.25
+                  }
+                ],
+                "ManualJournalID": "00000000-0000-4000-8000-000000000004"
+              }
+            ]
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "status": "posted"
+        },
+        "read": {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "status": "posted"
+        }
+      },
+      "lookup": {
+        "document": {
+          "key": "fixture-pier-xero-journal-v1",
+          "kind": "journal",
+          "date": "2026-10-17",
+          "reference": "SYN-COGS-0001",
+          "lines": [
+            {
+              "description": "Shipment cost of goods",
+              "quantity": "1",
+              "unitPrice": "74.25",
+              "amount": "74.25",
+              "account": "500",
+              "debit": "74.25"
+            },
+            {
+              "description": "Inventory asset relieved",
+              "quantity": "1",
+              "unitPrice": "74.25",
+              "amount": "74.25",
+              "account": "140",
+              "credit": "74.25"
+            }
+          ],
+          "total": "74.25"
+        },
+        "request": {
+          "method": "GET",
+          "path": "/api.xro/2.0/ManualJournals",
+          "query": {
+            "where": "Narration==\"SYN-COGS-0001\""
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Status": "OK",
+            "ManualJournals": [
+              {
+                "Date": "2026-10-17",
+                "Narration": "SYN-COGS-0001",
+                "Status": "POSTED",
+                "LineAmountTypes": "NoTax",
+                "JournalLines": [
+                  {
+                    "Description": "Shipment cost of goods",
+                    "AccountCode": "500",
+                    "LineAmount": 74.25
+                  },
+                  {
+                    "Description": "Inventory asset relieved",
+                    "AccountCode": "140",
+                    "LineAmount": -74.25
+                  }
+                ],
+                "ManualJournalID": "00000000-0000-4000-8000-000000000004"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "receipt",
+      "document": {
+        "key": "fixture-pier-xero-receipt-v1",
+        "kind": "receipt",
+        "date": "2026-10-17",
+        "reference": "SYN-RECEIPT-0001",
+        "lines": [],
+        "total": "74.25",
+        "remoteId": "00000000-0000-4000-8000-000000000003",
+        "attachment": {
+          "name": "pier-synthetic-receipt.txt",
+          "content": "Supplier receipt SYN-RECEIPT-0001\nGoods received: 3 units.\n"
+        }
+      },
+      "post": {
+        "request": {
+          "method": "PUT",
+          "path": "/api.xro/2.0/Invoices/00000000-0000-4000-8000-000000000003/Attachments/pier-synthetic-receipt.txt",
+          "headers": {
+            "Idempotency-Key": "fixture-pier-xero-receipt-v1",
+            "Content-Type": "text/plain"
+          },
+          "text": "Supplier receipt SYN-RECEIPT-0001\nGoods received: 3 units.\n"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Attachments": [
+              {
+                "AttachmentID": "00000000-0000-4000-8000-000000000005",
+                "FileName": "pier-synthetic-receipt.txt",
+                "MimeType": "text/plain",
+                "ContentLength": 59
+              }
+            ]
+          }
+        }
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-xero-receipt-v1",
+          "kind": "receipt",
+          "date": "2026-10-17",
+          "reference": "SYN-RECEIPT-0001",
+          "lines": [],
+          "total": "74.25",
+          "remoteId": "00000000-0000-4000-8000-000000000003",
+          "attachment": {
+            "name": "pier-synthetic-receipt.txt",
+            "content": "Supplier receipt SYN-RECEIPT-0001\nGoods received: 3 units.\n"
+          }
+        },
+        "request": {
+          "method": "GET",
+          "path": "/api.xro/2.0/Invoices/00000000-0000-4000-8000-000000000003/Attachments"
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "Attachments": [
+              {
+                "AttachmentID": "00000000-0000-4000-8000-000000000005",
+                "FileName": "pier-synthetic-receipt.txt",
+                "MimeType": "text/plain",
+                "ContentLength": 59
+              }
+            ]
+          }
+        }
+      },
+      "expected": {
+        "post": {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "status": "attached",
+          "received": true
+        },
+        "read": {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "status": "attached",
+          "received": true
+        }
+      }
+    }
+  ],
+  "errors": [
+    {
+      "name": "revoked-authorization",
+      "response": {
+        "status": 401,
+        "body": {
+          "Type": null,
+          "Title": "Unauthorized",
+          "Status": 401
+        }
+      }
+    },
+    {
+      "name": "rate-limited",
+      "response": {
+        "status": 429,
+        "body": {
+          "error": "Synthetic rate limit"
+        }
+      }
+    }
+  ]
+}
