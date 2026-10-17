@@ -1,0 +1,23 @@
+{
+  "data": {
+    "productVariants": {
+      "nodes": [
+        {
+          "id": "gid://shopify/ProductVariant/401",
+          "sku": "CASE-BLUE",
+          "title": "Default Title",
+          "product": {
+            "title": "Fixture case"
+          },
+          "inventoryItem": {
+            "id": "gid://shopify/InventoryItem/401"
+          }
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": true,
+        "endCursor": "variants-after-401"
+      }
+    }
+  }
+}

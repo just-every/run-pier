@@ -10,6 +10,7 @@
       "title": "Daily work",
       "pages": [
         { "slug": "orders", "label": "Orders and dispatch", "file": "docs/orders.md", "summary": "Take an order that reserves real stock, dispatch it in parts and bring returns back through quarantine." },
+        { "slug": "channels", "label": "Sales channels", "file": "docs/channels.md", "summary": "Connect stores, match existing listings, reserve incoming orders and publish stock after holds." },
         { "slug": "buying", "label": "Buy and receive", "file": "docs/buying.md", "summary": "Keep supplier terms, approve the exact purchase order and receive what arrives into named bins." },
         { "slug": "floor", "label": "The warehouse floor", "file": "docs/floor.md", "summary": "Receive by scanning, pick waves with a scan check per line, pack cartons and close the day's dispatch." },
         { "slug": "transfers-and-counts", "label": "Transfers and counts", "file": "docs/warehouse.md", "summary": "Move stock between warehouses through transit, and count a bin without overwriting work in progress." },

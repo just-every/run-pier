@@ -1,0 +1,14 @@
+{
+  "data": {
+    "inventoryItem": {
+      "inventoryLevel": {
+        "quantities": [
+          {
+            "name": "available",
+            "quantity": 9
+          }
+        ]
+      }
+    }
+  }
+}

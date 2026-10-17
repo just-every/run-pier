@@ -1,0 +1,47 @@
+{
+  "orders": [
+    {
+      "orderId": "123-0000000-0000002",
+      "createdTime": "2026-10-16T00:00:00Z",
+      "lastUpdatedTime": "2026-10-17T00:00:00Z",
+      "salesChannel": {
+        "channelName": "AMAZON",
+        "marketplaceId": "ATVPDKIKX0DER",
+        "marketplaceName": "Amazon.com"
+      },
+      "buyer": {
+        "buyerName": "Fixture Buyer"
+      },
+      "proceeds": {
+        "grandTotal": {
+          "amount": "25.00",
+          "currencyCode": "USD"
+        }
+      },
+      "fulfillment": {
+        "fulfillmentStatus": "UNSHIPPED",
+        "fulfilledBy": "MERCHANT"
+      },
+      "orderItems": [
+        {
+          "orderItemId": "701",
+          "quantityOrdered": 2,
+          "product": {
+            "sellerSku": "CASE-RED",
+            "title": "Fixture case",
+            "price": {
+              "unitPrice": {
+                "amount": "12.50",
+                "currencyCode": "USD"
+              }
+            }
+          },
+          "fulfillment": {
+            "quantityFulfilled": 0,
+            "quantityUnfulfilled": 2
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "sku": "CASE-BLUE",
+  "status": "INVALID",
+  "submissionId": "fixture-submission-602",
+  "issues": [
+    {
+      "code": "90244",
+      "message": "Invalid quantity.",
+      "severity": "ERROR"
+    }
+  ]
+}

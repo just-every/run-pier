@@ -81,6 +81,10 @@ export const collections = [
   "dispatchDays",
   "replenishmentPolicies",
   "correspondence",
+  "channels",
+  "channelListings",
+  "channelOrders",
+  "channelHolds",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {
@@ -123,7 +127,8 @@ export type Context = {
   actor: Actor;
   commandId: string;
   now: string;
-  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders"; id: string; version: number };
+  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "channels"; id: string; version: number };
+  channelSecrets?: { channelId: string; secret: string }[];
   automationActors?: Record<string, string>;
   delegates?: { actorId: string; role: string; orderId: string; policyVersion: number }[];
   approver?: {
@@ -183,12 +188,15 @@ export function reserved(s: State, itemId: string, locationId: string): bigint {
     .filter((r) => r.itemId === itemId && r.locationId === locationId)
     .reduce((n, r) => n + BigInt(r.quantity), 0n);
 }
+export function held(s: State, itemId: string, locationId: string): bigint {
+  return (s.channelHolds ?? []).filter(h => !h.releasedAt && h.itemId === itemId).reduce((sum, h) => sum + h.allocations.filter((a: any) => a.locationId === locationId).reduce((n: bigint, a: any) => n + BigInt(a.quantity), 0n), 0n);
+}
 export function available(
   s: State,
   itemId: string,
   locationId: string,
 ): bigint {
-  return balance(s, itemId, locationId) - reserved(s, itemId, locationId);
+  return balance(s, itemId, locationId) - reserved(s, itemId, locationId) - held(s, itemId, locationId);
 }
 export function move(
   c: Context,
@@ -211,7 +219,7 @@ export function move(
   if (
     next < 0n ||
     next > MAX ||
-    (x.status === "sellable" && next < reserved(c.s, x.itemId, x.locationId))
+    (x.status === "sellable" && next < reserved(c.s, x.itemId, x.locationId) + held(c.s, x.itemId, x.locationId))
   )
     fail(
       "DEPENDENCY",
@@ -251,7 +259,8 @@ export function positions(s: State) {
       status,
       quantity: format(q),
       reserved: format(r),
-      available: format(status === "sellable" ? q - r : 0n),
+      held: format(status === "sellable" ? held(s, itemId, locationId) : 0n),
+      available: format(status === "sellable" ? available(s, itemId, locationId) : 0n),
     };
   });
 }

@@ -1,0 +1,35 @@
+import type { ChannelConfig } from './types'
+import { array, baseUrl, credential, nextToken, object, request, type JsonObject } from './http'
+
+export const SHOPIFY_API_VERSION = '2026-10'
+
+export function shopifyClient(config: ChannelConfig) {
+  const url = baseUrl(config)
+  url.pathname = `/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+  const headers = { 'X-Shopify-Access-Token': credential(config, 'accessToken'), 'Content-Type': 'application/json' }
+  return async (query: string, variables: JsonObject = {}): Promise<JsonObject> => {
+    const { body, response } = await request(url, { method: 'POST', headers, body: JSON.stringify({ query, variables }) }, 'Shopify GraphQL')
+    const version = response.headers.get('X-Shopify-API-Version')
+    if (version && version !== SHOPIFY_API_VERSION) throw new Error('Shopify served a different API version; reconcile before replay')
+    const result = object(body)
+    if (result.errors !== undefined && array(result.errors).length) throw new Error('Shopify GraphQL returned errors; reconcile any possible external write before replay')
+    return object(result.data, 'Shopify GraphQL data')
+  }
+}
+
+export async function connectionPages(load: (after: string | null) => Promise<unknown>): Promise<unknown[]> {
+  const result: unknown[] = []
+  const seen = new Set<string>()
+  let after: string | null = null
+  do {
+    const connection = object(await load(after), 'Shopify connection')
+    result.push(...array(connection.nodes, 'Shopify nodes'))
+    const page = object(connection.pageInfo, 'Shopify pageInfo')
+    if (typeof page.hasNextPage !== 'boolean') throw new Error('Invalid Shopify pagination flag')
+    if (!page.hasNextPage) break
+    const token = nextToken(page.endCursor, seen)
+    if (!token) throw new Error('Shopify has another page without a cursor')
+    after = token
+  } while (true)
+  return result
+}

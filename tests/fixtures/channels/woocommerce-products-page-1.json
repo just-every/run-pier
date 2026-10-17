@@ -1,0 +1,14 @@
+[
+  {
+    "id": 101,
+    "type": "simple",
+    "sku": "CASE-BLUE",
+    "name": "Blue case"
+  },
+  {
+    "id": 102,
+    "type": "variable",
+    "sku": "",
+    "name": "Canvas case"
+  }
+]

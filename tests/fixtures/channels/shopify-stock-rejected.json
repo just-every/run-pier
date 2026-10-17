@@ -1,0 +1,19 @@
+{
+  "data": {
+    "inventorySetQuantities": {
+      "inventoryAdjustmentGroup": null,
+      "userErrors": [
+        {
+          "code": "CHANGE_FROM_QUANTITY_STALE",
+          "field": [
+            "input",
+            "quantities",
+            "0",
+            "changeFromQuantity"
+          ],
+          "message": "The current available quantity changed."
+        }
+      ]
+    }
+  }
+}

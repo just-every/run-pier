@@ -1,4 +1,5 @@
 import type { Bindings } from '../auth.server';
+import { syncChannels } from './channels/sync';
 import { load, activeAutomationActors } from './storage';
 import { execute } from './api';
 import { deliverCorrespondence } from './correspondence-delivery';
@@ -7,6 +8,7 @@ import { backorderDates } from './backorders';
 
 /** Bounded cron work, always tied to a still-active human's exact policy. */
 export async function runReplenishmentSchedule(env: Bindings, scheduledTime = Date.now()) {
+  await syncChannels(env);
   const actors = await activeAutomationActors(env.DB), s = await load(env.DB);
   const now = new Date(scheduledTime).toISOString(), slot = Math.floor(Date.parse(now) / 900000);
   const context = { s, now, commandId: '', actor: { id: '', role: 'viewer', name: 'Scheduled planning', sessionId: '', operatorVersion: 0 } };

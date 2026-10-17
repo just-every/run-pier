@@ -1,0 +1,44 @@
+{
+  "data": {
+    "orders": {
+      "nodes": [
+        {
+          "id": "gid://shopify/Order/501",
+          "name": "#501",
+          "closed": false,
+          "cancelledAt": null,
+          "displayFinancialStatus": "PAID",
+          "displayFulfillmentStatus": "UNFULFILLED",
+          "currencyCode": "USD",
+          "customer": {
+            "displayName": "Fixture Buyer"
+          },
+          "lineItems": {
+            "nodes": [
+              {
+                "id": "gid://shopify/LineItem/5010",
+                "sku": "CASE-BLUE",
+                "requiresShipping": true,
+                "unfulfilledQuantity": 2,
+                "originalUnitPriceSet": {
+                  "shopMoney": {
+                    "amount": "12.50",
+                    "currencyCode": "USD"
+                  }
+                }
+              }
+            ],
+            "pageInfo": {
+              "hasNextPage": true,
+              "endCursor": "lines-after-5010"
+            }
+          }
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": true,
+        "endCursor": "orders-after-501"
+      }
+    }
+  }
+}

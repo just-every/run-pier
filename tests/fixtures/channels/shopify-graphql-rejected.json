@@ -1,0 +1,10 @@
+{
+  "errors": [
+    {
+      "message": "Access denied",
+      "extensions": {
+        "code": "ACCESS_DENIED"
+      }
+    }
+  ]
+}

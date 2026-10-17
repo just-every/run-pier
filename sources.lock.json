@@ -256,7 +256,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "fae46b6fcf240f5d64fc5e9cb6a96580d6b6a1bb5827738bd38b9a470894b690",
+      "sha256": "aa02d5dc7583e952cbecea9c7d33df24452d5bebb1d9299c679e8b340cce7716",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -268,7 +268,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "e942bf7baa13673cc85d6ab8003027a7844c2c2ad39e8184cfa1ac6ff644d4c0",
+      "sha256": "cede5539aa5c1e486179cf4101982d8cc04c82ad7582a396cd8b1a03b0878ea5",
       "executable": false
     },
     "base-copies.json": {
@@ -280,7 +280,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d4aef47789afe0685a495ae0721ad3a72113c5b18b8e1ac861c61bf4fc56adcd",
+      "sha256": "7b32ccaa5700835cdac82d86bf69836ccd672dc7647830eed50967389a77dcac",
       "executable": false
     },
     "DEMO.md": {
@@ -296,7 +296,7 @@
       "executable": false
     },
     "deploy.json": {
-      "sha256": "ae6bb3fe94da6561e6276206a714fd498df280a6c5a7e14a1cfa78c6eeeb2d65",
+      "sha256": "5ff681f8515d18cc779fd76c28626b254c8b1d5659f9dd85f1e545464e85ec1a",
       "executable": false
     },
     "docs/activity.md": {
@@ -311,8 +311,12 @@
       "sha256": "129de9ea234e0386bd6509f8c6a62c7e593d693ef551342accbf10ccdf97aa1c",
       "executable": false
     },
+    "docs/channels.md": {
+      "sha256": "90c9b9f10c89e4674bc5260cd024573cc140f056e3c57bd70076cb7e43ac0670",
+      "executable": false
+    },
     "docs/CLAIMS.md": {
-      "sha256": "141f586e06a15ef8a73484baba6e224a0e7c4319386c17cbb77a85e853aa628a",
+      "sha256": "c20cb348c0806295f58ecc65f46596224c697160d970832969042d7bc321ae98",
       "executable": false
     },
     "docs/floor.md": {
@@ -336,7 +340,7 @@
       "executable": false
     },
     "docs/site.json": {
-      "sha256": "75120f0869f6ccfe8a6302222db203b48d46f24ecbf283958d930a82e9da08e9",
+      "sha256": "4e1e03be367c99667e50d9c2e0c3f3bb31fbca50c41f6b480f3355a52fb32a5b",
       "executable": false
     },
     "docs/warehouse.md": {
@@ -425,6 +429,10 @@
     },
     "migrations/core/0016_pier_correspondence.sql": {
       "sha256": "118a7f72bad363fab8abd36abdc3b7f8fee6aa1c62004207b1e572de9553a626",
+      "executable": false
+    },
+    "migrations/core/0017_pier_channels.sql": {
+      "sha256": "11790f1282b79f235debd1b0b018d760f87c07ebfd8462766f456c9079aa958c",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -712,7 +720,7 @@
       "executable": false
     },
     "scripts/installer/local.mjs": {
-      "sha256": "5e824cc6952925b5ce1f2ce45f5296d89187755e79705da4ee5c61db32edf392",
+      "sha256": "54791dee5f24d9f4f9e3c8b2fb3f5804c47eef16f8fe4177a5296876877fb88a",
       "executable": false
     },
     "scripts/installer/seed.mjs": {
@@ -2384,7 +2392,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "03da7aff184132d4e07f1041446fea630035c445bb3d3d88f75430ec99111389",
+      "sha256": "841b1461902ecd312ca93b062287cfd8f42a0e44ac2be1ebb0be7871b574b56d",
       "executable": false
     },
     "src/pier/backorders.ts": {
@@ -2393,6 +2401,66 @@
     },
     "src/pier/catalogue.ts": {
       "sha256": "93abd8494e34bef8f094863407190058b14b761e16b6623b469c81da4abb08ad",
+      "executable": false
+    },
+    "src/pier/channels/adapters/amazon-client.ts": {
+      "sha256": "413408ab4cb7cd9324066dd08d76401b9432db140af482cf852c2d1398aa8092",
+      "executable": false
+    },
+    "src/pier/channels/adapters/amazon-listings.ts": {
+      "sha256": "71e298e6ae4078aa1ddaff3ff8e9634592b812d16bb38cd4a8a664a4b0104389",
+      "executable": false
+    },
+    "src/pier/channels/adapters/amazon.ts": {
+      "sha256": "e3848d15bb0f680aaaf6e1c8beb75814ad70f9563c1dcbecaed2c6197d701aa4",
+      "executable": false
+    },
+    "src/pier/channels/adapters/http.ts": {
+      "sha256": "0bab7ae2b3788fa38c3f5eb382538d5dc77aef5a9525e7c87c5f7eed08866dbf",
+      "executable": false
+    },
+    "src/pier/channels/adapters/index.ts": {
+      "sha256": "6e0ff1e689d7dd5c6b4340d0c579b28bc54d7fdc498877d0550c2f9f1d015ec7",
+      "executable": false
+    },
+    "src/pier/channels/adapters/shopify-client.ts": {
+      "sha256": "2ddead0eb3b5d9b12e5be9b63fd60ea14f899a4a0047a21d9538a947cfed1f2f",
+      "executable": false
+    },
+    "src/pier/channels/adapters/shopify.ts": {
+      "sha256": "04a2529fe79836e92e6065484e4937335738b1e5271a4e76af95d01e7b9c476d",
+      "executable": false
+    },
+    "src/pier/channels/adapters/stall.ts": {
+      "sha256": "5f7b082972311a40abadd1acb95e769bbaec8f37333133235f2c736d2f936e34",
+      "executable": false
+    },
+    "src/pier/channels/adapters/types.ts": {
+      "sha256": "ead0ae62ef562ff39900b6b1b94ab74eec6f9517c4edf8dd8947441c164105dd",
+      "executable": false
+    },
+    "src/pier/channels/adapters/woocommerce.ts": {
+      "sha256": "ba656a638cfd0327409b1b9bc1b055cccdefe67fd6a083e7379d4a86cd4ca8dc",
+      "executable": false
+    },
+    "src/pier/channels/availability.ts": {
+      "sha256": "4708d57e7c953e010dfa3f6c99f23306dad40dc32a4272ea4baae56ac6b7ea1a",
+      "executable": false
+    },
+    "src/pier/channels/commands.ts": {
+      "sha256": "55d2081d0920b589933471e0451ef59ddd7a8fba13939220d99e84467b076856",
+      "executable": false
+    },
+    "src/pier/channels/secrets.ts": {
+      "sha256": "c099e456281780ca9d0485668c5c8116956400411de1b15ed54b81113b75e9ea",
+      "executable": false
+    },
+    "src/pier/channels/sync.ts": {
+      "sha256": "f3b34270c5df675527d96d4d20375bde990500b4f44be1bc0310a33956bb7a84",
+      "executable": false
+    },
+    "src/pier/channels/webhook.ts": {
+      "sha256": "a805af71623ed1ef7ce13bfcbfbbbd2051b71e507c0b20b0da6413da88c792e5",
       "executable": false
     },
     "src/pier/correspondence-delivery-eligibility.ts": {
@@ -2452,7 +2520,7 @@
       "executable": false
     },
     "src/pier/model.ts": {
-      "sha256": "5215eec266181dfd39d56665a7d01a1b0dfd343cf64b6c5f8e45432f79cfe861",
+      "sha256": "99e50a85515c0c9e07795692d50a025c26adee8762717a2fddf91c32e4ce82c4",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -2520,11 +2588,11 @@
       "executable": false
     },
     "src/pier/scheduled.ts": {
-      "sha256": "acc140609dd3ec6c9c6d1e5475a421006fa19cf5e931c44deae198abf8f5c920",
+      "sha256": "0c1995a977f431f91fd4b89121278ef7990296510a0e6c6137a84b17f215dcc5",
       "executable": false
     },
     "src/pier/storage.ts": {
-      "sha256": "3571b5706b18c1dbedf976955222553240a79254991eb484b7f1bcb0b5bb6e93",
+      "sha256": "96a8dcbf23313adb06498c8ff2526d19f5ca00ecf5c1eb0a82e828982716942a",
       "executable": false
     },
     "src/pier/valuation-ledger.ts": {
@@ -2552,7 +2620,7 @@
       "executable": false
     },
     "src/server.ts": {
-      "sha256": "0055ddf1dd9d6736a7e576e7b357beb7b3ed17d6de10aa6b0cf4ee37a6c3d60d",
+      "sha256": "6cf7b99ca3458b20edf8cd5fb55ad616dce805e6d71e227579f1393c0a7f1d8c",
       "executable": false
     },
     "src/site/docs/build/manifest.ts": {
@@ -2700,15 +2768,63 @@
       "executable": false
     },
     "src/ui/api.ts": {
-      "sha256": "887755eb9007793650ae61d58678a61aec0902f4a1318e9428d0c2576e1bf010",
+      "sha256": "43a0102a627dc77d6fd83f6598fcf9db2ceb29e517b49b59f5f1d17e98101509",
       "executable": false
     },
     "src/ui/app.tsx": {
-      "sha256": "b20fbda1c1651928202155210beefe596f1afd31f16c88f0de14cbd4a89753a4",
+      "sha256": "e2a2880d8c10c2df1571bd653d51a4a49a99a4f79323d09dae776a5b892748ae",
       "executable": false
     },
     "src/ui/backorder-promises.tsx": {
       "sha256": "1e19ba16353097a06568dd14a03b092d971bbfbaaedc9de6836b3d5fa42a7698",
+      "executable": false
+    },
+    "src/ui/channels/assets/amazon.png": {
+      "sha256": "434111c13aa42534ffe3576efb68f427a33ad1b12435a95a966dc896b5708668",
+      "executable": false
+    },
+    "src/ui/channels/assets/shopify.png": {
+      "sha256": "5afb10210ba3a3fd187dfa4fbd71af3c30aa34a9848531b0d9e692e1505a9fa0",
+      "executable": false
+    },
+    "src/ui/channels/assets/stall.png": {
+      "sha256": "dcd057ceb9f5569feb96df8f1f21561e14d322d1d3abd3cbd5a4ab9afbc0e65e",
+      "executable": false
+    },
+    "src/ui/channels/assets/woo.png": {
+      "sha256": "debe1ed6480e2ba96dbf850b5638ef51fe3312e1ac87044e60452e495e3a0a05",
+      "executable": false
+    },
+    "src/ui/channels/brand.tsx": {
+      "sha256": "9463818d9501b4190ab5207cbb6af99df99d9e2fd80ee411a652932f24b17290",
+      "executable": false
+    },
+    "src/ui/channels/connection-form.tsx": {
+      "sha256": "ecaa6f9ca94b29d8cd5535e0a317cad03be880c2a0a763886eb7722ab2a55c5e",
+      "executable": false
+    },
+    "src/ui/channels/connections.tsx": {
+      "sha256": "172e0c32c1ab3b37d094f45b72fd744dd744f9c8e0d372c6e0861afaecffceba",
+      "executable": false
+    },
+    "src/ui/channels/holds.tsx": {
+      "sha256": "54d3f8537eabfe2a4d3ce1752e6cb4b99a0d08533797075bd814aed8bd0fcd97",
+      "executable": false
+    },
+    "src/ui/channels/index.tsx": {
+      "sha256": "332080531dd0a7aacc1809da987f0db44047864bf3fe3ae444e70a5c85b5ef65",
+      "executable": false
+    },
+    "src/ui/channels/listings.tsx": {
+      "sha256": "bbada4ee0cbb63e22772be26e7755e8d706566d5980aa9bd7238df3946e5e1fe",
+      "executable": false
+    },
+    "src/ui/channels/model.ts": {
+      "sha256": "fe719ce79889ac4bc894e9c8b83f217bf8234a68813434f5dc1b6e0de323053d",
+      "executable": false
+    },
+    "src/ui/channels/orders.tsx": {
+      "sha256": "f1a3cec1d4aaf84350f36a78dbce3d2bb6d155bd93d0b894d54025c6d160d6ad",
       "executable": false
     },
     "src/ui/controls.tsx": {
@@ -2819,6 +2935,10 @@
       "sha256": "32d80a45ea33b3ba94f445b9a9fb0c86bed2753297e085c56a2fa2cc88da2e2c",
       "executable": false
     },
+    "src/ui/style/channels.css": {
+      "sha256": "f9cdc01a0fc8f8aa634e9360ab3bd36bf1c93ee8dfad298903ac2fc4b073573f",
+      "executable": false
+    },
     "src/ui/style/controls.css": {
       "sha256": "324f027e39be29df6efb601c63903fc51a870f824f815227948c68430ca2e60e",
       "executable": false
@@ -2828,7 +2948,7 @@
       "executable": false
     },
     "src/ui/style/index.ts": {
-      "sha256": "dac02a57c83c4067d8336d06453d5564759b3d27c147474a85dadcea3081bb4e",
+      "sha256": "03795bfbb3a91c94055c53982f51837cd8b5d9a993178fc22adcc7c8d71feb20",
       "executable": false
     },
     "src/ui/style/records.css": {
@@ -2853,6 +2973,14 @@
     },
     "src/ui/wire.ts": {
       "sha256": "ec5554cf4c88e847bef0c619b6d046bff673efc4db465077e82acc21eb2a9e4c",
+      "executable": false
+    },
+    "tests/api/channel-edge.mjs": {
+      "sha256": "71f20d03e7202fa91e992320e4cb65f87d3aa36fc588be80661acdd4ad556f2f",
+      "executable": false
+    },
+    "tests/api/channels.test.mjs": {
+      "sha256": "ade0d1e0a9088b44881a640e50ca7ef441bb35c722412f5477a188726f3ff8d0",
       "executable": false
     },
     "tests/api/costing.test.mjs": {
@@ -2907,6 +3035,110 @@
       "sha256": "a87856e50ac1fd2a65054b389c8a7e0d7dc2090a2de2fca453d0d8e8d71cbb3c",
       "executable": false
     },
+    "tests/fixtures/channels/amazon-listings-page-1.json": {
+      "sha256": "59687f97d7f40a4341364819343a9a11cd495f4144c505ab699c0408de50ae27",
+      "executable": false
+    },
+    "tests/fixtures/channels/amazon-listings-page-2.json": {
+      "sha256": "06cad543645217a1d67c9a71afd16a8dbda84dda75f7712606756ee5b3376436",
+      "executable": false
+    },
+    "tests/fixtures/channels/amazon-lwa-token.json": {
+      "sha256": "27423620587a61c413b3b9980858bf9254728e29ea20a032caa7a0d1ef412c4f",
+      "executable": false
+    },
+    "tests/fixtures/channels/amazon-orders-page-1.json": {
+      "sha256": "be9a07c2e1e105bbdb2ba9725eec5d0d41f6d215a704ad6885d10602c49a5495",
+      "executable": false
+    },
+    "tests/fixtures/channels/amazon-orders-page-2.json": {
+      "sha256": "8815633996488f97260269f3f93b4d4b4d0c8fea0ee3dc134071203de5c07879",
+      "executable": false
+    },
+    "tests/fixtures/channels/amazon-stock-accepted.json": {
+      "sha256": "5b5c4b7d514c083c9fb0da7f6b4856596b646f255dcdf07080886671b7afcdfb",
+      "executable": false
+    },
+    "tests/fixtures/channels/amazon-stock-current.json": {
+      "sha256": "e481c335d673772513ceb263c6e3ecdab48424876fe6d88a547fec5156dad633",
+      "executable": false
+    },
+    "tests/fixtures/channels/amazon-stock-rejected.json": {
+      "sha256": "f366b2eb074218fc060f3b9e54303bb9fad99c2015a6fe949aa0552837dbdd47",
+      "executable": false
+    },
+    "tests/fixtures/channels/README.md": {
+      "sha256": "1a76b0bee1370cce09060131920cebabaed95552c81b50ebb9dea711e1a4b608",
+      "executable": false
+    },
+    "tests/fixtures/channels/shopify-graphql-rejected.json": {
+      "sha256": "c9cf0c5f7c1622c0959c01ea3d9b5156a294c0b3e682883c2a3d6b91e3ea7eeb",
+      "executable": false
+    },
+    "tests/fixtures/channels/shopify-listings-page-1.json": {
+      "sha256": "b96ebb36dd6792f5ef21cd04580403b68d653521f8d192125bf69410c34bb172",
+      "executable": false
+    },
+    "tests/fixtures/channels/shopify-listings-page-2.json": {
+      "sha256": "3ca4bf53a3058cbda6e7dc2e8cdd83b41a674f462126ef96317aa1354672d05b",
+      "executable": false
+    },
+    "tests/fixtures/channels/shopify-order-lines-page-2.json": {
+      "sha256": "af92bb2d9d9f8fcfdc7481178ec21be8a0e81f1aa6d9895c7b8591a09000bcd7",
+      "executable": false
+    },
+    "tests/fixtures/channels/shopify-orders-page-1.json": {
+      "sha256": "d50052d19ebc560fc0947dc7db4592882a691d25e0982fc5f498dcbf4ceae8ef",
+      "executable": false
+    },
+    "tests/fixtures/channels/shopify-orders-page-2.json": {
+      "sha256": "e0818ae23aefe39fda0a6eb523e9a507ac29d9ce891322e9a31829df43581597",
+      "executable": false
+    },
+    "tests/fixtures/channels/shopify-stock-accepted.json": {
+      "sha256": "130ed7ae1d650170f8a2964b9326cb9f4c182a36da166ee8e2baab937ecd677d",
+      "executable": false
+    },
+    "tests/fixtures/channels/shopify-stock-current.json": {
+      "sha256": "b23beb979f00c858c2b9eeca5dd32d3299e1cb34def18ef8f3f822954b91b794",
+      "executable": false
+    },
+    "tests/fixtures/channels/shopify-stock-rejected.json": {
+      "sha256": "a5344cecd1180df5834c1abbce784fb1a0505b7b1e1519471bd87af4c2d1a45e",
+      "executable": false
+    },
+    "tests/fixtures/channels/woocommerce-orders-page-1.json": {
+      "sha256": "5bf7540479bdaf09491c4854de3d80fdd1a6018be60f0ad76a303daea9e2d16a",
+      "executable": false
+    },
+    "tests/fixtures/channels/woocommerce-orders-page-2.json": {
+      "sha256": "efec4b1e6aabc790d2fced6338ef0d42248a948cc8645617459da2f9cd6afaef",
+      "executable": false
+    },
+    "tests/fixtures/channels/woocommerce-products-page-1.json": {
+      "sha256": "ff6d93593e920538ee9763864bd7fd5cbcdf4968a6caa2cb30e93b8ec14aeb4b",
+      "executable": false
+    },
+    "tests/fixtures/channels/woocommerce-products-page-2.json": {
+      "sha256": "5a9458b3dcf06b7c4025c26372bc71681d5e822a3e7d6350c0f2c236c4bf468c",
+      "executable": false
+    },
+    "tests/fixtures/channels/woocommerce-stock-accepted.json": {
+      "sha256": "2549f2ea5011ab7ea069fba1dcdc372d323ca30eafd8d2059e7e7806a32ddaca",
+      "executable": false
+    },
+    "tests/fixtures/channels/woocommerce-stock-rejected.json": {
+      "sha256": "4434e2df839869d62b765ac51f9c6ee924f55201e516842cfb5efc4939b54397",
+      "executable": false
+    },
+    "tests/fixtures/channels/woocommerce-variations-page-1.json": {
+      "sha256": "507fab2e494500e0d53a9d1e7d0b5551adafecb7365674bead96322e4405df19",
+      "executable": false
+    },
+    "tests/fixtures/channels/woocommerce-variations-page-2.json": {
+      "sha256": "c3368a98d0b0125712bac0fff38b1d8dc83be3f82b329df8c9bc6c89292d6eec",
+      "executable": false
+    },
     "tests/incremental-typecheck.test.mjs": {
       "sha256": "a11d6b89e7219137540c7052683c5f4d9ba7ddf16f66d34c1f56ae34029c0a95",
       "executable": false
@@ -2940,7 +3172,7 @@
       "executable": false
     },
     "wrangler.jsonc": {
-      "sha256": "ba27634d4452ed33490db261b9c62512fd085616b402801c024ce69f7cda3c87",
+      "sha256": "0003c5031521516b9a316948f9be8240737c684bd4f91a0242567555a5e7890a",
       "executable": false
     }
   }

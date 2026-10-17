@@ -11,13 +11,15 @@ Command names are the `type` strings Pier's command door accepts (`POST /api/pie
 
 Updated 17 October 2026 for pricing, costing and native reports. New costing evidence is `tests/api/costing.test.mjs`; the broad clause statuses and outstanding integrations remain in CONTRACT.md. Updated again 17 October 2026 for the warehouse floor (rows 9, 12, 14, 15, 18 and 29): scan-to-receive, pick waves with a scan check per line and overflow bins, the pack step and the daily dispatch summary; evidence `tests/api/floor.test.mjs`.
 
+Updated 17 October 2026 for channels (rows 2, 19–22 and 46): live Stall/WooCommerce, Shopify/Amazon documented API adapters with synthetic recorded network fixtures, listing matching, source holds and accepted stock publication. Broader CHANNEL-001 remains partial; see [Sales channels](channels.md).
+
 ## Totals
 
 | Status | Claims |
 |---|---|
-| backed | 33 |
-| partly | 7 |
-| contract, not yet in code | 15 |
+| backed | 38 |
+| partly | 6 |
+| contract, not yet in code | 11 |
 | **all claims** | **55** |
 
 ## Hero
@@ -25,7 +27,7 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
 | 1 | "Pier tracks stock across your warehouses" | backed | Warehouses and bins: `location.save` (`src/pier/catalogue.ts:44,83`); stock per item, warehouse and bin with on hand, reserved, available, quarantine, expected: `src/pier/model.ts` availability, `src/ui/stock.tsx:23-25` |
-| 2 | "runs orders from channel to carrier" | partly | Sales orders that reserve and dispatch: `order.create`, `dispatch.create` (`src/pier/orders.ts:79,113`). No sales-channel import and no carrier: CONTRACT.md channel and shipping clauses |
+| 2 | "runs orders from channel to carrier" | partly | Channel orders reserve through `src/pier/channels/commands.ts`; Stall links its paid checkout reservation and WooCommerce imports processing orders. Dispatch is native; carrier integration remains SHIP-001. |
 | 3 | "reorders before you run out" | backed | Buyer-applied learned points, stock-position netting, case packs/MOQs and automatic unapproved drafts: `src/pier/replenishment.ts`, Purchasing. Native shipment history only; broader connected planning remains partial. |
 | 4 | "and keeps the books in step" | contract, not yet in code | No accounting integration; CONTRACT.md QuickBooks Online/Xero clauses |
 | 5 | "100% free, open source alternative to Cin7, inFlow and Fishbowl" | backed | MIT licence: `LICENSE`, `package.json` `license`. (Feature parity with those products is the contract; the free/open-source claim is true today) |
@@ -52,10 +54,10 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 19 | "Shopify, WooCommerce, Amazon and Stall orders land in Pier" | contract, not yet in code | Orders are entered in Pier or imported from native CSV only |
-| 20 | "stock flows back to each one within a minute" | contract, not yet in code | No channel sync |
-| 21 | Card: one available count per channel, "100 held for FBA transfer" | contract, not yet in code | Available stock itself is backed (claim 1); per-channel holds are not |
-| 22 | Toast "Order #4471 … reserved 9:12 am" | partly | An order reserves available stock the moment it is entered: `order.create` `src/pier/orders.ts:79-98`. The Shopify source is contract |
+| 19 | "Shopify, WooCommerce, Amazon and Stall orders land in Pier" | backed | `src/pier/channels/adapters/` and `commands.ts`: Stall and local WooCommerce exercised live; Shopify GraphQL and Amazon SP-API order intake exercised with synthetic recorded API fixtures in `tests/api/channels.test.mjs`. Owner accounts are still required and the Channels page states this. |
+| 20 | "stock flows back to each one within a minute" | backed | `src/pier/channels/sync.ts`: background publication after committed changes, one-minute reconciliation, accepted quantities and lag. Core-flow test covers all four adapters; live Stall/WooCommerce read-backs observed within a minute. Production percentile and Amazon processing-time acceptance remain separate. |
+| 21 | Card: one available count per channel, "100 held for FBA transfer" | backed | `channel.hold/channel.release` allocate unreserved bin stock; `model.ts` excludes it from every new reservation and channel publication. Channels shows net availability, per-connection buffers and hold reasons. This is an FBA-style source hold, not Amazon inbound shipment management. |
+| 22 | Toast "Order #4471 … reserved 9:12 am" | backed | Channel source identities link to one native order and reservation timestamp in Channels; `tests/api/channels.test.mjs` verifies duplicate notifications reserve once. Stall and WooCommerce live orders inspected; Shopify account acceptance still requires the owner account. |
 
 ## Retail EDI and shipping (page 3)
 
@@ -99,7 +101,7 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 | 43 | "Move from Cin7, inFlow or Fishbowl" ("Importing from Cin7 Core") | partly | The native CSV importer with staged review, frozen cutover and undo: `import.stage`, `import.review`, `import.commit` and `import.undo` `src/pier/imports.ts:243-383`. No Cin7, inFlow or Fishbowl adapter; files are arranged in Pier's CSV shape (IMPORT.md) |
 | 44 | "with your items, bins, stock on hand, customers, suppliers and open orders" | backed | The native kinds `items`, `locations`, `parties`, `positions`, `orders`, `purchaseOrders`, plus `reservations` (`IMPORT.md`, `src/pier/imports.ts`) |
 | 45 | "Stock on hand … matched" (reconciliation at import) | backed | The reconciled and shadow review stages check totals before the frozen cutover: `import.review` `src/pier/imports.ts:317` |
-| 46 | "Channels reconnect to the same listings" (and "Amazon · 2 listings awaiting SKU match") | contract, not yet in code | No channels |
+| 46 | "Channels reconnect to the same listings" (and "Amazon · 2 listings awaiting SKU match") | backed | Existing listing/variant IDs are retained, exact SKUs auto-match, and unknown listings wait for owner `channel.match` without publishing. A real WooCommerce legacy listing was matched in the UI without creating or relisting it; reconnect reads keep the mapping. |
 
 ## Ownership (page 7)
 

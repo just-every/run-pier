@@ -28,7 +28,7 @@ function policyAuthority(c: Context) {
   const p = c.backgroundPolicy!;
   const path = p.collection === 'orders' ? '$.promisePolicy.version' : '$.version';
   const approver = p.collection === 'orders' ? '$.promisePolicy.approvedBy' : '$.approvedBy';
-  const enabled = p.collection === 'orders' ? '$.promisePolicy.enabled' : '$.autoDraft';
+  const enabled = p.collection === 'orders' ? '$.promisePolicy.enabled' : p.collection === 'channels' ? '$.enabled' : '$.autoDraft';
   return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer','operator')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind=? AND id=? AND json_extract(data,?)=? AND json_extract(data,?)=? AND json_extract(data,?)=1)`,
     params: [c.actor.id, c.actor.role, p.collection, p.id, path, p.version, approver, c.actor.id, enabled] };
 }
@@ -127,6 +127,7 @@ export async function commit(
     if (oldPolicy?.version !== d.policyVersion && d.actorId === c.actor.id) continue;
     guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=?) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='orders' AND id=? AND json_extract(data,'$.promisePolicy.version')=? AND json_extract(data,'$.promisePolicy.enabled')=1 AND json_extract(data,'$.promisePolicy.approvedBy')=?)`, [d.actorId,d.role,d.orderId,d.policyVersion,d.actorId]);
   }
+  for (const secret of c.channelSecrets ?? []) statements.push(db.prepare("INSERT INTO pier_channel_secrets(channel_id,secret) VALUES(?,?) ON CONFLICT(channel_id) DO UPDATE SET secret=excluded.secret").bind(secret.channelId, secret.secret));
   for (const kind of collections) {
     const old = new Map(before[kind].map((r) => [r.id, JSON.stringify(r)])),
       next = new Set(c.s[kind].map((r) => r.id));

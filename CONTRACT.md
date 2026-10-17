@@ -533,10 +533,10 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 | 16 | "and count" | PIER-011, WMS-001, COUNT-001 | partial |
 | 17 | "Every bin knows exactly what it holds" | STOCK-001, PIER-012 | partial |
 | 18 | Pick list "Wave 14 · Dock A", scan check per line, "B-03 empty · picked from overflow B-09" | WMS-001, SCAN-002 | partial |
-| 19 | "Shopify, WooCommerce, Amazon and Stall orders land in Pier" | CHANNEL-001 | missing |
-| 20 | "stock flows back to each one within a minute" | CHANNEL-001 | missing |
-| 21 | Card: one available count per channel, "100 held for FBA transfer" | CHANNEL-001, SALES-007 | missing |
-| 22 | Toast "Order #4471 … reserved 9:12 am" | CHANNEL-001, PIER-004 | partial |
+| 19 | "Shopify, WooCommerce, Amazon and Stall orders land in Pier" | CHANNEL-001 | done |
+| 20 | "stock flows back to each one within a minute" | CHANNEL-001 | done |
+| 21 | Card: one available count per channel, "100 held for FBA transfer" | CHANNEL-001, SALES-007 | done |
+| 22 | Toast "Order #4471 … reserved 9:12 am" | CHANNEL-001, PIER-004 | done |
 | 23 | "Take EDI purchase orders from Target, Walmart and Home Depot" | EDI-001 | missing |
 | 24 | "send the acknowledgment, ship notice and invoice on time" (855/856/810 card) | EDI-001, SALES-006 | missing |
 | 25 | "Carton 7 label reprinted · GS1-128" | SCAN-001, EDI-001 | partial |
@@ -560,7 +560,7 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 | 43 | "Move from Cin7, inFlow or Fishbowl" ("Importing from Cin7 Core") | MIGRATE-001, MIGRATE-002 | partial |
 | 44 | "with your items, bins, stock on hand, customers, suppliers and open orders" | PIER-003, MIGRATE-001 | partial |
 | 45 | "Stock on hand … matched" (reconciliation at import) | PIER-003, MIGRATE-001, AGENT-005 | partial |
-| 46 | "Channels reconnect to the same listings" (and "Amazon · 2 listings awaiting SKU match") | CHANNEL-001, MIGRATE-001 | partial |
+| 46 | "Channels reconnect to the same listings" (and "Amazon · 2 listings awaiting SKU match") | CHANNEL-001, MIGRATE-001 | done |
 | 47 | "Run Pier on your own computer or server" | OPS-001 | partial |
 | 48 | "keep every item, order and supplier. Export everything, any time" (and "Your stock, your data", "Export any time") | PIER-012, DATA-001 | partial |
 | 49 | The Ownership terminal's one-line start `npx -y @runeditrun/rer dev just-every/run-pier` (live 17 Oct, main 1c0f1c6) | OPS-001 | partial |
@@ -575,6 +575,8 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 
 Judged from the code and tests at commit `1c0f1c674f4227a2ed79476be5e3ef3d29f7b92c` (17 October 2026).
 
+Updated 17 October 2026 for sales channels: CHANNEL-001 and SALES-007 move from missing to partial. The implemented homepage claims have local live Stall/WooCommerce evidence and Shopify/Amazon synthetic API fixtures; live owner accounts and the broader integration boundaries remain explicit on the Channels page.
+
 Updated 17 October 2026 for native pricing, landed receipts, FIFO/moving-average costing and operational reports. `tests/api/costing.test.mjs` exercises the new receipt-to-sale flow and exact expected reconciliation. Sales, Purchasing and Reports are exercised locally and on a temporary RunEditRun deployment at 1440px and 390px; screenshot paths are reported by the costing lane. This does not promote the broader accounting, alerting or migration clauses to done.
 
 The earlier statuses were judged at `fe37107650b9a328b4e92945784039f255086b97`, the commit of the 16 October inventory code audit. Between it and the commit above, `src/pier` and the API tests did not change; `src/ui` and the browser journey changed only in display (USD labels, US date and time formats, the header mark) and the run site was added, so every earlier status stands. Revised 17 October 2026 so every capability claim on the approved homepage has a clause (see [Homepage claims](#homepage-claims)): STOCK-001, WMS-003 and OPEN-001 were added and judged from the commit above, and SCAN-001, WMS-001, SALES-003, CHANNEL-001, EDI-001, SHIP-001, AUTO-001, AUDIT-001 and OPS-001 were sharpened without changing their statuses. Revised again 17 October 2026 for the warehouse floor (`src/pier/floor/`, `src/ui/floor/`, `tests/api/floor.test.mjs`): SCAN-002 and WMS-003 moved from missing to partial, and SCAN-001 and WMS-001 stay partial with their implemented subsets restated.
@@ -584,11 +586,11 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 12 | 0 | 0 | 12 |
-| Target | 2 | 32 | 21 | 55 |
+| Target | 2 | 34 | 19 | 55 |
 | Push further | 1 | 5 | 0 | 6 |
-| All | 15 | 37 | 21 | 73 |
+| All | 15 | 39 | 19 | 73 |
 
-**73 clauses: 15 done, 37 partial, 21 missing.**
+**73 clauses: 15 done, 39 partial, 19 missing.**
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -620,7 +622,7 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | SALES-004 | Recurring and dropship orders | target | missing |  | No recurring-order or dropship workflow exists. |
 | SALES-005 | Private wholesale ordering through Stall | target | missing |  | No Stall/private-portal adapter or cart follow-up exists; the inventory’s portal capability is fulfilled through the sibling boundary. |
 | SALES-006 | Customer invoices, charge lines and credit notes | target | missing |  | No invoice, charge-line, payment-term or credit-note model exists; `src/pier/orders.ts` records shipment references only. |
-| SALES-007 | Warehouse routing for incoming orders | target | missing |  | No routing modes, zones, eligibility lists or shortage rules exist; `reserve()` in `src/pier/orders.ts` takes available stock from every bin in location order with no warehouse rule. |
+| SALES-007 | Warehouse routing for incoming orders | target | partial | `src/pier/channels/commands.ts`; `src/pier/orders.ts`; `tests/api/channels.test.mjs` | Each connection explicitly selects one warehouse for reservations and publication, with stock buffers and protected source holds. Dynamic routing modes, zones, eligibility lists and shortage rules remain. Current Stall reads one company-wide pool and requires one warehouse and zero buffer. |
 | TAX-001 | US sales tax on quotes, orders and invoices | target | missing |  | No tax calculation, provider adapter or exemption-certificate record exists. |
 | PRINT-001 | Printable and emailable business documents and templates | target | missing |  | No document generation, template, print or email-send path exists. |
 | BUY-001 | Demand and lead-time replenishment | target | partial | `src/pier/replenishment.ts`; `src/pier/backorders.ts`; `src/pier/purchasing-workflow.ts`; `src/pier/correspondence-delivery.ts`; `tests/api/replenishment.test.mjs` | Native shipment 30/90/365-day/custom sell-through, days of cover and dated projections; editable lead time/safety stock and buyer-applied learned points/quantities. Scheduled unapproved drafts use the same position. Imported/channel history, seasonality/promotions, service optimization and backtesting remain incomplete. |
@@ -631,7 +633,7 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | COST-001 | USD valuation, landed cost and cost of goods | target | partial | `src/pier/landed-cost.ts`; `src/pier/valuation-ledger.ts`; `src/pier/costing.ts`; `tests/api/costing.test.mjs` | USD receipt freight/duty allocation by value or quantity, FIFO/moving average, prospective dated owner method changes, shipment COGS, transfer/return costs and operational reconciliation are implemented. AUD native openings stay explicitly unvalued in USD; FX, late bills, weight allocation, reason-code write-offs and ledger/period controls remain. |
 | REPORT-001 | Operational reports and saved analysis | target | partial | `src/pier/reports.ts`; `src/ui/reports.tsx`; `tests/api/costing.test.mjs` | Valuation, shipment margin by SKU/channel/customer, dead stock, UTC date filters, source links and exact CSV exports are implemented. Saved/scheduled analysis, full report catalogue, scoped permissions and capacity measurement remain. |
 | REPORT-002 | Report definitions, as-of dates and independent reconciliation | target | partial | `src/pier/reports.ts`; `src/pier/valuation-ledger.ts`; `tests/api/costing.test.mjs` | UTC as-of native valuation and operational receipt/return/adjustment/COGS reconciliation, shipment margin and N-day SKU/bin dead stock are implemented. Margin excludes tax and financial credits; imported history, kits, ledger/closed-period reconciliation, aging, turnover and other target reports remain. |
-| CHANNEL-001 | Connected channel orders and stock | target | missing |  | No Stall, Faire, Shopify, WooCommerce, BigCommerce, Amazon, eBay or Etsy connector exists. |
+| CHANNEL-001 | Connected channel orders and stock | target | partial | `src/pier/channels/`; `src/ui/channels/`; `tests/api/channels.test.mjs`; [Sales channels](docs/channels.md) | Live Stall links paid checkout reservations and reads Pier stock; WooCommerce REST orders, signed webhooks and stock writes; Shopify GraphQL/Amazon SP-API adapters exercised with synthetic recorded network fixtures pending owner accounts. Exact SKU/manual listing matching, fixed warehouse routing, protected source holds, per-channel buffers, background stock publication and one-minute reconciliation with visible acceptance/lag. Full lifecycle/refunds, historic backfill, other channels, FBA shipment/report reconciliation, production percentile and asynchronous provider processing acceptance remain. |
 | CHANNEL-002 | Channel order money: tax as charged, payments, clearing accounts and payouts | target | missing |  | No channel tax/payment mapping, clearing account, channel refund or payout reconciliation exists. |
 | EDI-001 | Retail EDI trading partners | target | missing |  | No retail EDI documents, mapping or transport adapter exists. |
 | SHIP-001 | US rates, labels, tracking and notifications | target | partial | `src/pier/orders.ts`; `tests/api/flows.test.mjs` (09) | Shipment references and partial dispatch only; no shipping adapters, labels or notifications; no ship-to address validation |

@@ -1,0 +1,38 @@
+{
+  "data": {
+    "node": {
+      "lineItems": {
+        "nodes": [
+          {
+            "id": "gid://shopify/LineItem/5011",
+            "sku": "CASE-GREEN",
+            "requiresShipping": true,
+            "unfulfilledQuantity": 1,
+            "originalUnitPriceSet": {
+              "shopMoney": {
+                "amount": "12.50",
+                "currencyCode": "USD"
+              }
+            }
+          },
+          {
+            "id": "gid://shopify/LineItem/5012",
+            "sku": "CASE-RED",
+            "requiresShipping": true,
+            "unfulfilledQuantity": 0,
+            "originalUnitPriceSet": {
+              "shopMoney": {
+                "amount": "12.50",
+                "currencyCode": "USD"
+              }
+            }
+          }
+        ],
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": null
+        }
+      }
+    }
+  }
+}

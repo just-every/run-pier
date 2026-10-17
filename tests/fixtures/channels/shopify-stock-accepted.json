@@ -1,0 +1,15 @@
+{
+  "data": {
+    "inventorySetQuantities": {
+      "inventoryAdjustmentGroup": {
+        "changes": [
+          {
+            "name": "available",
+            "quantityAfterChange": 7
+          }
+        ]
+      },
+      "userErrors": []
+    }
+  }
+}

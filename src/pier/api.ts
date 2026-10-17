@@ -8,6 +8,10 @@ import {
   type Context,
 } from "./model";
 import { load, saved, commit, authority, activeAutomationActors } from "./storage";
+import { channelWebhook } from './channels/webhook';
+import { channels } from './channels/commands';
+import { channelState, markChannelPending } from './channels/availability';
+import { syncChannels } from './channels/sync';
 import { nativeExport } from "./native-export";
 import { catalogue } from "./catalogue";
 import { orders, orderView } from "./orders";
@@ -121,7 +125,7 @@ export async function execute(
       s = structuredClone(before),
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, automationActors: await activeAutomationActors(env.DB) };
     await approver(env, c, type, payload);
-    let result: any;
+    let result: any = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
       catalogue,
@@ -163,6 +167,7 @@ export async function execute(
       if (!backgroundPolicy) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
     }
     refreshPromises(c);
+    markChannelPending(c, before);
     try {
       return await commit(env, c, before, digest, result);
     } catch (error) {
@@ -192,12 +197,15 @@ async function deliver(env: Bindings, actor: Actor, commandId: string, outcome: 
 export async function pierResponse(
   request: Request,
   original: Bindings,
+  execution?: { waitUntil(promise: Promise<unknown>): void },
 ): Promise<Response | null> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/api/pier")) return null;
   try {
-    const env = runtimeBindings(original),
-      actor = await current(request, env);
+    const env = runtimeBindings(original);
+    const webhook = await channelWebhook(request, env);
+    if (webhook) return webhook;
+    const actor = await current(request, env);
     if (request.method === "GET") {
       const s = await load(env.DB),
         c = { s, actor, commandId: "", now: new Date().toISOString() };
@@ -293,6 +301,7 @@ export async function pierResponse(
         deliveries: await correspondenceDeliveries(env.DB),
         counts: s.counts.map((count) => countView(c, count)),
         ...floorState(c),
+        ...channelState(s),
         positions: positions(s),
         reorder: reorder(c),
         commands,
@@ -355,6 +364,11 @@ export async function pierResponse(
           "Native owners retain owner authority. Assign agent roles only to native members.",
         );
     }
+    if (["channel.ingest", "channel.published", "channel.failed"].includes(type)) fail("CHANNEL_INTERNAL", "Pier records channel traffic itself.");
+    if (type === "channel.sync") {
+      if (actor.role !== "owner") throw new Problem("FORBIDDEN", "Only an owner can synchronize external connections.", null, 403);
+      return json({ ok: true, result: await syncChannels(env), version: (await load(env.DB)).version });
+    }
     if (type === "dispatch.delivered")
       fail("COMMAND", "Pier records mail delivery itself.");
     if (type === 'mail.process') {
@@ -364,7 +378,11 @@ export async function pierResponse(
     const outcome = await execute(env, actor, commandId, type, payload);
     if (outcome && ['po.send','order.repromise','order.promisePolicy','po.confirm'].includes(type)) await deliverCorrespondence(env);
     if (outcome && type === "dispatch.close") return json(await deliver(env, actor, commandId, outcome));
-    if (outcome) return json(outcome);
+    if (outcome) {
+      if (execution) execution.waitUntil(syncChannels(env));
+      else await syncChannels(env);
+      return json(outcome);
+    }
     return json(
       {
         ok: false,

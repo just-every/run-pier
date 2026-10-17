@@ -1,0 +1,21 @@
+[
+  {
+    "id": 302,
+    "number": "302",
+    "status": "processing",
+    "currency": "USD",
+    "billing": {
+      "first_name": "Fixture",
+      "last_name": "Buyer"
+    },
+    "refunds": [],
+    "line_items": [
+      {
+        "id": 3020,
+        "sku": "CASE-RED",
+        "quantity": 2,
+        "price": 12.5
+      }
+    ]
+  }
+]

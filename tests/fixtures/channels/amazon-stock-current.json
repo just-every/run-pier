@@ -1,0 +1,24 @@
+{
+  "sku": "CASE-BLUE",
+  "summaries": [
+    {
+      "marketplaceId": "ATVPDKIKX0DER",
+      "asin": "B000EXAMP1",
+      "productType": "LUGGAGE",
+      "conditionType": "new_new",
+      "status": [
+        "BUYABLE",
+        "DISCOVERABLE"
+      ],
+      "itemName": "Fixture case",
+      "createdDate": "2026-01-01T00:00:00Z",
+      "lastUpdatedDate": "2026-10-17T00:00:00Z"
+    }
+  ],
+  "fulfillmentAvailability": [
+    {
+      "fulfillmentChannelCode": "DEFAULT",
+      "quantity": 9
+    }
+  ]
+}

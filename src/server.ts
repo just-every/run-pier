@@ -29,7 +29,7 @@ const worker = {
   async fetch(request, env, execution) {
     const asset = await staticAssetResponse(request, env)
     if (asset) return asset
-    const pier = await pierResponse(request, env)
+    const pier = await pierResponse(request, env, execution)
     if (pier) return pier
     const auth = await authResponse(request, env)
     if (auth) return auth

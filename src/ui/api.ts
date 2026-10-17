@@ -28,6 +28,8 @@ export function usePier() {
       if (saved) { const value = JSON.parse(saved); pending.current = value; setRecoverable({ ...JSON.parse(value.signature), commandId: value.commandId }) }
     } catch { sessionStorage.removeItem('pier.pending-command') }
     refresh().catch(cause => setError(cause.message))
+    const timer = window.setInterval(() => { if (!inFlight.current) void refresh().catch(() => {}) }, 15000)
+    return () => window.clearInterval(timer)
   }, [refresh])
   const run: RunCommand = async (type, payload) => {
     if (inFlight.current) return false
@@ -40,7 +42,7 @@ export function usePier() {
     setBusy(true); setError(''); setDetails(null); setNotice('')
     try {
       if (pending.current?.signature !== signature) pending.current = { signature, commandId: crypto.randomUUID() }
-      sessionStorage.setItem('pier.pending-command', JSON.stringify(pending.current))
+      if (type !== 'channel.save') sessionStorage.setItem('pier.pending-command', JSON.stringify(pending.current))
       const response = await fetch('/api/pier/commands', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commandId: pending.current.commandId, type, payload }) })
       const body = readReply(await response.json())
       if (body.ok && !response.ok) throw new Error('The server response did not confirm the command outcome.')
