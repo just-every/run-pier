@@ -3,11 +3,12 @@ import { label, records, type PierState, type RecordData, type RunCommand } from
 import { day, reference } from '../display'
 import { Badge, Empty, Field, Form, Table, text } from '../controls'
 import { hours, zones } from './clock'
+import { waitingForWave } from '../../pier/floor/wave-coverage'
 
 // Carrier pickups (dock door and cut-off) and the orders waiting for a wave,
 // grouped by the pickup they ship with.
 
-const waiting = (state: PierState, order: RecordData) => records(state, 'reservations').some(row => row.orderId === order.id) && !records(state, 'waves').some(wave => wave.status !== 'picked' && wave.orders.some((row: any) => row.orderId === order.id))
+const waiting = (state: PierState, order: RecordData) => waitingForWave({ waves: records(state, 'waves'), reservations: records(state, 'reservations'), shipments: records(state, 'shipments') }, order.id)
 
 export function Pickups({ state, run, busy }: { state: PierState; run: RunCommand; busy: boolean }) {
   const carriers = records(state, 'carriers'), warehouses = [...new Set(records(state, 'locations').filter(row => row.kind === 'bin').map(row => String(row.warehouse)))]

@@ -8,6 +8,12 @@
           "label": "Getting started",
           "file": "docs/getting-started.md",
           "summary": "Start Pier on your computer in two lines, finish setup, add your first bins, items and team."
+        },
+        {
+          "slug": "run-beside",
+          "label": "Run Stall and Pantry beside Pier",
+          "file": "docs/run-beside.md",
+          "summary": "Start the shop and the books apps next to Pier on your computer and connect them."
         }
       ]
     },
@@ -102,6 +108,12 @@
           "label": "Backup and restore",
           "file": "docs/backup-and-restore.md",
           "summary": "Keep a complete archive of your installation and restore it with the release that made it."
+        },
+        {
+          "slug": "hosting",
+          "label": "Put Pier online",
+          "file": "docs/hosting.md",
+          "summary": "Deploy to your own Cloudflare account with your real owner address, back up and restore the hosted database, and remove it."
         }
       ]
     }

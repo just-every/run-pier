@@ -15,11 +15,30 @@ export function ScanBox({ label, hint, onScan, busy, count = false, focus = true
   useEffect(() => { if (focus && !busy) input.current?.focus() }, [focus, busy])
   useEffect(() => () => stop(), [])
   function stop() { stream.current?.getTracks().forEach(track => track.stop()); stream.current = null }
+  // A scanner can send codes faster than Pier answers. Every scan joins a queue
+  // and is sent in order once the previous command (and any other action, such
+  // as starting a carton) has finished, so none is dropped while Pier is busy.
+  // A refused scan stops the queue and says how many waiting scans were not sent.
+  const queue = useRef<string[]>([]), draining = useRef(false), busyNow = useRef(busy)
+  const [waiting, setWaiting] = useState(0), [dropped, setDropped] = useState(0)
+  busyNow.current = busy
   async function send(value: string) {
     const trimmed = value.trim()
-    if (!trimmed || busy) return
-    setCode('')
-    if (await onScan(trimmed, times)) setTimes('')
+    if (!trimmed) return
+    setCode(''); setDropped(0)
+    queue.current.push(trimmed); setWaiting(queue.current.length)
+    if (draining.current) return
+    draining.current = true
+    try {
+      while (queue.current.length) {
+        while (busyNow.current) await new Promise(resolve => setTimeout(resolve, 50))
+        const ok = await onScan(queue.current[0], times)
+        queue.current.shift()
+        if (ok) setTimes('')
+        else if (queue.current.length) { setDropped(queue.current.length); queue.current = [] }
+        setWaiting(queue.current.length)
+      }
+    } finally { draining.current = false }
     input.current?.focus()
   }
   async function start() {
@@ -53,6 +72,8 @@ export function ScanBox({ label, hint, onScan, busy, count = false, focus = true
     <label className="field scan-field"><span>{label}</span><input ref={input} aria-label={label} value={code} onChange={event => setCode(event.target.value)} autoComplete="off" autoCapitalize="off" spellCheck={false} enterKeyHint="go" placeholder="Scan or type" />{hint && <small>{hint}</small>}</label>
     {count && <label className="field scan-count"><span>Times</span><input aria-label="Times scanned" value={times} onChange={event => setTimes(event.target.value)} inputMode="numeric" placeholder="1" /></label>}
     <div className="scan-actions"><button className="primary" type="submit" disabled={busy || !code.trim()}>Enter code</button>{camera === 'on' ? <button type="button" onClick={() => { stop(); setCamera('off') }}>Stop camera</button> : <button type="button" onClick={() => void start()}>Scan with camera</button>}</div>
+    {waiting > 1 && <p className="muted scan-note" role="status">{waiting - 1} more {waiting === 2 ? 'scan' : 'scans'} waiting to record…</p>}
+    {dropped > 0 && <p className="error scan-note" role="alert">{dropped} {dropped === 1 ? 'scan was' : 'scans were'} not recorded after the refusal above. Scan {dropped === 1 ? 'it' : 'them'} again.</p>}
     {camera === 'on' && <video ref={video} className="scan-video" muted playsInline aria-label="Camera view for barcode scanning" />}
     {camera === 'unsupported' && <p className="muted scan-note" role="status">This browser cannot read barcodes from the camera. Type the code, or use a USB or Bluetooth scanner.</p>}
     {camera === 'denied' && <p className="muted scan-note" role="status">The camera is not available. Allow camera access, or type the code.</p>}

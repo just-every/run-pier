@@ -31,6 +31,7 @@ export function summaryText(day: Row, origin: string) {
     ...(s.exceptions.length
       ? s.exceptions.map((e: any) =>
           e.kind === "not shipped" ? `- ${e.order} did not ship: ${e.reason}`
+          : e.kind === "partly shipped" ? `- ${e.order} partly shipped: ${e.shipped} of ${e.ordered} units out; the rest is ${e.reason}`
           : e.kind === "short pick" ? `- Wave ${e.wave}, ${e.order}: bin ${e.bin} short by ${e.moved === "0" ? e.unfilled : e.moved}${e.overflow ? `, picked from overflow ${e.overflow}` : ""}${e.unfilled !== "0" ? `, ${e.unfilled} not filled` : ""}`
           : e.kind === "late" ? `- ${e.order} left at ${hours(e.at)}, after the ${e.carrier} cut-off ${hours(e.cutoff)}`
           : `- ${e.purchaseOrder}: ${e.kind}, expected ${e.expected}, received ${e.received}`)

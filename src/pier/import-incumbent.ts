@@ -76,7 +76,8 @@ export function incumbentSource(p: any) {
             if (file.quantityMeaning === 'ordered-less-fulfilled') payload.quantity = format(decimal(payload.quantity) - decimal(payload.fulfilled));
             if (decimal(payload.quantity) <= 0n) fail('OPEN_DOCUMENT', 'Only positive remaining open quantities can be imported.');
             if (file.dateFormat === 'M/D/YYYY') {
-              const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(payload.promiseDate) ?? fail('DATE', 'Expected an explicit M/D/YYYY promise date.');
+              // inFlow writes a midnight time after the date ("11/1/2026 0:00"); any other time is refused.
+              const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?: 0?0:00(?::00)?)?$/.exec(payload.promiseDate) ?? fail('DATE', 'Expected an explicit M/D/YYYY promise date.');
               payload.promiseDate = `${match[3]}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`;
             }
           }

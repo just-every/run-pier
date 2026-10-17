@@ -1,10 +1,11 @@
 import { records } from '../api'
 import { when } from '../display'
 import { ChannelBrand } from './brand'
+import { StallLink } from './stall-link'
 import { connectionPayload, connections, listings, providerName, providers, type ChannelOrder, type ChannelProps, type Connection, type Provider } from './model'
 
 type Props = ChannelProps & { edit: (row: Connection) => void; connect: (provider: Provider) => void }
-export function ConnectionCards({ state, busy, connect }: Props) {
+export function ConnectionCards({ state, run, busy, connect }: Props) {
   const rows = connections(state), stock = listings(state), orders = records(state, 'channelOrders') as ChannelOrder[]
   return <section className="channel-cards" aria-label="Channel connections">{providers.flatMap(provider => {
     const connected = rows.filter(row => row.provider === provider.id)
@@ -19,6 +20,7 @@ export function ConnectionCards({ state, busy, connect }: Props) {
           <dl><dt>Warehouse · buffer</dt><dd>{row.warehouse} · {row.buffer} base units</dd><dt>Last order import</dt><dd>{imported?.reservedAt ? when(imported.reservedAt) : 'No orders imported'}</dd><dt>Last stock accepted</dt><dd>{accepted ? <>{when(accepted.acceptedAt)}<small>{accepted.sku || accepted.externalId} · {accepted.publishedQuantity ?? 'Unconfirmed'} base units</small></> : 'Not yet accepted'}</dd></dl>
           {row.lastReceivedAt && <small>Last received {when(row.lastReceivedAt)}</small>}
           {row.problem && <p className="channel-problem">{row.problem}</p>}
+          {row.provider === 'stall' && state.actor.role === 'owner' && <StallLink state={state} run={run} busy={busy} row={row} />}
           {row.provider === 'woocommerce' && <details className="channel-webhook"><summary>Order webhook address</summary><code>{typeof window === 'undefined' ? '' : window.location.origin}/api/pier/channels/{encodeURIComponent(row.id)}/webhook</code><small>Use this address and the saved signing secret in WooCommerce.</small></details>}
         </div>
       </article>
@@ -35,6 +37,6 @@ export function ConnectionSetup({ state, run, busy, edit, connect }: Props) {
     })}
     {owner && <button className="link" disabled={busy} onClick={() => connect('stall')}>Add another connection</button>}
     <p className="channel-boundary">Shopify and Amazon connect once owner accounts exist. Their documented API adapters have been exercised with recorded fixtures only; live account acceptance is still required.</p>
-    <p className="channel-boundary">Stall reads Pier stock live and links existing reservations. Current Stall requires a single warehouse and a zero stock buffer.</p>
+    <p className="channel-boundary">Stall reads Pier stock live with the key Pier gives it and links existing reservations. Current Stall requires a single warehouse and a zero stock buffer.</p>
   </section>
 }

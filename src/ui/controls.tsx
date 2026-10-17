@@ -1,10 +1,10 @@
-import { Children, cloneElement, isValidElement, useState, type ReactElement, type ReactNode, type FormEvent } from 'react'
+import { Children, cloneElement, isValidElement, useEffect, useState, type ReactElement, type ReactNode, type FormEvent } from 'react'
 import { type RecordData } from './api'
 import { fromMillionths } from './quantity'
 import { money } from './display'
 
 // `display` is the visible label when it needs markup (an item's unbroken SKU); `label` stays its accessible name.
-export function Field({ label, display, name, value, onChange, required = true, type = 'text', hint, ...props }: { label: string; display?: ReactNode; name?: string; value?: string; onChange?: (value: string) => void; required?: boolean; type?: string; hint?: string; [key: string]: any }) {
+export function Field({ label, display, name, value, onChange, required = true, type = 'text', hint, ...props }: { label: string; display?: ReactNode; name?: string; value?: string; onChange?: (value: string) => void; required?: boolean; type?: string; hint?: ReactNode; [key: string]: any }) {
   return <label className="field"><span>{display ?? label}</span><input aria-label={label} name={name} value={value} onChange={onChange ? event => onChange(event.target.value) : undefined} required={required} type={type} {...props} />{hint && <small>{hint}</small>}</label>
 }
 export function Select({ label, name, rows, value, defaultValue, onChange, required = true }: { label: string; name?: string; rows: RecordData[]; value?: string; defaultValue?: string; onChange?: (value: string) => void; required?: boolean }) {
@@ -12,8 +12,10 @@ export function Select({ label, name, rows, value, defaultValue, onChange, requi
 }
 // `secondary` gives a destructive or reversing submit the quiet style, so it never looks like the main action.
 export function Form({ title, children, onSubmit, submit = 'Save', busy, disabled, note, secondary = false }: { title: string; children: ReactNode; onSubmit: (data: FormData) => void | Promise<unknown>; submit?: string; busy?: boolean; disabled?: boolean; note?: string; secondary?: boolean }) {
-  function handle(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (busy || disabled) return; void onSubmit(new FormData(event.currentTarget)) }
-  return <section className="panel"><h2>{title}</h2>{note && <p className="muted">{note}</p>}<form onSubmit={handle}><div className="form-grid">{children}</div><div className="form-actions"><button className={secondary ? undefined : 'primary'} disabled={busy || disabled} type="submit">{busy ? 'Saving…' : submit}</button></div></form></section>
+  // A saved form starts empty again, so the next entry never inherits the last one's values.
+  const [round, setRound] = useState(0)
+  async function handle(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (busy || disabled) return; const form = event.currentTarget; if (await onSubmit(new FormData(form))) { form.reset(); setRound(n => n + 1) } }
+  return <section className="panel"><h2>{title}</h2>{note && <p className="muted">{note}</p>}<form onSubmit={event => void handle(event)}><div className="form-grid" key={round}>{children}</div><div className="form-actions"><button className={secondary ? undefined : 'primary'} disabled={busy || disabled} type="submit">{busy ? 'Saving…' : submit}</button></div></form></section>
 }
 export const text = (data: FormData, key: string) => String(data.get(key) || '')
 export const version = (row: RecordData) => Number(row.version)
@@ -32,6 +34,8 @@ export function Table({ headings, children, numeric = [], className = '' }: { he
 export function Facts({ values }: { values: { label: string; value: ReactNode }[] }) { return <dl className={values.length > 4 ? 'facts facts-list' : 'facts'}>{values.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value ?? '—'}</dd></div>)}</dl> }
 export function Lines({ items, price = false, optionalPrice = false, onChange }: { items: RecordData[]; price?: boolean; optionalPrice?: boolean; onChange: (lines: { itemId: string; quantity: string; price?: string }[]) => void }) {
   const [lines, setLines] = useState([{ itemId: '', quantity: '', price: '' }])
+  // A fresh (or reset) editor tells its owner it holds one empty line.
+  useEffect(() => { onChange(lines) }, [])
   function update(index: number, key: string, value: string) { const next = lines.map((line, i) => i === index ? { ...line, [key]: value } : line); setLines(next); onChange(next) }
   return <div className="line-editor">{lines.map((line, i) => <div className="line-row" key={i}><Select label={`Item ${i + 1}`} rows={items} value={line.itemId} onChange={value => update(i, 'itemId', value)} /><Field label="Quantity (base units)" value={line.quantity} onChange={value => update(i, 'quantity', value)} inputMode="decimal" />{price && <Field label="Unit price (USD)" required={!optionalPrice} hint={optionalPrice ? 'Blank applies the customer price list; no matching price stays unpriced.' : undefined} value={line.price} onChange={value => update(i, 'price', value)} inputMode="decimal" />}<button type="button" disabled={lines.length === 1} onClick={() => { const next = lines.filter((_, n) => n !== i); setLines(next); onChange(next) }}>Remove</button></div>)}<button type="button" onClick={() => { const next = [...lines, { itemId: '', quantity: '', price: '' }]; setLines(next); onChange(next) }}>+ Add line</button></div>
 }

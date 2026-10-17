@@ -1,25 +1,22 @@
-import { useState } from 'react'
 import { Facts } from '../controls'
-import { BookConnectionForm, BookConnections } from './connection'
+import { BookConnectionForm, BookConnections, PantryIntro } from './connection'
 import { SupplierBills } from './supplier-bills'
 import { BookDocuments } from './documents'
 import { BookReview } from './review'
-import { connections, jobs, needsReview, type BookConnection, type BooksProps } from './model'
+import { connections, jobs, needsReview, type BooksProps } from './model'
 
 export function Books(props: BooksProps & { section?: string }) {
   const { state, run, busy } = props
-  const [editor, setEditor] = useState<{ connection?: BookConnection } | null>(null)
   const owner = state.actor.role === 'owner'
   const rows = jobs(state)
   const connected = connections(state).some(row => row.enabled)
-  function edit(connection?: BookConnection) {
-    setEditor({ connection })
-    requestAnimationFrame(() => document.getElementById('books-connection-editor')?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
-  }
+  // Connecting needs the whole explanation, so every connect or reconnect opens Books settings.
+  const edit = () => { window.location.hash = 'books/settings' }
   if (props.section === 'settings') return <>
     <div className="page-title"><div><h1>Books settings</h1><p className="muted">Pantry connection and posting accounts</p></div><a className="button" href="#books">Back to Books</a></div>
+    <PantryIntro />
     {owner ? <BookConnectionForm {...props} connection={connections(state)[0]} close={() => { window.location.hash = 'books' }} /> : <p>The owner manages the books connection.</p>}
-    <section className="panel"><h2>Connection status</h2><p>{connected ? 'Connected to Pantry using an expiring owner session.' : 'Pantry is disconnected.'}</p>{connections(state)[0]?.problem && <p className="error">{connections(state)[0].problem}</p>}{owner && connected && <button disabled={busy} onClick={() => void run('book.disconnect', {})}>Disconnect</button>}</section>
+    <section className="panel"><h2>Connection status</h2><p>{!connected ? 'Pantry is not connected.' : connections(state)[0]?.problem ? 'Connection broken: Pier is not sending to Pantry.' : 'Connected to Pantry with an integration credential.'}</p>{connections(state)[0]?.problem && <p className="error">{connections(state)[0].problem}</p>}{owner && connected && <button disabled={busy} onClick={() => void run('book.disconnect', {})}>Disconnect</button>}</section>
   </>
   return <>
     <div className="page-title"><div><h1>Books</h1><p className="muted">Accounting documents, payments and reconciliation</p></div>{owner && <div className="actions"><a className="button" href="#books/settings">Books settings</a><button className="primary" disabled={busy || !connected} onClick={() => void run('book.sync', {})}>{busy ? 'Working…' : 'Sync now'}</button></div>}</div>
@@ -27,7 +24,6 @@ export function Books(props: BooksProps & { section?: string }) {
     {!owner && <p className="muted">You can review accounting records. The owner manages the ledger connection, sync and review actions.</p>}
     <SupplierBills {...props} billId={props.section} />
     <BookReview {...props} />
-    {owner && editor && <BookConnectionForm {...props} connection={editor.connection} close={() => setEditor(null)} />}
     <BookConnections {...props} edit={edit} />
     <BookDocuments {...props} />
     <section className="panel"><h2>Accounting exports</h2><p>Download documents for your accountant or manual import. An export does not confirm a posting or reconcile a document.</p><div className="actions"><a className="button" href="/api/pier/books/export.csv" download>Download CSV</a><a className="button" href="/api/pier/books/export.iif" download>Download QuickBooks Desktop IIF</a></div><p className="muted">IIF is for QuickBooks Desktop. For QuickBooks Online, review the CSV with your accountant and map it for manual import. Direct QuickBooks Online and Xero connections are pending owner app authorization; their adapters have fixture tests only.</p></section>

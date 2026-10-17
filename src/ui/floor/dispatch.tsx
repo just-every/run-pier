@@ -11,6 +11,7 @@ type Summary = { date: string; timeZone: string; ordersShipped: number; shipment
 
 function exception(e: any) {
   if (e.kind === 'not shipped') return `${e.order} did not ship: ${e.reason}.`
+  if (e.kind === 'partly shipped') return `${e.order} partly shipped: ${e.shipped} of ${e.ordered} units out; the rest is ${e.reason}.`
   if (e.kind === 'short pick') return `Wave ${e.wave}, ${e.order}: bin ${e.bin} short${e.overflow ? `, picked from overflow ${e.overflow}` : ''}${e.unfilled !== '0' ? `, ${e.unfilled} not filled` : ''}.`
   if (e.kind === 'late') return `${e.order} left at ${hours(e.at)}, after the ${e.carrier} cut-off ${hours(e.cutoff)}.`
   return `${e.purchaseOrder}: ${e.kind}, expected ${e.expected}, received ${e.received}.`

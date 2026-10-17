@@ -5,7 +5,7 @@ import { installation, basics, buy, receive } from './harness.mjs';
 import { exerciseBooksFixtures } from './books-fixtures.mjs';
 import { pantryInstallation } from './pantry-installation.mjs';
 
-test('PO and receipts three-way match an approved invoice to a Pantry payable; payment readback closes it without duplicate posts',async()=>{
+test('Pantry connects with a scoped credential and picked accounts; a matched invoice posts a ready payable, replays never duplicate, and revocation shows a broken connection',async()=>{
   const pantry=await pantryInstallation();
   let pier;
   let loseJournalResponse=false;
@@ -18,12 +18,20 @@ test('PO and receipts three-way match an approved invoice to a Pantry payable; p
     pier=await installation({async outboundService(request){
       assert.equal(new URL(request.url).origin,pantry.origin);
       const response=await fetch(request.url,{method:request.method,headers:Object.fromEntries([...request.headers].filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),redirect:'manual',...(request.method==='GET'?{}:{body:await request.arrayBuffer()})});
-      if(loseJournalResponse&&request.url.endsWith('/journal.save-draft')){loseJournalResponse=false;await response.text();throw new Error('Synthetic response loss after Pantry saved the journal');}
+      if(loseJournalResponse&&request.method==='POST'&&request.url.endsWith('/integration/v1/journals')){loseJournalResponse=false;await response.text();throw new Error('Synthetic response loss after Pantry saved the journal');}
       return response;
     }});
     const b=await basics(pier),po=await buy(pier,b,'12');
     const receipt=await receive(pier,b,po,'11');
-    const connection={baseUrl:pantry.origin,sessionCookie:pantry.cookie,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,taxCode:'exempt'};
+    const ALL=['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','post'];
+    const narrow=await pantry.command('integration.create',{name:'Pier, bills only',scopes:['bills:write']});
+    const refused=await pier.command('book.accounts',{baseUrl:pantry.origin,integrationToken:narrow.token},{error:'BOOK_SCOPES'});
+    assert.match(refused.error.message,/Contacts.*Payments readback/);
+    let credential=await pantry.command('integration.create',{name:'Pier',scopes:ALL});
+    const chart=await pier.command('book.accounts',{baseUrl:pantry.origin+'/',integrationToken:credential.token});
+    assert.equal(chart.baseUrl,pantry.origin);
+    for(const account of [inventory,cogs,revenue])assert.ok(chart.accounts.some(a=>a.id===account.id&&a.name===account.name),'the owner picks accounts from the list Pantry returns');
+    const connection={baseUrl:pantry.origin,integrationToken:credential.token,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,taxCode:'exempt'};
     await pier.command('book.connect',connection);
     let state=await pier.state();
     assert.equal(state.bookJobs.filter(j=>j.kind==='bill').length,0,'a goods receipt alone must not invent a supplier invoice');
@@ -45,9 +53,10 @@ test('PO and receipts three-way match an approved invoice to a Pantry payable; p
     state=await pier.state();bill=state.bookJobs.find(j=>j.kind==='bill');assert.equal(bill.received,true);assert.equal(bill.readyToPay,true);assert.equal(bill.remoteId,remoteBillId);
     assert.equal(state.supplierBills.find(r=>r.id===supplierBill.id).books.received,true);
     let sales=await pantry.view('sales');assert.equal(sales.bills.length,1);assert.equal(sales.bills[0].open_cents,300);
+    assert.deepEqual([sales.bills[0].received,sales.bills[0].ready_to_pay],[1,1],'Pantry records receipt and payment readiness natively');
     const receiptStates=sales.bills[0].documents.filter(d=>d.name.includes('-receipt-state-'));
     assert.equal(receiptStates.length,2,'the final receipt updates linked evidence on the existing payable');
-    const confirmed=await Promise.all(receiptStates.map(async d=>JSON.parse(await (await fetch(pantry.origin+'/api/pantry/documents/'+d.id,{headers:{cookie:pantry.cookie}})).text())));
+    const confirmed=await Promise.all(receiptStates.map(async d=>JSON.parse(await (await fetch(pantry.origin+'/api/pantry/integration/v1/documents/'+d.id,{headers:{authorization:`Bearer ${credential.token}`}})).text())));
     assert.ok(confirmed.some(d=>d.received===true&&d.readyToPay===true));
     const order=await pier.command('order.create',{customerId:b.customer.id,lines:[{itemId:b.item.id,quantity:'4',price:'2'}]});
     loseJournalResponse=true;
@@ -72,11 +81,15 @@ test('PO and receipts three-way match an approved invoice to a Pantry payable; p
     assert.equal(tb.balanced,true);assert.equal(tb.rows.find(r=>r.id===inventory.id).net,200);
     assert.equal(state.bookJobs.find(j=>j.key==='inventory-reconciliation').status,'reconciled');
     const exp=await pier.request('/api/pier/books/export.iif');assert.equal(exp.status,200);assert.match(await exp.text(),/Cost of Goods Sold/);
-    const exported=await (await pier.request('/api/pier/export')).text();assert.ok(!exported.includes(pantry.cookie),'connection credentials must not enter exports');
-    // A receiver refusal belongs to the same queue and offers a useful fix.
-    await pier.command('book.connect',{...connection,sessionCookie:'invalid=session'});
-    state=await pier.state();assert.ok(state.bookJobs.some(j=>j.status==='review'&&j.reason.includes('Sign')));assert.match(state.bookConnections[0].problem,/Reconnect/);
-    await pier.command('book.connect',connection);await pier.command('book.sync',{});
+    const exported=await (await pier.request('/api/pier/export')).text();assert.ok(!exported.includes(credential.token),'connection credentials must not enter exports');
+    // Revoking the credential in Pantry stops Pier with a plain broken connection, not a queue of errors.
+    await pantry.command('integration.revoke',{id:credential.id});
+    await pier.command('book.sync',{});
+    state=await pier.state();assert.match(state.bookConnections[0].problem,/revoked or replaced in Pantry.*Reconnect Pantry/);
+    assert.equal(state.bookJobs.filter(j=>j.status==='review'&&j.kind!=='valuation').length,1,'one refused check, not every job');
+    credential=await pantry.command('integration.create',{name:'Pier replacement',scopes:ALL});
+    await pier.command('book.connect',{...connection,integrationToken:credential.token});await pier.command('book.sync',{});
+    assert.equal((await pier.state()).bookConnections[0].problem,null);
     state=await pier.state();assert.equal(state.bookJobs.filter(j=>['review','uncertain'].includes(j.status)).length,0);
     sales=await pantry.view('sales');assert.equal(sales.invoices.length,1);assert.equal(sales.bills.length,1);assert.equal((await pantry.view('journal')).entries.filter(e=>e.memo.startsWith('PIER-COGS-')).length,1);
     await exerciseBooksFixtures();

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Field, Form, Select, text } from '../controls'
+import { StallSteps } from './stall-link'
 import { providers, warehouses, type ChannelProps, type Connection, type Provider } from './model'
 
 type CredentialField = { name: string; label: string; secret?: boolean; hint?: string; optional?: boolean }
 const credentials: Record<Provider, CredentialField[]> = {
-  stall: [{ name: 'accessToken', label: 'Access token', secret: true }, { name: 'devKey', label: 'Local development key', secret: true, optional: true, hint: 'Only for a local Stall started by rer. Leave blank for a hosted store.' }],
+  stall: [{ name: 'accessToken', label: 'Access token', secret: true, hint: 'The agent credential from Stall → Agent access → Create agent credential.' }],
   woocommerce: [
     { name: 'consumerKey', label: 'Consumer key', secret: true },
     { name: 'consumerSecret', label: 'Consumer secret', secret: true },
@@ -41,6 +42,7 @@ export function ConnectionForm({ state, run, busy, connection, initialProvider, 
     if (ok) close()
   }
   return <div className="channel-connection-editor" id="channel-connection-editor">
+    {provider === 'stall' && !connection && <section className="panel"><StallSteps /></section>}
     <Form title={connection ? `Manage ${connection.name}` : 'Connect a store'} busy={busy} disabled={!warehouseRows.length} submit={connection ? 'Save connection' : 'Connect store'} onSubmit={save} note="The owner approves which warehouse and stock buffer this connection uses.">
       <label className="field"><span>Provider</span><select aria-label="Provider" value={provider} disabled={!!connection || busy} onChange={event => setProvider(event.target.value as Provider)}>{providers.map(row => <option value={row.id} key={row.id}>{row.name}</option>)}</select></label>
       <Field label="Connection name" name="name" defaultValue={connection?.name ?? ''} maxLength={200} disabled={busy} />

@@ -56,7 +56,12 @@ export function dispatchSummary(s: State, date: string, timeZone: string) {
   const due = s.orders.filter((o) => (o.promiseDate === date || releasedToday.has(o.id)) && !o.cancelReason);
   const exceptions: any[] = [];
   for (const o of due)
-    if (!o.lines.every(lineDone)) exceptions.push({ kind: "not shipped", orderId: o.id, order: o.reference, reason: notShipped(s, o) });
+    if (!o.lines.every(lineDone)) {
+      // An order with some units out is partly shipped, not "did not ship".
+      const shipped = o.lines.reduce((n: bigint, l: any) => n + decimal(l.dispatched), 0n);
+      const ordered = o.lines.reduce((n: bigint, l: any) => n + decimal(l.quantity) - decimal(l.cancelled), 0n);
+      exceptions.push({ kind: shipped > 0n ? "partly shipped" : "not shipped", orderId: o.id, order: o.reference, shipped: format(shipped), ordered: format(ordered), reason: notShipped(s, o) });
+    }
   for (const w of s.waves)
     for (const l of w.lines)
       if (l.short && localDate(l.short.at, timeZone) === date) {
@@ -81,7 +86,7 @@ export function dispatchSummary(s: State, date: string, timeZone: string) {
     units: format(shipments.reduce((n, x) => n + x.lines.reduce((m: bigint, l: any) => m + decimal(l.quantity), 0n), 0n)),
     lastShipmentAt: lastAt || null,
     latestCutoff: cutoffs.at(-1) ?? null,
-    allOut: shippedOrders.size > 0 && !exceptions.some((e) => e.kind === "not shipped" || e.kind === "late"),
+    allOut: shippedOrders.size > 0 && !exceptions.some((e) => ["not shipped", "partly shipped", "late"].includes(e.kind)),
     due: due.length,
     byCarrier,
     byDock: [...docks.values()].map((d) => ({ ...d, units: format(d.units) })),

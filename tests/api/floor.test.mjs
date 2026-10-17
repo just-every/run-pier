@@ -43,9 +43,9 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
     assert.equal(s.purchaseOrders[0].lines.find((l) => l.itemId === towel.id).received, "3");
   });
 
-  let wave, so1, so2;
+  let wave, so1, so2, ups;
   await t.test("a wave refuses wrong scans and sends a short pick to overflow", async () => {
-    const ups = await h.command("carrier.save", { name: "UPS Ground", warehouse: "Dallas", dock: "Dock A", cutoff: "23:59", timeZone: zone });
+    ups = await h.command("carrier.save", { name: "UPS Ground", warehouse: "Dallas", dock: "Dock A", cutoff: "23:59", timeZone: zone });
     so1 = await h.command("order.create", { customerId: north.id, promiseDate: today, lines: [{ itemId: mug.id, quantity: "5" }] });
     so2 = await h.command("order.create", { customerId: south.id, promiseDate: today, lines: [{ itemId: mug.id, quantity: "3" }, { itemId: towel.id, quantity: "2" }] });
     for (const o of [so1, so2]) await h.command("order.carrier", { orderId: o.id, carrierId: ups.id });
@@ -71,6 +71,8 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
     }
     assert.equal(wave.status, "picked");
     assert.equal(wave.ordersPicked, 2);
+    // Picked units stay reserved until they ship, but they never wait for or join a second wave.
+    await h.command("wave.release", { carrierId: ups.id, orderIds: [so1.id, so2.id] }, { error: "ALREADY_PICKED" });
   });
 
   await t.test("cartons are packed, measured and dispatched; the day is summarized", async () => {
@@ -83,6 +85,7 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
     assert.equal((await pack("pack.close", { orderId: so1.id })).status, "packed");
     const shipped = await pack("pack.dispatch", { orderId: so1.id, shipmentReference: "BOL 55120" });
     assert.equal(shipped.status, "shipped");
+    await h.command("wave.release", { carrierId: ups.id, orderIds: [so1.id] }, { error: "NOTHING_TO_PICK" });
     for (let i = 0; i < 3; i++) await pack("pack.scan", { orderId: so2.id, code: "036000291452" });
     await pack("pack.carton", { orderId: so2.id });
     await pack("pack.scan", { orderId: so2.id, code: "4006381333931" });

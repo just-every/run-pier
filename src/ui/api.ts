@@ -74,7 +74,9 @@ export function usePier() {
     pending.current = { signature: JSON.stringify({ type: recoverable.type, payload: recoverable.payload }), commandId: recoverable.commandId }
     return run(recoverable.type, recoverable.payload)
   }
-  return { state, run, refresh, error, details, busy, notice, recoverable, recover }
+  // Messages belong to the page that raised them; an interrupted command keeps its banner until recovered.
+  const dismiss = useCallback(() => { if (pending.current) return; setError(''); setDetails(null); setNotice('') }, [])
+  return { state, run, refresh, error, details, busy, notice, recoverable, recover, dismiss }
 }
 
 export const records = (state: PierState, key: string): RecordData[] => Array.isArray(state[key]) ? state[key] : []

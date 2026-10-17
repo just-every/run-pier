@@ -9,7 +9,7 @@ import { channelAvailability } from './availability';
 /** One installation-wide lease prevents slow stock requests overtaking newer ones. */
 export async function syncChannels(env: Bindings) {
   const token = crypto.randomUUID(), now = Date.now();
-  const lease = await env.DB.prepare('INSERT INTO pier_channel_locks(id,token,expires_at) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET token=excluded.token,expires_at=excluded.expires_at WHERE expires_at<?').bind(token, now + 120000, now).run();
+  const lease = await env.DB.prepare('INSERT INTO pier_channel_locks(id,token,expires_at) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET token=excluded.token,expires_at=excluded.expires_at WHERE expires_at<?').bind(token, now + 60000, now).run();
   if (!lease.meta.changes) return { busy: true };
   const summary: { channelId: string; imported?: number; published?: number; problem?: string }[] = [];
   try {
@@ -27,7 +27,7 @@ export async function syncChannels(env: Bindings) {
     // Ingest every source before publishing: a Woo order immediately reduces Stall too.
     const connections = new Map<string, ReturnType<typeof adapter>>();
     for (const ch of live) {
-      if (!sessions.has(ch.id) || Date.now() - now > 45000) continue;
+      if (!sessions.has(ch.id) || Date.now() - now > 20000) continue;
       const result = { channelId: ch.id, imported: 0, published: 0, problem: undefined as string | undefined }; summary.push(result);
       try {
         const remote = adapter({ provider: ch.provider, baseUrl: ch.baseUrl, credentials: await credentials(env, ch.id) });
@@ -44,8 +44,9 @@ export async function syncChannels(env: Bindings) {
       const result = summary.find(r => r.channelId === ch.id)!;
       const listings = (await load(env.DB)).channelListings.filter(l => l.channelId === ch.id && l.itemId && !l.orderOnly);
       for (const listing of listings) {
-        // Stop before the lease expires; the following minute resumes pending listings.
-        if (Date.now() - now > 45000) break;
+        // Stop inside waitUntil's limit (about 30 s after the response) and before the
+        // lease expires; the following minute resumes pending listings.
+        if (Date.now() - now > 20000) break;
         const state = await load(env.DB), current = state.channels.find(c => c.id === ch.id);
         if (!current?.enabled || current.version !== ch.version) break;
         const quantity = channelAvailability(state, ch, listing.itemId);

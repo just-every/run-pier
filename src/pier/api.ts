@@ -22,6 +22,8 @@ import { channelState, markChannelPending } from './channels/availability';
 import { syncChannels } from './channels/sync';
 import { supplierBills, supplierBillViews } from "./books/supplier-bills";
 import { books } from "./books/commands";
+import { pantryAccounts } from './books/pantry-accounts';
+import { newStallKey, stallKeyHash, stallLink } from './channels/stall-link';
 import { syncBooks } from "./books/sync";
 import { booksExport } from "./books/export";
 import { nativeExport } from "./native-export";
@@ -228,6 +230,8 @@ export async function pierResponse(
     if (carrierWebhook) return carrierWebhook;
     const webhook = await channelWebhook(request, env);
     if (webhook) return webhook;
+    const stall = await stallLink(request, env);
+    if (stall) return stall;
     const actor = await current(request, env);
     if (request.method === "GET") {
       const s = await load(env.DB),
@@ -417,6 +421,20 @@ export async function pierResponse(
     if (["itemAgent.begin", "itemAgent.complete", "itemAgent.failed"].includes(type)) fail("AI_INTERNAL", "Pier records AI request outcomes itself.");
     if (type === "itemAgent.explain") return json(await explainItem(env, actor, commandId, payload, execute));
     if (["book.plan","book.begin","book.record","book.checked","book.reconcile"].includes(type)) fail("BOOK_INTERNAL","Pier records books traffic itself.");
+    if (type === "channel.stallLink") fail("CHANNEL_INTERNAL", "Pier creates Stall keys itself.");
+    if (type === "channel.stallKey") {
+      if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect Stall.",null,403);
+      // The key reaches only this reply; the saved command keeps its hash.
+      const key = newStallKey();
+      const outcome = await execute(env, actor, commandId, "channel.stallLink", { channelId: payload.channelId, version: payload.version, customerId: payload.customerId, keyHash: stallKeyHash(key) });
+      if (!outcome) return json({ ok: false, error: { code: "BUSY", message: "Retry." } }, 409);
+      return json({ ...outcome, result: { key, origin: new URL(env.AUTH_ORIGIN).origin, customerId: payload.customerId } });
+    }
+    if (type === "book.accounts") {
+      if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect the books.",null,403);
+      const connected = (await load(env.DB)).bookConnections.find((row) => row.enabled);
+      return json({ok:true,result:await pantryAccounts(env,payload,connected),version:(await load(env.DB)).version});
+    }
     if (type === "book.sync") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can sync the books.",null,403);
       return json({ok:true,result:await syncBooks(env),version:(await load(env.DB)).version});
