@@ -19,6 +19,19 @@ export const authority = (a: Actor) => ({
     a.role,
   ],
 });
+const effectiveRole = `CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`;
+export async function activeAutomationActors(db: D1Database): Promise<Record<string, string>> {
+  const rows = await db.prepare(`SELECT o.id,${effectiveRole} AS role FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.status='active'`).all<any>();
+  return Object.fromEntries(rows.results.map(r => [r.id, r.role]));
+}
+function policyAuthority(c: Context) {
+  const p = c.backgroundPolicy!;
+  const path = p.collection === 'orders' ? '$.promisePolicy.version' : '$.version';
+  const approver = p.collection === 'orders' ? '$.promisePolicy.approvedBy' : '$.approvedBy';
+  const enabled = p.collection === 'orders' ? '$.promisePolicy.enabled' : '$.autoDraft';
+  return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer','operator')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind=? AND id=? AND json_extract(data,?)=? AND json_extract(data,?)=? AND json_extract(data,?)=1)`,
+    params: [c.actor.id, c.actor.role, p.collection, p.id, path, p.version, approver, c.actor.id, enabled] };
+}
 export async function load(db: D1Database): Promise<State> {
   const statements = [
     db.prepare("SELECT version FROM pier_meta WHERE id=1"),
@@ -88,7 +101,7 @@ export async function commit(
   result: unknown,
 ) {
   const db = env.DB,
-    a = authority(c.actor),
+    a = c.backgroundPolicy ? policyAuthority(c) : authority(c.actor),
     statements: D1PreparedStatement[] = [];
   const guard = (sql: string, params: unknown[]) =>
     statements.push(
@@ -107,6 +120,12 @@ export async function commit(
       `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END=?)`,
       [c.approver.id, c.approver.role],
     );
+  }
+  for (const d of c.delegates ?? []) {
+    const oldPolicy = before.orders.find(o => o.id === d.orderId)?.promisePolicy;
+    // A policy explicitly saved in this command is covered by the session guard.
+    if (oldPolicy?.version !== d.policyVersion && d.actorId === c.actor.id) continue;
+    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=?) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='orders' AND id=? AND json_extract(data,'$.promisePolicy.version')=? AND json_extract(data,'$.promisePolicy.enabled')=1 AND json_extract(data,'$.promisePolicy.approvedBy')=?)`, [d.actorId,d.role,d.orderId,d.policyVersion,d.actorId]);
   }
   for (const kind of collections) {
     const old = new Map(before[kind].map((r) => [r.id, JSON.stringify(r)])),

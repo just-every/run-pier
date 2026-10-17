@@ -79,6 +79,8 @@ export const collections = [
   "waves",
   "packs",
   "dispatchDays",
+  "replenishmentPolicies",
+  "correspondence",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {
@@ -121,6 +123,9 @@ export type Context = {
   actor: Actor;
   commandId: string;
   now: string;
+  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders"; id: string; version: number };
+  automationActors?: Record<string, string>;
+  delegates?: { actorId: string; role: string; orderId: string; policyVersion: number }[];
   approver?: {
     id: string;
     role: string;

@@ -26,7 +26,7 @@ export function reserve(c: Context, o: Row) {
       c.s.reservations
         .filter((r) => r.orderLineId === l.id)
         .reduce((n, r) => n + BigInt(r.quantity), 0n);
-    for (const loc of c.s.locations.filter((l) => l.kind === "bin")) {
+    for (const loc of c.s.locations.filter((l) => l.kind === "bin" && (!o.warehouse || l.warehouse === o.warehouse))) {
       const q = min(need, available(c.s, l.itemId, loc.id));
       if (q > 0n) {
         c.s.reservations.push({
@@ -98,10 +98,12 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
         ...orderPrice(c, p.customerId, i.id, quantity, l.price),
       };
     });
+    if (p.warehouse && !c.s.locations.some(l => l.kind === "bin" && l.warehouse === p.warehouse)) fail("WAREHOUSE", "Choose an existing warehouse.");
     const priced = lines.every((l: any) => l.price !== null);
     const o = row(c, "orders", {
       reference: nextReference(c.s.orders, "SO"),
       customerId: p.customerId,
+      warehouse: p.warehouse ? text(p.warehouse, "Warehouse") : null,
       promiseDate: p.promiseDate ?? null,
       channel: text(p.channel ?? "manual", "Order channel"),
       currency: "USD",

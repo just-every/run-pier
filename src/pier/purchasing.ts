@@ -80,11 +80,16 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       supplierId: p.supplierId,
       supplierSnapshot: structuredClone(get(c.s, "parties", p.supplierId)),
       promiseDate: text(p.promiseDate, "Promise date"),
+      destinationWarehouse: p.destinationWarehouse ? text(p.destinationWarehouse) : null,
+      freight: format(decimal(p.freight ?? "0")),
+      duty: format(decimal(p.duty ?? "0")),
       reason: text(p.reason),
       lines: lines(c, p),
       status: "draft",
       approval: null,
     };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.promiseDate) || Number.isNaN(Date.parse(d.promiseDate))) fail("DATE", "Use a valid promise date.");
+    if (d.destinationWarehouse && !c.s.locations.some(l => l.kind === "bin" && l.warehouse === d.destinationWarehouse)) fail("WAREHOUSE", "Choose a receiving warehouse.");
     if (type === "po.draft")
       return row(c, "purchaseOrders", {
         reference: nextReference(c.s.purchaseOrders, "PO"),

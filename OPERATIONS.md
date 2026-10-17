@@ -12,7 +12,7 @@ npx -y @runeditrun/rer dev just-every/run-pier
 
 Inside the checkout, `rer install` installs the pinned dependency set. `rer setup` prepares the local application and declared D1 migrations. `rer dev` serves the actual local Worker and persistent D1 with Base's native development identity; open its local URL on this computer and finish the owner claim at `/setup`. The shared Base Lobby owns `/`, and Pier opens at `/app`. Keep the printed local open URL private. Stop the server with `rer dev --stop`.
 
-Node 22.20.0 and pnpm 10.12.4 are pinned. Local setup does not require Cloudflare credentials, an external identity issuer, an email provider, an embedded model or a supplier account. No business fixture is created for the operator. Local sign-in is one click: open the private `RER_OPEN` link `rer dev` prints. Mail is suppressed silently on this computer; nothing is sent.
+Node 22.20.0 and pnpm 10.12.4 are pinned. Local setup does not require Cloudflare credentials, an external identity issuer, an email provider, an embedded model or a supplier account. No business fixture is created for the operator. Local sign-in is one click: open the private `RER_OPEN` link `rer dev` prints. Authentication mail is suppressed on this computer. Business mail requires an explicitly configured production provider; without it, the record says “Email is not available yet.”
 
 ## Commands and their boundaries
 
@@ -24,7 +24,7 @@ Node 22.20.0 and pnpm 10.12.4 are pinned. Local setup does not require Cloudflar
 - `rer reset --yes` removes the declared local installation state and is destructive. Export first if the data matters.
 - `rer deploy` targets the owner's configured Cloudflare account using the declared `deploy.json` and the `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` inputs. No deployment was run and no hosted deployment is accepted in this round. Local success does not establish hosted health or provider behavior.
 
-All public commands use bare `rer` verbs. `rer export`/`rer import` are the installation portability commands; native stock migration is reviewed inside Pier using the CSV contract. No accounting, payments, supplier send, carrier or model integration is enabled by this seed.
+All public commands use bare `rer` verbs. `rer export`/`rer import` are the installation portability commands; native stock migration is reviewed inside Pier using the CSV contract. Replenishment and approved business mail are described in [Replenishment](docs/replenishment.md). Accounting, payments, carriers and embedded models remain separate integrations.
 
 ## Backup and restore
 

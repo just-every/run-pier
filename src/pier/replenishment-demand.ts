@@ -1,0 +1,58 @@
+import { decimal, format, SCALE, type Context } from './model';
+import { ceilDivide, signedQuantity, supplyPosition } from './replenishment-position';
+
+const DAY = 86_400_000;
+export function sellThrough(c: Context, itemId: string, warehouse: string, selectedWindow: number) {
+  const now = Date.parse(c.now);
+  const warehouses = new Map(c.s.locations.map(l => [l.id, l.warehouse]));
+  const observations = c.s.shipments.flatMap(shipment => shipment.lines
+    .filter((line: any) => line.itemId === itemId)
+    .map((line: any) => ({
+      at: Date.parse(shipment.createdAt),
+      quantity: (line.reservations as { locationId: string; quantity: string }[])
+        .filter(link => warehouses.get(link.locationId) === warehouse)
+        .reduce((n, link) => n + decimal(link.quantity), 0n),
+      shipmentId: shipment.id,
+    })));
+  return [...new Set([30, 90, 365, selectedWindow])].sort((a, b) => a - b).map(days => {
+    const rows = observations.filter(o => o.at > now - days * DAY && o.at <= now && o.quantity > 0n);
+    const sold = rows.reduce((n, o) => n + o.quantity, 0n);
+    return { days, sold: format(sold), soldPerDay: format(sold / BigInt(days)),
+      hasHistory: sold > 0n, shipmentIds: [...new Set(rows.map(o => o.shipmentId))],
+      from: new Date(now - days * DAY).toISOString(), through: c.now };
+  });
+}
+
+export function learnedParameters(sold: string, windowDays: number, leadDays: number, reviewDays: number, safetyStock: string) {
+  const q = signedQuantity(sold), divisor = BigInt(windowDays);
+  const leadDemand = ceilDivide(q * BigInt(leadDays), divisor);
+  const reviewDemand = ceilDivide(q * BigInt(reviewDays), divisor);
+  const point = leadDemand + decimal(safetyStock);
+  return { leadDemand: format(leadDemand), reviewDemand: format(reviewDemand),
+    reorderPoint: format(point), reorderQuantity: format(reviewDemand), maximum: format(point + reviewDemand) };
+}
+
+/** Dated committed receipts are expectations; undated transit stays separate. */
+export function stockProjection(c: Context, position: ReturnType<typeof supplyPosition>, sold: string, windowDays: number) {
+  const observed = signedQuantity(sold);
+  const availableNow = signedQuantity(position.onHand) - signedQuantity(position.openDemand) - signedQuantity(position.outboundTransfers);
+  if (observed === 0n) return { daysOfCover: null, projectedStockoutDate: availableNow < 0n ? c.now.slice(0, 10) : null,
+    projectionBasis: 'No shipments in the selected window; no future demand is invented.' };
+  const cover = availableNow > 0n ? availableNow * BigInt(windowDays) * SCALE / observed : 0n;
+  let cursor = Date.parse(c.now), stockout: number | null = null;
+  const receipts = position.receipts.map(receipt => ({
+    at: Date.parse(`${receipt.promiseDate.slice(0, 10)}T00:00:00Z`), quantity: decimal(receipt.quantity),
+  })).filter(receipt => Number.isFinite(receipt.at) && receipt.at >= cursor).sort((a, b) => a.at - b.at);
+  // Work in quantity-milliseconds * windowDays to retain exact demand between receipts.
+  let balance = availableNow * BigInt(windowDays) * BigInt(DAY);
+  for (const receipt of receipts) {
+    const demand = observed * BigInt(receipt.at - cursor);
+    if (balance < demand) { stockout = cursor + Number(balance > 0n ? balance / observed : 0n); break; }
+    balance += receipt.quantity * BigInt(windowDays) * BigInt(DAY) - demand;
+    cursor = receipt.at;
+  }
+  if (stockout === null) stockout = cursor + Number(balance > 0n ? balance / observed : 0n);
+  return { daysOfCover: format(cover), projectedStockoutDate: stockout <= 8_640_000_000_000_000 ? new Date(stockout).toISOString().slice(0, 10) : null,
+    projectionEstimated: position.receipts.some(receipt => !receipt.confirmed),
+    projectionBasis: 'Selected-window shipment rate; open demand deducted now; dated committed receipts included as expected supply. Supplier confirmation status is retained per receipt. Overdue receipts and undated inbound transit are not assumed to have arrived.' };
+}

@@ -7,11 +7,15 @@ import {
   type Actor,
   type Context,
 } from "./model";
-import { load, saved, commit, authority } from "./storage";
+import { load, saved, commit, authority, activeAutomationActors } from "./storage";
 import { nativeExport } from "./native-export";
 import { catalogue } from "./catalogue";
 import { orders, orderView } from "./orders";
 import { purchasing } from "./purchasing";
+import { replenishment, forecast, draftReplenishment } from './replenishment';
+import { backorderDates } from './backorders';
+import { purchasingWorkflow, expectedLandedCost, refreshPromises } from './purchasing-workflow';
+import { deliverCorrespondence, correspondenceDeliveries } from './correspondence-delivery';
 import { pricing } from "./pricing";
 import { costing } from "./costing";
 import { reports } from "./reports";
@@ -105,6 +109,7 @@ export async function execute(
   type: string,
   payload: any,
   now = () => new Date().toISOString(),
+  backgroundPolicy?: Context["backgroundPolicy"],
 ): Promise<any> {
   const digest = sha256(canonicalJson({ type, payload }));
   const previous = await saved(env.DB, commandId, digest, actor);
@@ -114,20 +119,24 @@ export async function execute(
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB),
       s = structuredClone(before),
-      c: Context = { s, actor, commandId, now: now() };
+      c: Context = { s, actor, commandId, now: now(), backgroundPolicy, automationActors: await activeAutomationActors(env.DB) };
     await approver(env, c, type, payload);
     let result: any;
+    if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
       catalogue,
       pricing,
       costing,
       orders,
       purchasing,
+      purchasingWorkflow,
+      replenishment,
       warehouse,
       imports,
       proposals,
       floor,
     ]) {
+      if (result !== undefined) break;
       result = handle(c, type, payload);
       if (result !== undefined) break;
     }
@@ -149,6 +158,11 @@ export async function execute(
         );
       return outcome;
     }
+    // Immediate planning stays within the signing buyer's own approved policies.
+    for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
+      if (!backgroundPolicy) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
+    }
+    refreshPromises(c);
     try {
       return await commit(env, c, before, digest, result);
     } catch (error) {
@@ -273,7 +287,10 @@ export async function pierResponse(
         ...s,
         actor,
         people,
-        orders: s.orders.map((o) => orderView(c, o)),
+        orders: s.orders.map((o) => ({ ...orderView(c, o), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
+        purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
+        forecasts: forecast(c),
+        deliveries: await correspondenceDeliveries(env.DB),
         counts: s.counts.map((count) => countView(c, count)),
         ...floorState(c),
         positions: positions(s),
@@ -340,7 +357,12 @@ export async function pierResponse(
     }
     if (type === "dispatch.delivered")
       fail("COMMAND", "Pier records mail delivery itself.");
+    if (type === 'mail.process') {
+      if (!['owner','buyer','operator'].includes(actor.role)) throw new Problem('FORBIDDEN','Your current role cannot send approved correspondence.',null,403);
+      return json({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
+    }
     const outcome = await execute(env, actor, commandId, type, payload);
+    if (outcome && ['po.send','order.repromise','order.promisePolicy','po.confirm'].includes(type)) await deliverCorrespondence(env);
     if (outcome && type === "dispatch.close") return json(await deliver(env, actor, commandId, outcome));
     if (outcome) return json(outcome);
     return json(

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID, randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
-export async function installation() {
+export async function installation(edge = {}) {
   const root = await mkdtemp(join(tmpdir(), "pier-api-"));
   const bundled = await build({
     entryPoints: ["tests/api/worker.ts"],
@@ -30,6 +30,7 @@ export async function installation() {
       compatibilityDate: "2026-09-08",
       compatibilityFlags: ["nodejs_compat"],
       d1Databases: ["DB"],
+      ...(edge.outboundService ? { outboundService: edge.outboundService } : {}),
       bindings: {
         AUTH_LOCAL: "true",
         AUTH_ORIGIN: origin,
@@ -39,6 +40,7 @@ export async function installation() {
         MAIL_PROVIDER: "development",
         MAIL_FROM: "auth@example.test",
         RER_DEV_KEY: devKey,
+        ...edge.bindings,
       },
     }),
     resourcePersistencePath: root,

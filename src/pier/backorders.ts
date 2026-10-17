@@ -1,0 +1,55 @@
+import { decimal, format, min, type Context, type Row } from './model';
+
+export const afterDays = (now: string, days: number) => new Date(Date.parse(now) + days * 86400000).toISOString().slice(0, 10);
+const latest = (a: string | null, b: string | null) => a && b ? (a > b ? a : b) : a || b;
+
+/** Dated supply is consumed once in customer-promise/order-date priority order.
+ * A forecast is never an on-hand reservation or a supplier confirmation. */
+export function backorderDates(c: Context) {
+  const today = c.now.slice(0, 10);
+  const supply = c.s.purchaseOrders.filter(po => po.status === 'committed').flatMap(po => po.lines.map((line: any) => ({
+    poId: po.id, itemId: line.itemId, warehouse: po.destinationWarehouse || null,
+    remaining: decimal(line.quantity) - decimal(line.received),
+    date: po.confirmation?.promiseDate || afterDays(c.now, line.terms?.leadDays ?? 0),
+    confirmed: !!po.confirmation,
+  }))).filter(l => l.remaining > 0n).sort((a, b) => a.date.localeCompare(b.date) || a.poId.localeCompare(b.poId));
+  const orders = [...c.s.orders].sort((a, b) => String(a.promiseDate || '9999').localeCompare(String(b.promiseDate || '9999')) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  return orders.map(order => {
+    const warehouse = order.warehouse || null;
+    const lines = order.lines.map((line: any) => {
+      const reserved = c.s.reservations.filter(r => r.orderLineId === line.id).reduce((n, r) => n + BigInt(r.quantity), 0n);
+      let need = decimal(line.quantity) - decimal(line.dispatched) - decimal(line.cancelled) - reserved;
+      const backorder = need;
+      let expectedDate: string | null = null, estimated = false;
+      const sources: { poId: string; quantity: string; date: string; confirmed: boolean }[] = [];
+      for (const inbound of supply) {
+        if (need <= 0n) break;
+        if (inbound.itemId !== line.itemId || (warehouse && inbound.warehouse && inbound.warehouse !== warehouse)) continue;
+        const used = min(need, inbound.remaining);
+        if (used <= 0n) continue;
+        inbound.remaining -= used; need -= used;
+        const date = inbound.date < today ? today : inbound.date;
+        expectedDate = latest(expectedDate, date); estimated ||= !inbound.confirmed;
+        sources.push({ poId: inbound.poId, quantity: format(used), date, confirmed: inbound.confirmed });
+      }
+      if (need > 0n) {
+        const policy = c.s.replenishmentPolicies.find(p => p.itemId === line.itemId && p.warehouse === warehouse);
+        const terms = c.s.supplierItems.find(t => t.itemId === line.itemId && (!policy || t.supplierId === policy.supplierId));
+        expectedDate = latest(expectedDate, terms ? afterDays(c.now, policy?.leadDays ?? terms.leadDays) : null);
+        estimated = true;
+      }
+      return { orderLineId: line.id, itemId: line.itemId, backorder: format(backorder), expectedDate,
+        estimated, uncovered: format(need), sources,
+        explanation: backorder <= 0n ? 'Reserved stock covers this line.' : estimated ? 'Estimate: unconfirmed supply or supplier lead time; receipt is still required.' : 'Confirmed inbound purchase supply; receipt is still required.' };
+    });
+    const waiting = lines.filter((l: any) => decimal(l.backorder) > 0n);
+    const expectedDate = waiting.some((l: any) => !l.expectedDate) ? null : waiting.reduce((d: string | null, l: any) => latest(d, l.expectedDate), null);
+    const fingerprint = JSON.stringify(waiting.map((l: any) => ({ line: l.orderLineId, date: l.expectedDate, sources: l.sources, uncovered: l.uncovered, estimated: l.estimated })));
+    return { orderId: order.id, expectedDate, estimated: waiting.some((l: any) => l.estimated), lines, fingerprint,
+      needsRepromise: !!expectedDate && expectedDate !== order.promiseDate };
+  });
+}
+
+export function orderBackorder(c: Context, order: Row) {
+  return backorderDates(c).find(r => r.orderId === order.id)!;
+}

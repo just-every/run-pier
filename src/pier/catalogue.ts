@@ -111,7 +111,8 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       fail("HISTORY", "Used location kind is immutable.");
   }
   if (type === "party.save") {
-    data = { name: text(p.name), kind: p.kind };
+    data = { name: text(p.name), kind: p.kind, email: p.email ? text(p.email, "Email") : old?.email ?? null };
+    if (data.email && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(data.email)) fail("EMAIL", "Enter one valid email address.");
     if (!["supplier", "customer"].includes(p.kind))
       fail("PARTY", "Choose supplier or customer.");
     if (old && old.kind !== p.kind) fail("HISTORY", "Party kind is immutable.");
@@ -128,6 +129,8 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       price: format(decimal(p.price)),
       minimum: format(decimal(p.minimum)),
       leadDays: Number(p.leadDays),
+      ...(p.reorderQuantity !== undefined ? { reorderQuantity: format(decimal(p.reorderQuantity)) } : {}),
+      ...(p.minimumValue !== undefined ? { minimumValue: format(decimal(p.minimumValue)) } : {}),
     };
     if (
       c.s.supplierItems.some(

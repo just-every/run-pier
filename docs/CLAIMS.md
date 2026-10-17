@@ -15,9 +15,9 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 
 | Status | Claims |
 |---|---|
-| backed | 23 |
-| partly | 11 |
-| contract, not yet in code | 21 |
+| backed | 33 |
+| partly | 7 |
+| contract, not yet in code | 15 |
 | **all claims** | **55** |
 
 ## Hero
@@ -26,7 +26,7 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 |---|---|---|---|
 | 1 | "Pier tracks stock across your warehouses" | backed | Warehouses and bins: `location.save` (`src/pier/catalogue.ts:44,83`); stock per item, warehouse and bin with on hand, reserved, available, quarantine, expected: `src/pier/model.ts` availability, `src/ui/stock.tsx:23-25` |
 | 2 | "runs orders from channel to carrier" | partly | Sales orders that reserve and dispatch: `order.create`, `dispatch.create` (`src/pier/orders.ts:79,113`). No sales-channel import and no carrier: CONTRACT.md channel and shipping clauses |
-| 3 | "reorders before you run out" | partly | Reorder evidence (open demand, on hand, expected, supplier terms): `reorder()` `src/pier/proposals.ts:17`; buyer-approved POs `po.draft/po.approve/po.commit` `src/pier/purchasing.ts:69-108`. No automatic reorder point |
+| 3 | "reorders before you run out" | backed | Buyer-applied learned points, stock-position netting, case packs/MOQs and automatic unapproved drafts: `src/pier/replenishment.ts`, Purchasing. Native shipment history only; broader connected planning remains partial. |
 | 4 | "and keeps the books in step" | contract, not yet in code | No accounting integration; CONTRACT.md QuickBooks Online/Xero clauses |
 | 5 | "100% free, open source alternative to Cin7, inFlow and Fishbowl" | backed | MIT licence: `LICENSE`, `package.json` `license`. (Feature parity with those products is the contract; the free/open-source claim is true today) |
 | 6 | Tag "PO-1048 · 480 of 500 received · 20 short" | backed | Partial receipts into bins, the rest stays expected: `receipt.create` `src/pier/purchasing.ts:121` |
@@ -34,7 +34,7 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 | 8 | Tag "Count mismatch · A-14 · recounted" | backed | Counts capture a bin's movement frontier, show drift and ask for a recount when stock moved: `count.capture/count.record/count.recount` `src/pier/warehouse.ts:119-147`, `src/ui/stock.tsx:18-19` |
 | 9 | Tag "Picked 38 orders · 6:40 am" | backed | A pick wave records each line's picker and time and reads "Picked N orders · time" when its last line is picked: `wave.release`, `pick.scan` `src/pier/floor/waves.ts`, Floor → Pick `src/ui/floor/pick.tsx`. The count of 38 is a story figure |
 | 10 | Tag "Bin A-14 · 212 units" | backed | Stock by bin: `src/ui/stock.tsx:24-25` |
-| 11 | Tag "Reorder suggested · Blue Mug 12oz · 600" | partly | An agent or person prepares a replenishment proposal with minimum, recommended and stretch quantities for a person to approve: `proposal.prepare/proposal.approve` `src/pier/proposals.ts:57,100`. No automatic suggestion |
+| 11 | Tag "Reorder suggested · Blue Mug 12oz · 600" | backed | Purchasing shows computed item/warehouse suggestions, rounding, draft coverage and expected landed cost; bounded policy drafts automatically when the position crosses its point. `src/pier/replenishment.ts`. |
 
 ## Warehouse floor (page 2)
 
@@ -78,11 +78,11 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 30 | "Reorder points learn from what actually sells" | contract, not yet in code | No reorder points or demand learning |
-| 31 | "Pier drafts the purchase order" | partly | Purchase orders are drafted by a buyer or by an agent through the API (`po.draft`, `src/pier/purchasing.ts:69-87`, `API.md`) from reorder evidence; Pier does not draft them on its own |
+| 30 | "Reorder points learn from what actually sells" | backed | 30/90/365-day native shipment sell-through proposes points and quantities from lead demand plus editable safety stock. A buyer applies exact current parameters. `src/pier/replenishment-demand.ts`, `src/ui/replenishment.tsx`. |
+| 31 | "Pier drafts the purchase order" | backed | `draftReplenishment()` groups low-position lines by supplier and warehouse, nets existing drafts and retains expected freight/duty. Human exact-version approval and commitment remain required. `src/pier/replenishment.ts`. |
 | 32 | "with landed cost" (card: "$4.82 per unit · freight and duty included") | backed | `src/pier/landed-cost.ts`; `receipt.create` allocates freight and duty by received value or quantity, retains exact landed line totals and unit cost; `tests/api/costing.test.mjs`. |
-| 33 | "backorders get a real date" | partly | Unmet demand shows as backorder (`src/pier/orders.ts:79-98`) and orders carry a promise date; no computed backorder date |
-| 34 | "Send PO-1052" (to the supplier) | contract, not yet in code | No supplier messages (AGENTS.md: nothing sends supplier messages today) |
+| 33 | "backorders get a real date" | backed | Quantity-limited inbound supply is allocated in promise/order priority. Lines show confirmed dates or labeled lead-time estimates and source POs. `src/pier/backorders.ts`. |
+| 34 | "Send PO-1052" (to the supplier) | backed | Buyer approves the exact committed PO, recipient and bounded reminders. The configured install mail submits it with durable provider outcomes. `src/pier/purchasing-workflow.ts`, `src/pier/correspondence-delivery.ts`. RER Managed email is not available yet. |
 | 35 | "Two-way sync with QuickBooks Online and Xero: items, invoices, bills, cost of goods and inventory value" | contract, not yet in code | No accounting integration |
 | 36 | "Anything off waits in one short queue" (review queue, bill 7731) | contract, not yet in code | No accounting review queue |
 
@@ -90,10 +90,10 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 37 | "The agent forecasts from real sell-through" | contract, not yet in code | No forecasting |
-| 38 | "sends the PO" | contract, not yet in code | An agent may draft a PO but cannot approve it (`src/ui/purchasing.tsx:21` disables approval for `agent`) or send it. Note: the contract keeps human approval of exact versions, so the shipped behavior will be "the agent drafts, a buyer approves, Pier sends" |
-| 39 | "chases the supplier" | contract, not yet in code | No supplier messages |
-| 40 | "re-promises affected orders" (and "customers emailed") | contract, not yet in code | A shortage-reallocation proposal exists (`src/pier/proposals.ts:57`); no re-promising or customer mail |
+| 37 | "The agent forecasts from real sell-through" | backed | Agents read native-shipment forecasts through the state API: observed windows, days of cover, projected stockout and learned parameters. `src/pier/replenishment-demand.ts`. Imported/channel history, seasonality, cash optimization and backtesting remain outside this round. |
+| 38 | "sends the PO" | backed | The agent can prepare evidence and drafts; a buyer approves exact commitment, recipient and send, then Pier sends through the install mail. `po.send`, `src/pier/correspondence-delivery.ts`. RER Managed email is not available yet. |
+| 39 | "chases the supplier" | backed | Buyer authorizes 0–5 confirmation chases at 1–30-day intervals; cron sends only while the initial PO was accepted, supply is open and no confirmation, policy revocation or material change intervened. Supplier replies/confirmed dates are recorded on the PO. `src/pier/scheduled.ts`, `src/pier/purchasing-workflow.ts`. |
+| 40 | "re-promises affected orders" (and "customers emailed") | backed | A human approves a computed customer promise or an order-specific exact-recipient date-update policy. Confirmation/date changes recompute promises and submit customer emails; history and provider outcomes remain visible. `src/pier/backorders.ts`, `src/pier/purchasing-workflow.ts`. RER Managed email is not available yet. |
 | 41 | "checks the receipt closes in the books" | contract, not yet in code | No accounting |
 | 42 | Agent log as a whole (an agent working the item's record) | partly | Agents act through the same commands with the `agent` role and prepare evidence-backed proposals a person approves: `src/pier/proposals.ts`, `src/ui/proposals.tsx`, `API.md` |
 | 43 | "Move from Cin7, inFlow or Fishbowl" ("Importing from Cin7 Core") | partly | The native CSV importer with staged review, frozen cutover and undo: `import.stage`, `import.review`, `import.commit` and `import.undo` `src/pier/imports.ts:243-383`. No Cin7, inFlow or Fishbowl adapter; files are arranged in Pier's CSV shape (IMPORT.md) |
@@ -129,3 +129,5 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 - "Run Pier →" opens /run (Base's two-line Run page, rer 0.2.38).
 - "Try the demo" opens the hosted demo, https://demo.run-pier.com/ (DEMO.md; answered 200 on 17 Oct 2026).
 - "Read the docs" opens /docs.
+
+The 17 October replenishment round backs rows 3, 11, 30, 31, 33, 34 and 37–40 for native shipments and self-hosted install mail. The core Worker/D1 test is `tests/api/replenishment.test.mjs`; Purchasing and Sales expose the same calculations and approval paths at desktop and phone widths. “Backed” here describes the narrow homepage behavior; full connected planning, optimization, routing and financial closure targets remain partial in CONTRACT.md.

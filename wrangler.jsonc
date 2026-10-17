@@ -13,5 +13,10 @@
       "database_id": "local-inventory-pier-only",
       "migrations_dir": "migrations/core"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": [
+      "*/15 * * * *"
+    ]
+  }
 }

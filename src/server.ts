@@ -8,6 +8,7 @@ import { lobbyResponse } from './base/lobby'
 import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
+import { runReplenishmentSchedule } from './pier/scheduled';
 import { pierResponse } from './pier/api'
 import { seedDemo } from './demo'
 
@@ -24,6 +25,7 @@ function noTransform(response: Response): Response {
 }
 
 const worker = {
+  async scheduled(_event, env, execution) { execution.waitUntil(runReplenishmentSchedule(env, _event.scheduledTime)); },
   async fetch(request, env, execution) {
     const asset = await staticAssetResponse(request, env)
     if (asset) return asset
