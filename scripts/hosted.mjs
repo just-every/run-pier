@@ -4,7 +4,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const usage = `Usage, from the Pier folder:
   rer run hosted database --environment production
@@ -46,7 +46,9 @@ function settings(file) {
   return { CLOUDFLARE_ACCOUNT_ID: values.CLOUDFLARE_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN: values.CLOUDFLARE_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN };
 }
 
-const wranglerBin = createRequire(import.meta.url).resolve('wrangler/bin/wrangler.js');
+// This checkout's own wrangler, the one `rer install` put in node_modules.
+const wranglerPackage = createRequire(import.meta.url).resolve('wrangler/package.json');
+const wranglerBin = join(dirname(wranglerPackage), JSON.parse(readFileSync(wranglerPackage, 'utf8')).bin.wrangler);
 function wrangler(env, args, { capture = false } = {}) {
   const result = spawnSync(process.execPath, [wranglerBin, ...args], { env: { ...process.env, ...env, WRANGLER_SEND_METRICS: 'false' }, stdio: capture ? ['ignore', 'pipe', 'inherit'] : 'inherit', encoding: 'utf8' });
   if (result.status !== 0) stop(`wrangler ${args.slice(0, 3).join(' ')} failed (exit ${result.status}). Nothing after this step ran.`);
