@@ -1,3 +1,7 @@
+import { edi } from "./edi/commands";
+import { ediState } from "./edi/view";
+import { deliverEdi } from "./edi/dispatch";
+import { ediFile } from "./edi-labels";
 import { operatorAuth, runtimeBindings, type Bindings } from "../auth.server";
 import {
   collections,
@@ -9,10 +13,17 @@ import {
 } from "./model";
 import { load, saved, commit, authority, activeAutomationActors } from "./storage";
 import { channelWebhook } from './channels/webhook';
+import { shipping, unavailable as shippingUnavailable } from './shipping/commands';
+import { performShipping } from './shipping/transport';
+import { shippingWebhook } from './shipping/webhook';
+import { labelUrl } from './shipping/easypost';
 import { channels } from './channels/commands';
 import { channelState, markChannelPending } from './channels/availability';
 import { syncChannels } from './channels/sync';
+import { supplierBills, supplierBillViews } from "./books/supplier-bills";
 import { books } from "./books/commands";
+import { pantryAccounts } from './books/pantry-accounts';
+import { newStallKey, stallKeyHash, stallLink } from './channels/stall-link';
 import { syncBooks } from "./books/sync";
 import { booksExport } from "./books/export";
 import { nativeExport } from "./native-export";
@@ -131,7 +142,10 @@ export async function execute(
       s = structuredClone(before),
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, automationActors: await activeAutomationActors(env.DB) };
     await approver(env, c, type, payload);
-    let result: any = await books(c, type, payload, env);
+    let result: any = supplierBills(c, type, payload);
+    if (result === undefined) result = await shipping(c, type, payload, env);
+    if (result === undefined) result = await edi(c, type, payload, env);
+    if (result === undefined) result = await books(c, type, payload, env);
     if (result === undefined) result = await itemAgent(c, type, payload, env);
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
@@ -212,8 +226,12 @@ export async function pierResponse(
   if (!url.pathname.startsWith("/api/pier")) return null;
   try {
     const env = runtimeBindings(original);
+    const carrierWebhook = await shippingWebhook(request, env);
+    if (carrierWebhook) return carrierWebhook;
     const webhook = await channelWebhook(request, env);
     if (webhook) return webhook;
+    const stall = await stallLink(request, env);
+    if (stall) return stall;
     const actor = await current(request, env);
     if (request.method === "GET") {
       const s = await load(env.DB),
@@ -234,6 +252,19 @@ export async function pierResponse(
           null,
           401,
         );
+      const labelMatch = /^\/api\/pier\/shipping\/labels\/([^/]+)\.(pdf|zpl)$/.exec(url.pathname);
+      if (labelMatch) {
+        const blocked = shippingUnavailable(env);
+        if (blocked) fail('SHIPPING_UNAVAILABLE', blocked);
+        const job = s.shippingJobs.find(j => j.id === labelMatch[1]);
+        const destination = labelUrl(labelMatch[2] === 'pdf' ? job?.labelPdfUrl : job?.labelZplUrl);
+        if (!destination) fail('LABEL', 'This label format is not available from the carrier.');
+        const response = await fetch(destination!, { redirect: 'manual', signal: AbortSignal.timeout(25000) });
+        if (!response.ok) fail('LABEL', 'The carrier label could not be downloaded. Check EasyPost.');
+        return new Response(response.body, { headers: { 'content-type': labelMatch[2] === 'pdf' ? 'application/pdf' : 'application/octet-stream', 'content-disposition': `inline; filename="pier-label-${job!.carton}.${labelMatch[2]}"`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
+      }
+      const ediDownload = ediFile(s, url.pathname);
+      if (ediDownload) return ediDownload;
       if (["/api/pier/books/export.csv","/api/pier/books/export.iif"].includes(url.pathname)) {
         const format = url.pathname.endsWith(".iif") ? "iif" : "csv";
         try { return new Response(booksExport(s, format), {headers:{"content-type":format === "csv" ? "text/csv; charset=utf-8" : "text/plain; charset=utf-8","content-disposition":`attachment; filename="pier-books.${format}"`,"cache-control":"no-store"}}); } catch(error) { fail("BOOK_EXPORT", error instanceof Error ? error.message : "Review the financial documents before exporting."); }
@@ -311,12 +342,15 @@ export async function pierResponse(
         actor,
         people,
         orders: s.orders.map((o) => ({ ...orderView(c, o), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
+        supplierBills: supplierBillViews(s),
         purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
         forecasts: forecast(c),
         deliveries: await correspondenceDeliveries(env.DB),
         counts: s.counts.map((count) => countView(c, count)),
         ...floorState(c),
         ...channelState(s),
+        shippingUnavailable: shippingUnavailable(env),
+        ...ediState(s, c.now),
         positions: positions(s),
         reorder: reorder(c),
         commands,
@@ -379,9 +413,28 @@ export async function pierResponse(
           "Native owners retain owner authority. Assign agent roles only to native members.",
         );
     }
+    if (['shipping.record','shipping.complete'].includes(type)) fail('SHIPPING_INTERNAL', 'Pier records carrier outcomes itself.');
+    if (['shipping.verify','shipping.rates','shipping.buy','shipping.reconcile','shipping.email','shipping.track'].includes(type))
+      return json(await performShipping(env, actor, commandId, type, payload));
+    if (["edi.send.begin", "edi.send.result", "edi.send.unavailable"].includes(type)) fail("EDI_INTERNAL", "Pier records EDI traffic itself.");
+    if (type === "edi.send") return json(await deliverEdi(env, actor, commandId, payload, execute));
     if (["itemAgent.begin", "itemAgent.complete", "itemAgent.failed"].includes(type)) fail("AI_INTERNAL", "Pier records AI request outcomes itself.");
     if (type === "itemAgent.explain") return json(await explainItem(env, actor, commandId, payload, execute));
     if (["book.plan","book.begin","book.record","book.checked","book.reconcile"].includes(type)) fail("BOOK_INTERNAL","Pier records books traffic itself.");
+    if (type === "channel.stallLink") fail("CHANNEL_INTERNAL", "Pier creates Stall keys itself.");
+    if (type === "channel.stallKey") {
+      if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect Stall.",null,403);
+      // The key reaches only this reply; the saved command keeps its hash.
+      const key = newStallKey();
+      const outcome = await execute(env, actor, commandId, "channel.stallLink", { channelId: payload.channelId, version: payload.version, customerId: payload.customerId, keyHash: stallKeyHash(key) });
+      if (!outcome) return json({ ok: false, error: { code: "BUSY", message: "Retry." } }, 409);
+      return json({ ...outcome, result: { key, origin: new URL(env.AUTH_ORIGIN).origin, customerId: payload.customerId } });
+    }
+    if (type === "book.accounts") {
+      if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect the books.",null,403);
+      const connected = (await load(env.DB)).bookConnections.find((row) => row.enabled);
+      return json({ok:true,result:await pantryAccounts(env,payload,connected),version:(await load(env.DB)).version});
+    }
     if (type === "book.sync") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can sync the books.",null,403);
       return json({ok:true,result:await syncBooks(env),version:(await load(env.DB)).version});
@@ -398,6 +451,10 @@ export async function pierResponse(
       return json({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
     }
     const outcome = await execute(env, actor, commandId, type, payload);
+    if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
+      const doc = (await load(env.DB)).ediDocuments.find(d => d.id === outcome.result.acknowledgmentDocumentId);
+      if (doc) await deliverEdi(env, actor, `${commandId}-997`, {documentId:doc.id,version:doc.version}, execute);
+    }
     if (outcome && ['po.send','order.repromise','order.promisePolicy','po.confirm'].includes(type)) await deliverCorrespondence(env);
     if (outcome && type === "dispatch.close") return json(await deliver(env, actor, commandId, outcome));
     if (outcome) {

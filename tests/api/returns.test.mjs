@@ -16,14 +16,17 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
     pier = await installation({ async outboundService(request) {
       assert.equal(new URL(request.url).origin, pantry.origin);
       const body = request.method === 'GET' ? undefined : await request.arrayBuffer();
-      const isCredit = request.url.endsWith('/invoice.save-draft') && JSON.parse(new TextDecoder().decode(body)).kind === 'credit';
+      const isCredit = request.method === 'POST' && request.url.endsWith('/integration/v1/invoices') && JSON.parse(new TextDecoder().decode(body)).kind === 'credit';
       const response = await fetch(request.url, { method: request.method, headers: Object.fromEntries([...request.headers].filter(([key]) => !['transfer-encoding', 'content-length', 'host', 'connection'].includes(key))), redirect: 'manual', ...(body ? { body } : {}) });
       if (loseCreditResponse && isCredit) { loseCreditResponse = false; await response.text(); throw new Error('Synthetic response loss after Pantry saved a credit'); }
       return response;
     } });
     const b = await basics(pier), po = await buy(pier, b, '12');
     await receive(pier, b, po, '12');
-    await pier.command('book.connect', { baseUrl: pantry.origin, sessionCookie: pantry.cookie, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, writeOffAccountId: damage.id, taxCode: 'exempt' });
+    const bill = await pier.command('supplierBill.save', { poId: po.id, reference: 'METALS-RETURN-STOCK', date: new Date().toISOString().slice(0, 10), quantityTolerancePercent: '0', priceTolerancePercent: '0', lines: [{ poLineId: po.lines[0].id, quantity: '12', unitPrice: '0.25' }] });
+    await pier.command('supplierBill.approve', { id: bill.id, version: bill.version, receiptEvidence: bill.match.receiptEvidence });
+    const credential = await pantry.command('integration.create', { name: 'Pier', scopes: ['contacts:write', 'invoices:write', 'bills:write', 'journals:write', 'documents:write', 'payments:read', 'reports:read', 'post'] });
+    await pier.command('book.connect', { baseUrl: pantry.origin, integrationToken: credential.token, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, writeOffAccountId: damage.id, taxCode: 'exempt' });
     const order = await pier.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '4', price: '2' }] });
     const shipment = await pier.command('dispatch.create', { orderId: order.id, shipmentReference: 'SYNTHETIC-RETURN-LABEL', lines: [{ orderLineId: order.lines[0].id, quantity: '4' }] });
     const lookup = async code => {

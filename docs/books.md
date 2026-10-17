@@ -1,24 +1,53 @@
 # Books and reconciliation
 
-Open **Books** in Pier. An owner connects a Pantry installation, chooses its inventory asset, cost of goods expense and sales income account IDs, and explicitly confirms that the exported wholesale invoices are tax exempt. This first transport does not map sales tax. Get the account IDs from Pantry's authenticated `/api/pantry/state` account list; they are different from account codes.
+Pier sends its accounting to **Pantry**, the bookkeeping app from the same family: invoices, bills, payments and reports, on your own computer or your own Cloudflare account. Pier stays the record of quantities and stock cost; Pantry holds the ledger.
 
-Sign in to Pantry as its owner and copy the session cookie as `name=value` from the browser's Application → Cookies panel. Paste it into the password field. Pier encrypts it with the installation secret; neither business exports, installation archives nor pending browser commands include the credential. This is an expiring owner session, with the owner's financial authority. Reconnect when it expires. Pantry's current agent token only prepares proposals and cannot create invoices or bills or read payments; a dedicated scoped integration credential remains a Pantry dependency. Use HTTPS; loopback HTTP is accepted only by a local Pier installation.
+## Get a Pantry
+
+No Pantry yet? Start one on the same computer as Pier with one line:
+
+```sh
+npx -y @runeditrun/rer dev just-every/run-pantry
+```
+
+Open the link it prints, finish Pantry's setup and choose its chart of accounts. [Run Stall and Pantry beside Pier](run-beside.md) covers ports and stopping. Pantry's own guide is at [run-pantry.com/run](https://run-pantry.com/run).
+
+Pier posts stock to an inventory account and the cost of what ships to a cost of goods account. A new Pantry chart has neither: in Pantry open **Books → Chart of accounts → Add an account** and add, for example, `1300 Inventory` (type Asset) and `5000 Cost of goods sold` (type Expense). Add an Income account for product sales too if you want one apart from Service revenue.
+
+## Create Pier's credential in Pantry
+
+1. In Pantry, open **People & settings** and scroll to **Integration credentials**.
+2. Name it **Pier** and tick Contacts, Invoices, Bills, Journals, Documents, Payments readback, Reports and Post approved sibling records.
+3. Choose **Create integration credential** and copy the value. Pantry shows it once; it starts with `pantry_integration_`.
+
+The credential cannot sign in, manage people or move money. It keeps working until you revoke it in the same place in Pantry.
+
+## Connect in Pier
+
+Open **Books → Books settings** (or `/app#books/settings`). Enter Pantry's address, copied from its browser tab up to the first single slash (for example `http://localhost:8790` on this computer, or `https://books.example.com` once Pantry is online), and paste the credential. Choose **Check Pantry and load accounts**. Pier checks the credential has every permission it needs, names any that are missing, and lists Pantry's active accounts. Pick the inventory, cost of goods, sales and (optionally) damaged-stock accounts from those lists, confirm the tax treatment, and choose **Connect Pantry**. You never copy an account ID or a browser cookie.
+
+Pier encrypts the credential with the installation secret. Business exports, installation archives and pending browser commands never contain it. Pantry over plain HTTP is accepted only by a local Pier on the same computer; an online Pier needs Pantry's HTTPS address.
+
+## When the connection breaks
+
+If you revoke or replace the credential in Pantry, Pier's next sync stops at the first refusal and Books shows **Connection broken** with the fix: create a new credential in Pantry and choose **Reconnect Pantry**. Nothing is sent while the connection is broken, and nothing is lost: pending documents wait in the queue and resume after reconnecting. To rotate a credential, create the replacement, reconnect Pier with it, then revoke the old one. **Disconnect** stops Pier sending without touching Pantry.
 
 ## What posts
 
 - Item versions become exact item-definition evidence attachments. Pantry has no native item catalogue. Pier remains the quantity and cost subledger.
-- Each posted receipt creates one supplier bill for its USD landed value, debiting the mapped inventory account. Its receipt evidence attaches to that bill. Partial receipts create separate receipt-valued bills; supplier invoice ingestion and three-way matching are not implemented.
+- A buyer records the actual supplier invoice against a committed PO, with billed quantities, unit prices and explicit quantity/price percentage tolerances. Pier names receipt shortfalls, cumulative invoicing above the PO, PO price differences and receipt price differences. Hold records a reason; approval checks the exact current evidence and permits only differences within the reviewed tolerances. Each line needs unused, valued USD receipt evidence. Partial invoices allocate receipts once, in approval order. A later receipt completes earlier approvals first.
+- An approved invoice posts one Pantry payable, debiting the mapped inventory account for its actual invoiced amount. Its immutable invoice, PO, tolerances and approval evidence attach to the bill. New receipts alone create no payable. Already-sent receipt-generated bills retain their original identity and payment readback, and their receipts cannot be billed again. Unsent receipt-generated proposals are replaced by this invoice review. Price/quantity variances and separately incurred freight/duty may leave a visible inventory-account reconciliation difference; Pier does not invent an adjusting journal.
 - Each shipment creates one sales invoice for its shipped lines and one balanced cost-of-goods journal: debit cost of goods, credit inventory. Shipment quantities and original references stay in the descriptions. Financial line amounts are retained exactly; amounts with fractions of a cent, missing prices, unknown USD costs and zero-cost/zero-price financial documents wait for review rather than silently rounding or inventing values.
 - Each movement frontier sends an inventory valuation evidence attachment. Pier also compares its current valuation to Pantry's posted inventory account balance. A difference stays in the same review queue, including unsupported returns, receipt reversals and other adjustments until the accountant reconciles them. Valuation snapshots do not post inventory a second time.
 - Payments and allocations recorded in Pantry return to Pier's Books view, order details and receipt/bill details. Reversed payments reopen the balance. Cash payments are shown separately from the open balance, which may also include credits.
 
-A goods receipt closes missing receipt evidence in the books. It does **not** pay a supplier. A bill becomes reconciled only when Pantry confirms its open balance is zero. No payment is fabricated by receiving stock.
+When an approved supplier invoice's receipts are complete and within tolerance, Pier marks the Pantry bill **received** and **ready to pay** with Pantry's native bill readiness, and attaches the receipt-state evidence to the bill. Receipt reversals or later discrepancies set readiness back. Readiness records no payment: a bill becomes reconciled in Pier only when Pantry's payment readback shows its open balance is zero. No payment is fabricated by receiving stock.
 
 ## One review queue
 
-Every refused, unpriced, unvalued, mismatched or uncertain document appears with a reason and next action. Open its source, resolve the issue or renew the Pantry session, then retry. An owner may skip a source that has never been sent, recording a reason. A request that may have reached Pantry cannot be skipped or sent again merely because a lookup found nothing.
+Every refused, unpriced, unvalued, mismatched or uncertain document appears with a reason and next action. Open its source, resolve the issue or reconnect with a new Pantry credential, then retry. An owner may skip a source that has never been sent, recording a reason. A request that may have reached Pantry cannot be skipped or sent again merely because a lookup found nothing.
 
-Pier commits intent before contacting Pantry and serializes outgoing work with a database lease. Stable invoice numbers, bill references, journal memos and evidence names identify the immutable source. Known remote drafts resume by ID; successful remote records are checked for matching dates, amounts, accounts and parties. A lost response is reconciled by readback. If Pantry cannot show the outcome, it stays uncertain; there is no blind create retry. Pantry's current sales view exposes at most 500 invoices/bills and has no pagination; an older undiscoverable record remains unresolved, never recreated.
+Pier commits intent before contacting Pantry and serializes outgoing work with a database lease. Stable invoice numbers, bill references, journal memos and evidence names identify the immutable source. Every write to Pantry carries an idempotency key derived from the Pier source and operation, so a replay after a lost response returns the record Pantry already saved instead of creating another. Successful remote records are checked for matching dates, amounts, accounts and parties, by exact reference lookups. If Pantry cannot show the outcome, it stays uncertain; there is no blind create retry.
 
 Sync runs after Pier writes, on the minute schedule and with **Sync now**. Approval belongs to the still-active connecting Pier owner; disconnecting or revoking that owner stops future sends. Restored archives retain jobs and source identities but exclude credentials and leases; reconnect before resuming.
 
@@ -28,6 +57,6 @@ Direct QBO and Xero connections remain unavailable until the owner supplies auth
 
 **Download CSV** exports real source documents, mapped debit/credit lines and review reasons. It is an accountant handoff that must be mapped to the destination's import shape. **Download QuickBooks Desktop IIF** exports balanced invoice, bill and general-journal entries; it refuses unpriced or unvalued documents. It names `Inventory Asset`, `Cost of Goods Sold`, `Sales`, `Accounts Receivable` and `Accounts Payable`; review the account/customer/vendor lists and tax treatment in a backup QuickBooks company before importing. IIF is a Desktop format, not a QuickBooks Online import. Export is a separate manual posting workflow, never confirmation that the connected ledger posted; do not import the same documents twice.
 
-The single books core-flow test runs real Pier and Pantry Workers/D1 through authenticated HTTP, including a lost response after the remote journal draft saved, native payments in both directions, independent posted inventory balance, receiver refusal and recovery, and duplicate suppression. The same test exercises QBO/Xero protocol fixtures. The compatible Pantry source is fetched when `PANTRY_SOURCE` is not supplied; no sibling application implementation is copied into Pier.
+The single books core-flow test runs real Pier and Pantry Workers/D1 through authenticated HTTP, including PO → partial receipt → held invoice → tolerance approval → payable → final receipt → supplier payment closure, stale approval refusal, and a lost response after the remote journal draft saved, native payments in both directions, independent posted inventory balance, permission check, credential revocation, reconnection and duplicate suppression. The same test exercises QBO/Xero protocol fixtures. The compatible Pantry source is fetched when `PANTRY_SOURCE` is not supplied; no sibling application implementation is copied into Pier.
 
 Cloudflare installs enable `global_fetch_strictly_public` so the configured public Pantry URL is reached through its public Worker route, including when both installations share an account. See [Cloudflare Worker-to-Worker fetch](https://developers.cloudflare.com/workers/runtime-apis/fetch/).

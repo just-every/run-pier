@@ -10,6 +10,7 @@ import {
 } from "../model";
 import { orders } from "../orders";
 import { itemScan } from "./codes";
+import { reservedFor } from "./wave-coverage";
 
 // The pack step: units picked in a wave are scanned into numbered cartons, each
 // carton is weighed and measured by hand, and the order is marked packed. Only
@@ -47,6 +48,11 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
     const orderLineId = lines[0].orderLineId, picked = pickedFor(w, orderLineId), packed = packedFor(pack, orderLineId);
     if (packed + hit.units > picked)
       fail("OVER_PACK", `${format(picked)} ${hit.item.unit} of ${hit.item.sku} were picked and ${format(packed)} are packed; this ${hit.kind === "case" ? "case " : ""}scan would pack ${format(hit.units)}. Nothing was packed.`);
+    // Units already in another unshipped carton for this line (an earlier
+    // wave's pack) are not reserved twice; shipped units are no longer reserved.
+    const elsewhere = sum(c.s.packs.filter((x) => x.id !== pack.id && x.status !== "shipped").flatMap((x) => x.cartons.flatMap((carton: any) => carton.lines.filter((l: any) => l.orderLineId === orderLineId))));
+    if (elsewhere + packed + hit.units > reservedFor(c.s, orderLineId))
+      fail("ALREADY_PACKED", `${get(c.s, "orders", pack.orderId).reference}'s ${hit.item.sku} units are already packed on another wave or have shipped. Nothing was packed.`);
     const carton = pack.cartons.at(-1);
     const line = carton.lines.find((l: any) => l.orderLineId === orderLineId);
     if (line) line.quantity = format(decimal(line.quantity) + hit.units);
@@ -83,6 +89,13 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
       shipmentReference: text(p.shipmentReference, "Shipment reference"),
       lines: [...quantities].map(([orderLineId, q]) => ({ orderLineId, quantity: format(q) })),
     })!;
+    const labels = c.s.shippingJobs.filter(j => j.packId === pack.id);
+    if (labels.length && (labels.length !== pack.cartons.length || labels.some(j => !['labelled','delivered'].includes(j.status)))) fail('LABELS', 'Buy or reconcile every carton label before dispatching this carrier shipment.');
+    if (labels.length) {
+      shipment.tracking = labels.map(j => ({ carton: j.carton, trackingCode: j.trackingCode, trackingUrl: j.trackingUrl, providerShipmentId: j.providerShipmentId }));
+      shipment.deliveryStatus = labels.every(j => j.status === 'delivered') ? 'delivered' : 'in_transit';
+      for (const label of labels) { label.shipmentId = shipment.id; label.version++; }
+    }
     shipment.packId = pack.id;
     shipment.waveId = w.id;
     shipment.carrierId = w.carrierId;

@@ -42,7 +42,7 @@ export function usePier() {
     setBusy(true); setError(''); setDetails(null); setNotice('')
     try {
       if (pending.current?.signature !== signature) pending.current = { signature, commandId: crypto.randomUUID() }
-      if (!['channel.save','book.connect','ai.save'].includes(type)) sessionStorage.setItem('pier.pending-command', JSON.stringify(pending.current))
+      if (!['channel.save','book.connect','ai.save', 'shipping.save'].includes(type)) sessionStorage.setItem('pier.pending-command', JSON.stringify(pending.current))
       const response = await fetch('/api/pier/commands', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commandId: pending.current.commandId, type, payload }) })
       const body = readReply(await response.json())
       if (body.ok && !response.ok) throw new Error('The server response did not confirm the command outcome.')
@@ -74,7 +74,9 @@ export function usePier() {
     pending.current = { signature: JSON.stringify({ type: recoverable.type, payload: recoverable.payload }), commandId: recoverable.commandId }
     return run(recoverable.type, recoverable.payload)
   }
-  return { state, run, refresh, error, details, busy, notice, recoverable, recover }
+  // Messages belong to the page that raised them; an interrupted command keeps its banner until recovered.
+  const dismiss = useCallback(() => { if (pending.current) return; setError(''); setDetails(null); setNotice('') }, [])
+  return { state, run, refresh, error, details, busy, notice, recoverable, recover, dismiss }
 }
 
 export const records = (state: PierState, key: string): RecordData[] => Array.isArray(state[key]) ? state[key] : []

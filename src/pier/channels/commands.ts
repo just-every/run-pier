@@ -74,6 +74,20 @@ export async function channels(c: Context, type: string, p: any, env: Bindings):
     listing.itemId = item(c.s, p.itemId).id; listing.matchedBy = 'Owner'; listing.version++;
     importOrders(c, channel); return listing;
   }
+  if (type === 'channel.stallLink' || type === 'channel.stallUnlink') {
+    requireRole(c, []);
+    const channel = get(c.s, 'channels', p.channelId); fresh(channel, p.version);
+    if (channel.provider !== 'stall') fail('CHANNEL', 'Only a Stall connection takes a key to Pier.');
+    if (type === 'channel.stallUnlink') channel.stallLink = null;
+    else {
+      // Pier keeps only the key's hash; the key itself is shown once to the owner (api.ts).
+      if (!/^[a-f0-9]{64}$/.test(String(p.keyHash))) fail('CHANNEL_INTERNAL', 'Pier creates Stall keys itself.');
+      if (get(c.s, 'parties', p.customerId).kind !== 'customer') fail('CUSTOMER', 'Choose the Pier customer that Stall\'s shop orders belong to.');
+      channel.stallLink = { keyHash: p.keyHash, customerId: p.customerId, createdAt: c.now, createdBy: c.actor.id };
+    }
+    channel.version++;
+    return channel;
+  }
   // These commands are admitted only by the connector transport, never accepted from a client.
   if (!c.backgroundPolicy || c.backgroundPolicy.collection !== 'channels' || c.backgroundPolicy.id !== p.channelId) fail('CHANNEL_INTERNAL', 'Pier records channel traffic itself.');
   const channel = get(c.s, 'channels', p.channelId);

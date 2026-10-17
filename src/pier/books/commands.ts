@@ -1,24 +1,26 @@
 import { fail, fresh, get, requireRole, text, type Context } from '../model';
 import type { Bindings } from '../../auth.server';
 import { seal } from '../channels/secrets';
+import { PANTRY_CREDENTIAL } from './adapters/pantry-client';
+import { pantryOrigin } from './pantry-accounts';
 import { planBooks } from './planning';
 import { amount, money } from '../money';
 export async function books(c:Context,type:string,p:any,env:Bindings):Promise<any> {
   if(!type.startsWith('book.'))return;
   requireRole(c,['owner']);
   if(type==='book.connect'){
-    let url:URL;try{url=new URL(p.baseUrl);}catch{ return fail('BOOK_URL','Enter the Pantry installation origin.'); }
-    const local=['localhost','127.0.0.1','[::1]'].includes(url.hostname)||url.hostname.endsWith('.localhost');
-    if(url.username||url.password||url.pathname!=='/'||url.search||url.hash||(url.protocol!=='https:'&&!(local&&url.protocol==='http:'))||(local&&env.AUTH_LOCAL!=='true'))fail('BOOK_URL','Use a public HTTPS Pantry origin. Loopback HTTP works only in a local Pier installation.');
+    const origin=pantryOrigin(p.baseUrl,env);
     if(p.taxCode!=='exempt')fail('BOOK_TAX','Explicitly confirm tax-exempt wholesale invoices. Taxable sales need reviewed tax mapping before this connector can post them.');
-    const sessionCookie=text(p.sessionCookie,'Current Pantry owner session cookie');
-    if(/[\r\n]/.test(sessionCookie))fail('BOOK_CREDENTIAL','Use the session cookie value on one line.');
+    const integrationToken=String(p.integrationToken??'').trim();
+    const keep=!integrationToken&&c.s.bookConnections[0]?.enabled&&c.s.bookConnections[0].baseUrl===origin;
+    if(!keep&&!PANTRY_CREDENTIAL.test(integrationToken))fail('BOOK_CREDENTIAL','Paste the Pantry integration credential (it starts with pantry_integration_).');
+    const url={origin};
     const old=c.s.bookConnections[0];
     if(old&&old.baseUrl!==url.origin&&c.s.bookJobs.some(j=>j.attempted))fail('BOOK_DESTINATION','This installation already posted to another Pantry. Review and migrate that accounting history before changing the destination.');
-    const connection={id:'pantry',version:(old?.version??0)+1,provider:'pantry',baseUrl:url.origin,enabled:true,approvedBy:c.actor.id,createdAt:old?.createdAt??c.now,inventoryAccountId:text(p.inventoryAccountId,'Inventory asset account'),cogsAccountId:text(p.cogsAccountId,'Cost of goods expense account'),revenueAccountId:text(p.revenueAccountId,'Sales income account'),writeOffAccountId:p.writeOffAccountId?text(p.writeOffAccountId,'Damaged stock expense account'):old?.writeOffAccountId??null,taxCode:'exempt',lastSync:old?.lastSync??null};
+    const connection={id:'pantry',version:(old?.version??0)+1,provider:'pantry',baseUrl:url.origin,enabled:true,problem:null,approvedBy:c.actor.id,createdAt:old?.createdAt??c.now,inventoryAccountId:text(p.inventoryAccountId,'Inventory asset account'),cogsAccountId:text(p.cogsAccountId,'Cost of goods expense account'),revenueAccountId:text(p.revenueAccountId,'Sales income account'),writeOffAccountId:p.writeOffAccountId?text(p.writeOffAccountId,'Damaged stock expense account'):old?.writeOffAccountId??null,taxCode:'exempt',lastSync:old?.lastSync??null};
     if(new Set([connection.inventoryAccountId,connection.cogsAccountId,connection.revenueAccountId]).size!==3)fail('BOOK_ACCOUNTS','Choose separate inventory, cost of goods and sales accounts.');
     c.s.bookConnections=[connection];
-    c.channelSecrets=[{channelId:'books:pantry',secret:await seal(env,'books:pantry',{sessionCookie,taxCode:'exempt'})}];
+    if(!keep)c.channelSecrets=[{channelId:'books:pantry',secret:await seal(env,'books:pantry',{integrationToken,taxCode:'exempt'})}];
     return connection;
   }
   const connection=c.s.bookConnections[0];
@@ -44,6 +46,10 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
       const returnIds=new Set(c.s.returns.filter(r=>c.s.shipments.some(sh=>sh.id===r.shipmentId&&sh.orderId===order.id)).map(r=>r.id));
       const credits=c.s.bookJobs.filter(j=>j.kind==='credit'&&returnIds.has(j.sourceId));
       if(invoices.length)order.books={invoiceIds:invoices.map(j=>j.remoteId).filter(Boolean),creditIds:credits.map(j=>j.remoteId).filter(Boolean),credited:money(credits.filter(j=>j.status==='posted'||j.status==='reconciled').reduce((n,j)=>n+amount(j.total??'0.00'),0n)),paid:money(invoices.reduce((n,j)=>n+amount(j.paid??'0.00'),0n)),open:invoices.every(j=>j.open!==null&&j.open!==undefined)?money(invoices.reduce((n,j)=>n+amount(j.open),0n)):null,status:invoices.every(j=>j.status==='reconciled')?'reconciled':'open'};
+    }
+    if(job.sourceKind==='supplierBill'){
+      const bill=c.s.supplierBills.find(r=>r.id===job.sourceId);
+      if(bill)bill.books={billId:job.remoteId,paid:job.paid,open:job.open,received:job.received,readyToPay:job.readyToPay,status:job.status};
     }
     if(job.sourceKind==='receipt'){
       const receipt=c.s.receipts.find(r=>r.id===job.sourceId);if(receipt)receipt.books={billId:job.remoteId,paid:job.paid,received:job.received,status:job.status};

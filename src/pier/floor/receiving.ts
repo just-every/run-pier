@@ -11,6 +11,7 @@ import {
   type Context,
   type Row,
 } from "../model";
+import { landReceipt } from "../landed-cost";
 import { itemScan, resolve } from "./codes";
 
 // Scan-to-receive against a committed purchase order. Each scan is its own
@@ -132,6 +133,8 @@ export function receiving(c: Context, type: string, p: any): Row | undefined {
       });
     }
     for (const l of po.lines) l.received = format(decimal(l.received) + tallyOf(r, l.id));
+    // Freight and duty on the delivery value the receipt, as on the desk receipt.
+    landReceipt(receipt, p.landedCost);
     po.version++;
     r.status = "posted";
     r.receiptId = receipt.id;

@@ -10,7 +10,7 @@ Pier is an MIT-licensed stock and wholesale-order seed for small finished-goods 
 
 The public source repository is [just-every/run-pier](https://github.com/just-every/run-pier).
 
-Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.38 package.
+Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.45 package.
 
 One line, the same as [run-pier.com/run](https://run-pier.com/run). It installs `rer`, gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
 
@@ -40,6 +40,6 @@ rer import --input exports/pier.rer --yes
 
 Restore only into an empty installation running the same Pier release (commit) that made the archive, then run `rer setup` and establish a fresh native session for the retained owner identity. The archive preserves historical operator and approval identity but never restores credentials or sessions. The archive is the portable installation backup; [IMPORT.md](IMPORT.md) defines the six established native CSV kinds plus the optional `reservations.csv` allocation file and its review rules. Do not treat the two formats as interchangeable.
 
-`rer reset --yes` removes local installation state and is destructive. Export first if data needs to be kept. `rer deploy` is available only for a configured owner target; no hosted deployment or deployment acceptance is recorded for this seed.
+`rer reset --yes` removes local installation state and is destructive. Export first if data needs to be kept. To put Pier online on your own Cloudflare account, with your real owner address, a hosted backup, restore and removal, follow [Put Pier online](docs/hosting.md). To run Stall and Pantry next to Pier, see [Run Stall and Pantry beside Pier](docs/run-beside.md).
 
-Read [the product contract](CONTRACT.md), [acceptance record](ACCEPTANCE.md), [operations](OPERATIONS.md) and [native CSV contract](IMPORT.md) before making operational changes. No provider-specific migration mapping is included in this release. The public run site (`rer build --site`) carries the homepage, the Run page and these documents.
+Read [the product contract](CONTRACT.md), [acceptance record](ACCEPTANCE.md), [operations](OPERATIONS.md) and [native CSV contract](IMPORT.md) before making operational changes. Moving in from Cin7 Core, inFlow or Fishbowl is described in [docs/move-in.md](docs/move-in.md). The public run site (`rer build --site`) carries the homepage, the Run page and these documents.

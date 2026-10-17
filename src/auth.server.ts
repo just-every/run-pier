@@ -13,6 +13,8 @@ export interface Bindings {
  DB: D1Database
  /** Built browser files; hosted deploys run the Worker first (staticAssetResponse). */
  ASSETS?: Fetcher
+ EDI_BRIDGE_URL?: string
+ EDI_BRIDGE_TOKEN?: string
  RER_DEPLOY_SOURCE?: string
  RER_DEPLOY_FINGERPRINT?: string
  RER_VERSION?: { id: string }

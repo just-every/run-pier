@@ -14,6 +14,7 @@ import {
 } from "../model";
 import { warehouse } from "../warehouse";
 import { binMatches, itemScan, pickSequence } from "./codes";
+import { onOtherLines, reservedFor, unwaved } from "./wave-coverage";
 
 // Pick waves: open orders for one carrier pickup (its dock door and cut-off)
 // released together and picked in one bin-sequenced walk. Every line confirms
@@ -74,13 +75,16 @@ export function waves(c: Context, type: string, p: any): Row | undefined {
       const o = get(c.s, "orders", orderId);
       if (orders.some((x) => x.orderId === o.id)) fail("ORDERS", "Each order joins a wave once.");
       if (openWave(c, o.id)) fail("IN_WAVE", `${o.reference} is already in a wave being picked.`);
-      const own = c.s.reservations.filter((r) => r.orderId === o.id && sequence.includes(r.locationId));
-      if (!own.length) fail("NOTHING_TO_PICK", `${o.reference} has no stock reserved in ${carrier.warehouse}. Reserve it or leave it for a later wave.`);
+      if (!c.s.reservations.some((r) => r.orderId === o.id && sequence.includes(r.locationId)))
+        fail("NOTHING_TO_PICK", `${o.reference} has no stock reserved in ${carrier.warehouse}. Reserve it or leave it for a later wave.`);
+      // Only reserved units no earlier wave has picked or holds join a new pick list.
+      const own = unwaved(c.s, o.id).filter((u) => sequence.includes(u.reservation.locationId));
+      if (!own.length) fail("ALREADY_PICKED", `${o.reference} is already picked on an earlier wave. Pack and dispatch it from Pack; there is nothing new to pick.`);
       orders.push({ orderId: o.id, tote: orders.length + 1 });
       o.carrierId = carrier.id;
       o.version++;
-      for (const r of own)
-        lines.push({ id: id(), orderId: o.id, orderLineId: r.orderLineId, itemId: r.itemId, locationId: r.locationId, quantity: format(BigInt(r.quantity)), picked: "0", status: "open", scans: [] });
+      for (const { reservation: r, quantity } of own)
+        lines.push({ id: id(), orderId: o.id, orderLineId: r.orderLineId, itemId: r.itemId, locationId: r.locationId, quantity: format(quantity), picked: "0", status: "open", scans: [] });
     }
     lines.sort((a, b) => sequence.indexOf(a.locationId) - sequence.indexOf(b.locationId) || orders.findIndex((o) => o.orderId === a.orderId) - orders.findIndex((o) => o.orderId === b.orderId));
     const number = Math.max(0, ...c.s.waves.map((w) => w.number)) + 1;
@@ -100,6 +104,11 @@ export function waves(c: Context, type: string, p: any): Row | undefined {
     if (hit.item.id !== itemRow.id)
       fail("WRONG_ITEM", `Wrong item: scanned ${hit.item.name} (${hit.item.sku}), this line picks ${itemRow.name} (${itemRow.sku}). Nothing was picked.`, { scanned: hit.item.sku, expected: itemRow.sku });
     const units = p.quantity === undefined || p.quantity === "" ? hit.units : decimal(p.quantity, true);
+    // A line copied onto a second wave must not send the floor after units
+    // another wave already picked or that have already shipped.
+    const pickable = reservedFor(c.s, line.orderLineId) - onOtherLines(c.s, line.orderLineId, line.id) - decimal(line.picked);
+    if (units > pickable)
+      fail("ALREADY_PICKED", `${get(c.s, "orders", line.orderId).reference} has ${format(pickable > 0n ? pickable : 0n)} ${itemRow.unit} of ${itemRow.sku} left to pick; the rest were already picked on another wave or shipped. Nothing was picked.`);
     if (units > open(line))
       fail("OVER_PICK", `That scan picks ${format(units)} ${itemRow.unit}; only ${format(open(line))} ${itemRow.unit} are left on this line. Nothing was picked.`);
     line.picked = format(decimal(line.picked) + units);

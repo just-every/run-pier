@@ -7,6 +7,13 @@ export function money(value: bigint): string {
   const n = value < 0n ? -value : value;
   return `${sign}${n / MONEY_SCALE}.${String(n % MONEY_SCALE).padStart(12, '0')}`;
 }
+/** A decimal string as a reader sees it, "USD 3,689.00"; a sub-cent price keeps its exact places. */
+export function usdText(value: string): string {
+  const negative = value.startsWith('-');
+  const [whole, fraction = ''] = (negative ? value.slice(1) : value).split('.');
+  const exact = fraction.replace(/0+$/, '');
+  return `USD ${negative ? '-' : ''}${BigInt(whole).toLocaleString('en-US')}.${exact.length <= 2 ? exact.padEnd(2, '0') : exact}`;
+}
 export function amount(value: string): bigint {
   const negative = value.startsWith('-');
   const [whole, fraction = ''] = (negative ? value.slice(1) : value).split('.');

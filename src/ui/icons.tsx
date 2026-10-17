@@ -12,6 +12,7 @@ const paths = {
   imports: <><path d="M12 15V3M7 8l5-5 5 5" /><path d="M4 14v6h16v-6" /></>,
   channels: <><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="18" r="2.5" /><circle cx="12" cy="5.5" r="2.5" /><path d="m10.7 7.7-3.4 8M13.3 7.7l3.4 8M8.5 18h7" /></>,
   books: <><path d="M4 20V10M10 20V4M16 20v-7M21 20H3" /></>,
+  edi: <><path d="M4 5h16v14H4Z" /><path d="M7 9v6M10 9v6M12 9v6M15 9v6M17 9v6" /></>,
   reports: <><path d="M6 3h12v18H6Z" /><path d="M9 8h6M9 12h6M9 16h3" /></>,
   activity: <path d="M3 12h4l3-8 4 16 3-8h4" />,
   ai: <path d="M12 3c.6 4.6 2.4 6.4 7 7-4.6.6-6.4 2.4-7 7-.6-4.6-2.4-6.4-7-7 4.6-.6 6.4-2.4 7-7Z" />,

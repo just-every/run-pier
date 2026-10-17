@@ -2,6 +2,7 @@ import { type Context, type Row, decimal } from '../model';
 import { amount, money, extended } from '../money';
 import { valuationLedger } from '../valuation-ledger';
 import type { BookDocument } from './adapters/types';
+import { planSupplierBills } from './supplier-bills';
 import { planReturnBooks } from './return-planning';
 
 /** No silent rounding at the financial boundary. Source precision stays in evidence. */
@@ -14,6 +15,9 @@ const ref = (prefix: string, id: string) => `PIER-${prefix}-${id.replaceAll('-',
 export function planBooks(c: Context) {
   const connection = c.s.bookConnections.find(r => r.enabled);
   if (!connection) return;
+  // Unsent receipt-generated proposals are replaced by reviewed supplier invoices.
+  // Already-attempted obligations retain their immutable identity and readback.
+  c.s.bookJobs = c.s.bookJobs.filter(j => !(j.sourceKind === 'receipt' && j.kind === 'bill' && !j.attempted));
   const add = (key: string, kind: string, source: Row, sourceKind: string, reference: string, build: () => BookDocument) => {
     const old = c.s.bookJobs.find(j => j.key === key);
     if (old?.attempted || old?.status === 'skipped') return;
@@ -24,7 +28,8 @@ export function planBooks(c: Context) {
     else c.s.bookJobs.push({ id: crypto.randomUUID(),version:1,key,connectionId:connection.id,...fields,createdAt:c.now,attempted:false });
   };
   for (const i of c.s.items) add(`item:${i.id}:${i.version}`,'item',i,'item',ref('ITEM',i.id),() => ({ key:`item:${i.id}:${i.version}`,kind:'item',date:c.now.slice(0,10),reference:ref('ITEM',i.id),lines:[{itemId:i.id,description:`${i.sku} · ${i.name}`,quantity:'1',amount:'0.00',account:''}],total:'0.00',attachment:{name:`${ref('ITEM',i.id)}-v${i.version}.txt`,content:JSON.stringify({sku:i.sku,name:i.name,unit:i.unit,packSize:i.packSize,barcode:i.barcode,archived:i.archived??false},null,2)} }));
-  for (const receipt of c.s.receipts.filter(r => r.status === 'posted')) {
+  // Keep already-sent receipt obligations readable; all new bills require invoice matching.
+  for (const receipt of c.s.receipts.filter(r => r.status === 'posted' && c.s.bookJobs.some(j => j.key === `bill:${r.id}` && j.attempted))) {
     const po = c.s.purchaseOrders.find(p => p.id === receipt.poId)!;
     const supplier = c.s.parties.find(p => p.id === po.supplierId)!;
     add(`bill:${receipt.id}`,'bill',receipt,'receipt',ref('BILL',receipt.id),() => {
@@ -33,6 +38,7 @@ export function planBooks(c: Context) {
       return {key:`bill:${receipt.id}`,kind:'bill',date:receipt.createdAt.slice(0,10),reference:ref('BILL',receipt.id),party:{id:supplier.id,name:supplier.name,kind:'supplier'},lines,total:dollars(money(lines.reduce((n:bigint,l:any)=>n+amount(l.amount),0n))),attachment:{name:`${ref('BILL',receipt.id)}-receipt.txt`,content:JSON.stringify({purchaseOrder:po.reference,supplierReference:receipt.supplierReference,receiptId:receipt.id,receivedAt:receipt.createdAt,lines:receipt.lines},null,2)}};
     });
   }
+  planSupplierBills(c, connection, add, dollars);
   const ledger = valuationLedger(c.s,c.now);
   for (const shipment of c.s.shipments) {
     const order = c.s.orders.find(o => o.id === shipment.orderId)!;

@@ -1,5 +1,5 @@
 import { decimal, format, fresh, get, requireRole, row, text, fail, type Context, type Row } from './model';
-import { money } from './money';
+import { money, usdText } from './money';
 import { afterDays, backorderDates } from './backorders';
 import { poMaterial } from './correspondence-delivery';
 
@@ -52,8 +52,8 @@ export function purchasingWorkflow(c: Context, type: string, p: any): Row | unde
       if (!Number.isInteger(everyDays) || everyDays < 1 || everyDays > 30 || !Number.isInteger(count) || count < 0 || count > 5) fail('POLICY', 'Choose 1–30 days between chases and at most five chases.');
       const cost = expectedLandedCost(po);
       const body = `Purchase order ${po.reference}\nSupplier: ${po.supplierSnapshot.name}\nDestination: ${po.destinationWarehouse || 'receiving warehouse'}\nRequested delivery: ${po.promiseDate}\n` +
-        po.lines.map((l: any) => `${get(c.s, 'items', l.itemId).sku}: ${l.quantity} ${get(c.s, 'items', l.itemId).unit} at USD ${l.price}`).join('\n') +
-        `\nGoods USD ${cost.goods}; estimated freight USD ${cost.freight}; duty USD ${cost.duty}; expected landed total USD ${cost.total}.\nPlease reply with confirmation, expected delivery date and our purchase order reference.`;
+        po.lines.map((l: any) => `${l.terms?.code ? `${l.terms.code} (our ${get(c.s, 'items', l.itemId).sku})` : get(c.s, 'items', l.itemId).sku}: ${l.quantity} ${get(c.s, 'items', l.itemId).unit} at ${usdText(l.price)}`).join('\n') +
+        `\nGoods ${usdText(cost.goods)}; estimated freight ${usdText(cost.freight)}; duty ${usdText(cost.duty)}; expected landed total ${usdText(cost.total)}.\nPlease reply with confirmation, expected delivery date and our purchase order reference.`;
       const sent = message(c, 'purchase-order', po, recipient, `Purchase order ${po.reference}`, body, { approvedMaterial: material, promiseDate: po.promiseDate });
       for (let n = 1; n <= count; n++) message(c, 'supplier-chase', po, recipient, `Confirmation requested: ${po.reference}`,
         `Please confirm purchase order ${po.reference}, requested for ${po.promiseDate}. Reply with the expected date and any changes.\n\n${body}`,

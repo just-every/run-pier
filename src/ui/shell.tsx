@@ -11,7 +11,7 @@ import { connections, providerName } from './channels/model'
 export const tabs: { id: string; title: string; icon: IconName; foot?: boolean }[] = [
   { id: 'sales', title: 'Sales orders', icon: 'orders' }, { id: 'stock', title: 'Stock', icon: 'stock' }, { id: 'purchasing', title: 'Purchasing', icon: 'purchasing' },
   { id: 'floor', title: 'Floor', icon: 'floor' }, { id: 'transfers', title: 'Transfers', icon: 'transfers' }, { id: 'counts', title: 'Counts', icon: 'counts' },
-  { id: 'channels', title: 'Channels', icon: 'channels' }, { id: 'books', title: 'Books', icon: 'books' }, { id: 'reports', title: 'Reports', icon: 'reports' },
+  { id: 'channels', title: 'Channels', icon: 'channels' }, { id: 'books', title: 'Books', icon: 'books' }, { id: 'edi', title: 'EDI', icon: 'edi' }, { id: 'reports', title: 'Reports', icon: 'reports' },
   { id: 'imports', title: 'Imports', icon: 'imports' }, { id: 'activity', title: 'Activity', icon: 'activity', foot: true }, { id: 'ai', title: 'AI setup', icon: 'ai', foot: true },
 ]
 

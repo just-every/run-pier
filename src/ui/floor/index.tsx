@@ -4,9 +4,10 @@ import { Pick } from './pick'
 import { Pack } from './pack'
 import { Dispatch } from './dispatch'
 import { Returns } from './returns'
+import { Shipping } from '../shipping'
 
 // The warehouse floor at any width: receive, pick, pack and the day's dispatch.
-const steps = [{ id: 'receive', title: 'Receive' }, { id: 'pick', title: 'Pick' }, { id: 'pack', title: 'Pack' }, { id: 'dispatch', title: 'Dispatch day' }, { id: 'returns', title: 'Returns' }]
+const steps = [{ id: 'receive', title: 'Receive' }, { id: 'pick', title: 'Pick' }, { id: 'pack', title: 'Pack' }, { id: 'shipping', title: 'Shipping' }, { id: 'dispatch', title: 'Dispatch day' }, { id: 'returns', title: 'Returns' }]
 
 export function Floor({ state, run, busy, error, step }: { state: PierState; run: RunCommand; busy: boolean; error: string; step: string }) {
   const current = steps.some(row => row.id === step) ? step : 'receive'
@@ -15,6 +16,7 @@ export function Floor({ state, run, busy, error, step }: { state: PierState; run
     {current === 'receive' && <Receive state={state} run={run} busy={busy} error={error} />}
     {current === 'pick' && <Pick state={state} run={run} busy={busy} error={error} />}
     {current === 'pack' && <Pack state={state} run={run} busy={busy} error={error} />}
+    {current === 'shipping' && <Shipping state={state} run={run} busy={busy} />}
     {current === 'dispatch' && <Dispatch state={state} run={run} busy={busy} />}
     {current === 'returns' && <Returns state={state} run={run} busy={busy} error={error} />}
   </>

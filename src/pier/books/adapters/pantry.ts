@@ -1,14 +1,29 @@
+import { sha256 } from '../../import-kit';
 import { pantryClient, PantryRefusal } from './pantry-client';
 import type { BookDocument, BookResult, BooksAdapter, BooksAdapterConfig } from './types';
 const cents=(value:string)=>BigInt(value.replace('.',''));
-const dollars=(value:number)=>`${Math.trunc(value/100)}.${String(value%100).padStart(2,'0')}`;
+const dollars=(value:bigint)=>{
+  const n=value<0n?-value:value;
+  return `${value<0n?'-':''}${n/100n}.${String(n%100n).padStart(2,'0')}`;
+};
+const flag=(value:unknown)=>value===true||value===1;
 export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
   const client=pantryClient(config);
+  const lookup=async(path:string,collection:string,field:string,value:string) => {
+    const rows=(await client.request(`${path}?${field}=${encodeURIComponent(value)}`))[collection];
+    return client.matching(rows,r=>r[field]===value);
+  };
+  const invoice=(number:string)=>lookup('invoices','invoices','number',number);
   const raw=async(doc:BookDocument) => {
     if(doc.kind==='item')return client.attachment(doc);
-    if(doc.kind==='journal')return client.matching((await client.request('journal')).entries,r=>r.memo===doc.reference);
-    const sales=await client.request('sales');
-    return client.matching(['invoice','credit'].includes(doc.kind)?sales.invoices:sales.bills,r=>doc.remoteId?r.id===doc.remoteId:['invoice','credit'].includes(doc.kind)?r.number===doc.reference:r.reference===doc.reference);
+    if(doc.kind==='journal')return lookup('journals','entries',doc.remoteId?'id':'memo',doc.remoteId??doc.reference);
+    const sales=['invoice','credit'].includes(doc.kind);
+    return lookup(sales?'invoices':'bills',sales?'invoices':'bills',doc.remoteId?'id':sales?'number':'reference',doc.remoteId??doc.reference);
+  };
+  // Pier's receipt match decides readiness; Pantry records it natively on the bill.
+  const wanted=(doc:BookDocument,open:bigint)=>{
+    const received=doc.receiptState?.received??true;
+    return {received,readyToPay:received&&(doc.receiptState?.readyToPay??true)&&open>0n};
   };
   const validate=(doc:BookDocument,r:any) => {
     const mismatch=()=>{throw new PantryRefusal('The Pantry record with this Pier reference has different amounts, accounts or lines. Review both records before continuing.',409);};
@@ -26,10 +41,19 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
   const result=async(doc:BookDocument,r:any):Promise<BookResult>=>{
     validate(doc,r);
     if(doc.kind==='credit') {
-      const target=client.matching((await client.request('sales')).invoices,i=>i.kind==='invoice'&&i.number===doc.creditForReference);
-      if(!target||r.credit_for!==target.id)throw new PantryRefusal('The return credit is linked to a different invoice. Review its dispatch reference in Pantry.',409);
+      const target=await invoice(doc.creditForReference!);
+      if(!target||target.kind!=='invoice'||r.credit_for!==target.id)throw new PantryRefusal('The return credit is linked to a different invoice. Review its dispatch reference in Pantry.',409);
     }
-    return {id:r.id,status:r.status??'posted',...(['invoice','bill'].includes(doc.kind)?{paid:dollars(((await client.request('sales')).payments as any[]).filter(p=>!p.reversal_id).flatMap(p=>p.allocations).filter(a=>a.target_id===r.id&&a.target_kind===doc.kind).reduce((n,a)=>n+a.amount_cents,0)),open:dollars(r.open_cents)}:{}),...(doc.kind==='bill'?{received:!!await client.attachment(doc,r.id)}:{})};
+    const balance=doc.kind==='invoice'||doc.kind==='bill'?{
+      paid:dollars((await client.payments(doc.kind,r.id)).filter(p=>!p.reversal_id).flatMap(p=>p.allocations).filter(a=>a.target_id===r.id&&a.target_kind===doc.kind).reduce((n:bigint,a:any)=>n+BigInt(a.amount_cents),0n)),
+      open:dollars(BigInt(r.open_cents)),
+    }:{};
+    return {id:r.id,status:r.status??'posted',...balance,...(doc.kind==='bill'?await receiptResult(doc,r):{})};
+  };
+  const receiptResult=async(doc:BookDocument,r:any)=>{
+    const want=wanted(doc,BigInt(r.open_cents)),received=flag(r.received),readyToPay=flag(r.ready_to_pay);
+    const evidence=!!await client.attachment(doc.receiptState?{...doc,attachment:doc.receiptState.attachment}:doc,r.id);
+    return {evidenceCurrent:evidence&&received===want.received&&readyToPay===want.readyToPay,received,readyToPay};
   };
   return {
     async read(doc){const r=await raw(doc);return r?result(doc,r):null;},
@@ -41,21 +65,26 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
       if(doc.kind==='invoice'||doc.kind==='credit'){
         let target:any;
         if(doc.kind==='credit') {
-          target=client.matching((await client.request('sales')).invoices,i=>i.kind==='invoice'&&i.number===doc.creditForReference);
-          if(!target||target.status!=='issued')throw new PantryRefusal('Post the original dispatch invoice in Pantry before issuing its return credit.',409);
+          target=await invoice(doc.creditForReference!);
+          if(!target||target.kind!=='invoice'||target.status!=='issued')throw new PantryRefusal('Post the original dispatch invoice in Pantry before issuing its return credit.',409);
           if(r&&r.credit_for!==target.id)throw new PantryRefusal('The return credit is linked to a different invoice. Review it in Pantry.',409);
         }
-        if(!r){const party=await client.contact(doc);r=await client.command('invoice.save-draft',{kind:doc.kind,...(target?{creditFor:target.id}:{}),customerId:party.id,number:doc.reference,issueDate:doc.date,memo:doc.key,lines:doc.lines.map(l=>({description:l.description,quantity:l.quantity,rate:l.unitPrice,accountId:l.account,taxCode:config.credentials.taxCode}))});}
+        if(!r){const party=await client.contact(doc);r=await client.post('invoices',{kind:doc.kind,...(target?{creditFor:target.id}:{}),customerId:party.id,number:doc.reference,issueDate:doc.date,memo:doc.key,post:true,lines:doc.lines.map(l=>({description:l.description,quantity:l.quantity,rate:l.unitPrice,accountId:l.account,taxCode:config.credentials.taxCode}))},doc,'invoice');}
         validate(doc,r);
-        if(r.status==='draft')r=await client.command('invoice.approve',{id:r.id,revision:r.revision});
-        if(r.status==='approved')r=await client.command('invoice.issue',{id:r.id});
+        if(r.status!=='issued')throw new PantryRefusal('Issue the existing invoice in Pantry, then sync again. Pier will not create a replacement for its draft.',409);
       } else if(doc.kind==='bill'){
-        if(!r){const party=await client.contact(doc);r=await client.command('bill.save',{vendorId:party.id,reference:doc.reference,billDate:doc.date,memo:doc.key,post:true,lines:doc.lines.map(l=>({description:l.description,accountId:l.account,amount:l.amount}))});}
-        if(r.status==='draft')r=await client.command('bill.record',{id:r.id,revision:r.revision});
+        if(!r){const party=await client.contact(doc);r=await client.post('bills',{vendorId:party.id,reference:doc.reference,billDate:doc.date,memo:doc.key,post:true,lines:doc.lines.map(l=>({description:l.description,accountId:l.account,amount:l.amount}))},doc,'bill');}
+        validate(doc,r);
+        if(r.status!=='posted')throw new PantryRefusal('Post the existing bill in Pantry, then sync again. Pier will not create a replacement for its draft.',409);
         await client.upload(doc,r.id);
+        if(doc.receiptState)await client.upload({...doc,attachment:doc.receiptState.attachment},r.id);
+        // Receipt and payment readiness are native Pantry bill states; they record no payment.
+        const want=wanted(doc,BigInt(r.open_cents)),state=doc.receiptState?.attachment.name??'receipt';
+        if(flag(r.received)!==want.received||flag(r.ready_to_pay)!==want.readyToPay)
+          r=await client.post(`bills/${encodeURIComponent(r.id)}/readiness`,want,doc,'readiness:'+sha256(`${state}:${want.received}:${want.readyToPay}`).slice(0,24));
       } else if(doc.kind==='journal'){
-        if(!r)r=await client.command('journal.save-draft',{date:doc.date,memo:doc.reference,lines:doc.lines.map(l=>({accountId:l.account,...(l.debit?{debit:l.debit}:{credit:l.credit}),memo:l.description}))});
-        if(r.status==='draft')r=await client.command('journal.post',{id:r.id,revision:r.revision});
+        if(!r)r=await client.post('journals',{date:doc.date,memo:doc.reference,post:true,lines:doc.lines.map(l=>({accountId:l.account,...(l.debit?{debit:l.debit}:{credit:l.credit}),memo:l.description}))},doc,'journal');
+        if(r.status!=='posted')throw new PantryRefusal('Post the existing journal in Pantry, then sync again. Pier will not create a replacement for its draft.',409);
       }
       return result(doc,r);
     },
