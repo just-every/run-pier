@@ -1,6 +1,7 @@
 // Full public-command portability proof. Runs sequential fresh installations;
 // every child and directory is owned by this script and closed in finally.
 import assert from "node:assert/strict";
+import { admittedServer } from "./server-admission.mjs";
 import { spawn } from "node:child_process";
 import { mkdtemp, readdir, cp, rm } from "node:fs/promises";
 import { resolve, join } from "node:path";
@@ -91,23 +92,12 @@ async function port() {
   return p;
 }
 async function start(root, p) {
-  const runtime = child(root, [
-    "dev",
-    "--port",
-    String(p),
-    "--no-queue",
-  ]);
+  const runtime = await admittedServer(
+    () => child(root, ["dev", "--port", String(p), "--no-queue"]),
+    () => command(root, ["dev", "--stop"]),
+    clean,
+  );
   try {
-    const deadline = Date.now() + 120000;
-    while (!runtime.output().includes("RER_READY") && Date.now() < deadline) {
-      if (runtime.proc.exitCode !== null)
-        throw Error(clean(runtime.output()).slice(-3000));
-      await new Promise((r) => setTimeout(r, 200));
-    }
-    assert.ok(
-      runtime.output().includes("RER_READY"),
-      clean(runtime.output()).slice(-3000),
-    );
     const origin = `http://127.0.0.1:${p}`;
     let cookie = "";
     const request = (path, method = "GET", body, as = cookie) =>
