@@ -97,6 +97,7 @@ export function createQboAdapter(config: BooksAdapterConfig): BooksAdapter {
   };
   return {
     async post(document) {
+      if (document.kind === 'credit') throw new Error('Return credit posting is supported by the Pantry connector; QBO credit mapping requires separate acceptance.');
       validateDocument(document);
       // A deterministic digest fits the provider request-ID field even when a
       // durable Pier command key is long or contains arbitrary Unicode.
@@ -122,6 +123,7 @@ export function createQboAdapter(config: BooksAdapterConfig): BooksAdapter {
       return result(body[entity], document);
     },
     async read(document) {
+      if (document.kind === 'credit') throw new Error('Return credit posting is supported by the Pantry connector; QBO credit mapping requires separate acceptance.');
       if (document.kind === 'receipt') {
         validateDocument(document);
         const body = await query(`select * from Attachable where AttachableRef.EntityRef.value = ${quote(document.remoteId!)} and AttachableRef.EntityRef.type = 'Bill'`);

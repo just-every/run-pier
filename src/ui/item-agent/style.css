@@ -1,0 +1,14 @@
+.pier-app .item-agent { min-width: 0; }
+.pier-app .item-agent-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.pier-app .item-agent-head > div { min-width: 0; }
+.pier-app .item-agent-head > button { flex: none; }
+.pier-app .item-agent-check, .pier-app .item-agent-action { padding: 18px 0; border-top: 1px solid var(--pier-rule); }
+.pier-app .item-agent h3, .pier-app .item-agent h4 { margin: 0 0 10px; }
+.pier-app .item-agent h5 { font-size: 14px; margin: 16px 0 8px; }
+.pier-app .item-agent details { padding: 10px 0; min-width: 0; }
+.pier-app .item-agent summary { cursor: pointer; min-height: 32px; overflow-wrap: anywhere; }
+.pier-app .item-agent .evidence { overflow-wrap: anywhere; }
+.pier-app .item-agent .field { margin: 14px 0; }
+.pier-app .item-agent-explanation { white-space: pre-wrap; overflow-wrap: anywhere; }
+.pier-app .item-agent small { overflow-wrap: anywhere; }
+@media (max-width: 599px) { .pier-app .item-agent-head { flex-direction: column; } .pier-app .item-agent-head > button { width: 100%; } }

@@ -15,7 +15,7 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
     if(/[\r\n]/.test(sessionCookie))fail('BOOK_CREDENTIAL','Use the session cookie value on one line.');
     const old=c.s.bookConnections[0];
     if(old&&old.baseUrl!==url.origin&&c.s.bookJobs.some(j=>j.attempted))fail('BOOK_DESTINATION','This installation already posted to another Pantry. Review and migrate that accounting history before changing the destination.');
-    const connection={id:'pantry',version:(old?.version??0)+1,provider:'pantry',baseUrl:url.origin,enabled:true,approvedBy:c.actor.id,createdAt:old?.createdAt??c.now,inventoryAccountId:text(p.inventoryAccountId,'Inventory asset account'),cogsAccountId:text(p.cogsAccountId,'Cost of goods expense account'),revenueAccountId:text(p.revenueAccountId,'Sales income account'),taxCode:'exempt',lastSync:old?.lastSync??null};
+    const connection={id:'pantry',version:(old?.version??0)+1,provider:'pantry',baseUrl:url.origin,enabled:true,approvedBy:c.actor.id,createdAt:old?.createdAt??c.now,inventoryAccountId:text(p.inventoryAccountId,'Inventory asset account'),cogsAccountId:text(p.cogsAccountId,'Cost of goods expense account'),revenueAccountId:text(p.revenueAccountId,'Sales income account'),writeOffAccountId:p.writeOffAccountId?text(p.writeOffAccountId,'Damaged stock expense account'):old?.writeOffAccountId??null,taxCode:'exempt',lastSync:old?.lastSync??null};
     if(new Set([connection.inventoryAccountId,connection.cogsAccountId,connection.revenueAccountId]).size!==3)fail('BOOK_ACCOUNTS','Choose separate inventory, cost of goods and sales accounts.');
     c.s.bookConnections=[connection];
     c.channelSecrets=[{channelId:'books:pantry',secret:await seal(env,'books:pantry',{sessionCookie,taxCode:'exempt'})}];
@@ -41,11 +41,14 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
     Object.assign(job,p.result,{version:job.version+1,checkedAt:c.now});
     for(const order of c.s.orders){
       const invoices=c.s.bookJobs.filter(j=>j.sourceKind==='order'&&j.sourceId===order.id&&j.kind==='invoice');
-      if(invoices.length)order.books={invoiceIds:invoices.map(j=>j.remoteId).filter(Boolean),paid:money(invoices.reduce((n,j)=>n+amount(j.paid??'0.00'),0n)),status:invoices.every(j=>j.status==='reconciled')?'reconciled':'open'};
+      const returnIds=new Set(c.s.returns.filter(r=>c.s.shipments.some(sh=>sh.id===r.shipmentId&&sh.orderId===order.id)).map(r=>r.id));
+      const credits=c.s.bookJobs.filter(j=>j.kind==='credit'&&returnIds.has(j.sourceId));
+      if(invoices.length)order.books={invoiceIds:invoices.map(j=>j.remoteId).filter(Boolean),creditIds:credits.map(j=>j.remoteId).filter(Boolean),credited:money(credits.filter(j=>j.status==='posted'||j.status==='reconciled').reduce((n,j)=>n+amount(j.total??'0.00'),0n)),paid:money(invoices.reduce((n,j)=>n+amount(j.paid??'0.00'),0n)),open:invoices.every(j=>j.open!==null&&j.open!==undefined)?money(invoices.reduce((n,j)=>n+amount(j.open),0n)):null,status:invoices.every(j=>j.status==='reconciled')?'reconciled':'open'};
     }
     if(job.sourceKind==='receipt'){
       const receipt=c.s.receipts.find(r=>r.id===job.sourceId);if(receipt)receipt.books={billId:job.remoteId,paid:job.paid,received:job.received,status:job.status};
     }
+    if(job.sourceKind==='return'){const returned=c.s.returns.find(r=>r.id===job.sourceId);if(returned){returned.books={...(returned.books??{}),...(job.kind==='credit'?{creditId:job.remoteId,creditStatus:job.status,credited:job.total}:{})};}}
     return job;
   }
   if(type==='book.reconcile'){

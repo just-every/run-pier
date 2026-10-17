@@ -8,6 +8,7 @@ export function BookConnectionForm({ run, busy, connection, close }: BooksProps 
       baseUrl: text(data, 'baseUrl').trim(), sessionCookie: text(data, 'sessionCookie').trim(),
       inventoryAccountId: text(data, 'inventoryAccountId').trim(), cogsAccountId: text(data, 'cogsAccountId').trim(),
       revenueAccountId: text(data, 'revenueAccountId').trim(),
+      writeOffAccountId: text(data, 'writeOffAccountId').trim(),
       taxCode: text(data, 'taxCode'),
     })
     if (ok) close()
@@ -19,6 +20,7 @@ export function BookConnectionForm({ run, busy, connection, close }: BooksProps 
       <Field label="Inventory asset account ID" name="inventoryAccountId" disabled={busy} hint="From Pantry's chart of accounts: the asset account holding stock value. Copy its ID, rather than its account code." />
       <Field label="Cost of goods sold account ID" name="cogsAccountId" disabled={busy} hint="The expense account for the cost of stock sold." />
       <Field label="Sales revenue account ID" name="revenueAccountId" disabled={busy} hint="The income account for sales." />
+      <Field label="Damaged stock expense account ID" name="writeOffAccountId" required={false} disabled={busy} defaultValue={connection?.writeOffAccountId ?? ''} hint="Optional. Required before writing off damaged returns; choose the expense account in Pantry." />
       <label className="field"><span>Tax treatment for exported invoices</span><select aria-label="Tax treatment for exported invoices" name="taxCode" required defaultValue="" disabled={busy}><option value="">Choose tax treatment</option><option value="exempt">All exported invoices are tax-exempt</option></select><small>Choose this only for tax-exempt wholesale invoices. Pier does not yet map nonzero sales tax to Pantry; Pantry refuses unknown or undecided tax treatment.</small></label>
       <button type="button" disabled={busy} onClick={close}>Cancel</button>
     </Form>

@@ -1,0 +1,110 @@
+[
+  {
+    "name": "parts.csv",
+    "kind": "items",
+    "columns": {
+      "key": "PartNumber",
+      "sku": "PartNumber",
+      "name": "PartDescription",
+      "unit": "UOM",
+      "barcode": "UPC"
+    },
+    "constants": {
+      "packSize": "1"
+    },
+    "archivedColumns": {
+      "PartType": "Inventory stock only; all other part types require separate treatment.",
+      "POItemType": "Purchase-only part defaults; no credit or outsourced items."
+    }
+  },
+  {
+    "name": "inventory.csv",
+    "kind": "positions",
+    "columns": {
+      "itemKey": "PartNumber",
+      "locationKey": "Location",
+      "quantity": "Qty",
+      "unit": "UOM",
+      "cost": "Cost"
+    },
+    "constants": {
+      "status": "sellable"
+    },
+    "archivedColumns": {
+      "PartDescription": "Names mapped from authoritative Part export."
+    }
+  },
+  {
+    "name": "locations.csv",
+    "kind": "locations",
+    "columns": {
+      "key": "Location",
+      "name": "Description",
+      "warehouse": "LocationGroup"
+    },
+    "constants": {
+      "kind": "bin"
+    },
+    "archivedColumns": {
+      "Type": "Reviewed ordinary active, available stock bins; source permissions remain archived.",
+      "Active": "Reviewed ordinary active, available stock bins; source permissions remain archived.",
+      "Available": "Reviewed ordinary active, available stock bins; source permissions remain archived.",
+      "Pickable": "Reviewed ordinary active, available stock bins; source permissions remain archived.",
+      "Receivable": "Reviewed ordinary active, available stock bins; source permissions remain archived."
+    }
+  },
+  {
+    "name": "vendors.csv",
+    "kind": "suppliers",
+    "columns": {
+      "key": "Name",
+      "name": "Name"
+    },
+    "constants": {}
+  },
+  {
+    "name": "customers.csv",
+    "kind": "customers",
+    "columns": {
+      "key": "Name",
+      "name": "Name"
+    },
+    "constants": {}
+  },
+  {
+    "name": "purchase-orders.csv",
+    "kind": "purchaseOrders",
+    "layout": "fishbowl-purchase",
+    "dateFormat": "M/D/YYYY",
+    "quantityMeaning": "ordered-less-fulfilled",
+    "columns": {
+      "key": "@line",
+      "poKey": "PONum",
+      "supplierKey": "VendorName",
+      "itemKey": "PartNumber",
+      "quantity": "PartQuantity",
+      "fulfilled": "FulfilledQuantity",
+      "unit": "UOM",
+      "price": "PartPrice",
+      "promiseDate": "FulfillmentDate"
+    },
+    "archivedColumns": {
+      "Status": "Retained vendor document metadata; stock purchase type and USD checked.",
+      "CurrencyName": "Retained vendor document metadata; stock purchase type and USD checked.",
+      "POItemTypeID": "Retained vendor document metadata; stock purchase type and USD checked.",
+      "VendorPartNumber": "Retained vendor document metadata; stock purchase type and USD checked.",
+      "PickedQuantity": "Retained vendor document metadata; stock purchase type and USD checked."
+    }
+  },
+  {
+    "name": "independent-controls.csv",
+    "kind": "controls",
+    "columns": {
+      "locationKey": "Bin identity",
+      "unit": "Base unit",
+      "quantity": "Units",
+      "value": "USD value"
+    },
+    "constants": {}
+  }
+]

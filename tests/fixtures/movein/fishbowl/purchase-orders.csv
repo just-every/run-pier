@@ -1,0 +1,5 @@
+PO,PONum,Status,VendorName,FulfillmentDate,CurrencyName
+Item,POItemTypeID,PartNumber,VendorPartNumber,PartQuantity,FulfilledQuantity,PickedQuantity,UOM,PartPrice,FulfillmentDate
+PO,PO-101,20,Harbor Castings,11/1/2026,USD
+Item,10,CAP-B,HB-CAP,4,1,0,ea,1.4,11/1/2026
+Item,10,OIL,HB-OIL,1.5,0,0,kg,4,11/1/2026

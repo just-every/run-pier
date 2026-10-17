@@ -1,0 +1,86 @@
+[
+  {
+    "name": "products.csv",
+    "kind": "items",
+    "columns": {
+      "key": "ProductName",
+      "sku": "SKU",
+      "name": "Description",
+      "unit": "Uom",
+      "barcode": "BarCode",
+      "openingCost": "Cost"
+    },
+    "constants": {
+      "packSize": "1"
+    }
+  },
+  {
+    "name": "stock-levels.csv",
+    "kind": "positions",
+    "columns": {
+      "itemKey": "ProductName",
+      "warehouse": "Location",
+      "bin": "Sublocation",
+      "quantity": "Quantity"
+    },
+    "constants": {
+      "status": "sellable"
+    },
+    "archivedColumns": {
+      "Serial": "All rows untracked; no serial values. Tracked goods require a separate migration."
+    }
+  },
+  {
+    "name": "vendors.csv",
+    "kind": "suppliers",
+    "columns": {
+      "key": "Name",
+      "name": "Name"
+    },
+    "constants": {},
+    "archivedColumns": {
+      "CurrencyCode": "USD verified."
+    }
+  },
+  {
+    "name": "customers.csv",
+    "kind": "customers",
+    "columns": {
+      "key": "Name",
+      "name": "Name"
+    },
+    "constants": {}
+  },
+  {
+    "name": "purchase-orders.csv",
+    "kind": "purchaseOrders",
+    "columns": {
+      "poKey": "OrderNumber",
+      "supplierKey": "Vendor",
+      "itemKey": "ProductName",
+      "quantity": "ProductQuantity",
+      "unit": "ProductQuantityUoM",
+      "price": "ProductUnitPrice",
+      "promiseDate": "RequestedShipDate"
+    },
+    "constants": {},
+    "lineIdentity": "document-ordinal",
+    "quantityMeaning": "remaining",
+    "dateFormat": "M/D/YYYY",
+    "archivedColumns": {
+      "InventoryStatus": "Unfulfilled-only export, remaining quantity independently reviewed; partial receipts are not inferred.",
+      "CurrencyCode": "USD verified."
+    }
+  },
+  {
+    "name": "independent-controls.csv",
+    "kind": "controls",
+    "columns": {
+      "locationKey": "Bin identity",
+      "unit": "Base unit",
+      "quantity": "Units",
+      "value": "USD value"
+    },
+    "constants": {}
+  }
+]

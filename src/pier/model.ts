@@ -87,6 +87,7 @@ export const collections = [
   "channelHolds",
   "bookConnections",
   "bookJobs",
+  "aiSettings",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {

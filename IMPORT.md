@@ -1,6 +1,6 @@
 # Native CSV import
 
-This is the only supported first-source kit. It defines Pier's own UTF-8 CSV shape, not a Zoho, inFlow, Cin7, Sortly, Fishbowl or other provider adapter. Provider mappings remain unavailable until a real owner export, an explicit field map and an independent reconciliation establish support. The local release acceptance scope for import and undo is recorded in [ACCEPTANCE.md](ACCEPTANCE.md).
+This page defines Pier's own UTF-8 CSV shape. Guided, explicitly mapped move-in adapters for documented Cin7 Core, inFlow Inventory and Fishbowl Warehouse export layouts are described in [Move into Pier](docs/move-in.md). Those adapters have synthetic Worker/D1 evidence; a production cutover still requires an authorized owner export and independent reconciliation. The native kit below retains its AUD contract; the incumbent move-in path requires explicit USD costs and controls. The local release acceptance scope for import and undo is recorded in [ACCEPTANCE.md](ACCEPTANCE.md).
 
 ## Submission metadata and files
 
@@ -80,7 +80,7 @@ Before downstream work depends on the import, undo may restore the exact prior n
 
 ## Fixtures and evidence boundary
 
-The synthetic CSV fixtures in `tests/api/security-import.test.mjs` are authored examples of Pier's native CSV contract. They exercise Pier-shaped inputs; they are not exports from Zoho, inFlow, Cin7 or another provider and do not verify a provider mapping. Never commit an owner's real export or personal/customer data as a fixture. A provider mapping requires an actual authorized owner export and independent reconciliation, with unsupported objects and fields accounted for explicitly.
+The synthetic CSV fixtures in `tests/api/security-import.test.mjs` are authored examples of Pier's native CSV contract. They exercise Pier-shaped inputs; they are not exports from Zoho, inFlow, Cin7 or another provider and do not verify a provider mapping. Never commit an owner's real export or personal/customer data as a fixture. Production acceptance of a provider mapping requires an actual authorized owner export and independent reconciliation, with unsupported objects and fields accounted for explicitly. The synthetic documented-layout adapter fixtures and their narrower local evidence are listed in [docs/move-in.md](docs/move-in.md).
 
 The full `rer export` archive is the installation backup and restore contract. This CSV path is a reviewed business-data cutover, not a substitute for that archive. Keep the former system read-only after cutover and reconcile post-cutover changes before any separate exit import.
 
@@ -91,3 +91,5 @@ The full `rer export` archive is the installation backup and restore contract. T
 The positions file includes current sellable and quarantine positions, in base units, and omits transit. Its `cost` cells are `0`; receipt-cost evidence is returned separately in the `costs` field and full business history is available from `/api/pier/export`. The response also returns positive transit positions in a separate `transit` field. Complete in-transit transfers and physically reconcile the bins before accepting this as a cutover snapshot. The orders file contains only quantities not yet dispatched or cancelled. The optional reservation file aggregates each remaining order line's allocations by bin and emits one zero-quantity, empty-bin row for a wholly backordered line. It preserves allocation quantities and bin priority, but native reservation IDs are regenerated on import. The purchase-orders file contains committed PO quantities not yet received. These files do not reconstruct historic movements, receipt cost or shipment records; use the complete `rer export` archive when those records must be restored.
 
 The native allocation round-trip is included in the 18-test Worker/D1 suite passed by current-main Verify. This is behavioral proof for native open-order allocation and explicit backorders, not a promise that the snapshot restores every endpoint field or the complete movement, shipment, receipt-cost and transit history. Use the full `rer export` installation archive when comprehensive history and identity restoration is required; the cutover limits above remain part of the contract.
+
+Books catalogue and valuation snapshots remain as immutable evidence after an otherwise unused cutover is undone. They do not consume stock or create an accounting obligation. Later stock work, reservations and financial documents still block undo. Payment readback alone does not invalidate an unchanged stock preview.

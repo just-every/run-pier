@@ -1,0 +1,4 @@
+SKU,Location,Bin,On Hand,Unit,Unit Cost
+CAP-B,East,A1,10.5,ea,1.5
+CAP-B,West,B1,0.5,ea,1.5
+OIL,East,A1,2.5,kg,4

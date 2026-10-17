@@ -38,6 +38,7 @@ function payload(document: BookDocument): object {
 }
 
 function result(entity: any, document: BookDocument): BookResult {
+  if (document.kind === 'credit') throw new Error('Return credit posting is supported by the Pantry connector; Xero credit mapping requires separate acceptance.');
   if (entity?.HasErrors || entity?.ValidationErrors?.length) throw new Error('Xero rejected the accounting document');
   const id = required(entity?.[ids[document.kind]], 'Xero response ID');
   const mismatch = () => { throw new Error('Xero record differs from its Pier document; reconcile before continuing'); };
@@ -90,6 +91,7 @@ export function createXeroAdapter(config: BooksAdapterConfig): BooksAdapter {
   };
   return {
     async post(document) {
+      if (document.kind === 'credit') throw new Error('Return credit posting is supported by the Pantry connector; Xero credit mapping requires separate acceptance.');
       validateDocument(document);
       if (document.kind === 'receipt') {
         const url = new URL(`${attachmentPath(document)}/${encodeURIComponent(document.attachment!.name)}`, root);
@@ -111,6 +113,7 @@ export function createXeroAdapter(config: BooksAdapterConfig): BooksAdapter {
       return result(rows[0], document);
     },
     async read(document) {
+      if (document.kind === 'credit') throw new Error('Return credit posting is supported by the Pantry connector; Xero credit mapping requires separate acceptance.');
       if (document.kind === 'receipt') {
         const body = await request(new URL(attachmentPath(document), root), {}, true);
         return body === null ? null : receiptResult(body, document);

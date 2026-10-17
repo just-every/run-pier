@@ -3,10 +3,10 @@ import { records, type PierState, type RecordData, type RunCommand } from '../ap
 export type BooksProps = { state: PierState; run: RunCommand; busy: boolean }
 export type BookConnection = RecordData & {
   id: string; provider: 'pantry'; baseUrl: string; enabled: boolean
-  lastSync?: string | null; problem?: string | null
+  lastSync?: string | null; problem?: string | null; writeOffAccountId?: string
 }
 export type BookJob = {
-  id: string; kind: 'item' | 'invoice' | 'bill' | 'journal' | 'receipt' | 'valuation'
+  id: string; kind: 'item' | 'invoice' | 'credit' | 'bill' | 'journal' | 'receipt' | 'valuation'
   reference: string; sourceId: string; sourceKind: string; total?: string | null; currency: 'USD'
   status: 'pending' | 'posted' | 'review' | 'uncertain' | 'reconciled' | 'skipped'
   remoteId?: string | null; paid?: string | null; open?: string | null; reason?: string | null; fix?: string | null
@@ -26,6 +26,7 @@ export function sourceLink(state: PierState, job: BookJob) {
     return shipment?.orderId ? `#sales/${encodeURIComponent(shipment.orderId)}` : '#sales'
   }
   if (job.sourceKind === 'item') return '#stock'
+  if (job.sourceKind === 'return') return '#floor/returns'
   if (job.sourceKind === 'valuation') return '#reports'
   return `#activity/${id}`
 }

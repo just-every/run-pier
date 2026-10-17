@@ -2,6 +2,7 @@ import { type Context, type Row, decimal } from '../model';
 import { amount, money, extended } from '../money';
 import { valuationLedger } from '../valuation-ledger';
 import type { BookDocument } from './adapters/types';
+import { planReturnBooks } from './return-planning';
 
 /** No silent rounding at the financial boundary. Source precision stays in evidence. */
 export function dollars(value: string): string {
@@ -54,6 +55,7 @@ export function planBooks(c: Context) {
       return {key:`cogs:${shipment.id}`,kind:'journal',date:shipment.createdAt.slice(0,10),reference:ref('COGS',shipment.id),total,lines:[{description:'Cost of goods shipped',quantity:'1',amount:total,account:connection.cogsAccountId,debit:total},{description:'Inventory shipped',quantity:'1',amount:total,account:connection.inventoryAccountId,credit:total}]};
     });
   }
+  planReturnBooks(c, connection, add, dollars);
   const frontier = c.s.movements.at(-1)?.sequence;
   if (frontier) {
     const source={id:`valuation-${frontier}`,version:1};

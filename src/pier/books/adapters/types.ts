@@ -1,6 +1,6 @@
 export type BookDocument = {
   key: string;
-  kind: 'item' | 'invoice' | 'bill' | 'journal' | 'receipt';
+  kind: 'item' | 'invoice' | 'credit' | 'bill' | 'journal' | 'receipt';
   date: string;
   reference: string;
   party?: { id: string; name: string; kind: 'customer' | 'supplier' };
@@ -16,6 +16,7 @@ export type BookDocument = {
   }[];
   total: string;
   remoteId?: string;
+  creditForReference?: string;
   /** UTF-8 source evidence; binary files require a future explicit encoding contract. */
   attachment?: { name: string; content: string };
 };

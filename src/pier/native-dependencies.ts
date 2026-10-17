@@ -46,6 +46,10 @@ export function importRecordDependencies(state: State, batch: Row) {
     .filter((kind) => kind !== "imports")
     .flatMap((kind) =>
       state[kind].flatMap((record) => {
+        // Books keeps immutable catalogue/valuation evidence. Those snapshots
+        // do not consume stock or create a financial obligation; keep them
+        // with the import originals when an otherwise unused cutover is undone.
+        if (kind === "bookJobs" && ["item", "valuation"].includes(record.kind)) return [];
         if (restored.has(`${kind}:${record.id}`)) return [];
         const ids = [...references(record)];
         return ids.length

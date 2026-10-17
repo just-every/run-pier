@@ -87,6 +87,8 @@ export function proposals(c: Context, type: string, p: any): Row | undefined {
     });
   }
   const proposal = get(c.s, "proposals", p.proposalId);
+  if (proposal.kind === 'item-review')
+    fail('PROPOSAL', 'Review each exact item action with its apply, reject or undo command.');
   requireRole(
     c,
     proposal.kind === "replenishment"

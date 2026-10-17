@@ -64,7 +64,8 @@ export function valuationLedger(s: State, end: string) {
     const p = position(m), q = BigInt(m.quantity), key = `${m.documentId}:${m.itemId}`;
     const isInternal = transfers.has(m.documentId) || (returns.has(m.documentId) && m.reason === 'Reviewed restock');
     if (q < 0n) {
-      const layers = takeLayers(p.layers, -q, receiptLines.has(m.reversalId ?? '') && !s.counts.some(c => c.id === m.documentId) ? m.reversalId! : undefined);
+      const returnSource = returns.has(m.documentId) ? s.movements.find(source => source.documentId === m.documentId && source.status === 'quarantine' && BigInt(source.quantity) > 0n)?.id : undefined;
+      const layers = takeLayers(p.layers, -q, returnSource ?? (receiptLines.has(m.reversalId ?? '') && !s.counts.some(c => c.id === m.documentId) ? m.reversalId! : undefined));
       if (isInternal) moved.set(key, layers);
       else if (shipments.has(m.documentId)) {
         consumed.set(key, [...(consumed.get(key) ?? []), ...layers]);
@@ -114,7 +115,8 @@ export function valuationLedger(s: State, end: string) {
         record('returns', layers);
       } else {
         const batch = s.imports.find(b => b.id === m.importId);
-        const opening = batch?.costEvidence?.find((e: any) => e.itemId === m.itemId && e.locationId === m.locationId);
+        const sourceKey = batch?.postedRows?.find((entry: any) => entry.id === m.id)?.key;
+        const opening = batch?.costEvidence?.find((entry: any) => sourceKey ? entry.sourceKey === sourceKey : entry.itemId === m.itemId && entry.locationId === m.locationId);
         const original = m.reversalId ? receiptLines.get(m.reversalId) : null;
         const originalValue = original ? receiptValue(original) : null;
         const value = original ? originalValue === null ? null : originalValue * q / decimal(original.quantity)

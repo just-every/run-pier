@@ -1,0 +1,85 @@
+[
+  {
+    "name": "catalogue.csv",
+    "kind": "items",
+    "columns": {
+      "key": "SKU",
+      "sku": "SKU",
+      "name": "Product",
+      "unit": "Unit",
+      "barcode": "Barcode"
+    },
+    "constants": {
+      "packSize": "1"
+    },
+    "archivedColumns": {
+      "Family": "Variant family stays in the original; each variant is a separate SKU."
+    }
+  },
+  {
+    "name": "on-hand.csv",
+    "kind": "positions",
+    "columns": {
+      "itemKey": "SKU",
+      "warehouse": "Location",
+      "bin": "Bin",
+      "quantity": "On Hand",
+      "unit": "Unit",
+      "cost": "Unit Cost"
+    },
+    "constants": {
+      "status": "sellable"
+    }
+  },
+  {
+    "name": "suppliers.csv",
+    "kind": "suppliers",
+    "columns": {
+      "key": "Name",
+      "name": "Name"
+    },
+    "constants": {},
+    "archivedColumns": {
+      "Currency": "USD verified; no foreign-exchange conversion."
+    }
+  },
+  {
+    "name": "customers.csv",
+    "kind": "customers",
+    "columns": {
+      "key": "Name",
+      "name": "Name"
+    },
+    "constants": {}
+  },
+  {
+    "name": "open-purchases.csv",
+    "kind": "purchaseOrders",
+    "columns": {
+      "poKey": "PO #",
+      "supplierKey": "Supplier",
+      "itemKey": "SKU",
+      "quantity": "Quantity",
+      "price": "Cost",
+      "unit": "Unit",
+      "promiseDate": "Required By"
+    },
+    "constants": {},
+    "lineIdentity": "document-ordinal",
+    "quantityMeaning": "remaining",
+    "archivedColumns": {
+      "Currency": "USD verified. Export scope is wholly unreceived, remaining lines checked separately."
+    }
+  },
+  {
+    "name": "independent-controls.csv",
+    "kind": "controls",
+    "columns": {
+      "locationKey": "Bin identity",
+      "unit": "Base unit",
+      "quantity": "Units",
+      "value": "USD value"
+    },
+    "constants": {}
+  }
+]

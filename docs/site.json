@@ -55,12 +55,30 @@
           "label": "Books and reconciliation",
           "file": "docs/books.md",
           "summary": "Post to Pantry, bring payments back, review exceptions and export for your accountant."
+        },
+        {
+          "slug": "returns",
+          "label": "Scan a return",
+          "file": "docs/returns.md",
+          "summary": "Restock inspected returns, quarantine damaged units or write them off and post the credit to Pantry."
+        },
+        {
+          "slug": "item-agent",
+          "label": "Item checks and AI setup",
+          "file": "docs/item-agent.md",
+          "summary": "Check an item against saved stock, demand, receipts and sell-through, then review exact changes."
         }
       ]
     },
     {
       "title": "Move in and keep it safe",
       "pages": [
+        {
+          "slug": "move-in",
+          "label": "Switch inventory systems",
+          "file": "docs/move-in.md",
+          "summary": "Map Cin7 Core, inFlow or Fishbowl exports, compare independent bin totals and approve one reversible cutover."
+        },
         {
           "slug": "moving-in",
           "label": "Moving in from CSV",

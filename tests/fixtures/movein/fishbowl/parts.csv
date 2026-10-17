@@ -1,0 +1,3 @@
+PartNumber,PartDescription,UOM,UPC,PartType,POItemType
+CAP-B,Cap blue,ea,001012,Inventory,Purchase
+OIL,Machine oil,kg,001013,Inventory,Purchase

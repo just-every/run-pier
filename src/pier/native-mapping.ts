@@ -28,7 +28,9 @@ export function materialHash(c: Context) {
     locations: c.s.locations,
     parties: c.s.parties,
     supplierItems: c.s.supplierItems,
-    orders: c.s.orders,
+    // Payment/credit readback is derived bookkeeping, not a cutover input.
+    // Keep document versions, lines and reservations in the exact stock guard.
+    orders: c.s.orders.map(({ books, ...order }) => order),
     purchaseOrders: c.s.purchaseOrders,
     movements: c.s.movements,
     reservations: c.s.reservations,

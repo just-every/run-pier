@@ -18,6 +18,9 @@ import { booksExport } from "./books/export";
 import { nativeExport } from "./native-export";
 import { catalogue } from "./catalogue";
 import { orders, orderView } from "./orders";
+import { returns } from "./returns";
+import { returnLookup } from "./returns-lookup";
+import { itemAgent, explainItem } from "./item-agent";
 import { purchasing } from "./purchasing";
 import { replenishment, forecast, draftReplenishment } from './replenishment';
 import { backorderDates } from './backorders';
@@ -129,6 +132,7 @@ export async function execute(
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, automationActors: await activeAutomationActors(env.DB) };
     await approver(env, c, type, payload);
     let result: any = await books(c, type, payload, env);
+    if (result === undefined) result = await itemAgent(c, type, payload, env);
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
@@ -136,6 +140,7 @@ export async function execute(
       pricing,
       costing,
       orders,
+      returns,
       purchasing,
       purchasingWorkflow,
       replenishment,
@@ -168,7 +173,7 @@ export async function execute(
     }
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
-      if (!backgroundPolicy) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
+      if (!backgroundPolicy && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
     }
     refreshPromises(c);
     markChannelPending(c, before);
@@ -235,6 +240,8 @@ export async function pierResponse(
       }
       if (url.pathname === "/api/pier/native-export")
         return json(nativeExport(s));
+      if (url.pathname === "/api/pier/returns/lookup")
+        return json(returnLookup(s, url.searchParams.get("code")));
       if (url.pathname === "/api/pier/reports") return json(reports(s, url.searchParams));
       if (url.pathname === "/api/pier/dispatch-summary")
         return json(
@@ -372,6 +379,8 @@ export async function pierResponse(
           "Native owners retain owner authority. Assign agent roles only to native members.",
         );
     }
+    if (["itemAgent.begin", "itemAgent.complete", "itemAgent.failed"].includes(type)) fail("AI_INTERNAL", "Pier records AI request outcomes itself.");
+    if (type === "itemAgent.explain") return json(await explainItem(env, actor, commandId, payload, execute));
     if (["book.plan","book.begin","book.record","book.checked","book.reconcile"].includes(type)) fail("BOOK_INTERNAL","Pier records books traffic itself.");
     if (type === "book.sync") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can sync the books.",null,403);

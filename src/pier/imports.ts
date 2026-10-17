@@ -1,3 +1,5 @@
+import { parseCSV } from "./import-csv";
+import { incumbentSource } from "./import-incumbent";
 import {
   decimal,
   format,
@@ -23,7 +25,7 @@ import {
 } from "./native-dependencies";
 import { checkImportCapacity, checkImportRecord } from "./native-capacity";
 import { sha256, canonicalJson, type SourceBundle } from "./import-kit";
-const headers: Record<string, string[]> = {
+export const headers: Record<string, string[]> = {
   items: ["key", "sku", "name", "barcode", "unit", "packSize"],
   locations: ["key", "name", "warehouse", "kind"],
   parties: ["key", "name", "kind"],
@@ -57,48 +59,7 @@ const headers: Record<string, string[]> = {
   ],
   reservations: ["key", "orderLineKey", "locationKey", "quantity", "unit"],
 };
-export function parseCSV(input: string) {
-  const rows: string[][] = [];
-  let row: string[] = [],
-    cell = "",
-    quoted = false,
-    closed = false;
-  // A leading UTF-8 BOM is encoding metadata; sourceFor retains its bytes.
-  for (let n = input.startsWith("\uFEFF") ? 1 : 0; n < input.length; n++) {
-    const ch = input[n];
-    if (ch === '"') {
-      if (quoted && input[n + 1] === '"') {
-        cell += '"';
-        n++;
-      } else if (!quoted && (cell !== "" || closed))
-        fail("CSV", "Unexpected quote in unquoted field.");
-      else {
-        closed = quoted;
-        quoted = !quoted;
-      }
-    } else if (closed && ch !== "," && ch !== "\n" && ch !== "\r") {
-      fail(
-        "CSV",
-        "Only a separator or line ending may follow a closing quote.",
-      );
-    } else if (ch === "," && !quoted) {
-      row.push(cell);
-      cell = "";
-      closed = false;
-    } else if ((ch === "\n" || ch === "\r") && !quoted) {
-      if (ch === "\r" && input[n + 1] === "\n") n++;
-      row.push(cell);
-      if (row.some(Boolean)) rows.push(row);
-      row = [];
-      cell = "";
-      closed = false;
-    } else cell += ch;
-  }
-  if (quoted) fail("CSV", "Unclosed quoted CSV field.");
-  row.push(cell);
-  if (row.some(Boolean)) rows.push(row);
-  return rows;
-}
+export { parseCSV } from "./import-csv";
 export function sourceFor(p: any): SourceBundle {
   if (!Array.isArray(p.files) || !p.files.length || p.files.length > 20)
     fail("FILES", "Supply 1–20 UTF-8 native CSV files.");
@@ -229,11 +190,19 @@ function preview(c: Context, b: Row) {
     b.materialHash = sha256(materialHash(c));
     checkImportCapacity(c, scratch, b);
   } catch (e) {
+    const detail = (e as any).details;
+    const field = ({ items: "itemKey", locations: "locationKey", parties: "supplierKey" } as Record<string, string>)[detail?.kind];
+    const offending = detail?.key ? b.source.records.find((r: any) =>
+      (r.kind === detail.kind && r.sourceId === detail.key) ||
+      (field && r.payload[field] === detail.key) ||
+      (detail.kind === "parties" && r.payload.customerKey === detail.key),
+    ) : undefined;
     b.errors.push({
       severity: "error",
       code: (e as any).code ?? "IMPORT",
       message: (e as Error).message,
-      details: (e as any).details,
+      details: detail,
+      ...(offending ? { sourceId: offending.sourceId, location: offending.location } : {}),
     });
   }
   b.materialHash = sha256(materialHash(c));
@@ -244,7 +213,8 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
   if (!type.startsWith("import.")) return;
   requireRole(c, []);
   if (type === "import.stage") {
-    if (p.currency !== "AUD") fail("CURRENCY", "Phase one uses AUD.");
+    if (p.provider ? p.currency !== "USD" : p.currency !== "AUD")
+      fail("CURRENCY", p.provider ? "Incumbent move-in uses explicit USD costs." : "Native CSV uses AUD.");
     text(p.sourceVersion);
     text(p.exportedAt);
     text(p.cutoffTimezone);
@@ -254,7 +224,8 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
     } catch {
       fail("TIMEZONE", "Provide a valid IANA cutoff timezone.");
     }
-    const source = sourceFor(p);
+    const prepared = p.provider ? incumbentSource(p) : undefined;
+    const source = prepared?.source ?? sourceFor(p);
     const b = row(c, "imports", {
       namespace: text(p.namespace),
       sourceVersion: p.sourceVersion,
@@ -263,6 +234,7 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
       cutoffTimezone: p.cutoffTimezone,
       currency: p.currency,
       mappingRevision: p.mappingRevision,
+      ...(prepared ? { moveIn: prepared.review, provider: p.provider } : {}),
       source,
       reservationPlan: p.files.some(
         (file: any) => file.kind === "reservations",

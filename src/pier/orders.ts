@@ -189,36 +189,9 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     return shipment;
   }
   if (type === "return.create") {
-    const sh = get(c.s, "shipments", p.shipmentId),
-      line = sh.lines.find((l: any) => l.id === p.shipmentLineId);
-    if (!line) fail("LINE", "Return must reference an actual dispatch line.");
-    const q = decimal(p.quantity, true),
-      returned = c.s.returns
-        .filter((r) => r.shipmentLineId === line.id)
-        .reduce((n, r) => n + decimal(r.quantity), 0n);
-    if (returned + q > decimal(line.quantity))
-      fail("RETURN_LIMIT", "Cumulative return exceeds dispatched quantity.");
-    if (get(c.s, "locations", p.locationId).kind !== "bin")
-      fail("BIN", "Returns require a warehouse bin.");
-    const r = row(c, "returns", {
-      shipmentId: sh.id,
-      shipmentLineId: line.id,
-      itemId: line.itemId,
-      locationId: p.locationId,
-      quantity: format(q),
-      reason: text(p.reason),
-      status: "quarantine",
-    });
-    move(c, {
-      itemId: r.itemId,
-      locationId: r.locationId,
-      status: "quarantine",
-      quantity: q.toString(),
-      reason: r.reason,
-      documentId: r.id,
-    });
-    return r;
+    return createReturn(c, p);
   }
+
   const r = get(c.s, "returns", p.returnId);
   if (r.version !== p.version) fail("STALE", "Return version changed.");
   if (r.status !== "quarantine")
@@ -248,4 +221,37 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   r.status = "restocked";
   r.version++;
   return r;
+}
+
+/** Physical intake shared by legacy returns and the scan bench; callers enforce authority. */
+export function createReturn(c: Context, p: any): Row {
+    const sh = get(c.s, "shipments", p.shipmentId),
+      line = sh.lines.find((l: any) => l.id === p.shipmentLineId);
+    if (!line) fail("LINE", "Return must reference an actual dispatch line.");
+    const q = decimal(p.quantity, true),
+      returned = c.s.returns
+        .filter((r) => r.shipmentLineId === line.id)
+        .reduce((n, r) => n + decimal(r.quantity), 0n);
+    if (returned + q > decimal(line.quantity))
+      fail("RETURN_LIMIT", "Cumulative return exceeds dispatched quantity.");
+    if (get(c.s, "locations", p.locationId).kind !== "bin")
+      fail("BIN", "Returns require a warehouse bin.");
+    const r = row(c, "returns", {
+      shipmentId: sh.id,
+      shipmentLineId: line.id,
+      itemId: line.itemId,
+      locationId: p.locationId,
+      quantity: format(q),
+      reason: text(p.reason),
+      status: "quarantine",
+    });
+    move(c, {
+      itemId: r.itemId,
+      locationId: r.locationId,
+      status: "quarantine",
+      quantity: q.toString(),
+      reason: r.reason,
+      documentId: r.id,
+    });
+    return r;
 }
