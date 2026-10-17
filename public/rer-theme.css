@@ -44,5 +44,5 @@
 }
 
 /* The lockup: the boat mark beside "Pier" in Pier Display, on the Lobby, sign-in and setup. */
-.lockup .word, .bar .brand span, .rer-brand, .rer-themed .brand { font-family: 'Pier Display', Impact, sans-serif; font-weight: 400; letter-spacing: .005em; }
-.rer-brand, .rer-themed .brand { font-size: 28px; }
+.lockup .word, .bar .brand span, html.rer-themed .rer-brand, html.rer-themed .brand { font-family: 'Pier Display', Impact, sans-serif; font-weight: 400; letter-spacing: .005em; }
+html.rer-themed .rer-brand, html.rer-themed .brand { font-size: 26px; }
