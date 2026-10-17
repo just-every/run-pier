@@ -15,6 +15,7 @@ import {
   type Row,
 } from "./model";
 import { warehouse } from "./warehouse";
+import { landReceipt } from "./landed-cost";
 function lines(c: Context, p: any) {
   if (!Array.isArray(p.lines) || !p.lines.length)
     fail("LINES", "Add purchase lines.");
@@ -119,6 +120,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
     return po;
   }
   if (type === "receipt.create") {
+    if (p.currency !== undefined && p.currency !== 'USD') fail('CURRENCY', 'Receipts require reviewed USD costs. Foreign-currency conversion is not available yet.');
     const po = get(c.s, "purchaseOrders", p.poId);
     if (po.status !== "committed")
       fail("PO_STATE", "Receipts require a committed purchase order.");
@@ -164,7 +166,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       l.received = format(decimal(l.received) + q);
     }
     po.version++;
-    return receipt;
+    return landReceipt(receipt, p.landedCost);
   }
   const receipt = get(c.s, "receipts", p.receiptId);
   if (type === "receipt.correct") {

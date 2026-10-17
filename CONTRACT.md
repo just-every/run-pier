@@ -511,7 +511,7 @@ People ask operational questions against permission-scoped live records: why sto
 
 ## Homepage claims
 
-Every capability claim on the approved homepage (`src/site/landing/`, checked against br’s claims truth table of 17 October 2026, rows 1–55 in page order) maps to the clauses that promise it. A claim’s status is `done` when every mapped clause is done, `missing` when every one is missing, and `partial` otherwise. The closing section restates claims 1, 2, 5, 10 and 29, and its “Run Pier”, “Try the demo” and “Read the docs” actions are links, not capability claims. 55 claims: 3 done, 42 partial, 10 missing.
+Every capability claim on the approved homepage (`src/site/landing/`, checked against br’s claims truth table of 17 October 2026, rows 1–55 in page order) maps to the clauses that promise it. A claim’s status is `done` when every mapped clause is done, `missing` when every one is missing, and `partial` otherwise. The closing section restates claims 1, 2, 5, 10 and 29, and its “Run Pier”, “Try the demo” and “Read the docs” actions are links, not capability claims. 55 claims: 3 done, 44 partial, 8 missing.
 
 | # | Claim | Clause(s) | Status |
 | --- | --- | --- | --- |
@@ -567,13 +567,15 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 | 50 | "FIFO or average cost. Valuation your accountant will recognize." | COST-001, REPORT-002 | partial |
 | 51 | "Transfers. Move stock between warehouses with a full trail." | PIER-008, PIER-012 | done |
 | 52 | "Returns. Back on the shelf or written off in one scan." | PIER-010, WMS-001, COST-001 | partial |
-| 53 | "Dead stock. Slow movers flagged before they cost you." | REPORT-002, AUTO-001 | missing |
-| 54 | "Margin by SKU. Profit by item, channel and customer." | REPORT-002 | missing |
+| 53 | "Dead stock. Slow movers flagged before they cost you." | REPORT-002, AUTO-001 | partial |
+| 54 | "Margin by SKU. Profit by item, channel and customer." | REPORT-002 | partial |
 | 55 | "Activity log. Every scan, edit and sync, recorded." | AUDIT-001, PIER-012 | partial |
 
 ## Status
 
 Judged from the code and tests at commit `1c0f1c674f4227a2ed79476be5e3ef3d29f7b92c` (17 October 2026).
+
+Updated 17 October 2026 for native pricing, landed receipts, FIFO/moving-average costing and operational reports. `tests/api/costing.test.mjs` exercises the new receipt-to-sale flow and exact expected reconciliation. Sales, Purchasing and Reports are exercised locally and on a temporary RunEditRun deployment at 1440px and 390px; screenshot paths are reported by the costing lane. This does not promote the broader accounting, alerting or migration clauses to done.
 
 The earlier statuses were judged at `fe37107650b9a328b4e92945784039f255086b97`, the commit of the 16 October inventory code audit. Between it and the commit above, `src/pier` and the API tests did not change; `src/ui` and the browser journey changed only in display (USD labels, US date and time formats, the header mark) and the run site was added, so every earlier status stands. Revised 17 October 2026 so every capability claim on the approved homepage has a clause (see [Homepage claims](#homepage-claims)): STOCK-001, WMS-003 and OPEN-001 were added and judged from the commit above, and SCAN-001, WMS-001, SALES-003, CHANNEL-001, EDI-001, SHIP-001, AUTO-001, AUDIT-001 and OPS-001 were sharpened without changing their statuses.
 
@@ -582,11 +584,11 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 12 | 0 | 0 | 12 |
-| Target | 2 | 26 | 27 | 55 |
+| Target | 2 | 28 | 25 | 55 |
 | Push further | 1 | 5 | 0 | 6 |
-| All | 15 | 31 | 27 | 73 |
+| All | 15 | 33 | 25 | 73 |
 
-**73 clauses: 15 done, 31 partial, 27 missing.**
+**73 clauses: 15 done, 33 partial, 25 missing.**
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -612,7 +614,7 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | WMS-002 | Directed replenishment and slotting | target | missing |  | No directed put-away, replenishment task or slotting planner exists. |
 | WMS-003 | Daily dispatch board and carrier cut-offs | target | missing |  | No dispatch board, carrier cut-off, day-close record or picked/packed state exists; dispatch.create in src/pier/orders.ts posts shipments only. |
 | COUNT-001 | Full-warehouse stocktake | target | partial | `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (11) | Per-bin captured-frontier counts and approved adjustments only; location-wide scope, freeze, blind count tasks and the uncounted-position rule absent |
-| SALES-001 | Quote, price and convert orders | target | missing |  | No quotes, price lists or volume-discount model exists. |
+| SALES-001 | Quote, price and convert orders | target | partial | `src/pier/pricing.ts`; `src/pier/orders.ts`; `tests/api/costing.test.mjs` | USD prices and exact totals on orders, versioned customer quantity tiers and validity dates are implemented. Quotes, authorized discounts, tax, emailing and reviewed customer-file import remain. |
 | SALES-002 | Customer history, credit and financial returns | target | partial | `src/pier/catalogue.ts`; `src/pier/orders.ts`; `tests/api/flows.test.mjs` (10) | Customer-linked orders/physical returns only; credit and balances absent |
 | SALES-003 | Available-to-promise and fulfilment routing | target | partial | `src/pier/orders.ts`; `src/pier/proposals.ts`; `tests/api/flows.test.mjs` (04, 09) | Bin allocation/backorders and reviewed reallocation only; backordered lines carry no computed expected fill date |
 | SALES-004 | Recurring and dropship orders | target | missing |  | No recurring-order or dropship workflow exists. |
@@ -626,9 +628,9 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | BUY-003 | Supplier returns and purchase credits | target | partial | `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (06, 07) | Partial receipts and corrections, no supplier-return documents |
 | BUY-004 | Three-way matching and supplier performance | target | partial | `src/pier/purchasing.ts` | PO-linked receipt/cost records only; invoice/BOL matching and scorecards absent |
 | BUY-005 | Reorder-point list and suggested quantities | target | partial | `src/pier/proposals.ts`; `src/pier/purchasing.ts` | `reorder()` nets open order demand against company-wide sellable on-hand and committed PO remainders and attaches supplier terms; `src/pier/purchasing.ts` enforces the supplier minimum on PO lines. No reorder points, per-location trigger, reorder quantity/maximum rule, case-pack rounding, transfer or backorder netting by location, or one-action reorder list exists, and no test exercises `reorder()`. |
-| COST-001 | USD valuation, landed cost and cost of goods | target | partial | `src/pier/model.ts`; `src/pier/purchasing.ts`; `src/pier/native-export.ts` | Exact receipt costs only; current AUD defaults and lack of valuation/landed cost remain gaps |
-| REPORT-001 | Operational reports and saved analysis | target | partial | `src/ui/activity.tsx`; `src/pier/native-export.ts` | Position/document/cost views and export only; valuation and saved/scheduled reports absent |
-| REPORT-002 | Report definitions, as-of dates and independent reconciliation | target | missing |  | No defined valuation, aging, dead-stock, low-stock, turnover or overdue computation and no as-of reconstruction exists. |
+| COST-001 | USD valuation, landed cost and cost of goods | target | partial | `src/pier/landed-cost.ts`; `src/pier/valuation-ledger.ts`; `src/pier/costing.ts`; `tests/api/costing.test.mjs` | USD receipt freight/duty allocation by value or quantity, FIFO/moving average, prospective dated owner method changes, shipment COGS, transfer/return costs and operational reconciliation are implemented. AUD native openings stay explicitly unvalued in USD; FX, late bills, weight allocation, reason-code write-offs and ledger/period controls remain. |
+| REPORT-001 | Operational reports and saved analysis | target | partial | `src/pier/reports.ts`; `src/ui/reports.tsx`; `tests/api/costing.test.mjs` | Valuation, shipment margin by SKU/channel/customer, dead stock, UTC date filters, source links and exact CSV exports are implemented. Saved/scheduled analysis, full report catalogue, scoped permissions and capacity measurement remain. |
+| REPORT-002 | Report definitions, as-of dates and independent reconciliation | target | partial | `src/pier/reports.ts`; `src/pier/valuation-ledger.ts`; `tests/api/costing.test.mjs` | UTC as-of native valuation and operational receipt/return/adjustment/COGS reconciliation, shipment margin and N-day SKU/bin dead stock are implemented. Margin excludes tax and financial credits; imported history, kits, ledger/closed-period reconciliation, aging, turnover and other target reports remain. |
 | CHANNEL-001 | Connected channel orders and stock | target | missing |  | No Stall, Faire, Shopify, WooCommerce, BigCommerce, Amazon, eBay or Etsy connector exists. |
 | CHANNEL-002 | Channel order money: tax as charged, payments, clearing accounts and payouts | target | missing |  | No channel tax/payment mapping, clearing account, channel refund or payout reconciliation exists. |
 | EDI-001 | Retail EDI trading partners | target | missing |  | No retail EDI documents, mapping or transport adapter exists. |

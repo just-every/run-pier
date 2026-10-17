@@ -1,6 +1,7 @@
 import { Children, cloneElement, isValidElement, useState, type ReactElement, type ReactNode, type FormEvent } from 'react'
 import { type RecordData } from './api'
 import { fromMillionths } from './quantity'
+import { money } from './display'
 
 // `display` is the visible label when it needs markup (an item's unbroken SKU); `label` stays its accessible name.
 export function Field({ label, display, name, value, onChange, required = true, type = 'text', hint, ...props }: { label: string; display?: ReactNode; name?: string; value?: string; onChange?: (value: string) => void; required?: boolean; type?: string; hint?: string; [key: string]: any }) {
@@ -29,10 +30,10 @@ export function Table({ headings, children, numeric = [], className = '' }: { he
 }
 // Up to four facts read across one row; a longer record reads as label/value pairs.
 export function Facts({ values }: { values: { label: string; value: ReactNode }[] }) { return <dl className={values.length > 4 ? 'facts facts-list' : 'facts'}>{values.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value ?? '—'}</dd></div>)}</dl> }
-export function Lines({ items, price = false, onChange }: { items: RecordData[]; price?: boolean; onChange: (lines: { itemId: string; quantity: string; price?: string }[]) => void }) {
+export function Lines({ items, price = false, optionalPrice = false, onChange }: { items: RecordData[]; price?: boolean; optionalPrice?: boolean; onChange: (lines: { itemId: string; quantity: string; price?: string }[]) => void }) {
   const [lines, setLines] = useState([{ itemId: '', quantity: '', price: '' }])
   function update(index: number, key: string, value: string) { const next = lines.map((line, i) => i === index ? { ...line, [key]: value } : line); setLines(next); onChange(next) }
-  return <div className="line-editor">{lines.map((line, i) => <div className="line-row" key={i}><Select label={`Item ${i + 1}`} rows={items} value={line.itemId} onChange={value => update(i, 'itemId', value)} /><Field label="Quantity (base units)" value={line.quantity} onChange={value => update(i, 'quantity', value)} inputMode="decimal" />{price && <Field label="Unit price (USD)" value={line.price} onChange={value => update(i, 'price', value)} inputMode="decimal" />}<button type="button" disabled={lines.length === 1} onClick={() => { const next = lines.filter((_, n) => n !== i); setLines(next); onChange(next) }}>Remove</button></div>)}<button type="button" onClick={() => { const next = [...lines, { itemId: '', quantity: '', price: '' }]; setLines(next); onChange(next) }}>+ Add line</button></div>
+  return <div className="line-editor">{lines.map((line, i) => <div className="line-row" key={i}><Select label={`Item ${i + 1}`} rows={items} value={line.itemId} onChange={value => update(i, 'itemId', value)} /><Field label="Quantity (base units)" value={line.quantity} onChange={value => update(i, 'quantity', value)} inputMode="decimal" />{price && <Field label="Unit price (USD)" required={!optionalPrice} hint={optionalPrice ? 'Blank applies the customer price list; no matching price stays unpriced.' : undefined} value={line.price} onChange={value => update(i, 'price', value)} inputMode="decimal" />}<button type="button" disabled={lines.length === 1} onClick={() => { const next = lines.filter((_, n) => n !== i); setLines(next); onChange(next) }}>Remove</button></div>)}<button type="button" onClick={() => { const next = [...lines, { itemId: '', quantity: '', price: '' }]; setLines(next); onChange(next) }}>+ Add line</button></div>
 }
 export function Evidence({ value }: { value: unknown }) {
   if (value === null || value === undefined) return null
@@ -43,4 +44,9 @@ export function Evidence({ value }: { value: unknown }) {
     return <dl className="evidence">{Object.entries(row).map(([key, entry]) => <div key={key}><dt>{key === 'quantity' && rawQuantity ? 'quantity (base units)' : key.replace(/([A-Z])/g, ' $1')}</dt><dd><Evidence value={key === 'quantity' && rawQuantity && typeof entry === 'string' ? fromMillionths(entry) : entry} /></dd></div>)}</dl>
   }
   return <span>{String(value)}</span>
+}
+
+/** Unknown financial values stay visible; the tooltip preserves the exact saved decimal. */
+export function Amount({ value, unknown = 'Unvalued' }: { value: unknown; unknown?: string }) {
+  return value === null || value === undefined ? <span>{unknown}</span> : <span title={`${String(value)} USD`}>{money(value)}</span>
 }

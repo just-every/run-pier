@@ -15,6 +15,8 @@ import {
   type Context,
   type Row,
 } from "./model";
+import { orderPrice } from "./pricing";
+import { money } from "./money";
 export function reserve(c: Context, o: Row) {
   for (const l of o.lines) {
     let need =
@@ -77,21 +79,43 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     return;
   requireRole(c, type.startsWith("order.") ? ["operator"] : ["warehouse"]);
   if (type === "order.create") {
+    if (p.currency !== undefined && p.currency !== 'USD') fail('CURRENCY', 'Sales orders use USD. Foreign-currency conversion is not available yet.');
     if (get(c.s, "parties", p.customerId).kind !== "customer")
       fail("CUSTOMER", "Choose a customer.");
     if (!Array.isArray(p.lines) || !p.lines.length)
       fail("LINES", "Add at least one order line.");
+    if (p.currency !== undefined && p.currency !== "USD")
+      fail("CURRENCY", "Sales orders use USD.");
+    const lines = p.lines.map((l: any) => {
+      const i = item(c.s, l.itemId),
+        quantity = decimal(l.quantity, true);
+      return {
+        id: id(),
+        itemId: i.id,
+        quantity: format(quantity),
+        dispatched: "0",
+        cancelled: "0",
+        ...orderPrice(c, p.customerId, i.id, quantity, l.price),
+      };
+    });
+    const priced = lines.every((l: any) => l.price !== null);
     const o = row(c, "orders", {
       reference: nextReference(c.s.orders, "SO"),
       customerId: p.customerId,
       promiseDate: p.promiseDate ?? null,
-      lines: p.lines.map((l: any) => ({
-        id: id(),
-        itemId: item(c.s, l.itemId).id,
-        quantity: format(decimal(l.quantity, true)),
-        dispatched: "0",
-        cancelled: "0",
-      })),
+      channel: text(p.channel ?? "manual", "Order channel"),
+      currency: "USD",
+      pricingStatus: priced ? "priced" : "unpriced",
+      total: priced
+        ? money(
+            lines.reduce(
+              (sum: bigint, l: any) =>
+                sum + decimal(l.quantity) * decimal(l.price),
+              0n,
+            ),
+          )
+        : null,
+      lines,
     });
     reserve(c, o);
     return orderView(c, o);

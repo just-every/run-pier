@@ -1,6 +1,6 @@
 # Pier operations
 
-Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.38 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. The source graph records Base `1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74` (tag `rer-v0.2.22`) separately from the CLI package version. There is no checkout-local copy of the RER CLI.
+Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.40 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. The source graph records Base `1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74` (tag `rer-v0.2.22`) separately from the CLI package version. There is no checkout-local copy of the RER CLI.
 
 ## Local start
 

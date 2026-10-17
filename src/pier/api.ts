@@ -12,6 +12,9 @@ import { nativeExport } from "./native-export";
 import { catalogue } from "./catalogue";
 import { orders, orderView } from "./orders";
 import { purchasing } from "./purchasing";
+import { pricing } from "./pricing";
+import { costing } from "./costing";
+import { reports } from "./reports";
 import { warehouse, countView } from "./warehouse";
 import { imports } from "./imports";
 import { proposals, reorder } from "./proposals";
@@ -113,6 +116,8 @@ export async function execute(
     let result: any;
     for (const handle of [
       catalogue,
+      pricing,
+      costing,
       orders,
       purchasing,
       warehouse,
@@ -188,6 +193,7 @@ export async function pierResponse(
         );
       if (url.pathname === "/api/pier/native-export")
         return json(nativeExport(s));
+      if (url.pathname === "/api/pier/reports") return json(reports(s, url.searchParams));
       if (url.pathname === "/api/pier/export") {
         const audit = await env.DB.batch([
           env.DB.prepare(
@@ -202,7 +208,7 @@ export async function pierResponse(
         ]);
         return json({
           format: "pier-business-v1",
-          currency: "AUD",
+          currency: "USD",
           precision: 6,
           exportedAt: new Date().toISOString(),
           ...s,

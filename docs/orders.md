@@ -4,7 +4,7 @@ Every change to stock in Pier is a movement with a source document, the person w
 
 ## Take an order
 
-In **Sales orders**, use **New sales order**: choose the customer, an optional promise date and the lines. **Create and reserve available stock** reserves what is available straight away. Anything that is not available is shown as backorder; Pier never reserves the same unit twice or lets sellable stock go negative.
+In **Sales orders**, use **New sales order**: choose the customer, channel, optional promise date and the lines. Enter a USD unit price, or leave it blank to use the customer’s valid price tier. **Customer pricing** sets each item’s price, minimum quantity and optional validity dates. The order keeps its original price and exact total when that list changes. A line without a price is shown as unpriced. **Create and reserve available stock** reserves what is available straight away. Anything that is not available is shown as backorder; Pier never reserves the same unit twice or lets sellable stock go negative.
 
 When more stock arrives, open the order and choose **Reserve newly available stock**.
 

@@ -72,6 +72,8 @@ export const collections = [
   "proposals",
   "imports",
   "roles",
+  "priceLists",
+  "costingMethods",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {
