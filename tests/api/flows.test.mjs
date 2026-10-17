@@ -49,7 +49,7 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         exportedAt: "2026-10-13T00:00:00Z",
         filters: "all",
         cutoffTimezone: "Australia/Brisbane",
-        currency: "AUD",
+        currency: "USD",
         mappingRevision: "1",
         files: [
           {
@@ -91,7 +91,7 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         exportedAt: "2026-10-13T00:00:00Z",
         filters: "all",
         cutoffTimezone: "Australia/Brisbane",
-        currency: "AUD",
+        currency: "USD",
         mappingRevision: "1",
         files: batch.source.artifacts.map((a, i) => ({
           name: a.name,
@@ -406,7 +406,7 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         exportedAt: "2026-10-13T00:00:00Z",
         filters: "corrected row",
         cutoffTimezone: "Australia/Brisbane",
-        currency: "AUD",
+        currency: "USD",
         mappingRevision: "1",
         files: [
           {

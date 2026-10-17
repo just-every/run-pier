@@ -21,15 +21,29 @@ export function amount(value: string): bigint {
 }
 export const extended = (quantity: string, price: string) => decimal(quantity) * decimal(price);
 
-// Cumulative allocation gives every last fractional dollar to a named line.
+export const CENT = 10000000000n;
+const wholeCents = (value: bigint) => value % CENT === 0n;
+/** Round a twelve-place amount to the nearest cent, halves away from zero. */
+export function toCents(value: bigint): bigint {
+  const sign = value < 0n ? -1n : 1n, n = value * sign;
+  return sign * ((n + CENT / 2n) / CENT) * CENT;
+}
+/** The part/whole share of a value. Whole-cent values stay whole cents; a
+ * cumulative caller (share of a running total minus the prior share) gives the
+ * last part the remainder, so parts always sum exactly to the value. */
+export function share(value: bigint, part: bigint, whole: bigint): bigint {
+  if (part === whole) return value;
+  return wholeCents(value) ? toCents(value * part / whole) : value * part / whole;
+}
+/** Split a total by weights with the largest-remainder method. A whole-cent
+ * total splits into whole cents; every part sums exactly to the total. */
 export function allocate(total: bigint, weights: bigint[]): bigint[] {
   const sum = weights.reduce((a, b) => a + b, 0n);
-  let cumulative = 0n, assigned = 0n;
-  return weights.map(weight => {
-    cumulative += weight;
-    const next = sum ? total * cumulative / sum : 0n;
-    const share = next - assigned;
-    assigned = next;
-    return share;
-  });
+  if (!sum) return weights.map(() => 0n);
+  const sign = total < 0n ? -1n : 1n, unit = wholeCents(total) ? CENT : 1n, units = total * sign / unit;
+  const parts = weights.map(weight => units * weight / sum);
+  let left = units - parts.reduce((a, b) => a + b, 0n);
+  const order = weights.map((weight, index) => ({ index, remainder: units * weight % sum })).sort((a, b) => a.remainder === b.remainder ? a.index - b.index : a.remainder > b.remainder ? -1 : 1);
+  for (const { index } of order) { if (left <= 0n) break; parts[index] += 1n; left -= 1n; }
+  return parts.map(part => part * unit * sign);
 }

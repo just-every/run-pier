@@ -96,6 +96,7 @@ export const collections = [
   "ediOrders",
   "ediDocuments",
   "ediLabelEvents",
+  "businessProfile",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {

@@ -7,6 +7,7 @@ type Props = { state: PierState; run: RunCommand; busy: boolean };
 type ForecastRow = { itemId: string; warehouse: string; [key: string]: any };
 const canBuy = (state: PierState) => ['buyer', 'owner'].includes(state.actor.role);
 
+const decimalZero = (value: unknown) => !/[1-9]/.test(String(value ?? '0'))
 export function Replenishment({ state, run, busy }: Props) {
   const rows: ForecastRow[] = state.forecasts ?? [];
   const [selected, setSelected] = useState('');
@@ -19,10 +20,10 @@ export function Replenishment({ state, run, busy }: Props) {
         {rows.map(row => <tr key={JSON.stringify([row.itemId, row.warehouse])}>
           <td><ItemName state={state} id={row.itemId} /><small>{row.warehouse}</small>{row.autoDraft && <Badge>Automatic drafts enabled</Badge>}</td>
           <td>{row.soldPerDay} {unit(state, row.itemId)}<small>{row.observedSold} shipped / {row.windowDays} days</small>{!row.hasHistory && <small>No shipments in this window</small>}</td>
-          <td>{row.daysOfCover === null ? 'No sales rate' : `${row.daysOfCover} days`}<small>{row.projectedStockoutDate ? `Projected stockout ${day(row.projectedStockoutDate)}` : 'No stockout date projected'}</small></td>
+          <td>{row.daysOfCover === null ? 'No sales rate' : `${Math.round(Number(row.daysOfCover) * 10) / 10} days`}<small>{row.projectedStockoutDate ? `Projected stockout ${day(row.projectedStockoutDate)}` : 'No stockout date projected'}</small></td>
           <td>{row.position} {unit(state, row.itemId)}<small>On hand {row.onHand} − demand {row.openDemand}</small><small>+ purchases {row.onOrder} + transit {row.inboundTransfers} − outbound {row.outboundTransfers}</small></td>
           <td>{row.configured ? <><Badge>{row.low ? 'At or below point' : 'Above point'}</Badge><small>Point {row.applied.reorderPoint}; {row.applied.method === 'upTo' ? `maximum ${row.applied.maximum}` : `fixed ${row.applied.reorderQuantity}`}</small></> : 'Awaiting buyer parameters'}</td>
-          <td>{row.suggestedQuantity} {unit(state, row.itemId)}<small>Expected landed USD <Amount value={row.expectedLandedCost} unknown="No supplier price" /></small>{row.drafts.map((draft: any) => <small key={draft.poId}><a href={`#purchasing/${draft.poId}`}>{draft.reference}</a> · {draft.quantity} covered by draft</small>)}</td>
+          <td>{row.suggestedQuantity} {unit(state, row.itemId)}<small>Expected landed USD <Amount value={row.expectedLandedCost} unknown={decimalZero(row.suggestedQuantity) ? "None to buy yet" : "No supplier price"} /></small>{row.drafts.map((draft: any) => <small key={draft.poId}><a href={`#purchasing/${draft.poId}`}>{draft.reference}</a> · {draft.quantity} covered by draft</small>)}</td>
           <td><button onClick={() => setSelected(JSON.stringify([row.itemId, row.warehouse]))}>Review policy</button></td>
         </tr>)}
       </Table>}

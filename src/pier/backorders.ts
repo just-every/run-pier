@@ -21,7 +21,7 @@ export function backorderDates(c: Context) {
       let need = decimal(line.quantity) - decimal(line.dispatched) - decimal(line.cancelled) - reserved;
       const backorder = need;
       let expectedDate: string | null = null, estimated = false;
-      const sources: { poId: string; quantity: string; date: string; confirmed: boolean }[] = [];
+      const sources: { poId: string | null; quantity: string; date: string | null; confirmed: boolean; basis: string }[] = [];
       for (const inbound of supply) {
         if (need <= 0n) break;
         if (inbound.itemId !== line.itemId || (warehouse && inbound.warehouse && inbound.warehouse !== warehouse)) continue;
@@ -30,13 +30,16 @@ export function backorderDates(c: Context) {
         inbound.remaining -= used; need -= used;
         const date = inbound.date < today ? today : inbound.date;
         expectedDate = latest(expectedDate, date); estimated ||= !inbound.confirmed;
-        sources.push({ poId: inbound.poId, quantity: format(used), date, confirmed: inbound.confirmed });
+        sources.push({ poId: inbound.poId, quantity: format(used), date, confirmed: inbound.confirmed, basis: inbound.confirmed ? 'supplier confirmed' : 'PO date from supplier lead time' });
       }
       if (need > 0n) {
         const policy = c.s.replenishmentPolicies.find(p => p.itemId === line.itemId && p.warehouse === warehouse);
         const terms = c.s.supplierItems.find(t => t.itemId === line.itemId && (!policy || t.supplierId === policy.supplierId));
-        expectedDate = latest(expectedDate, terms ? afterDays(c.now, policy?.leadDays ?? terms.leadDays) : null);
+        const date = terms ? afterDays(c.now, policy?.leadDays ?? terms.leadDays) : null;
+        expectedDate = latest(expectedDate, date);
         estimated = true;
+        // The part no purchase order covers is shown with its own quantity and basis.
+        sources.push({ poId: null, quantity: format(need), date, confirmed: false, basis: date ? 'not on a purchase order yet; supplier lead time' : 'not on a purchase order and no supplier lead time' });
       }
       return { orderLineId: line.id, itemId: line.itemId, backorder: format(backorder), expectedDate,
         estimated, uncovered: format(need), sources,

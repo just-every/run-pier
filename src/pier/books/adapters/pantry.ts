@@ -66,7 +66,11 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
         let target:any;
         if(doc.kind==='credit') {
           target=await invoice(doc.creditForReference!);
-          if(!target||target.kind!=='invoice'||target.status!=='issued')throw new PantryRefusal('Post the original dispatch invoice in Pantry before issuing its return credit.',409);
+          if(!target||target.kind!=='invoice'||target.status!=='issued'){
+            // Refused before anything was sent: the credit can be created later without doubt.
+            const waiting=new PantryRefusal('The original dispatch invoice is not posted in Pantry yet. Pier posts the credit once that invoice is posted.',409);
+            waiting.safeCreationRefusal=!r;throw waiting;
+          }
           if(r&&r.credit_for!==target.id)throw new PantryRefusal('The return credit is linked to a different invoice. Review it in Pantry.',409);
         }
         if(!r){const party=await client.contact(doc);r=await client.post('invoices',{kind:doc.kind,...(target?{creditFor:target.id}:{}),customerId:party.id,number:doc.reference,issueDate:doc.date,memo:doc.key,post:true,lines:doc.lines.map(l=>({description:l.description,quantity:l.quantity,rate:l.unitPrice,accountId:l.account,taxCode:config.credentials.taxCode}))},doc,'invoice');}

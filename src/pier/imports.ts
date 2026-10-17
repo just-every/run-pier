@@ -25,6 +25,7 @@ import {
 } from "./native-dependencies";
 import { checkImportCapacity, checkImportRecord } from "./native-capacity";
 import { sha256, canonicalJson, type SourceBundle } from "./import-kit";
+import { conversionRates, currencyCode } from "./import-currency";
 export const headers: Record<string, string[]> = {
   items: ["key", "sku", "name", "barcode", "unit", "packSize"],
   locations: ["key", "name", "warehouse", "kind"],
@@ -60,15 +61,18 @@ export const headers: Record<string, string[]> = {
   reservations: ["key", "orderLineKey", "locationKey", "quantity", "unit"],
 };
 export { parseCSV } from "./import-csv";
+// Kinds whose rows carry an amount may add a trailing currency column.
+const priced = ["positions", "purchaseOrders"];
 export function sourceFor(p: any): SourceBundle {
+  const batchCurrency = p.provider ? "USD" : currencyCode(p.currency ?? "USD", "The batch");
   if (!Array.isArray(p.files) || !p.files.length || p.files.length > 20)
     fail("FILES", "Supply 1–20 UTF-8 native CSV files.");
   const source: SourceBundle = { records: [], artifacts: [], diagnostics: [] };
   const seen = new Set();
   const positions = new Set();
   for (const file of p.files) {
-    const expected = headers[file.kind];
-    if (!expected) fail("CSV_KIND", "Unsupported native CSV kind.");
+    const base = headers[file.kind];
+    if (!base) fail("CSV_KIND", "Unsupported native CSV kind.");
     if (
       typeof file.csv !== "string" ||
       new TextEncoder().encode(file.csv).length > 1024 * 1024
@@ -78,10 +82,13 @@ export function sourceFor(p: any): SourceBundle {
       hash = sha256(bytes),
       name = text(file.name),
       rows = parseCSV(file.csv);
-    if (rows.shift()?.join(",") !== expected.join(","))
+    const header = rows.shift()?.join(","),
+      expected = priced.includes(file.kind) && header === [...base, "currency"].join(",") ? [...base, "currency"] : base;
+    if (header !== expected.join(","))
       fail("CSV_HEADERS", "Use the exact native CSV headers.", {
         kind: file.kind,
-        headers: expected,
+        headers: base,
+        ...(priced.includes(file.kind) ? { optional: ["currency"] } : {}),
       });
     source.artifacts.push({
       name,
@@ -101,6 +108,9 @@ export function sourceFor(p: any): SourceBundle {
           row: n + 2,
         });
       const payload = Object.fromEntries(expected.map((k, i) => [k, cells[i]]));
+      // A row with no currency is read as the batch currency, USD unless the batch names another.
+      if (priced.includes(file.kind))
+        payload.currency = payload.currency?.trim() ? currencyCode(payload.currency, `Row ${n + 2} of ${name}`) : batchCurrency;
       const key = file.kind + ":" + text(payload.key, "Stable source key");
       if (seen.has(key))
         source.diagnostics.push({
@@ -145,6 +155,9 @@ export function sourceFor(p: any): SourceBundle {
 }
 function preview(c: Context, b: Row) {
   b.errors = [...b.source.diagnostics];
+  for (const r of b.source.records)
+    if (r.payload.currency && r.payload.currency !== "USD" && !b.conversionRates?.[r.payload.currency])
+      b.errors.push({ severity: "error", code: "CONVERSION_RATE", message: `Row ${r.location.row} of ${r.location.artifact} is in ${r.payload.currency}. Enter the USD rate for ${r.payload.currency} you have reviewed, then stage the files again.`, sourceId: r.sourceId, location: r.location });
   const scratch = structuredClone(c.s),
     candidate = scratch.imports.find((x) => x.id === b.id)!;
   try {
@@ -213,8 +226,10 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
   if (!type.startsWith("import.")) return;
   requireRole(c, []);
   if (type === "import.stage") {
-    if (p.provider ? p.currency !== "USD" : p.currency !== "AUD")
-      fail("CURRENCY", p.provider ? "Incumbent move-in uses explicit USD costs." : "Native CSV uses AUD.");
+    if (p.provider && p.currency !== "USD")
+      fail("CURRENCY", "Incumbent move-in uses explicit USD costs.");
+    const currency = p.provider ? "USD" : currencyCode(p.currency ?? "USD", "The batch");
+    const rates = p.provider ? {} : conversionRates(p.conversionRates, c.actor.id, c.now);
     text(p.sourceVersion);
     text(p.exportedAt);
     text(p.cutoffTimezone);
@@ -232,7 +247,8 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
       exportedAt: p.exportedAt,
       filters: p.filters ?? "",
       cutoffTimezone: p.cutoffTimezone,
-      currency: p.currency,
+      currency,
+      conversionRates: rates,
       mappingRevision: p.mappingRevision,
       ...(prepared ? { moveIn: prepared.review, provider: p.provider } : {}),
       source,

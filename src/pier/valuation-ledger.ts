@@ -1,19 +1,26 @@
-import { decimal, type Movement, type State } from './model';
-import { allocate, amount, extended } from './money';
+import { decimal, SCALE, type Movement, type State } from './model';
+import { usdRate } from './import-currency';
+import { allocate, amount, extended, share, toCents } from './money';
 
 export type Layer = { quantity: bigint; value: bigint | null; sourceId: string; receivedAt: string };
 export type Position = { itemId: string; locationId: string; status: string; layers: Layer[] };
 const sumValue = (layers: Layer[]) => layers.reduce((n, layer) => n + (layer.value ?? 0n), 0n);
+// Cost layers carry whole cents, so every COGS, return and valuation amount is postable.
 const receiptValue = (line: any): bigint | null => line.currency === 'USD'
-  ? line.landedTotal ? amount(line.landedTotal) : extended(line.quantity, line.cost)
+  ? toCents(line.landedTotal ? amount(line.landedTotal) : extended(line.quantity, line.cost))
   : null;
+// A non-USD opening is valued only through the USD rate its batch records.
+function openingValue(q: bigint, opening: any, batch: any): bigint | null {
+  const rate = usdRate(batch, opening.currency);
+  return rate === null ? null : toCents(q * decimal(opening.cost) * rate / SCALE);
+}
 export function takeLayers(layers: Layer[], quantity: bigint, sourceId?: string): Layer[] {
   const taken: Layer[] = [];
   for (const layer of layers) {
     if (quantity === 0n || (sourceId && layer.sourceId !== sourceId)) continue;
     const q = quantity < layer.quantity ? quantity : layer.quantity;
     if (!q) continue;
-    const value = layer.value === null ? null : layer.value * q / layer.quantity;
+    const value = layer.value === null ? null : share(layer.value, q, layer.quantity);
     taken.push({ ...layer, quantity: q, value });
     layer.quantity -= q;
     if (value !== null && layer.value !== null) layer.value -= value;
@@ -109,7 +116,7 @@ export function valuationLedger(s: State, end: string) {
         const lineLayers = line ? takeLayers(shipped, decimal(line.quantity)) : [];
         const shippedQ = lineLayers.reduce((n, l) => n + l.quantity, 0n);
         const priorReturned = returnedQuantities.get(returned.shipmentLineId) ?? 0n;
-        const value = !line || !shippedQ || lineLayers.some(l => l.value === null) ? null : sumValue(lineLayers) * (priorReturned + q) / shippedQ - sumValue(lineLayers) * priorReturned / shippedQ;
+        const value = !line || !shippedQ || lineLayers.some(l => l.value === null) ? null : share(sumValue(lineLayers), priorReturned + q, shippedQ) - share(sumValue(lineLayers), priorReturned, shippedQ);
         returnedQuantities.set(returned.shipmentLineId, priorReturned + q);
         layers = [{ quantity: q, value, sourceId: m.id, receivedAt: m.createdAt }];
         record('returns', layers);
@@ -119,8 +126,8 @@ export function valuationLedger(s: State, end: string) {
         const opening = batch?.costEvidence?.find((entry: any) => sourceKey ? entry.sourceKey === sourceKey : entry.itemId === m.itemId && entry.locationId === m.locationId);
         const original = m.reversalId ? receiptLines.get(m.reversalId) : null;
         const originalValue = original ? receiptValue(original) : null;
-        const value = original ? originalValue === null ? null : originalValue * q / decimal(original.quantity)
-          : opening && batch?.currency === 'USD' ? q * decimal(opening.cost) : null;
+        const value = original ? originalValue === null ? null : share(originalValue, q, decimal(original.quantity))
+          : opening ? openingValue(q, opening, batch) : null;
         layers = [{ quantity: q, value, sourceId: m.id, receivedAt: m.createdAt }];
         record(m.importId ? 'openings' : 'adjustments', layers);
       }

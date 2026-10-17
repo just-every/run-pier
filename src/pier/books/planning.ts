@@ -4,6 +4,7 @@ import { valuationLedger } from '../valuation-ledger';
 import type { BookDocument } from './adapters/types';
 import { planSupplierBills } from './supplier-bills';
 import { planReturnBooks } from './return-planning';
+import { repairLandedCents } from '../landed-cost';
 
 /** No silent rounding at the financial boundary. Source precision stays in evidence. */
 export function dollars(value: string): string {
@@ -15,6 +16,8 @@ const ref = (prefix: string, id: string) => `PIER-${prefix}-${id.replaceAll('-',
 export function planBooks(c: Context) {
   const connection = c.s.bookConnections.find(r => r.enabled);
   if (!connection) return;
+  // Receipts landed before freight and duty were split in whole cents are re-split once.
+  repairLandedCents(c.s.receipts);
   // Unsent receipt-generated proposals are replaced by reviewed supplier invoices.
   // Already-attempted obligations retain their immutable identity and readback.
   c.s.bookJobs = c.s.bookJobs.filter(j => !(j.sourceKind === 'receipt' && j.kind === 'bill' && !j.attempted));
@@ -23,7 +26,7 @@ export function planBooks(c: Context) {
     if (old?.attempted || old?.status === 'skipped') return;
     let document: BookDocument | null = null, reason = '';
     try { document = build(); } catch (error) { reason = error instanceof Error ? error.message : 'Review the source document.'; }
-    const fields = { kind, sourceId: sourceKind === 'order' ? source.orderId : source.id, sourceKind, reference, document, total: document?.total ?? null, currency:'USD', status: reason ? 'review' : 'pending', reason, fix: 'Open the source, correct its missing price or USD cost, then retry. Fractions of a cent need accountant review.' };
+    const fields = { kind, sourceId: sourceKind === 'order' ? source.orderId : source.id, sourceKind, reference, document, total: document?.total ?? null, currency:'USD', status: reason ? 'review' : 'pending', reason, fix: reason.includes('Books settings') ? 'Open Books settings, choose Reconnect Pantry, pick the Freight and duty account and save. Pier posts the journal on the next sync.' : 'Open the source, correct its missing price or USD cost, then retry. Fractions of a cent need accountant review.' };
     if (old) { if (JSON.stringify(old.document) !== JSON.stringify(document) || old.reason !== reason) Object.assign(old, fields, {version: old.version + 1}); }
     else c.s.bookJobs.push({ id: crypto.randomUUID(),version:1,key,connectionId:connection.id,...fields,createdAt:c.now,attempted:false });
   };
@@ -39,6 +42,17 @@ export function planBooks(c: Context) {
     });
   }
   planSupplierBills(c, connection, add, dollars);
+  // Freight and duty enter Pantry's inventory from the account their carrier and
+  // customs bills are entered in, so Pantry's stock value matches Pier's landed cost.
+  for (const receipt of c.s.receipts.filter(r => r.status === 'posted' && r.currency === 'USD' && r.landedCost)) {
+    const extra = receipt.lines.reduce((n: bigint, l: any) => n + amount(l.freight ?? '0') + amount(l.duty ?? '0'), 0n);
+    if (!extra) continue;
+    add(`landed:${receipt.id}`,'journal',receipt,'receipt',ref('LAND',receipt.id),() => {
+      if (!connection.landedCostAccountId) throw new Error('This receipt carries freight or duty. Choose the Freight and duty account in Books settings so Pier can move it into inventory.');
+      const total = dollars(money(extra));
+      return {key:`landed:${receipt.id}`,kind:'journal',date:receipt.createdAt.slice(0,10),reference:ref('LAND',receipt.id),total,lines:[{description:`Freight and duty on receipt ${receipt.supplierReference}`,quantity:'1',amount:total,account:connection.inventoryAccountId,debit:total},{description:'Freight and duty moved into inventory',quantity:'1',amount:total,account:connection.landedCostAccountId,credit:total}]};
+    });
+  }
   const ledger = valuationLedger(c.s,c.now);
   for (const shipment of c.s.shipments) {
     const order = c.s.orders.find(o => o.id === shipment.orderId)!;

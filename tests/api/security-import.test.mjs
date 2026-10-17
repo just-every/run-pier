@@ -8,7 +8,7 @@ const native = (quantity = "1") => ({
   exportedAt: "2026-10-13T00:00:00Z",
   filters: "all",
   cutoffTimezone: "Australia/Brisbane",
-  currency: "AUD",
+  currency: "USD",
   mappingRevision: "1",
   files: [
     {
@@ -500,4 +500,37 @@ test("roles, agent preparation, revoked session, stale human approval and direct
   });
   assert.equal(denied.status, 401);
   await h.invariant();
+});
+
+test("native import reads USD by default, refuses an unknown currency naming the row, and values AUD rows through the batch's reviewed rate", async (t) => {
+  const h = await installation();
+  t.after(() => h.close());
+  const input = (positions, extra = {}) => ({
+    namespace: "mixed", sourceVersion: "v1", exportedAt: "2026-10-13T00:00:00Z", filters: "all", cutoffTimezone: "America/Chicago", mappingRevision: "1", ...extra,
+    files: [
+      { kind: "items", name: "items.csv", csv: "key,sku,name,barcode,unit,packSize\ni1,MUG,Mug,,each,1\ni2,TEAPOT,Teapot,,each,1\n" },
+      { kind: "locations", name: "locations.csv", csv: "key,name,warehouse,kind\nl,Bin 1,Main,bin\n" },
+      { kind: "parties", name: "parties.csv", csv: "key,name,kind\ns,Sydney supplier,supplier\n" },
+      { kind: "positions", name: "positions.csv", csv: `key,itemKey,locationKey,status,quantity,unit,cost,currency\n${positions}` },
+      { kind: "purchaseOrders", name: "purchase-orders.csv", csv: "key,poKey,supplierKey,itemKey,quantity,unit,price,promiseDate,currency\npl,PO1,s,i2,6,each,20,2026-11-01,AUD\n" },
+    ],
+  });
+  const rows = "p1,i1,l,sellable,10,each,2.50,\np2,i2,l,sellable,4,each,10,AUD\n";
+  const refused = await h.command("import.stage", input("p1,i1,l,sellable,10,each,2.50,XYZ\n"), { error: "CURRENCY" });
+  assert.match(refused.error.message, /Row 2 of positions\.csv/);
+  let b = await h.command("import.stage", input(rows));
+  assert.equal(b.currency, "USD");
+  assert.equal(b.source.records.find((r) => r.sourceId === "p1").payload.currency, "USD");
+  assert.ok(b.errors.some((e) => e.code === "CONVERSION_RATE" && /Row 3 of positions\.csv is in AUD/.test(e.message)));
+  b = await h.command("import.stage", input(rows, { conversionRates: { AUD: "0.65" } }));
+  assert.deepEqual(b.errors, []);
+  b = await freeze(h, b);
+  b = await h.command("import.commit", { batchId: b.id, version: b.version });
+  assert.equal(b.conversionRates.AUD.rate, "0.65");
+  const state = await h.state();
+  const line = state.purchaseOrders[0].lines[0];
+  assert.equal(line.price, "13");
+  assert.deepEqual(line.source, { price: "20", currency: "AUD", usdRate: "0.65" });
+  const report = await (await h.request("/api/pier/reports")).json();
+  assert.equal(report.valuation.total, "51.000000000000");
 });

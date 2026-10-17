@@ -39,8 +39,11 @@ test('sell-through drafts an approved supplier PO and re-promises backorders by 
   await h.command('po.approve', { poId: po.id, version: po.version });
   po = await h.command('po.commit', { poId: po.id, version: po.version });
   const sendId = randomUUID(), payload = { poId: po.id, version: po.version, recipient: 'supplier@example.test', chaseEveryDays: 1, maxChases: 1, confirm: true };
+  await h.command('po.send', payload, { error: 'BUSINESS_PROFILE' });
+  await h.command('business.save', { name: 'Harbor Goods', address: '1 Dock St, Portland, OR 97209', shipTo: { North: '40 Pier Rd, Portland, OR 97210' } });
   const sent = await h.command('po.send', payload, { commandId: sendId });
   assert.equal(mail.length, 1); assert.match(mail[0].message.text, /expected landed total USD 68/);
+  assert.match(mail[0].message.text, /from Harbor Goods\nSupplier: .*\nShip to: Harbor Goods, North\n40 Pier Rd, Portland, OR 97210/);
   assert.equal(mail[0].message.to[0], 'supplier@example.test');
   assert.deepEqual(await h.command('po.send', payload, { commandId: sendId }), sent);
   assert.equal(mail.length, 1);
@@ -55,7 +58,7 @@ test('sell-through drafts an approved supplier PO and re-promises backorders by 
   const date = new Date(Date.now() + 14 * 86400000).toISOString().slice(0,10);
   po = (await h.state()).purchaseOrders.find(p => p.id === po.id);
   await h.command('po.confirm', { poId: po.id, version: po.version, promiseDate: date, source: 'Supplier email 14', body: 'Confirmed full delivery on this date.', confirm: true });
-  assert.equal(mail.length, 4); assert.match(mail[3].message.text, new RegExp(date));
+  assert.equal(mail.length, 4); assert.match(mail[3].message.text, new RegExp(`with Harbor Goods now has an expected fulfilment date of ${new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`));
   order = (await h.state()).orders.find(o => o.id === demand.id);
   assert.equal(order.promiseDate, date); assert.equal(order.backorderPlan.estimated, false);
   assert.equal(order.backorderPlan.lines[0].sources[0].quantity, '10');

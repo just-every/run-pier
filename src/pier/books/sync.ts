@@ -7,6 +7,8 @@ import { createPantryAdapter } from './adapters/pantry';
 import { pantryClient, PantryRefusal, PANTRY_CREDENTIAL } from './adapters/pantry-client';
 
 const BROKEN='Pantry no longer accepts Pier\'s credential: it was revoked or replaced in Pantry. Nothing more is sent until you reconnect. In Pantry open People & settings → Integration credentials, create a new credential for Pier, then choose Reconnect Pantry here and paste it.';
+// No readable credential is held: a restored backup never carries one, and nothing was revoked.
+const MISSING='Pier holds no Pantry credential. A restored backup never carries one, so this is expected after a restore. In Pantry open People & settings → Integration credentials, create a new credential for Pier, then choose Reconnect Pantry here and paste it.';
 import type { BookDocument } from './adapters/types';
 import { valuationLedger } from '../valuation-ledger';
 import { amount, money } from '../money';
@@ -35,7 +37,7 @@ export async function syncBooks(env:Bindings){
       if(!PANTRY_CREDENTIAL.test(secret.integrationToken??''))throw new Error('Reconnect Pantry');
     } catch {
       await record('book.reconcile',{actual:null,expected:null,problem:'Reconnect Pantry with a Pantry integration credential. Restored backups never carry connection credentials.'});
-      await record('book.checked',{problem:BROKEN});
+      await record('book.checked',{problem:MISSING});
       return {processed};
     }
     const remote=createPantryAdapter({baseUrl:connection.baseUrl,credentials:secret});
@@ -51,8 +53,10 @@ export async function syncBooks(env:Bindings){
       let creating=false;
       try{
         let result=await remote.read(doc);
-        if(!result&&job.attempted){
-          await record('book.record',{jobId:job.id,result:{status:'uncertain',reason:'Pantry has not returned a matching record for a request already sent. Pier will not create it again. Check Pantry and restore visibility or ask your accountant to reconcile the source reference.',fix:'Check Pantry, then check again here. A missing record is not proof that the original request failed.'}});continue;
+        // The owner's Check Pantry re-sends a request Pantry has no record of, under
+        // its original idempotency keys, so a request that did arrive is never doubled.
+        if(!result&&job.attempted&&!job.resend){
+          await record('book.record',{jobId:job.id,result:{status:'uncertain',reason:'Pantry has not returned a matching record for a request already sent. Choose Check Pantry: Pier looks again and, if Pantry still has no record, re-sends the same request, which Pantry recognises if it already arrived.',fix:'Choose Check Pantry. Pier re-sends with the original request keys and never creates a second document.'}});continue;
         }
         if(!result||['draft','approved'].includes(result.status)||(job.kind==='bill'&&!(result.evidenceCurrent??result.received))){
           // A known remote ID resumes state transitions, never creates another financial document.
