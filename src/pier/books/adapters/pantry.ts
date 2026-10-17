@@ -29,7 +29,11 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
       const target=client.matching((await client.request('sales')).invoices,i=>i.kind==='invoice'&&i.number===doc.creditForReference);
       if(!target||r.credit_for!==target.id)throw new PantryRefusal('The return credit is linked to a different invoice. Review its dispatch reference in Pantry.',409);
     }
-    return {id:r.id,status:r.status??'posted',...(['invoice','bill'].includes(doc.kind)?{paid:dollars(((await client.request('sales')).payments as any[]).filter(p=>!p.reversal_id).flatMap(p=>p.allocations).filter(a=>a.target_id===r.id&&a.target_kind===doc.kind).reduce((n,a)=>n+a.amount_cents,0)),open:dollars(r.open_cents)}:{}),...(doc.kind==='bill'?{received:!!await client.attachment(doc,r.id)}:{})};
+    return {id:r.id,status:r.status??'posted',...(['invoice','bill'].includes(doc.kind)?{paid:dollars(((await client.request('sales')).payments as any[]).filter(p=>!p.reversal_id).flatMap(p=>p.allocations).filter(a=>a.target_id===r.id&&a.target_kind===doc.kind).reduce((n,a)=>n+a.amount_cents,0)),open:dollars(r.open_cents)}:{}),...(doc.kind==='bill'?await receiptResult(doc,r.id,r.open_cents):{})};
+  };
+  const receiptResult=async(doc:BookDocument,id:string,open:number)=>{
+    const current=!!await client.attachment(doc.receiptState?{...doc,attachment:doc.receiptState.attachment}:doc,id);
+    return {evidenceCurrent:current,received:current&&(doc.receiptState?.received??true),readyToPay:current&&(doc.receiptState?.readyToPay??true)&&open>0};
   };
   return {
     async read(doc){const r=await raw(doc);return r?result(doc,r):null;},
@@ -53,6 +57,7 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
         if(!r){const party=await client.contact(doc);r=await client.command('bill.save',{vendorId:party.id,reference:doc.reference,billDate:doc.date,memo:doc.key,post:true,lines:doc.lines.map(l=>({description:l.description,accountId:l.account,amount:l.amount}))});}
         if(r.status==='draft')r=await client.command('bill.record',{id:r.id,revision:r.revision});
         await client.upload(doc,r.id);
+        if(doc.receiptState)await client.upload({...doc,attachment:doc.receiptState.attachment},r.id);
       } else if(doc.kind==='journal'){
         if(!r)r=await client.command('journal.save-draft',{date:doc.date,memo:doc.reference,lines:doc.lines.map(l=>({accountId:l.account,...(l.debit?{debit:l.debit}:{credit:l.credit}),memo:l.description}))});
         if(r.status==='draft')r=await client.command('journal.post',{id:r.id,revision:r.revision});

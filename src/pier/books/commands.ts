@@ -45,6 +45,10 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
       const credits=c.s.bookJobs.filter(j=>j.kind==='credit'&&returnIds.has(j.sourceId));
       if(invoices.length)order.books={invoiceIds:invoices.map(j=>j.remoteId).filter(Boolean),creditIds:credits.map(j=>j.remoteId).filter(Boolean),credited:money(credits.filter(j=>j.status==='posted'||j.status==='reconciled').reduce((n,j)=>n+amount(j.total??'0.00'),0n)),paid:money(invoices.reduce((n,j)=>n+amount(j.paid??'0.00'),0n)),open:invoices.every(j=>j.open!==null&&j.open!==undefined)?money(invoices.reduce((n,j)=>n+amount(j.open),0n)):null,status:invoices.every(j=>j.status==='reconciled')?'reconciled':'open'};
     }
+    if(job.sourceKind==='supplierBill'){
+      const bill=c.s.supplierBills.find(r=>r.id===job.sourceId);
+      if(bill)bill.books={billId:job.remoteId,paid:job.paid,open:job.open,received:job.received,readyToPay:job.readyToPay,status:job.status};
+    }
     if(job.sourceKind==='receipt'){
       const receipt=c.s.receipts.find(r=>r.id===job.sourceId);if(receipt)receipt.books={billId:job.remoteId,paid:job.paid,received:job.received,status:job.status};
     }

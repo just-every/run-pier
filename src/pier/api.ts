@@ -12,6 +12,7 @@ import { channelWebhook } from './channels/webhook';
 import { channels } from './channels/commands';
 import { channelState, markChannelPending } from './channels/availability';
 import { syncChannels } from './channels/sync';
+import { supplierBills, supplierBillViews } from "./books/supplier-bills";
 import { books } from "./books/commands";
 import { syncBooks } from "./books/sync";
 import { booksExport } from "./books/export";
@@ -131,7 +132,8 @@ export async function execute(
       s = structuredClone(before),
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, automationActors: await activeAutomationActors(env.DB) };
     await approver(env, c, type, payload);
-    let result: any = await books(c, type, payload, env);
+    let result: any = supplierBills(c, type, payload);
+    if (result === undefined) result = await books(c, type, payload, env);
     if (result === undefined) result = await itemAgent(c, type, payload, env);
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
@@ -311,6 +313,7 @@ export async function pierResponse(
         actor,
         people,
         orders: s.orders.map((o) => ({ ...orderView(c, o), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
+        supplierBills: supplierBillViews(s),
         purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
         forecasts: forecast(c),
         deliveries: await correspondenceDeliveries(env.DB),

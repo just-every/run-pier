@@ -5,7 +5,7 @@ import { installation, basics, buy, receive } from './harness.mjs';
 import { exerciseBooksFixtures } from './books-fixtures.mjs';
 import { pantryInstallation } from './pantry-installation.mjs';
 
-test('shipment posts invoice and COGS to real Pantry; receipt evidence, payment readback reconciles without duplicate posts',async()=>{
+test('PO and receipts three-way match an approved invoice to a Pantry payable; payment readback closes it without duplicate posts',async()=>{
   const pantry=await pantryInstallation();
   let pier;
   let loseJournalResponse=false;
@@ -22,13 +22,33 @@ test('shipment posts invoice and COGS to real Pantry; receipt evidence, payment 
       return response;
     }});
     const b=await basics(pier),po=await buy(pier,b,'12');
-    const receipt=await receive(pier,b,po,'12');
+    const receipt=await receive(pier,b,po,'11');
     const connection={baseUrl:pantry.origin,sessionCookie:pantry.cookie,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,taxCode:'exempt'};
     await pier.command('book.connect',connection);
     let state=await pier.state();
-    const bill=state.bookJobs.find(j=>j.kind==='bill');assert.equal(bill.status,'posted',JSON.stringify(bill));assert.equal(bill.received,true);
-    assert.equal(state.receipts.find(r=>r.id===receipt.id).books.received,true);
-    let sales=await pantry.view('sales');assert.equal(sales.bills.length,1);assert.equal(sales.bills[0].open_cents,300);assert.equal(sales.bills[0].documents.length,1);
+    assert.equal(state.bookJobs.filter(j=>j.kind==='bill').length,0,'a goods receipt alone must not invent a supplier invoice');
+    let supplierBill=await pier.command('supplierBill.save',{poId:po.id,reference:'METALS-7731',date:new Date().toISOString().slice(0,10),quantityTolerancePercent:'0',priceTolerancePercent:'0',lines:[{poLineId:po.lines[0].id,quantity:'12',unitPrice:'0.30'}]});
+    assert.equal(supplierBill.match.withinTolerance,false);
+    assert.ok(supplierBill.match.differences.some(d=>d.kind==='receiptShortfall'));
+    assert.ok(supplierBill.match.differences.some(d=>d.kind==='purchasePrice'));
+    assert.ok(supplierBill.match.differences.some(d=>d.kind==='receiptPrice'));
+    await pier.command('supplierBill.approve',{id:supplierBill.id,version:supplierBill.version,receiptEvidence:supplierBill.match.receiptEvidence},{error:'SUPPLIER_BILL_MATCH'});
+    supplierBill=await pier.command('supplierBill.hold',{id:supplierBill.id,version:supplierBill.version,reason:'Supplier charged the wrong price and final carton is missing'});
+    assert.equal(supplierBill.status,'held');assert.equal((await pantry.view('sales')).bills.length,0);
+    supplierBill=await pier.command('supplierBill.save',{id:supplierBill.id,version:supplierBill.version,poId:po.id,reference:'METALS-7731',date:new Date().toISOString().slice(0,10),quantityTolerancePercent:'10',priceTolerancePercent:'0',lines:[{poLineId:po.lines[0].id,quantity:'12',unitPrice:'0.25'}]});
+    await pier.command('supplierBill.approve',{id:supplierBill.id,version:supplierBill.version,receiptEvidence:'stale evidence'},{error:'SUPPLIER_BILL_STALE'});
+    await pier.command('supplierBill.approve',{id:supplierBill.id,version:supplierBill.version,receiptEvidence:supplierBill.match.receiptEvidence});
+    state=await pier.state();
+    let bill=state.bookJobs.find(j=>j.kind==='bill');assert.equal(bill.status,'posted',JSON.stringify(bill));assert.equal(bill.received,false);assert.equal(bill.readyToPay,false);
+    const remoteBillId=bill.remoteId;
+    await receive(pier,b,po,'1');
+    state=await pier.state();bill=state.bookJobs.find(j=>j.kind==='bill');assert.equal(bill.received,true);assert.equal(bill.readyToPay,true);assert.equal(bill.remoteId,remoteBillId);
+    assert.equal(state.supplierBills.find(r=>r.id===supplierBill.id).books.received,true);
+    let sales=await pantry.view('sales');assert.equal(sales.bills.length,1);assert.equal(sales.bills[0].open_cents,300);
+    const receiptStates=sales.bills[0].documents.filter(d=>d.name.includes('-receipt-state-'));
+    assert.equal(receiptStates.length,2,'the final receipt updates linked evidence on the existing payable');
+    const confirmed=await Promise.all(receiptStates.map(async d=>JSON.parse(await (await fetch(pantry.origin+'/api/pantry/documents/'+d.id,{headers:{cookie:pantry.cookie}})).text())));
+    assert.ok(confirmed.some(d=>d.received===true&&d.readyToPay===true));
     const order=await pier.command('order.create',{customerId:b.customer.id,lines:[{itemId:b.item.id,quantity:'4',price:'2'}]});
     loseJournalResponse=true;
     const dispatchId=randomUUID(),dispatchPayload={orderId:order.id,shipmentReference:'SYNTHETIC-BOOKS-1',lines:[{orderLineId:order.lines[0].id,quantity:'4'}]};
@@ -43,7 +63,7 @@ test('shipment posts invoice and COGS to real Pantry; receipt evidence, payment 
     const payment=await pantry.command('payment.record',{direction:'received',contactId:sales.invoices[0].customer_id,date:new Date().toISOString().slice(0,10),amount:'8.00',bankAccountId:bank.id,reference:'SYNTHETIC-INVOICE-PAYMENT',allocations:[{targetId:sales.invoices[0].id,amount:'8.00'}]});
     await pantry.command('payment.record',{direction:'paid',contactId:sales.bills[0].vendor_id,date:new Date().toISOString().slice(0,10),amount:'3.00',bankAccountId:bank.id,reference:'SYNTHETIC-BILL-PAYMENT',allocations:[{targetId:sales.bills[0].id,amount:'3.00'}]});
     await pier.command('book.sync',{});await pier.command('book.sync',{});
-    state=await pier.invariant();assert.equal(state.orders.find(o=>o.id===order.id).books.status,'reconciled');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').paid,'8.00');assert.equal(state.bookJobs.find(j=>j.kind==='bill').status,'reconciled');
+    state=await pier.invariant();assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).status,'paid');assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).books.open,'0.00');assert.equal(state.orders.find(o=>o.id===order.id).books.status,'reconciled');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').paid,'8.00');assert.equal(state.bookJobs.find(j=>j.kind==='bill').status,'reconciled');assert.equal(state.bookJobs.find(j=>j.kind==='bill').readyToPay,false);
     await pantry.command('journal.reverse',{id:payment.journal_id,date:new Date().toISOString().slice(0,10),memo:'Synthetic bank payment was reversed'});
     await pier.command('book.sync',{});state=await pier.state();assert.equal(state.orders.find(o=>o.id===order.id).books.status,'open');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').paid,'0.00');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').open,'8.00');
     await pantry.command('payment.record',{direction:'received',contactId:sales.invoices[0].customer_id,date:new Date().toISOString().slice(0,10),amount:'8.00',bankAccountId:bank.id,reference:'SYNTHETIC-REPLACEMENT-PAYMENT',allocations:[{targetId:sales.invoices[0].id,amount:'8.00'}]});
@@ -55,7 +75,7 @@ test('shipment posts invoice and COGS to real Pantry; receipt evidence, payment 
     const exported=await (await pier.request('/api/pier/export')).text();assert.ok(!exported.includes(pantry.cookie),'connection credentials must not enter exports');
     // A receiver refusal belongs to the same queue and offers a useful fix.
     await pier.command('book.connect',{...connection,sessionCookie:'invalid=session'});
-    state=await pier.state();assert.ok(state.bookJobs.some(j=>j.status==='review'&&j.reason.includes('Sign')));
+    state=await pier.state();assert.ok(state.bookJobs.some(j=>j.status==='review'&&j.reason.includes('Sign')));assert.match(state.bookConnections[0].problem,/Reconnect/);
     await pier.command('book.connect',connection);await pier.command('book.sync',{});
     state=await pier.state();assert.equal(state.bookJobs.filter(j=>['review','uncertain'].includes(j.status)).length,0);
     sales=await pantry.view('sales');assert.equal(sales.invoices.length,1);assert.equal(sales.bills.length,1);assert.equal((await pantry.view('journal')).entries.filter(e=>e.memo.startsWith('PIER-COGS-')).length,1);

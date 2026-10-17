@@ -10,7 +10,7 @@ export type BookJob = {
   reference: string; sourceId: string; sourceKind: string; total?: string | null; currency: 'USD'
   status: 'pending' | 'posted' | 'review' | 'uncertain' | 'reconciled' | 'skipped'
   remoteId?: string | null; paid?: string | null; open?: string | null; reason?: string | null; fix?: string | null
-  version: number; received?: boolean; attempted: boolean
+  version: number; received?: boolean; readyToPay?: boolean; attempted: boolean
 }
 export const connections = (state: PierState) => records(state, 'bookConnections') as BookConnection[]
 export const jobs = (state: PierState) => records(state, 'bookJobs') as BookJob[]
@@ -25,6 +25,7 @@ export function sourceLink(state: PierState, job: BookJob) {
     const shipment = records(state, 'shipments').find(row => row.id === job.sourceId)
     return shipment?.orderId ? `#sales/${encodeURIComponent(shipment.orderId)}` : '#sales'
   }
+  if (job.sourceKind === 'supplierBill') return `#books/${id}`
   if (job.sourceKind === 'item') return '#stock'
   if (job.sourceKind === 'return') return '#floor/returns'
   if (job.sourceKind === 'valuation') return '#reports'
