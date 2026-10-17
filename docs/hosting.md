@@ -64,7 +64,7 @@ It creates a database named `pier-production-check-db`, loads the file, lists ho
 
 ## Restore the live Pier
 
-- **Undo a recent mistake** (within 30 days): put the live database back to a moment before it. `rer run hosted rewind --environment production --env-file ~/pier-deploy.env` lists the moments you can return to; then run the same command with `--timestamp 2026-10-17T09:00:00Z --yes`.
+- **Undo a recent mistake** (within 30 days): put the live database back to a moment before it. Run `rer run hosted rewind --environment production --env-file ~/pier-deploy.env --timestamp 2026-10-17T09:00:00Z --yes` with the moment just before the mistake, in UTC. Without `--timestamp` it shows the database's current point and repeats this command.
 - **From a backup file**: replace everything in the live Pier with the file:
 
 ```sh

@@ -30,7 +30,8 @@ function database(environment) {
   const path = join('.rer', 'deploy', `${environment}.json`);
   if (!existsSync(path)) stop(`This folder holds no deployment of the ${environment} environment. Run this from the folder you deployed from.`);
   const record = JSON.parse(readFileSync(path, 'utf8'));
-  const names = Object.values(record.owned?.d1 ?? {}).map(entry => entry?.name).filter(Boolean);
+  // The record keys each owned D1 database by its name.
+  const names = Object.entries(record.owned?.d1 ?? {}).filter(([, entry]) => entry?.status === 'created').map(([name]) => name);
   if (names.length !== 1) stop(`The ${environment} deployment record does not name exactly one database.`);
   return names[0];
 }
@@ -107,7 +108,11 @@ if (o.command === 'backup') {
   counts(env, db);
   console.log(`To undo, run the same command with --file ${before}.`);
 } else if (o.command === 'rewind') {
-  if (!o.timestamp) { wrangler(env, ['d1', 'time-travel', 'info', db]); process.exit(0); }
+  if (!o.timestamp) {
+    wrangler(env, ['d1', 'time-travel', 'info', db]);
+    console.log(`Ignore the wrangler line above. To put the live Pier back to a moment in the last 30 days, run: rer run hosted rewind --environment ${o.environment} --env-file ${o['env-file']} --timestamp 2026-10-17T09:00:00Z --yes (your time, in UTC).`);
+    process.exit(0);
+  }
   if (!o.yes) stop(`This puts the live ${o.environment} Pier back to ${o.timestamp}. Run the same command with --yes to go ahead.`);
   wrangler(env, ['d1', 'time-travel', 'restore', db, '--timestamp', o.timestamp]);
 }
