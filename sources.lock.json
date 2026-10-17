@@ -3152,7 +3152,7 @@
       "executable": false
     },
     "tests/fixtures/channels/amazon-lwa-token.json": {
-      "sha256": "27423620587a61c413b3b9980858bf9254728e29ea20a032caa7a0d1ef412c4f",
+      "sha256": "8d861ab096713680184db839771f0b2e0419948cd7a7b9a198a5550d720deef0",
       "executable": false
     },
     "tests/fixtures/channels/amazon-orders-page-1.json": {
