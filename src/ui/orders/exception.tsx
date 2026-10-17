@@ -3,7 +3,7 @@ import { label, records, unit, type PierState, type RecordData, type RunCommand 
 import { Icon } from '../icons'
 import { Barcode } from '../barcode'
 import { difference, fromMillionths, sum } from '../quantity'
-import { isOpen, onHand, orderWarehouses, shipDay, shortage } from './model'
+import { isOpen, needsAttention, onHand, orderWarehouses, shipDay, shortage } from './model'
 
 // The exception on an order: its first short line, the stock and inbound
 // purchase order behind it, and the three ways Pier can resolve it today:
@@ -38,7 +38,8 @@ export function Exception({ state, order, run, busy, resolve }: { state: PierSta
     const prepared = await run('proposal.prepare', { kind: 'reallocation', assumptions: `${order.reference} for ${label(parties, order.customerId)} is ${line.backorder} ${u} short of ${item?.name}. ${donor.order.reference} holds ${donor.held} ${u} and ships later${donor.order.promiseDate ? ` (${shipDay(donor.order.promiseDate)})` : ''}; reallocating ${moved} ${u} lets ${order.reference} ship complete. Review both customer promises before approving.`, evidence: [order.id, donor.order.id], plan: { fromOrderId: donor.order.id, toOrderId: order.id, itemId: line.itemId, quantity: moved } })
     if (prepared) setChoice('')
   }
-  return <div className="exception" role="region" aria-label="Shortage">
+  // Red is for the exception: a shortage that will still fill by the promise reads in harbour yellow.
+  return <div className={needsAttention(order) ? 'exception' : 'exception on-time'} role="region" aria-label="Shortage">
     <div className="exception-head">
       <Icon name="alert" />
       <h3>{item?.name ?? 'An item'} <span className="nowrap">({item?.sku})</span> is short</h3><p>{shipped ? `${line.dispatched} of ${line.quantity} shipped · ${remaining} to ship (${line.backorder} short) · ${stock.quantity} on hand${where ? ` at ${where}` : ''}` : `${line.reserved} reserved${where ? ` at ${where}` : ''} of ${stock.quantity} on hand · ${line.quantity} ordered (${line.backorder} short)`}</p>

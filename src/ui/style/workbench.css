@@ -85,6 +85,9 @@
 .pier-app .order-lines .line-state svg { width: 17px; height: 17px; color: #31507a; }
 .pier-app .order-lines tr.short td { background: #fdeeea; color: var(--red-ink); }
 .pier-app .order-lines tr.short .line-state svg { color: var(--red); }
+.pier-app .order-lines tr.short.on-time td { background: var(--yellow-tint); color: #6b4a00; }
+.pier-app .order-lines tr.short.on-time .line-state svg { color: #b07d00; }
+.pier-app tr.short.on-time .barcode { fill: #6b4a00; }
 .pier-app .order-lines .line-sku, .pier-app .order-lines .line-bin { white-space: nowrap; }
 .pier-app .order-lines .line-sku span { display: block; font-weight: 550; line-height: 17px; }
 /* The scanner barcode sits under the SKU at the SKU's own width, so each line stays one row of text. */
@@ -102,6 +105,10 @@
 /* The title takes the banner's full width; the stock line and the PO tag share the row beneath. */
 .pier-app .exception-head { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 236px); grid-template-areas: 'icon title title' 'icon text po'; gap: 4px 10px; align-items: start; }
 .pier-app .exception-head > svg { grid-area: icon; }
+.pier-app .exception.on-time { border-color: #f5dc8e; background: linear-gradient(120deg, #fffaeb, var(--yellow-tint)); }
+.pier-app .exception.on-time .exception-head > svg { color: #b07d00; }
+.pier-app .exception.on-time .exception-head h3 { color: #6b4a00; }
+.pier-app .exception.on-time .resolution { border-color: #ecdcae; }
 .pier-app .exception-head > h3 { grid-area: title; }
 .pier-app .exception-head > p { grid-area: text; }
 .pier-app .exception-head > .po-tag { grid-area: po; }
@@ -194,6 +201,7 @@
   .pier-app .order-lines tr { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr) auto; grid-template-areas: 'state sku sku price' 'state name name margin' 'state bin bin bin' 'state ord res disp'; gap: 2px 10px; padding: 9px 14px; border-bottom: 1px solid var(--app-line); }
   .pier-app .order-lines td, .pier-app .order-lines td:first-child, .pier-app .order-lines td:last-child { width: auto; padding: 0; border: 0; text-align: left; }
   .pier-app .order-lines tr.short { background: #fdeeea; }
+  .pier-app .order-lines tr.short.on-time { background: var(--yellow-tint); }
   .pier-app .order-lines tr.short td { background: none; }
   .pier-app .order-lines .line-state { grid-area: state; padding-top: 2px; }
   .pier-app .order-lines .line-sku { grid-area: sku; }

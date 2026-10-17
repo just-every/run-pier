@@ -9,7 +9,7 @@ import { margin, type LineCosts } from './costs'
 import { Exception } from './exception'
 import { WordClip } from './clip'
 import { Pill } from './queue'
-import { clock, orderWarehouses, pickLines, shipDay } from './model'
+import { clock, needsAttention, orderWarehouses, pickLines, shipDay } from './model'
 
 // The selected order as one card: who and where, the ship-by date and carrier,
 // pick progress from the floor's scans, the lines with their bins and margin,
@@ -35,6 +35,7 @@ export function OrderCard({ state, order, run, busy, costs, resolve }: { state: 
   const lines = all ? order.lines : order.lines.slice(0, shown)
   // Dispatched shows once anything on the order has shipped; until then every value would be 0.
   const shipped = order.lines.some((line: any) => line.dispatched !== '0')
+  const late = needsAttention(order)
   return <section className="order-card" id={`document-${order.id}`} aria-label={`Order ${order.reference}`}>
     <div className="order-head">
       <h2>{order.reference}</h2><Pill order={order} />
@@ -53,7 +54,7 @@ export function OrderCard({ state, order, run, busy, costs, resolve }: { state: 
     <div className="order-lines"><table>
       <thead><tr><th scope="col"><span className="visually-hidden">Line state</span></th><th scope="col">SKU</th><th scope="col">Product</th><th scope="col">Bin</th><th scope="col" className="num">Ordered</th><th scope="col" className="num">Reserved</th>{shipped && <th scope="col" className="num">Shipped</th>}<th scope="col" className="num">Price</th><th scope="col" className="num">Margin</th></tr></thead>
       <tbody>{lines.map((line: any, index: number) => { const item = items.find(row => row.id === line.itemId), short = line.backorder !== '0', closed = line.dispatched === line.quantity
-        return <tr key={line.id} className={short ? 'short' : undefined}>
+        return <tr key={line.id} className={short ? late ? 'short' : 'short on-time' : undefined}>
           <td className="line-state">{short ? <span title={`${line.backorder} ${unit(state, line.itemId)} short`}><Icon name="alert" /></span> : closed || line.reserved === line.quantity ? <span title={closed ? 'Dispatched' : 'Reserved in full'}><Icon name="check" /></span> : null}</td>
           <td className="line-sku"><span>{item?.sku ?? 'Removed item'}</span><Barcode value={item?.barcode} /></td>
           <WordClip className="line-name" text={item?.name ?? 'Removed item'} />

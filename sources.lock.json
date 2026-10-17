@@ -3220,11 +3220,11 @@
       "executable": false
     },
     "src/ui/orders/detail.tsx": {
-      "sha256": "ebb48b962b95653088d5eeae9443f7105d0bed393ea71dca12133da5c9dd9603",
+      "sha256": "94f78ec568331c84753ff5d759dd0c2e813ed527dbf6dc345e73acba2ba41cec",
       "executable": false
     },
     "src/ui/orders/exception.tsx": {
-      "sha256": "bfa920abc099ab5757ab695489d892ce9d7d6c4f405e504a190faa16ce831ece",
+      "sha256": "6ca4f03c64902c9cdc46eef462fd5aa4688a83dfd2d83ef276c00fd27ab024d0",
       "executable": false
     },
     "src/ui/orders/fulfil.tsx": {
@@ -3352,7 +3352,7 @@
       "executable": false
     },
     "src/ui/style/workbench.css": {
-      "sha256": "3968e0f0fd9acd3a454a6457c7a0ccc0bd7b02153f667947016ebbdc72c2a7b2",
+      "sha256": "d9a0e32b55341fe6b2ce3bb7312f8405e672d7527cc9ee7870bdbb4351e8c437",
       "executable": false
     },
     "src/ui/warehouse.tsx": {
