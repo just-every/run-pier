@@ -25,9 +25,9 @@ Updated 17 October 2026 for EDI (rows 7, 23–25): the X12 core flow and SSCC la
 
 | Status | Claims |
 |---|---|
-| backed | 42 |
-| partly | 13 |
-| contract, not yet in code | 4 |
+| backed | 41 |
+| partly | 14 |
+| contract, not yet in code | 0 |
 | **all claims** | **55** |
 
 ## Hero
@@ -101,7 +101,7 @@ Updated 17 October 2026 for EDI (rows 7, 23–25): the X12 core flow and SSCC la
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
 | 37 | "The agent forecasts from real sell-through" | backed | Agents read native-shipment forecasts through the state API: observed windows, days of cover, projected stockout and learned parameters. `src/pier/replenishment-demand.ts`. Imported/channel history, seasonality, cash optimization and backtesting remain outside this round. |
-| 38 | "sends the PO" | partly | The agent does not send a PO itself. It can prepare evidence and drafts; a buyer approves exact commitment, recipient and send, then Pier sends through the install mail. `po.send`, `src/pier/correspondence-delivery.ts`. RER Managed email is not available yet. |
+| 38 | "sends the PO" | backed | An authenticated or scheduled inventory agent sends one exact committed PO under buyer authority: approved recipient, landed spend limit, expiry, reminders and stop control. Changed demand, terms, policy or destination stops it; live authority and durable provider outcomes prevent unapproved or duplicate sends. `src/pier/purchase-send.ts`, `tests/api/purchase-send.test.mjs`. Broader BUY-002/AGENT-002 targets and Managed email remain partial. |
 | 39 | "chases the supplier" | backed | Buyer authorizes 0–5 confirmation chases at 1–30-day intervals; cron sends only while the initial PO was accepted, supply is open and no confirmation, policy revocation or material change intervened. Supplier replies/confirmed dates are recorded on the PO. `src/pier/scheduled.ts`, `src/pier/purchasing-workflow.ts`. |
 | 40 | "re-promises affected orders" (and "customers emailed") | backed | A human approves a computed customer promise or an order-specific exact-recipient date-update policy. Confirmation/date changes recompute promises and submit customer emails; history and provider outcomes remain visible. `src/pier/backorders.ts`, `src/pier/purchasing-workflow.ts`. RER Managed email is not available yet. |
 | 41 | "checks the receipt closes in the books" | partly | A final receipt marks the matched Pantry payable received and ready to pay; Pantry payment readback closes it in Pier. Quantity/price tolerances, hold/approve and exclusive receipt allocations are native Pier flows. Readiness uses Pantry's native received/ready-to-pay bill states through the scoped integration credential: `docs/books.md`. |
@@ -126,7 +126,7 @@ Updated 17 October 2026 for EDI (rows 7, 23–25): the X12 core flow and SSCC la
 | 50 | "FIFO or average cost. Valuation your accountant will recognize." | backed | `costing.method`, `src/pier/valuation-ledger.ts`, `/api/pier/reports`: FIFO or moving average per install, dated prospective owner changes, remaining layers and receipt/shipment reconciliation. Operational USD valuation; ledger posting, FX and period locks remain COST-001 work. |
 | 51 | "Transfers. Move stock between warehouses with a full trail." | backed | `transfer.send/transfer.receive` through a visible transit location: `src/pier/warehouse.ts:51,95` |
 | 52 | "Returns. Back on the shelf or written off in one scan." | backed | Floor → Returns resolves order/shipment labels or item/case scans; records reason and condition; authorized sellable restock, damaged quarantine or mapped write-off; exact returned value, native Pantry credit and COGS/write-off journals. Receivers without inspection authority leave quarantine. `src/pier/returns.ts`, `src/ui/floor/returns.tsx`, `tests/api/returns.test.mjs`; [Returns](returns.md). Physical camera/scanner acceptance and direct QBO/Xero credits remain separate. |
-| 53 | "Dead stock. Slow movers flagged before they cost you." | partly | `/api/pier/reports`, `src/ui/reports.tsx`: stock with no sale shipment or transfer out in N days, tied-up value and last movement. Scheduled warnings before the threshold (AUTO-001), kits and imported sales history remain unbuilt. |
+| 53 | "Dead stock. Slow movers flagged before they cost you." | backed | Reports → Slow-mover warnings: scheduled native SKU/bin checks before the saved dead-stock threshold, owner-approved recipient/content and UTC quiet hours, value/last movement/days left, one warning and email per episode, actual sale/transfer closure or documented buyer decision. Buyers can flag an assortment concern early. New stock ages before becoming dead stock. `src/pier/slow-stock.ts`, `src/pier/stock-inactivity.ts`, `src/ui/slow-stock.tsx`, `tests/api/slow-stock.test.mjs`. Imported history and kits remain broader contract gaps. |
 | 54 | "Margin by SKU. Profit by item, channel and customer." | backed | Saved USD order prices/customer quantity tiers and shipment-consumed costs produce date-range margin by SKU, channel and customer (`src/pier/pricing.ts`, `orders.ts`, `reports.ts`). Operational shipment margin; invoice credits/ledger reconciliation remain REPORT-002 work. |
 | 55 | "Activity log. Every scan, edit and sync, recorded." | backed | Every movement with its document, person, reason and command identity: `src/ui/activity.tsx:16-17`, `src/pier/storage.ts:67-80` (there are no scans or syncs to record yet; every edit that exists is recorded) |
 

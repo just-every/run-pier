@@ -1,7 +1,7 @@
 import type { Row } from "./model";
 
 export type Correspondence = Row & {
-  kind: "purchase-order" | "supplier-chase" | "customer-promise";
+  kind: "purchase-order" | "supplier-chase" | "customer-promise" | "slow-stock";
   recordId: string;
   recordVersion: number;
   recipient: string;
@@ -13,6 +13,7 @@ export type Correspondence = Row & {
   approvedMaterial?: string;
   promiseDate?: string;
   policyVersion?: number;
+  sendPolicyVersion?: number;
   purchaseMessageId?: string;
 };
 
@@ -40,10 +41,12 @@ function quantity(value: unknown): bigint {
 }
 
 /** Fail closed when a formerly approved message no longer describes live work. */
-export function correspondenceEligible(message: Correspondence, source: Row | null): boolean {
+export function correspondenceEligible(message: Correspondence, source: Row | null, now = new Date().toISOString()): boolean {
   const roles = message.kind === "customer-promise" ? ["owner", "operator", "buyer"] : ["owner", "buyer"];
   if (!source || !message.approvedBy || !roles.includes(message.approvalRole)) return false;
   try {
+    if (message.kind === 'slow-stock') return source.status === 'open' && source.notificationEnabled === true &&
+      source.policyVersion === message.policyVersion && source.assigneeId === message.approvedBy && source.messageId === message.id;
     if (message.kind === "customer-promise") {
       if (message.policyVersion !== undefined) {
         const policy = source.promisePolicy;
@@ -58,6 +61,10 @@ export function correspondenceEligible(message: Correspondence, source: Row | nu
     if (!["purchase-order", "supplier-chase"].includes(message.kind) ||
         source.status !== "committed" || typeof message.approvedMaterial !== "string" ||
         message.approvedMaterial !== poMaterial(source)) return false;
+    if (message.sendPolicyVersion !== undefined &&
+        (!source.sendPolicy?.enabled || source.sendPolicy.version !== message.sendPolicyVersion ||
+         source.sendPolicy.approvedBy !== message.approvedBy || source.sendPolicy.recipient !== message.recipient ||
+         (message.kind === 'purchase-order' && source.sendPolicy.expiresAt <= now))) return false;
     if (message.kind === "supplier-chase") {
       const policy = source.chasePolicy;
       return !!policy && policy.enabled !== false && policy.approvedBy === message.approvedBy &&

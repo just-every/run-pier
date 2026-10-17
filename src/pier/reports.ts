@@ -1,4 +1,5 @@
 import { decimal, fail, format, type State } from './model';
+import { stockInactivity } from './stock-inactivity';
 import { amount, extended, money } from './money';
 import { takeLayers, valuationLedger, type Layer } from './valuation-ledger';
 
@@ -25,7 +26,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
   const from = date(params.get('from') || asOf.slice(0, 7) + '-01', 'start');
   const to = date(params.get('to') || asOf, 'end');
   if (from > to || to > asOf || asOf > today) fail('REPORT_DATE', 'Use a start date before the end date, and an end date on or before the as-of date.');
-  const rawDays = params.get('days') || '180';
+  const rawDays = params.get('days') || String(s.slowStockPolicies[0]?.deadDays ?? 180);
   if (!/^\d{1,5}$/.test(rawDays) || Number(rawDays) < 1 || Number(rawDays) > 36500) fail('REPORT_DAYS', 'Use a whole number of days between 1 and 36500.');
   const days = Number(rawDays), end = asOf + 'T23:59:59.999Z';
   const ledger = valuationLedger(s, end);
@@ -67,24 +68,8 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
     costed(reservation.orderLineId, quantity > held ? [...takeLayers(layers, held), { quantity: quantity - held, value: null, sourceId: '', receivedAt: '' }] : takeLayers(layers, quantity));
   }
   const orderCosts = Object.fromEntries([...lineCosts].map(([orderLineId, layers]) => [orderLineId, { quantity: format(layers.reduce((n, l) => n + l.quantity, 0n)), cost: display(valueOf(layers)) }]));
-  const threshold = new Date(Date.parse(end) - days * 86400000).toISOString();
-  const deadRows: any[] = [];
-  const byBin = new Map<string, typeof valuationRows>();
-  for (const row of valuationRows) {
-    if (s.locations.find(l => l.id === row.locationId)?.kind !== 'bin') continue;
-    const key = `${row.itemId}:${row.locationId}`;
-    byBin.set(key, [...(byBin.get(key) ?? []), row]);
-  }
-  for (const positions of byBin.values()) {
-    const { itemId, locationId } = positions[0];
-    const movements = s.movements.filter(m => m.itemId === itemId && m.locationId === locationId && m.createdAt <= end);
-    const sales = movements.filter(m => BigInt(m.quantity) < 0n && s.shipments.some(sh => sh.id === m.documentId));
-    const out = movements.filter(m => BigInt(m.quantity) < 0n && (s.shipments.some(sh => sh.id === m.documentId) || s.transfers.some(t => t.id === m.documentId && t.fromLocationId === locationId)));
-    if (out.some(m => m.createdAt > threshold)) continue;
-    deadRows.push({ itemId, locationId, quantity: format(positions.reduce((n, p) => n + decimal(p.quantity), 0n)),
-      value: positions.some(p => p.value === null) ? null : money(positions.reduce((n, p) => n + amount(p.value!), 0n)),
-      lastSale: sales.at(-1)?.createdAt ?? null, lastMovement: movements.at(-1)?.createdAt ?? null });
-  }
+  const inactivity = stockInactivity(s, valuationRows, end);
+  const deadRows = inactivity.filter(row => row.inactiveDays >= days);
   const t = ledger.totals, expected = t.receipts + t.openings + t.returns + t.adjustments - t.cogs;
   return { currency: 'USD', asOf, from, to, timezone: 'UTC', method: ledger.method, methodHistory: ledger.history,
     valuation: { rows: valuationRows, total: display(closing), unvaluedQuantity: format(allLayers.filter(l => l.value === null).reduce((n, l) => n + l.quantity, 0n)),
@@ -93,6 +78,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
       unpricedLines: rows.filter(r => r.revenue === null).length, unvaluedLines: rows.filter(r => r.cost === null).length },
     // Each order line's own cost: the layers its dispatches consumed and its reservations hold.
     orderCosts,
-    deadStock: { days, rows: deadRows, total: deadRows.some(r => r.value === null) ? null : money(deadRows.reduce((n, r) => n + amount(r.value), 0n)) },
+    inactivity,
+    deadStock: { days, rows: deadRows, total: deadRows.some(r => r.value === null) ? null : money(deadRows.reduce((n, r) => n + amount(r.value!), 0n)) },
   };
 }

@@ -1,6 +1,7 @@
 import { type PierState, type RecordData, type RunCommand } from './api'
 import { Amount, Facts, Field, Form, text } from './controls'
 import { day, when } from './display'
+import { PurchaseSend } from './purchase-send'
 import { Correspondence } from './correspondence'
 
 export function PurchaseFollowup({ state, po, run, busy }: { state: PierState; po: RecordData; run: RunCommand; busy: boolean }) {
@@ -10,6 +11,7 @@ export function PurchaseFollowup({ state, po, run, busy }: { state: PierState; p
   return <><Facts values={[{ label: 'Receiving warehouse', value: po.destinationWarehouse || 'Any receiving warehouse' }, { label: 'Expected landed total USD', value: <Amount value={cost?.total} /> }, { label: 'Freight / duty estimate USD', value: `${cost?.freight || '0'} / ${cost?.duty || '0'}` }, { label: 'Supplier confirmation', value: po.confirmation ? day(po.confirmation.promiseDate) : 'Awaiting confirmation' }]} />
     {po.status === 'draft' && <button disabled={busy || !authorized} onClick={() => run('po.delete', { poId: po.id, version: po.version })}>Delete uncommitted draft</button>}
     {po.status === 'committed' && <>
+      <PurchaseSend state={state} po={po} run={run} busy={busy} />
       <Form key={`send-${po.id}-${po.version}`} title="Send purchase order to supplier" submit="Approve recipient and send PO" busy={busy} disabled={!authorized} note="Review this exact purchase order and landed-cost estimate above. Approve the recipient and bounded confirmation reminders." onSubmit={data => run('po.send', { poId: po.id, version: po.version, recipient: text(data, 'recipient'), chaseEveryDays: text(data, 'chaseEveryDays'), maxChases: text(data, 'maxChases'), confirm: data.get('confirm') === 'on' })}>
         <Field label="Supplier email" name="recipient" type="email" defaultValue={supplier?.email || po.chasePolicy?.recipient} />
         <Field label="Chase every (days)" name="chaseEveryDays" type="number" min="1" max="30" defaultValue="3" />

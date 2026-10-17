@@ -97,6 +97,8 @@ export const collections = [
   "ediDocuments",
   "ediLabelEvents",
   "businessProfile",
+  "slowStockPolicies",
+  "slowStockExceptions",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {
@@ -139,9 +141,10 @@ export type Context = {
   actor: Actor;
   commandId: string;
   now: string;
-  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "channels" | "bookConnections" | "shippingSettings"; id: string; version: number };
+  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies"; id: string; version: number };
   channelSecrets?: { channelId: string; secret: string }[];
   automationActors?: Record<string, string>;
+  purchaseSendAuthority?: { poId: string; policyVersion: number; actorId: string; role: string };
   delegates?: { actorId: string; role: string; orderId: string; policyVersion: number }[];
   approver?: {
     id: string;
