@@ -74,6 +74,11 @@ export const collections = [
   "roles",
   "priceLists",
   "costingMethods",
+  "receivings",
+  "carriers",
+  "waves",
+  "packs",
+  "dispatchDays",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {

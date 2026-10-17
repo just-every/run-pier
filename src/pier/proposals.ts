@@ -35,7 +35,8 @@ export function reorder(c: Context) {
       const expected = c.s.purchaseOrders
         .filter((po) => po.status === "committed")
         .flatMap((po) => po.lines.filter((l: any) => l.itemId === i.id))
-        .reduce((n, l) => n + decimal(l.quantity) - decimal(l.received), 0n);
+        // An accepted over-receipt leaves nothing more expected, never less than nothing.
+        .reduce((n, l) => { const open = decimal(l.quantity) - decimal(l.received); return n + (open > 0n ? open : 0n) }, 0n);
       const shortage =
         demand > onHand + expected ? demand - onHand - expected : 0n;
       return {

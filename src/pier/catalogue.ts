@@ -12,6 +12,7 @@ import {
   type Context,
   type Row,
 } from "./model";
+import { same } from "./floor/codes";
 export function catalogue(c: Context, type: string, p: any): Row | undefined {
   if (type === "role.set") {
     requireRole(c, []);
@@ -54,16 +55,22 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       sku: text(p.sku, "SKU"),
       name: text(p.name, "Name"),
       barcode: p.barcode ? text(p.barcode) : null,
+      // A case barcode (GTIN-14/ITF-14) scans as one pack of packSize base units.
+      caseBarcode: p.caseBarcode ? text(p.caseBarcode) : null,
       unit: text(p.unit, "Base unit"),
       packSize: format(decimal(p.packSize, true)),
       archived: p.archived === true,
     };
+    const codes = [data.barcode, data.caseBarcode].filter(Boolean);
     if (
+      (data.barcode && data.barcode === data.caseBarcode) ||
       c.s.items.some(
         (r) =>
           r.id !== old?.id &&
-          (r.sku === data.sku || (data.barcode && r.barcode === data.barcode)),
-      )
+          (r.sku === data.sku ||
+            codes.some((code) => same(code, r.barcode) || same(code, r.caseBarcode))),
+      ) ||
+      c.s.locations.some((l) => codes.some((code) => same(code, l.barcode)))
     )
       fail("DUPLICATE", "SKU and barcode must be unique.");
     if (
@@ -81,7 +88,18 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       );
   }
   if (type === "location.save") {
-    data = { name: text(p.name), warehouse: text(p.warehouse), kind: p.kind };
+    data = {
+      name: text(p.name),
+      warehouse: text(p.warehouse),
+      kind: p.kind,
+      barcode: p.barcode ? text(p.barcode) : null,
+    };
+    if (
+      data.barcode &&
+      (c.s.locations.some((l) => l.id !== old?.id && same(data.barcode, l.barcode)) ||
+        c.s.items.some((i) => same(data.barcode, i.barcode) || same(data.barcode, i.caseBarcode)))
+    )
+      fail("DUPLICATE", "A bin barcode must be unique and differ from every item barcode.");
     if (!["bin", "transit"].includes(p.kind))
       fail("LOCATION", "Choose bin or transit.");
     if (

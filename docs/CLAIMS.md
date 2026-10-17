@@ -9,15 +9,15 @@ Status:
 
 Command names are the `type` strings Pier's command door accepts (`POST /api/pier/commands`, `src/pier/api.ts:258`).
 
-Updated 17 October 2026 for pricing, costing and native reports. New costing evidence is `tests/api/costing.test.mjs`; the broad clause statuses and outstanding integrations remain in CONTRACT.md.
+Updated 17 October 2026 for pricing, costing and native reports. New costing evidence is `tests/api/costing.test.mjs`; the broad clause statuses and outstanding integrations remain in CONTRACT.md. Updated again 17 October 2026 for the warehouse floor (rows 9, 12, 14, 15, 18 and 29): scan-to-receive, pick waves with a scan check per line and overflow bins, the pack step and the daily dispatch summary; evidence `tests/api/floor.test.mjs`.
 
 ## Totals
 
 | Status | Claims |
 |---|---|
-| backed | 17 |
-| partly | 15 |
-| contract, not yet in code | 23 |
+| backed | 23 |
+| partly | 11 |
+| contract, not yet in code | 21 |
 | **all claims** | **55** |
 
 ## Hero
@@ -32,7 +32,7 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 | 6 | Tag "PO-1048 · 480 of 500 received · 20 short" | backed | Partial receipts into bins, the rest stays expected: `receipt.create` `src/pier/purchasing.ts:121` |
 | 7 | Tag "EDI 856 sent · Target DC 0593" | contract, not yet in code | No EDI; CONTRACT.md EDI clause (SPS Commerce/Orderful) |
 | 8 | Tag "Count mismatch · A-14 · recounted" | backed | Counts capture a bin's movement frontier, show drift and ask for a recount when stock moved: `count.capture/count.record/count.recount` `src/pier/warehouse.ts:119-147`, `src/ui/stock.tsx:18-19` |
-| 9 | Tag "Picked 38 orders · 6:40 am" | partly | Dispatch picks from each order's reserved bins (`src/pier/orders.ts:113-160`, "Reserved sources for physical picking" `src/ui/sales.tsx`). No pick lists or waves |
+| 9 | Tag "Picked 38 orders · 6:40 am" | backed | A pick wave records each line's picker and time and reads "Picked N orders · time" when its last line is picked: `wave.release`, `pick.scan` `src/pier/floor/waves.ts`, Floor → Pick `src/ui/floor/pick.tsx`. The count of 38 is a story figure |
 | 10 | Tag "Bin A-14 · 212 units" | backed | Stock by bin: `src/ui/stock.tsx:24-25` |
 | 11 | Tag "Reorder suggested · Blue Mug 12oz · 600" | partly | An agent or person prepares a replenishment proposal with minimum, recommended and stretch quantities for a person to approve: `proposal.prepare/proposal.approve` `src/pier/proposals.ts:57,100`. No automatic suggestion |
 
@@ -40,13 +40,13 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 12 | "Receive … from any phone or scanner" | partly | Receipts into bins: `receipt.create`; every view works at phone width (`src/ui/controls.tsx:21-28`). Items carry a barcode (`src/pier/catalogue.ts:52`), but there is no scan-driven receiving |
+| 12 | "Receive … from any phone or scanner" | backed | Scan-to-receive against a committed PO: `receiving.start/scan/post` `src/pier/floor/receiving.ts`, Floor → Receive `src/ui/floor/receive.tsx`, at 390px. A USB/Bluetooth scanner or a handheld's built-in scanner types into the scan box (keyboard wedge); a phone camera reads through the browser's barcode detection (`src/ui/floor/scanner.tsx`; Chrome on Android, not iPhone Safari, which types the code or uses a paired Bluetooth scanner). Unit and case barcodes (`item.save` `caseBarcode`); a bin label moves put-away; over and short lines are kept on the receipt |
 | 13 | "put away" | backed | A receipt names the destination bin for each line: `src/ui/purchasing.tsx:23` |
-| 14 | "pick" | partly | As claim 9 |
-| 15 | "pack" | contract, not yet in code | No packing step; CONTRACT.md warehouse execution clauses |
+| 14 | "pick" | backed | Pick waves in bin sequence into numbered totes, each line confirmed by its bin and item scans: `src/pier/floor/waves.ts`, `src/ui/floor/pick.tsx` |
+| 15 | "pack" | backed | Picked units are scanned into numbered cartons, each weighed and measured by hand (lb, in), the order marked packed, then dispatched: `pack.scan/carton/measure/close/dispatch` `src/pier/floor/packing.ts`, Floor → Pack `src/ui/floor/pack.tsx`. Packing slips and carton labels are not printed (CONTRACT.md PRINT-001, SCAN-001) |
 | 16 | "and count" | backed | As claim 8 |
 | 17 | "Every bin knows exactly what it holds" | backed | Append-only movements per bin: `src/pier/model.ts`, `src/ui/activity.tsx:16-17` |
-| 18 | Pick list "Wave 14 · Dock A", scan check per line, "B-03 empty · picked from overflow B-09" | contract, not yet in code | No waves, docks, scan confirmation or overflow suggestions |
+| 18 | Pick list "Wave 14 · Dock A", scan check per line, "B-03 empty · picked from overflow B-09" | backed | Waves per carrier pickup and dock (`carrier.save`, `wave.release`); a wrong bin or wrong item is refused with the reason and nothing is picked (`pick.scan`); "Bin empty or short" moves only that line's reservation to the next bin with unreserved stock and opens a count of the reported bin (`pick.short`): `src/pier/floor/waves.ts`, `src/ui/floor/pick.tsx`, `tests/api/floor.test.mjs` |
 
 ## Channels (page 2)
 
@@ -72,7 +72,7 @@ Updated 17 October 2026 for pricing, costing and native reports. New costing evi
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 29 | "All 214 orders out by 4 pm" | partly | Dispatch of reserved orders, in parts: `dispatch.create`. The day's count is a story figure; there is no daily dispatch summary |
+| 29 | "All 214 orders out by 4 pm" | backed | Floor → Dispatch day shows the day's orders, shipments and units shipped by carrier and dock against each cut-off, with exceptions, headed "All N orders out by time" when every due order left on time; closing the day keeps it and emails the owner through the installation's mail: `src/pier/floor/summary.ts`, `src/pier/floor/mail.ts`, `src/ui/floor/dispatch.tsx`. On RER Managed the email is not available yet (no egress relay); the day's count is a story figure |
 
 ## Replenishment and accounting (page 5)
 

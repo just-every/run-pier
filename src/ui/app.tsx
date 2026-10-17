@@ -9,9 +9,10 @@ import { Reports } from './reports'
 import { Counts, Transfers } from './warehouse'
 import { Imports } from './imports'
 import { Activity } from './activity'
+import { Floor } from './floor'
 import './style'
 
-const tabs = [{ id: 'stock', title: 'Stock' }, { id: 'sales', title: 'Sales orders' }, { id: 'purchasing', title: 'Purchasing' }, { id: 'transfers', title: 'Transfers' }, { id: 'counts', title: 'Counts' }, { id: 'imports', title: 'Imports' }, { id: 'reports', title: 'Reports' }, { id: 'activity', title: 'Activity' }]
+const tabs = [{ id: 'stock', title: 'Stock' }, { id: 'sales', title: 'Sales orders' }, { id: 'purchasing', title: 'Purchasing' }, { id: 'floor', title: 'Floor' }, { id: 'transfers', title: 'Transfers' }, { id: 'counts', title: 'Counts' }, { id: 'imports', title: 'Imports' }, { id: 'reports', title: 'Reports' }, { id: 'activity', title: 'Activity' }]
 export function PierApp() {
   const [tab, setTab] = useState('stock'), [historyItem, setHistoryItem] = useState(''), [documentId, setDocumentId] = useState(''), [sessionError, setSessionError] = useState('')
   const { state, run, refresh, error, details, notice, busy, recoverable, recover } = usePier()
@@ -27,6 +28,6 @@ export function PierApp() {
     {sessionError && <p className="error" role="alert">{sessionError} <a href="/signin?returnTo=%2Fapp">Sign in</a></p>}
     {notice && <p className="notice" role="status">{notice}</p>}
     {recoverable && <section className="panel"><h2>Recover interrupted action</h2><p>{recoverable.type} · command {recoverable.commandId}</p><Evidence value={recoverable.payload} /><button disabled={busy} onClick={() => recover()}>Retry this exact action</button><p className="muted">The recorded identity recovers an existing result when the action already committed.</p></section>}
-    {!state ? <p role="status">{error ? 'Records have not loaded.' : 'Loading your stock records…'}</p> : <>{tab === 'stock' && <Stock state={state} run={run} busy={busy} history={history} />}{tab === 'sales' && <Sales state={state} run={run} busy={busy} documentId={documentId} />}{tab === 'purchasing' && <Purchasing state={state} run={run} busy={busy} documentId={documentId} />}{tab === 'transfers' && <Transfers state={state} run={run} busy={busy} />}{tab === 'counts' && <Counts state={state} run={run} busy={busy} />}{tab === 'imports' && <Imports state={state} run={run} busy={busy} />}{tab === 'reports' && <Reports state={state} run={run} busy={busy} />}{tab === 'activity' && <Activity key={historyItem} state={state} run={run} busy={busy} itemId={historyItem} refresh={refresh} />}</>}
+    {!state ? <p role="status">{error ? 'Records have not loaded.' : 'Loading your stock records…'}</p> : <>{tab === 'stock' && <Stock state={state} run={run} busy={busy} history={history} />}{tab === 'sales' && <Sales state={state} run={run} busy={busy} documentId={documentId} />}{tab === 'purchasing' && <Purchasing state={state} run={run} busy={busy} documentId={documentId} />}{tab === 'floor' && <Floor state={state} run={run} busy={busy} error={error} step={documentId} />}{tab === 'transfers' && <Transfers state={state} run={run} busy={busy} />}{tab === 'counts' && <Counts state={state} run={run} busy={busy} />}{tab === 'imports' && <Imports state={state} run={run} busy={busy} />}{tab === 'reports' && <Reports state={state} run={run} busy={busy} />}{tab === 'activity' && <Activity key={historyItem} state={state} run={run} busy={busy} itemId={historyItem} refresh={refresh} />}</>}
   </main></div>
 }

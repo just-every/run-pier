@@ -18,6 +18,9 @@ import { reports } from "./reports";
 import { warehouse, countView } from "./warehouse";
 import { imports } from "./imports";
 import { proposals, reorder } from "./proposals";
+import { floor, floorState } from "./floor";
+import { dispatchSummary } from "./floor/summary";
+import { sendSummary } from "./floor/mail";
 import { canonicalJson, sha256, publishImport } from "./import-kit";
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -123,6 +126,7 @@ export async function execute(
       warehouse,
       imports,
       proposals,
+      floor,
     ]) {
       result = handle(c, type, payload);
       if (result !== undefined) break;
@@ -163,6 +167,14 @@ export async function execute(
   }
   return null;
 }
+/** The owner's copy of a closed day, sent once the close commits and recorded as its own command. */
+async function deliver(env: Bindings, actor: Actor, commandId: string, outcome: any) {
+  const day = (await load(env.DB)).dispatchDays.find((d) => d.id === outcome.result?.id);
+  if (!day || day.version !== outcome.result.version || day.delivery?.status !== "sending") return { ...outcome, result: day ?? outcome.result };
+  const sent = await sendSummary(env, day);
+  const recorded = await execute(env, actor, `${commandId}-mail`, "dispatch.delivered", { dayId: day.id, version: day.version, ...sent });
+  return recorded ?? outcome;
+}
 export async function pierResponse(
   request: Request,
   original: Bindings,
@@ -194,6 +206,14 @@ export async function pierResponse(
       if (url.pathname === "/api/pier/native-export")
         return json(nativeExport(s));
       if (url.pathname === "/api/pier/reports") return json(reports(s, url.searchParams));
+      if (url.pathname === "/api/pier/dispatch-summary")
+        return json(
+          dispatchSummary(
+            s,
+            url.searchParams.get("date") ?? "",
+            url.searchParams.get("timeZone") ?? "",
+          ),
+        );
       if (url.pathname === "/api/pier/export") {
         const audit = await env.DB.batch([
           env.DB.prepare(
@@ -255,6 +275,7 @@ export async function pierResponse(
         people,
         orders: s.orders.map((o) => orderView(c, o)),
         counts: s.counts.map((count) => countView(c, count)),
+        ...floorState(c),
         positions: positions(s),
         reorder: reorder(c),
         commands,
@@ -317,7 +338,10 @@ export async function pierResponse(
           "Native owners retain owner authority. Assign agent roles only to native members.",
         );
     }
+    if (type === "dispatch.delivered")
+      fail("COMMAND", "Pier records mail delivery itself.");
     const outcome = await execute(env, actor, commandId, type, payload);
+    if (outcome && type === "dispatch.close") return json(await deliver(env, actor, commandId, outcome));
     if (outcome) return json(outcome);
     return json(
       {
