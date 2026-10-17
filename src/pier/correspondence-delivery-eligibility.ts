@@ -1,7 +1,7 @@
 import type { Row } from "./model";
 
 export type Correspondence = Row & {
-  kind: "purchase-order" | "supplier-chase" | "customer-promise";
+  kind: "purchase-order" | "supplier-chase" | "customer-promise" | "slow-stock";
   recordId: string;
   recordVersion: number;
   recipient: string;
@@ -45,6 +45,8 @@ export function correspondenceEligible(message: Correspondence, source: Row | nu
   const roles = message.kind === "customer-promise" ? ["owner", "operator", "buyer"] : ["owner", "buyer"];
   if (!source || !message.approvedBy || !roles.includes(message.approvalRole)) return false;
   try {
+    if (message.kind === 'slow-stock') return source.status === 'open' && source.notificationEnabled === true &&
+      source.policyVersion === message.policyVersion && source.assigneeId === message.approvedBy && source.messageId === message.id;
     if (message.kind === "customer-promise") {
       if (message.policyVersion !== undefined) {
         const policy = source.promisePolicy;

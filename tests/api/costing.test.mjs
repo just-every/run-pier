@@ -48,9 +48,8 @@ test('landed receipts, priced shipments and dated FIFO/average reports reconcile
   assert.equal(r.valuation.total, '120.000000000000');
   assert.equal(r.valuation.reconciliation.receipts, '150.000000000000');
   assert.equal(r.valuation.reconciliation.difference, '0.000000000000');
-  assert.equal(r.deadStock.rows.length, 1);
-  assert.equal(r.deadStock.rows[0].itemId, slow.id);
-  assert.equal(r.deadStock.total, '88.000000000000');
+  assert.equal(r.deadStock.rows.length, 0, 'fresh stock has not aged into dead stock');
+  assert.equal(r.deadStock.total, '0.000000000000');
   for (const key of ['bySku', 'byChannel', 'byCustomer']) assert.equal(r.margin[key][0].margin, '90.000000000000');
   const before = (await h.state()).version;
   await h.command('costing.method', { method: 'average', reason: 'Reviewed policy change' }, { error: 'COSTING_CONFIRM' });

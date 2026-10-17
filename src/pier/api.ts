@@ -39,6 +39,7 @@ import { backorderDates } from './backorders';
 import { purchasingWorkflow, expectedLandedCost, refreshPromises } from './purchasing-workflow';
 import { deliverCorrespondence, correspondenceDeliveries } from './correspondence-delivery';
 import { purchaseSend, invalidatePurchaseSends } from "./purchase-send";
+import { slowStock, refreshSlowStock } from "./slow-stock";
 import { pricing } from "./pricing";
 import { costing } from "./costing";
 import { reports } from "./reports";
@@ -161,6 +162,7 @@ export async function execute(
       purchasing,
       purchasingWorkflow,
       purchaseSend,
+      slowStock,
       replenishment,
       warehouse,
       imports,
@@ -195,6 +197,7 @@ export async function execute(
     }
     refreshPromises(c);
     invalidatePurchaseSends(c);
+    refreshSlowStock(c, backgroundPolicy?.collection === "slowStockPolicies");
     markChannelPending(c, before);
     try {
       return await commit(env, c, before, digest, result);
@@ -461,7 +464,7 @@ export async function pierResponse(
       if (doc) await deliverEdi(env, actor, `${commandId}-997`, {documentId:doc.id,version:doc.version}, execute);
     }
     if (outcome && type === 'po.sendApproved') await deliverCorrespondence(env, new Date().toISOString(), outcome.result.id, actor);
-    if (outcome && ['po.send','order.repromise','order.promisePolicy','po.confirm'].includes(type)) await deliverCorrespondence(env);
+    if (outcome && ['po.send','slowStock.check','slowStock.flag','order.repromise','order.promisePolicy','po.confirm'].includes(type)) await deliverCorrespondence(env);
     if (outcome && type === "dispatch.close") return json(await deliver(env, actor, commandId, outcome));
     if (outcome) {
       if (execution) execution.waitUntil(Promise.all([syncChannels(env),syncBooks(env)]));

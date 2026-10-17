@@ -43,7 +43,7 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
   const due = await db.prepare(`SELECT c.id,c.data,source.data AS sourceData
     FROM pier_records c LEFT JOIN pier_mail_deliveries d ON d.correspondence_id=c.id
     LEFT JOIN pier_records source ON source.id=json_extract(c.data,'$.recordId')
-      AND source.kind=CASE WHEN json_extract(c.data,'$.kind')='customer-promise' THEN 'orders' ELSE 'purchaseOrders' END
+      AND source.kind=CASE WHEN json_extract(c.data,'$.kind')='customer-promise' THEN 'orders' WHEN json_extract(c.data,'$.kind')='slow-stock' THEN 'slowStockExceptions' ELSE 'purchaseOrders' END
     WHERE c.kind='correspondence' AND (? IS NULL OR c.id=?) AND json_extract(c.data,'$.dueAt')<=?
       AND (d.correspondence_id IS NULL OR (?=1 AND d.phase='unavailable'))
       AND (json_extract(c.data,'$.kind')!='supplier-chase' OR EXISTS(
@@ -68,7 +68,7 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
     const gate = actor ? actorAuthority(actor) : { sql: "1=1", params: [] };
     const live = `(${gate.sql}) AND ${authority} AND ?=1 AND EXISTS(SELECT 1 FROM pier_records source
       WHERE source.id=json_extract(c.data,'$.recordId')
-      AND source.kind=CASE WHEN json_extract(c.data,'$.kind')='customer-promise' THEN 'orders' ELSE 'purchaseOrders' END
+      AND source.kind=CASE WHEN json_extract(c.data,'$.kind')='customer-promise' THEN 'orders' WHEN json_extract(c.data,'$.kind')='slow-stock' THEN 'slowStockExceptions' ELSE 'purchaseOrders' END
       AND source.data=?) AND (json_extract(c.data,'$.kind')!='supplier-chase' OR EXISTS(
         SELECT 1 FROM pier_mail_deliveries initial
         WHERE initial.correspondence_id=json_extract(c.data,'$.purchaseMessageId') AND initial.phase='sent'))`;
