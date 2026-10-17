@@ -4,19 +4,13 @@ Pier runs on your own computer with one command and starts empty: no sample stoc
 
 ## Start Pier
 
-Two lines, the same as [run-pier.com/run](https://run-pier.com/run). First install `rer`, the Run Edit Run command. It installs rer for you alone, with its own Node if you have no Node 22 or later, and changes no shell settings: if it prints an `export PATH=…` line, run that line before the next step.
+One line, the same as [run-pier.com/run](https://run-pier.com/run). It installs `rer`, the Run Edit Run command, gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
 
 ```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
+npx -y @runeditrun/rer dev just-every/run-pier
 ```
 
-Then start Pier. rer gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
-
-```sh
-rer dev just-every/run-pier
-```
-
-Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-pier` does both steps in one line.
+No Node? `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-pier` brings its own Node and does the same.
 
 To start it again later, run `cd run-pier && rer dev`. Keep the printed link private: it carries this computer's development sign-in key. Pier runs on macOS, Linux or Windows with WSL2, with git.
 

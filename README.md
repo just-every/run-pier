@@ -12,19 +12,17 @@ The public source repository is [just-every/run-pier](https://github.com/just-ev
 
 Pier starts with no business records. Local operation uses the real Worker and persistent local D1 with Base's native development identity. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.38 package.
 
-Two lines, the same as [run-pier.com/run](https://run-pier.com/run). Install `rer`, then start Pier; rer gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
+One line, the same as [run-pier.com/run](https://run-pier.com/run). It installs `rer`, gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
 
 ```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
-rer dev just-every/run-pier
+npx -y @runeditrun/rer dev just-every/run-pier
 ```
 
-The installer changes no shell settings: if it prints an `export PATH=…` line, run that line before `rer dev`. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-pier` does both steps in one line.
+No Node? `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-pier` brings its own Node and does the same.
 
-To start it again later, run `cd run-pier && rer dev`. From a checkout, to choose the owner yourself, use the shared commands:
+To start it again later, run `cd run-pier && rer dev`. To choose the owner yourself, run `npx -y @runeditrun/rer install just-every/run-pier`, then from the checkout:
 
 ```sh
-rer install
 rer setup
 rer dev
 ```

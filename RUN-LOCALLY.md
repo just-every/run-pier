@@ -1,8 +1,8 @@
 # Run Pier locally
 
-Install the shared CLI with `curl -fsSL https://runeditrun.com/install.sh | sh`, or start Pier in one line with `npx -y @runeditrun/rer dev just-every/run-pier` if you already have Node 22 or later. Pier uses the exact published package, with no checkout-local CLI copy.
+Start Pier from nothing with one line, `npx -y @runeditrun/rer dev just-every/run-pier` (set up only: `npx -y @runeditrun/rer setup just-every/run-pier`; without Node: `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-pier`). Pier uses the exact published package, with no checkout-local CLI copy.
 
-Run `rer install`, `rer setup --owner-email you@example.com`, then `rer dev`. Complete native owner setup at `/setup`; `/app` is the inventory workspace and `/` is the Base Lobby. Open the printed private sign-in URL on this computer. To sign in again later, run `rer dev` again and open its fresh link: it signs you in with one click. Local mail is suppressed silently; no mail or provider account is needed locally. `rer dev --stop` stops the owned server.
+For your own owner mailbox, run `npx -y @runeditrun/rer install just-every/run-pier`, then `rer setup --owner-email you@example.com` and `rer dev` from the checkout. Complete native owner setup at `/setup`; `/app` is the inventory workspace and `/` is the Base Lobby. Open the printed private sign-in URL on this computer. To sign in again later, run `rer dev` again and open its fresh link: it signs you in with one click. Local mail is suppressed silently; no mail or provider account is needed locally. `rer dev --stop` stops the owned server.
 
 Node 22.20.0 and pnpm 10.12.4 are pinned. Local D1 data persists under `.wrangler/state`. Private settings, native sessions, dev credentials and installer state are excluded from Git. Setup preserves the saved owner and data. Missing noninteractive answers are reported by manifest field name; pass a private mode-0600 JSON answer file with `rer setup --answers PATH --non-interactive`.
 

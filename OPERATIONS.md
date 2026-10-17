@@ -4,16 +4,13 @@ Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer`
 
 ## Local start
 
-Use the shared installer, then the bare project verbs:
+Start from nothing with one line (without Node: `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-pier`), then use the bare project verbs inside the checkout:
 
 ```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
-rer install
-rer setup
-rer dev
+npx -y @runeditrun/rer dev just-every/run-pier
 ```
 
-`rer install` installs the pinned dependency set. `rer setup` prepares the local application and declared D1 migrations. `rer dev` serves the actual local Worker and persistent D1 with Base's native development identity; open its local URL on this computer and finish the owner claim at `/setup`. The shared Base Lobby owns `/`, and Pier opens at `/app`. Keep the printed local open URL private. Stop the server with `rer dev --stop`.
+Inside the checkout, `rer install` installs the pinned dependency set. `rer setup` prepares the local application and declared D1 migrations. `rer dev` serves the actual local Worker and persistent D1 with Base's native development identity; open its local URL on this computer and finish the owner claim at `/setup`. The shared Base Lobby owns `/`, and Pier opens at `/app`. Keep the printed local open URL private. Stop the server with `rer dev --stop`.
 
 Node 22.20.0 and pnpm 10.12.4 are pinned. Local setup does not require Cloudflare credentials, an external identity issuer, an email provider, an embedded model or a supplier account. No business fixture is created for the operator. Local sign-in is one click: open the private `RER_OPEN` link `rer dev` prints. Mail is suppressed silently on this computer; nothing is sent.
 
