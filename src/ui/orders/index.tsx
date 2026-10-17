@@ -13,7 +13,7 @@ import { Pricing, Quarantine, Shipments } from './records'
 // order on the right with its shortage and the agent docked beneath, then
 // fulfilment, entry and the sales records.
 
-export function Sales({ state, run, busy, documentId = '', warehouse = '' }: { state: PierState; run: RunCommand; busy: boolean; documentId?: string; warehouse?: string }) {
+export function Sales({ state, run, busy, documentId = '', warehouse = '', orderWarehouse = '' }: { state: PierState; run: RunCommand; busy: boolean; documentId?: string; warehouse?: string; orderWarehouse?: string }) {
   const [selected, setSelected] = useState(documentId), [filter, setFilter] = useState<QueueFilter>({ chip: 'open', channel: '', carrier: '', sort: 'promise' }), [prefill, setPrefill] = useState(false)
   const [lines, setLines] = useState<{ itemId: string; quantity: string; price?: string }[]>([])
   const orders = records(state, 'orders'), items = records(state, 'items').filter(item => !item.archived), parties = records(state, 'parties'), locations = records(state, 'locations').filter(location => location.kind === 'bin')
@@ -37,7 +37,7 @@ export function Sales({ state, run, busy, documentId = '', warehouse = '' }: { s
         {order && <Fulfil state={state} order={order} run={run} busy={busy} prefill={prefill} />}
       </div>
     </div>
-    <div id="new-order"><Form title="New sales order" submit="Create and reserve available stock" busy={busy} note="Available stock reserves atomically. Unmet demand becomes backorder." onSubmit={data => run('order.create', { customerId: text(data, 'customerId'), promiseDate: text(data, 'promiseDate'), channel: text(data, 'channel'), warehouse: text(data, 'warehouse'), lines: lines.map(({ price, ...line }) => ({ ...line, ...(price?.trim() ? { price } : {}) })) })}><Select label="Customer" name="customerId" rows={parties.filter(party => party.kind === 'customer')} /><Field label="Promise date" name="promiseDate" type="date" required={false} /><Select label="Order warehouse" name="warehouse" rows={[...new Set(locations.map(l => l.warehouse))].map(w => ({ id: w, version: 1, label: w }))} required={false} defaultValue={warehouse || undefined} /><Field label="Channel" name="channel" defaultValue="manual" /><Lines items={items} price optionalPrice onChange={setLines} /></Form></div>
+    <div id="new-order"><Form title="New sales order" submit="Create and reserve available stock" busy={busy} note="Available stock reserves atomically. Unmet demand becomes backorder." onSubmit={data => run('order.create', { customerId: text(data, 'customerId'), promiseDate: text(data, 'promiseDate'), channel: text(data, 'channel'), warehouse: text(data, 'warehouse'), lines: lines.map(({ price, ...line }) => ({ ...line, ...(price?.trim() ? { price } : {}) })) })}><Select label="Customer" name="customerId" rows={parties.filter(party => party.kind === 'customer')} /><Field label="Promise date" name="promiseDate" type="date" required={false} /><Select label="Order warehouse" name="warehouse" rows={[...new Set(locations.map(l => l.warehouse))].map(w => ({ id: w, version: 1, label: w }))} required={false} defaultValue={orderWarehouse || undefined} /><Field label="Channel" name="channel" defaultValue="manual" /><Lines items={items} price optionalPrice onChange={setLines} /></Form></div>
     <div className="split sales-records"><Shipments state={state} run={run} busy={busy} orderId={selected} /><Quarantine state={state} run={run} busy={busy} /></div>
     <Pricing state={state} run={run} busy={busy} />
   </>
