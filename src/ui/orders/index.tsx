@@ -29,7 +29,8 @@ export function Sales({ state, run, busy, documentId = '', warehouse = '', order
   }
   return <>
     <div className="page-title"><h1>Sales orders</h1><div className="actions"><a className="button primary" href="#new-order" onClick={event => { event.preventDefault(); document.getElementById('new-order')?.scrollIntoView({ block: 'start', behavior: 'smooth' }) }}>New sales order</a></div></div>
-    <div className="workbench">
+    {/* All adds a Warehouse column; workbench-all gives the customer name that room back. */}
+    <div className={warehouse ? 'workbench' : 'workbench workbench-all'}>
       <Queue state={state} warehouse={warehouse} filter={filter} setFilter={setFilter} selected={order?.id ?? ''} open={open} />
       <div className="workbench-side">
         {order ? <OrderCard state={state} order={order} run={run} busy={busy} costs={costs} resolve={resolve} /> : <section className="order-card order-none"><h2>No order open</h2><p className="muted">Enter an order below or choose one from the queue.</p></section>}

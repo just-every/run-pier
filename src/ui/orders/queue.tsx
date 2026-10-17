@@ -32,6 +32,12 @@ export function Pill({ order }: { order: RecordData }) {
   return <span className={`pill pill-${tone}`}>{attention ? 'Needs attention' : status}</span>
 }
 
+/** The warehouses an order ships from, kept to one short cell: "Reno DC", or "Reno DC +1" with the full list on hover. */
+function Where({ names }: { names: string[] }) {
+  if (!names.length) return <td className="q-where">—</td>
+  return <td className="q-where" title={names.join(', ')}>{names[0]}{names.length > 1 && <span className="q-more"> +{names.length - 1}<span className="visually-hidden"> more: {names.slice(1).join(', ')}</span></span>}</td>
+}
+
 export function Queue({ state, warehouse, filter, setFilter, selected, open }: { state: PierState; warehouse: string; filter: QueueFilter; setFilter: (filter: QueueFilter) => void; selected: string; open: (id: string) => void }) {
   const parties = records(state, 'parties'), carriers = records(state, 'carriers')
   const scoped = records(state, 'orders').filter(order => inWarehouse(state, order, warehouse))
@@ -45,11 +51,11 @@ export function Queue({ state, warehouse, filter, setFilter, selected, open }: {
       <select aria-label="Sort orders" value={filter.sort} onChange={event => setFilter({ ...filter, sort: event.target.value })}><option value="promise">Ship by date</option><option value="reference">Newest order</option></select>
     </div>
     {!rows.length ? <p className="queue-empty">{scoped.length ? 'No orders match these filters.' : warehouse ? `No sales orders ship from ${warehouse}.` : 'No sales orders. Add a customer and items in Stock, then enter an order.'}</p> :
-    <table className="queue-table"><thead><tr><th scope="col">Order</th><th scope="col" className="q-customer">Customer</th>{!warehouse && <th scope="col">Warehouse</th>}<th scope="col">Channel</th>{!!warehouse && <th scope="col" className="num">Lines</th>}<th scope="col" className="num">Order total</th><th scope="col">Ship by</th><th scope="col">Status</th></tr></thead>
+    <table className="queue-table"><thead><tr><th scope="col">Order</th><th scope="col" className="q-customer">Customer</th>{!warehouse && <th scope="col">Warehouse</th>}<th scope="col">Channel</th>{!!warehouse && <th scope="col" className="num">Lines</th>}<th scope="col" className="num">{warehouse ? 'Order total' : 'Total'}</th><th scope="col">Ship by</th><th scope="col">Status</th></tr></thead>
       <tbody>{rows.map(order => <tr key={order.id} className={order.id === selected ? 'selected' : undefined} onClick={event => { if (!(event.target as HTMLElement).closest('button')) open(order.id) }}>
         <td className="q-ref"><button type="button" className="link" aria-label={`Open order ${order.reference}`} aria-current={order.id === selected ? 'true' : undefined} onClick={() => open(order.id)}>{order.reference}</button></td>
         <WordClip className="q-customer" text={label(parties, order.customerId)} />
-        {!warehouse && <td className="q-where" title={orderWarehouses(state, order).join(', ')}>{orderWarehouses(state, order).join(', ') || '—'}</td>}
+        {!warehouse && <Where names={orderWarehouses(state, order)} />}
         <td className="q-channel"><ChannelMark channel={order.channel} /></td>
         {!!warehouse && <td className="q-lines num">{order.lines.length}<span className="q-unit"> lines</span></td>}
         <td className="q-total num"><Amount value={order.total} unknown="Unpriced" dollars /></td>

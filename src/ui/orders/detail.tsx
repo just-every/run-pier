@@ -9,7 +9,8 @@ import { margin, type LineCosts } from './costs'
 import { Exception } from './exception'
 import { WordClip } from './clip'
 import { Pill } from './queue'
-import { clock, needsAttention, orderWarehouses, pickLines, shipDay } from './model'
+import { ago, clock, needsAttention, orderWarehouses, pickLines, shipDay } from './model'
+import { difference, sum } from '../quantity'
 
 // The selected order as one card: who and where, the ship-by date and carrier,
 // pick progress from the floor's scans, the lines with their bins and margin,
@@ -26,15 +27,19 @@ export function OrderCard({ state, order, run, busy, costs, resolve }: { state: 
   const shipments = records(state, 'shipments').filter(row => row.orderId === order.id)
   const bins = (lineId: string) => [...new Set([...reservations.filter(row => row.orderLineId === lineId).map(row => row.locationId), ...shipments.flatMap(row => row.lines.filter((line: any) => line.orderLineId === lineId).flatMap((line: any) => (line.reservations || []).map((source: any) => source.locationId)))].map(id => label(locations, id)))].join(', ')
   const picks = pickLines(state, order), lastPick = picks.filter(line => line.pickedAt).sort((a, b) => String(a.pickedAt).localeCompare(String(b.pickedAt))).at(-1)
-  const done = picks.length ? picks.filter(line => line.status === 'picked').length : order.lines.filter((line: any) => line.dispatched === line.quantity).length
-  const total = picks.length || order.lines.length, progress = total ? Math.round(done / total * 100) : 0
+  // Dispatched shows once anything on the order has shipped; until then every value would be 0.
+  const shipped = order.lines.some((line: any) => line.dispatched !== '0')
+  // Once anything has shipped, progress counts lines shipped in full, as the lines table shows them;
+  // before that it counts the floor's pick scans.
+  const picking = picks.length > 0 && !shipped
+  const lastShipment = shipments.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).at(-1)
+  const done = picking ? picks.filter(line => line.status === 'picked').length : order.lines.filter((line: any) => difference(sum([line.dispatched, line.cancelled]), line.quantity) === '0').length
+  const total = picking ? picks.length : order.lines.length, progress = total ? Math.round(done / total * 100) : 0
   const margins = order.lines.map((line: any) => margin(line.price, costs.lines[line.id]))
   const priced = order.lines.map((line: any, index: number) => ({ revenue: Number(line.lineTotal), margin: margins[index] })).filter((row: { revenue: number; margin: number | null }) => row.margin !== null && row.revenue > 0)
   const revenue = priced.reduce((sum: number, row: { revenue: number }) => sum + row.revenue, 0)
   const average = revenue ? Math.round(priced.reduce((sum: number, row: { revenue: number; margin: number }) => sum + row.revenue * row.margin, 0) / revenue) : null
   const lines = all ? order.lines : order.lines.slice(0, shown)
-  // Dispatched shows once anything on the order has shipped; until then every value would be 0.
-  const shipped = order.lines.some((line: any) => line.dispatched !== '0')
   const late = needsAttention(order)
   return <section className="order-card" id={`document-${order.id}`} aria-label={`Order ${order.reference}`}>
     <div className="order-head">
@@ -48,8 +53,8 @@ export function OrderCard({ state, order, run, busy, costs, resolve }: { state: 
       <div className="ship-carrier"><Icon name="truck" /><div><small>Carrier pickup</small><strong>{carrier ? `${carrier.name} · ${carrier.dock}` : 'Not assigned'}</strong></div>{!carrier && <a className="button small" href="#floor">Choose on Floor</a>}</div>
     </div>
     <div className="pick-progress">
-      <div><strong>{picks.length ? 'Pick progress' : 'Dispatch progress'}</strong><span>{done} of {total} lines</span><div className="track" role="progressbar" aria-label={picks.length ? 'Lines picked' : 'Lines dispatched'} aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}><i style={{ width: `${progress}%` }} /></div></div>
-      {lastPick ? <p>Picked by {person(state, lastPick.pickedBy)}<br />on scanner · {clock(lastPick.pickedAt)}</p> : <p>{picks.length ? 'Released to a wave; no scans yet' : 'Not released to a pick wave'}</p>}
+      <div><strong>{picking ? 'Pick progress' : 'Dispatch progress'}</strong><span>{done} of {total} lines{picking ? '' : ' shipped'}</span><div className="track" role="progressbar" aria-label={picking ? 'Lines picked' : 'Lines shipped'} aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}><i style={{ width: `${progress}%` }} /></div></div>
+      {!picking && lastShipment ? <p>Last shipment {lastShipment.shipmentReference || lastShipment.reference}<br />dispatched {ago(lastShipment.createdAt)}</p> : lastPick ? <p>Picked by {person(state, lastPick.pickedBy)}<br />on scanner · {clock(lastPick.pickedAt)}</p> : <p>{picks.length ? 'Released to a wave; no scans yet' : 'Not released to a pick wave'}</p>}
     </div>
     <div className="order-lines"><table>
       <thead><tr><th scope="col"><span className="visually-hidden">Line state</span></th><th scope="col">SKU</th><th scope="col">Product</th><th scope="col">Bin</th><th scope="col" className="num">Ordered</th><th scope="col" className="num">Reserved</th>{shipped && <th scope="col" className="num">Shipped</th>}<th scope="col" className="num">Price</th><th scope="col" className="num">Margin</th></tr></thead>

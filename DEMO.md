@@ -16,7 +16,8 @@ two today, purchase orders (received, part received, expected and a draft), a
 UPS Ground pick wave half scanned, a transfer, a count, returns in quarantine
 and restocked, a replenishment proposal the agent prepared waiting for review,
 and the owner's team (an owner still named "Owner" by the claim becomes Maya
-Collins, whose business it is): Jordan takes sales orders, Sam runs the floor,
+Collins, whose business, Collins Supply Co., is named with both warehouses'
+ship-to addresses in Purchasing → Your business): Jordan takes sales orders, Sam runs the floor,
 Priya buys and the Pier agent prepares proposals, each with their Pier role, and
 one invitation is still pending. `rer demo --stop`, Ctrl-C or
 the demo's end (one hour) deletes its folder `.rer/demo/<start>/`; a new demo

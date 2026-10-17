@@ -29,6 +29,19 @@
 .pier-app .evidence { margin: 10px 0; padding-left: 14px; border-left: 2px solid var(--app-line); font-size: 13px; }
 .pier-app .evidence > div { margin: 6px 0; }
 .pier-app .evidence ul { margin: 4px 0; padding-left: 18px; }
+.pier-app .proposal-review h3 { margin: 18px 0 6px; font-size: 14px; line-height: 20px; }
+.pier-app .proposal-review > p { max-width: 78ch; margin: 0; }
+.pier-app .proposal-evidence { margin: 0; padding-left: 18px; }
+.pier-app .proposal-evidence li { margin: 4px 0; overflow-wrap: break-word; }
+.pier-app .business-named { padding-top: 16px; padding-bottom: 16px; }
+.pier-app .business-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.pier-app .business-line small { flex: 0 0 100%; color: var(--app-soft); font-size: 12.5px; }
+.pier-app .business-line strong { font-size: 16px; color: var(--ink); }
+.pier-app .business-line span { color: var(--body); overflow-wrap: anywhere; }
+.pier-app .business-named details { margin-bottom: 0; }
+.pier-app .business-named details .panel { margin: 0; padding: 14px 0 4px; border: 0; box-shadow: none; }
+.pier-app .business-named details .panel > h2 { display: none; }
+.pier-app .proposal-details h4 { margin: 14px 0 6px; font-size: 13px; color: var(--app-soft); }
 .pier-app details { min-width: 0; margin: 12px 0; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--surface); }
 .pier-app summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; padding: 0 14px; color: var(--ink); font-weight: 500; cursor: pointer; list-style: none; overflow-wrap: break-word; }
 .pier-app summary::-webkit-details-marker { display: none; }

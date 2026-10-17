@@ -125,6 +125,8 @@ async function story(env: Bindings, cast: Cast, team: [string, string, string, s
     batch = await run(35, 'import.review', { batchId: batch.id, version: batch.version, stage, reason: 'Checked against the shelf count taken on Friday and the inFlow valuation report' })
   await run(35, 'import.commit', { batchId: batch.id, version: batch.version })
   for (const [key, , , role] of team) await run(34, 'role.set', { operatorId: `demo-${key}`, role })
+  // Maya names her business in Purchasing → Your business, so purchase orders and customer updates say who is writing.
+  await run(34, 'business.save', { name: 'Collins Supply Co.', address: '4800 Longley Ln, Reno, NV 89502', shipTo: { 'Reno DC': '4800 Longley Ln, Dock 2, Reno, NV 89502', 'Newark DC': '200 Doremus Ave, Newark, NJ 07105' } })
 
   const state = (await env.DB.prepare("SELECT kind,data FROM pier_records WHERE kind IN ('items','locations','parties')").all<{ kind: string; data: string }>()).results.map(row => JSON.parse(row.data))
   const id = (name: string) => state.find(row => row.sku === name || row.name === name)?.id ?? (() => { throw new Error(`Demo record ${name} is missing`) })()

@@ -4,8 +4,8 @@ import { difference, sum } from '../quantity'
 // What the order workbench reads from saved records: each order's status in
 // the code's own words, where it ships from, its picks and its first shortage.
 
-export type OrderStatus = 'Reserved' | 'Backorder' | 'Partially dispatched' | 'Closed'
-export const orderStatus = (order: RecordData): OrderStatus => order.lines.every((line: any) => difference(sum([line.dispatched, line.cancelled]), line.quantity) === '0') ? 'Closed' : order.lines.some((line: any) => line.dispatched !== '0') ? 'Partially dispatched' : order.lines.some((line: any) => line.backorder !== '0') ? 'Backorder' : 'Reserved'
+export type OrderStatus = 'Reserved' | 'Backorder' | 'Partly shipped' | 'Closed'
+export const orderStatus = (order: RecordData): OrderStatus => order.lines.every((line: any) => difference(sum([line.dispatched, line.cancelled]), line.quantity) === '0') ? 'Closed' : order.lines.some((line: any) => line.dispatched !== '0') ? 'Partly shipped' : order.lines.some((line: any) => line.backorder !== '0') ? 'Backorder' : 'Reserved'
 export const isOpen = (order: RecordData) => orderStatus(order) !== 'Closed'
 /** A backordered order that will not fill by its promise: the expected fill date is later, or there is none. */
 export const needsAttention = (order: RecordData) => isOpen(order) && order.lines.some((line: any) => line.backorder !== '0') && !!order.backorderPlan?.late

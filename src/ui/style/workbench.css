@@ -29,6 +29,11 @@
 .pier-app .queue-table td { height: 34px; padding: 4px 6px; border-bottom: 1px solid var(--app-line); overflow: hidden; text-overflow: ellipsis; vertical-align: middle; white-space: nowrap; }
 .pier-app .queue-table .num { text-align: right; }
 .pier-app .queue-table th:first-child, .pier-app .queue-table td:first-child { padding-left: 10px; }
+/* All adds a Warehouse column; tighter cell padding gives that room back to the customer name. */
+@media (min-width: 600px) {
+  .pier-app .workbench-all .queue-table th, .pier-app .workbench-all .queue-table td { padding-left: 4px; padding-right: 4px; }
+  .pier-app .workbench-all .queue-table th:first-child, .pier-app .workbench-all .queue-table td:first-child { padding-left: 10px; }
+}
 .pier-app .queue-table tbody tr { cursor: pointer; }
 .pier-app .queue-table tbody tr:hover td { background: #f6f9fd; }
 .pier-app .queue-table tr.selected td { background: var(--app-selected); }

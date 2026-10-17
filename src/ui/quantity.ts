@@ -18,3 +18,5 @@ export const fromMillionths = (value: string) => {
   if (!/^-?\d+$/.test(value)) throw new Error('Invalid saved ledger quantity')
   return display(BigInt(value))
 }
+/** A quantity times a unit price, for display totals: product('600', '6.24') is '3744'. */
+export const product = (left: string, right: string) => display(exact(left) * exact(right) / scale)
