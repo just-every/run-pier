@@ -8,6 +8,7 @@
 - Native CSV import reads USD by default, accepts a per-row ISO 4217 currency column on positions and purchase orders, refuses an unknown code naming the file and row, and values non-USD rows only at a USD rate the owner enters, recorded on the batch.
 - Put Pier online: the settings file quotes MAIL_FROM, and hosted backup, backup check (its database removed at the end), restore of a live Pier from a backup file and point-in-time rewind run through Pier's own `rer run hosted` script with no npx. Run-beside, Books and Channels give `rer dev` lines that work after the Run page install.
 - Purchase orders and customer date updates name the business and the ship-to address (Purchasing → Your business) and use written-out dates. Re-promise says why it is disabled; backorder evidence shows the PO-covered quantity and the uncovered rest with its basis. Cin7 Core product AverageCost is picked up as opening cost and a missing cost names the item and column. Dispatch summaries say backordered rather than short; "Picked 1 order".
+- Stock hides empty quarantine and transit rows and shows an item's expected quantity once. The README and backup guide drop internal terms (seed, Worker/D1, Lobby, git commands). Hosted backup, check, restore and rewind were followed as written on a real deploy.
 - Pinned rer 0.2.47.
 
 - Waves: an order already picked never waits for, or joins, a second wave. A new pick list covers only reserved units no earlier wave picked or holds, and pick and pack refuse units another wave already picked or that have shipped.
