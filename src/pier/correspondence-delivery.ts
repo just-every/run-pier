@@ -1,5 +1,6 @@
 import type { Bindings } from "../auth.server";
-import type { Row } from "./model";
+import { authority as actorAuthority } from "./storage";
+import type { Actor, Row } from "./model";
 import { businessMail, businessMessage, emailUnavailable } from "./correspondence-delivery-provider";
 import { correspondenceEligible, type Correspondence } from "./correspondence-delivery-eligibility";
 export { poMaterial } from "./correspondence-delivery-eligibility";
@@ -32,7 +33,7 @@ export async function correspondenceDeliveries(db: D1Database): Promise<Correspo
 }
 
 /** Bounded, durable submissions. 'sent' records provider acceptance, not inbox delivery. */
-export async function deliverCorrespondence(env: Bindings, clock = new Date().toISOString()): Promise<CorrespondenceDelivery[]> {
+export async function deliverCorrespondence(env: Bindings, clock = new Date().toISOString(), onlyId?: string, actor?: Actor): Promise<CorrespondenceDelivery[]> {
   const db = env.DB, now = clock, sender = businessMail(env);
   // A crashed execution may have submitted mail. Surface that uncertainty, never retry it.
   await db.prepare(`UPDATE pier_mail_deliveries SET phase='uncertain',error=?,at=?
@@ -43,18 +44,18 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
     FROM pier_records c LEFT JOIN pier_mail_deliveries d ON d.correspondence_id=c.id
     LEFT JOIN pier_records source ON source.id=json_extract(c.data,'$.recordId')
       AND source.kind=CASE WHEN json_extract(c.data,'$.kind')='customer-promise' THEN 'orders' ELSE 'purchaseOrders' END
-    WHERE c.kind='correspondence' AND json_extract(c.data,'$.dueAt')<=?
+    WHERE c.kind='correspondence' AND (? IS NULL OR c.id=?) AND json_extract(c.data,'$.dueAt')<=?
       AND (d.correspondence_id IS NULL OR (?=1 AND d.phase='unavailable'))
       AND (json_extract(c.data,'$.kind')!='supplier-chase' OR EXISTS(
         SELECT 1 FROM pier_mail_deliveries initial
         WHERE initial.correspondence_id=json_extract(c.data,'$.purchaseMessageId') AND initial.phase='sent'))
     ORDER BY json_extract(c.data,'$.dueAt'),c.id LIMIT 10`)
-    .bind(now, sender ? 1 : 0).all<{ id: string; data: string; sourceData: string | null }>();
+    .bind(onlyId ?? null, onlyId ?? null, now, sender ? 1 : 0).all<{ id: string; data: string; sourceData: string | null }>();
 
   const results = await Promise.all(due.results.map(async candidate => {
     const message = JSON.parse(candidate.data) as Correspondence;
     const source = candidate.sourceData ? JSON.parse(candidate.sourceData) as Row : null;
-    const eligible = message.id === candidate.id && correspondenceEligible(message, source);
+    const eligible = message.id === candidate.id && correspondenceEligible(message, source, now);
     let phase: DeliveryPhase = sender ? "sending" : "unavailable";
     let error: string | null = sender ? null : emailUnavailable;
     let mail: ReturnType<typeof businessMessage> | undefined;
@@ -64,7 +65,8 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
     }
     // Claim and current human authority are one SQL admission. Only unavailable
     // records (where no submission was attempted) may ever acquire another claim.
-    const live = `${authority} AND ?=1 AND EXISTS(SELECT 1 FROM pier_records source
+    const gate = actor ? actorAuthority(actor) : { sql: "1=1", params: [] };
+    const live = `(${gate.sql}) AND ${authority} AND ?=1 AND EXISTS(SELECT 1 FROM pier_records source
       WHERE source.id=json_extract(c.data,'$.recordId')
       AND source.kind=CASE WHEN json_extract(c.data,'$.kind')='customer-promise' THEN 'orders' ELSE 'purchaseOrders' END
       AND source.data=?) AND (json_extract(c.data,'$.kind')!='supplier-chase' OR EXISTS(
@@ -79,8 +81,8 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
         provider_message_id=NULL,error=excluded.error,at=excluded.at
         WHERE pier_mail_deliveries.phase='unavailable' AND excluded.phase!='unavailable'
       RETURNING ${metadata}`)
-      .bind(eligible ? 1 : 0, candidate.sourceData, phase,
-        eligible ? 1 : 0, candidate.sourceData, error, now,
+      .bind(...gate.params, eligible ? 1 : 0, candidate.sourceData, phase,
+        ...gate.params, eligible ? 1 : 0, candidate.sourceData, error, now,
         candidate.id, candidate.data, now).first<CorrespondenceDelivery>();
     if (!claimed || claimed.phase !== "sending" || !sender || !mail) return claimed;
 

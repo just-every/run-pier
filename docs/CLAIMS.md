@@ -25,9 +25,9 @@ Updated 17 October 2026 for EDI (rows 7, 23–25): the X12 core flow and SSCC la
 
 | Status | Claims |
 |---|---|
-| backed | 42 |
-| partly | 13 |
-| contract, not yet in code | 4 |
+| backed | 40 |
+| partly | 15 |
+| contract, not yet in code | 0 |
 | **all claims** | **55** |
 
 ## Hero
@@ -101,7 +101,7 @@ Updated 17 October 2026 for EDI (rows 7, 23–25): the X12 core flow and SSCC la
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
 | 37 | "The agent forecasts from real sell-through" | backed | Agents read native-shipment forecasts through the state API: observed windows, days of cover, projected stockout and learned parameters. `src/pier/replenishment-demand.ts`. Imported/channel history, seasonality, cash optimization and backtesting remain outside this round. |
-| 38 | "sends the PO" | partly | The agent does not send a PO itself. It can prepare evidence and drafts; a buyer approves exact commitment, recipient and send, then Pier sends through the install mail. `po.send`, `src/pier/correspondence-delivery.ts`. RER Managed email is not available yet. |
+| 38 | "sends the PO" | backed | An authenticated or scheduled inventory agent sends one exact committed PO under buyer authority: approved recipient, landed spend limit, expiry, reminders and stop control. Changed demand, terms, policy or destination stops it; live authority and durable provider outcomes prevent unapproved or duplicate sends. `src/pier/purchase-send.ts`, `tests/api/purchase-send.test.mjs`. Broader BUY-002/AGENT-002 targets and Managed email remain partial. |
 | 39 | "chases the supplier" | backed | Buyer authorizes 0–5 confirmation chases at 1–30-day intervals; cron sends only while the initial PO was accepted, supply is open and no confirmation, policy revocation or material change intervened. Supplier replies/confirmed dates are recorded on the PO. `src/pier/scheduled.ts`, `src/pier/purchasing-workflow.ts`. |
 | 40 | "re-promises affected orders" (and "customers emailed") | backed | A human approves a computed customer promise or an order-specific exact-recipient date-update policy. Confirmation/date changes recompute promises and submit customer emails; history and provider outcomes remain visible. `src/pier/backorders.ts`, `src/pier/purchasing-workflow.ts`. RER Managed email is not available yet. |
 | 41 | "checks the receipt closes in the books" | partly | A final receipt marks the matched Pantry payable received and ready to pay; Pantry payment readback closes it in Pier. Quantity/price tolerances, hold/approve and exclusive receipt allocations are native Pier flows. Readiness uses Pantry's native received/ready-to-pay bill states through the scoped integration credential: `docs/books.md`. |

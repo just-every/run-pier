@@ -1,0 +1,77 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { installation, basics, buy } from './harness.mjs';
+
+test('BUY-002: an agent sends only the exact bounded human-approved purchase once', async t => {
+  const mail = [];
+  let uncertain = false;
+  const h = await installation({ bindings: { MAIL_PROVIDER: 'resend', MAIL_FROM: 'buyer@example.test', MAIL_API_KEY: 'synthetic-mail-key' }, outboundService: async request => {
+    mail.push(await request.json());
+    if (uncertain) return new Response('Unavailable', { status: 503 });
+    return Response.json({ id: `message-${mail.length}` });
+  } });
+  t.after(() => h.close());
+  const b = await basics(h);
+  await h.command('business.save', { name: 'Harbor Wholesale', address: '40 Pier Road, Portland OR 97210' });
+  const entered = await fetch(`${h.origin}/auth/dev/enter?as=member`, { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
+  const cookie = entered.headers.getSetCookie().map(v => v.split(';')[0]).join('; ');
+  const session = await (await h.request('/auth/session', { as: cookie })).json();
+  await h.command('role.set', { operatorId: session.operator.id, role: 'agent' });
+  const current = async id => (await h.state()).purchaseOrders.find(p => p.id === id);
+  const authorize = async (po, changes = {}, opts = {}) => h.command('po.authorizeSend', { poId: po.id, version: po.version, recipient: 'supplier@example.test', maxSpend: '3', expiresAt: new Date(Date.now() + 86400000).toISOString(), maxChases: 0, confirm: true, ...changes }, opts);
+  let po = await current((await buy(h, b)).id);
+  await h.command('po.sendApproved', { poId: po.id, version: po.version }, { as: cookie, error: 'SEND_AUTHORITY' });
+  await authorize(po, {}, { as: cookie, error: 'FORBIDDEN' });
+  await authorize(po, { maxSpend: '2' }, { error: 'SPEND_LIMIT' });
+  await authorize(po, { expiresAt: 'invalid' }, { error: 'POLICY' });
+  po = await authorize(po);
+  assert.equal(mail.length, 0, 'approval does not submit the message');
+  const commandId = randomUUID(), payload = { poId: po.id, version: po.version };
+  const message = await h.command('po.sendApproved', payload, { as: cookie, commandId });
+  assert.equal(message.approvedBy, (await h.state()).actor.id);
+  assert.equal(message.requestedBy, session.operator.id);
+  assert.equal(mail.length, 1);
+  assert.equal(mail[0].to[0], 'supplier@example.test');
+  assert.match(mail[0].text, /expected landed total USD 2.50/);
+  await h.command('po.sendApproved', payload, { as: cookie, commandId });
+  assert.equal(mail.length, 1);
+  const worker = await h.mf.getWorker();
+  await worker.scheduled({ scheduledTime: new Date(), cron: '* * * * *' });
+  assert.equal(mail.length, 1, 'cron does not repeat an agent send');
+  // Changes to actual demand stop an unconsumed grant atomically.
+  po = await authorize(await current((await buy(h, b)).id));
+  await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '1' }] });
+  po = await current(po.id);
+  assert.equal(po.sendPolicy.enabled, false);
+  await h.command('po.sendApproved', { poId: po.id, version: po.version }, { as: cookie, error: 'SEND_AUTHORITY' });
+  po = await authorize(po);
+  po = await h.command('po.pauseSend', { poId: po.id, version: po.version });
+  await h.command('po.sendApproved', { poId: po.id, version: po.version }, { as: cookie, error: 'SEND_AUTHORITY' });
+  // A fresh grant is executed by the scheduler, without a human send command.
+  po = await authorize(po);
+  await worker.scheduled({ scheduledTime: new Date(Date.now() + 1000), cron: '* * * * *' });
+  assert.equal(mail.length, 2);
+  assert.ok((await current(po.id)).sendPolicy.messageId);
+  await h.command('mail.process', {});
+  assert.equal(mail.length, 2);
+  po = await authorize(await current((await buy(h, b)).id));
+  await worker.scheduled({ scheduledTime: new Date(Date.now() + 2 * 86400000), cron: '* * * * *' });
+  assert.equal(mail.length, 2, 'an expired grant cannot be scheduled');
+  // Revoking the buyer also removes an agent's pending delegation.
+  await h.command('role.set', { operatorId: session.operator.id, role: 'buyer' });
+  po = await authorize(po, {}, { as: cookie });
+  await h.command('role.set', { operatorId: session.operator.id, role: 'viewer' });
+  await h.command('po.sendApproved', { poId: po.id, version: po.version }, { error: 'SEND_AUTHORITY' });
+  await worker.scheduled({ scheduledTime: new Date(), cron: '* * * * *' });
+  assert.equal(mail.length, 2);
+  po = await authorize(await current(po.id));
+  uncertain = true;
+  const unconfirmed = await h.command('po.sendApproved', { poId: po.id, version: po.version });
+  assert.equal((await h.state()).deliveries.find(d => d.correspondenceId === unconfirmed.id).phase, 'uncertain');
+  const attempts = mail.length;
+  await h.command('mail.process', {});
+  await worker.scheduled({ scheduledTime: new Date(), cron: '* * * * *' });
+  assert.equal(mail.length, attempts, 'an ambiguous outcome is never blindly resubmitted');
+
+});

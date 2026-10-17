@@ -48,20 +48,7 @@ export function purchasingWorkflow(c: Context, type: string, p: any): Row | unde
     if (type === 'po.send') {
       const recipient = email(p.recipient);
       if (p.confirm !== true) fail('APPROVAL', 'Review the recipient and exact purchase order before sending.');
-      const material = poMaterial(po);
-      if (c.s.correspondence.some(m => m.kind === 'purchase-order' && m.recordId === po.id && m.approvedMaterial === material)) fail('ALREADY_SENT', 'This exact purchase order already has an approved send. Inspect its delivery outcome.');
-      const everyDays = Number(p.chaseEveryDays ?? 3), count = Number(p.maxChases ?? 2);
-      if (!Number.isInteger(everyDays) || everyDays < 1 || everyDays > 30 || !Number.isInteger(count) || count < 0 || count > 5) fail('POLICY', 'Choose 1–30 days between chases and at most five chases.');
-      const cost = expectedLandedCost(po), from = sender(c);
-      const body = `Purchase order ${po.reference} from ${from.name}\nSupplier: ${po.supplierSnapshot.name}\nShip to: ${from.name}${po.destinationWarehouse ? `, ${po.destinationWarehouse}` : ''}\n${shipTo(from, po.destinationWarehouse)}\nRequested delivery: ${longDate(po.promiseDate)}\n` +
-        po.lines.map((l: any) => `${l.terms?.code ? `${l.terms.code} (our ${get(c.s, 'items', l.itemId).sku})` : get(c.s, 'items', l.itemId).sku}: ${l.quantity} ${get(c.s, 'items', l.itemId).unit} at ${usdText(l.price)}`).join('\n') +
-        `\nGoods ${usdText(cost.goods)}; estimated freight ${usdText(cost.freight)}; duty ${usdText(cost.duty)}; expected landed total ${usdText(cost.total)}.\nPlease reply with confirmation, expected delivery date and our purchase order reference.\n\n${from.name}`;
-      const sent = message(c, 'purchase-order', po, recipient, `${from.name} purchase order ${po.reference}`, body, { approvedMaterial: material, promiseDate: po.promiseDate });
-      for (let n = 1; n <= count; n++) message(c, 'supplier-chase', po, recipient, `Confirmation requested: ${from.name} ${po.reference}`,
-        `Please confirm purchase order ${po.reference} from ${from.name}, requested for ${longDate(po.promiseDate)}. Reply with the expected date and any changes.\n\n${body}`,
-        { dueAt: afterDays(c.now, everyDays * n) + 'T09:00:00.000Z', approvedMaterial: material, promiseDate: po.promiseDate, purchaseMessageId: sent.id });
-      po.chasePolicy = { enabled: true, approvedBy: c.actor.id, recipient, everyDays, maxChases: count, at: c.now };
-      return sent;
+      return queuePurchase(c, po, p);
     }
     const reply = { id: crypto.randomUUID(), source: text(p.source, 'Supplier message reference'), body: text(p.body, 'Supplier reply'), recordedBy: c.actor.id, at: c.now };
     po.supplierReplies ??= []; po.supplierReplies.push(reply);
@@ -103,4 +90,22 @@ export function refreshPromises(c: Context) {
     c.delegates.push({ actorId: policy.approvedBy, role, orderId: order.id, policyVersion: policy.version });
     promiseMessage(c, order, expected, policy.recipient, policy);
   }
+}
+
+export function queuePurchase(c: Context, po: Row, p: any, authority: any = {}) {
+  const recipient = email(p.recipient);
+  const material = poMaterial(po);
+  if (c.s.correspondence.some(m => m.kind === 'purchase-order' && m.recordId === po.id && m.approvedMaterial === material)) fail('ALREADY_SENT', 'This exact purchase order already has an approved send. Inspect its delivery outcome.');
+  const everyDays = Number(p.chaseEveryDays ?? 3), count = Number(p.maxChases ?? 2);
+  if (!Number.isInteger(everyDays) || everyDays < 1 || everyDays > 30 || !Number.isInteger(count) || count < 0 || count > 5) fail('POLICY', 'Choose 1–30 days between chases and at most five chases.');
+  const cost = expectedLandedCost(po), from = sender(c);
+  const body = `Purchase order ${po.reference} from ${from.name}\nSupplier: ${po.supplierSnapshot.name}\nShip to: ${from.name}${po.destinationWarehouse ? `, ${po.destinationWarehouse}` : ''}\n${shipTo(from, po.destinationWarehouse)}\nRequested delivery: ${longDate(po.promiseDate)}\n` +
+    po.lines.map((l: any) => `${l.terms?.code ? `${l.terms.code} (our ${get(c.s, 'items', l.itemId).sku})` : get(c.s, 'items', l.itemId).sku}: ${l.quantity} ${get(c.s, 'items', l.itemId).unit} at ${usdText(l.price)}`).join('\n') +
+    `\nGoods ${usdText(cost.goods)}; estimated freight ${usdText(cost.freight)}; duty ${usdText(cost.duty)}; expected landed total ${usdText(cost.total)}.\nPlease reply with confirmation, expected delivery date and our purchase order reference.\n\n${from.name}`;
+  const sent = message(c, 'purchase-order', po, recipient, `${from.name} purchase order ${po.reference}`, body, { approvedMaterial: material, promiseDate: po.promiseDate, ...authority });
+  for (let n = 1; n <= count; n++) message(c, 'supplier-chase', po, recipient, `Confirmation requested: ${from.name} ${po.reference}`,
+    `Please confirm purchase order ${po.reference} from ${from.name}, requested for ${longDate(po.promiseDate)}. Reply with the expected date and any changes.\n\n${body}`,
+    { dueAt: afterDays(c.now, everyDays * n) + 'T09:00:00.000Z', approvedMaterial: material, promiseDate: po.promiseDate, purchaseMessageId: sent.id, ...authority });
+  po.chasePolicy = { enabled: true, approvedBy: authority.approvedBy ?? c.actor.id, recipient, everyDays, maxChases: count, at: c.now };
+  return sent;
 }
