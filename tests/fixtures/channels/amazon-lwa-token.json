@@ -1,5 +1,5 @@
 {
-  "access_token": "fixture-lwa-token",
+  "access_token": "synthetic-fixture-lwa-token",
   "token_type": "bearer",
   "expires_in": 3600,
   "refresh_token": "fixture-refresh-token"
