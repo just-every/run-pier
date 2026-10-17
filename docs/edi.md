@@ -1,12 +1,20 @@
 # Retail EDI
 
-Open **EDI** in Pier. This is an X12 004010 document workflow, with a single installation-configured EDI bridge. No SPS Commerce or Orderful sandbox is connected. Target, Walmart and The Home Depot onboarding and certification are pending; the illustrative synthetic DC 0593 purchase order is not a retailer implementation guide.
+Open **EDI** in Pier to prepare retailer orders and documents today: receive an original purchase order, map the retailer's item codes, review its acknowledgment, prepare a carton ship notice and shipment invoice, and print SSCC labels.
+
+**Automatic retailer delivery is coming.** Live exchange needs an authorized EDI network account, such as SPS Commerce or Orderful, plus the retailer's onboarding and certification. Pier has no direct connection to either service today, and RER Managed sending is not available yet. A self-hosted installation can use a developer-configured bridge to its provider. Target, Walmart and The Home Depot certification remains pending.
+
+## How orders arrive today
+
+Get the original **X12 850** file from your retailer or EDI provider's portal or agreed delivery channel. Open the file as text, copy its complete interchange and paste it into **Receive retailer 850**. Pier does not automatically fetch orders from a retailer or network account. A PDF or an ordinary spreadsheet is not an X12 850.
+
+The same manual route accepts a retailer's original **X12 997** response at **Receive retailer 997 response**. Keep using your provider's portal to track delivery until a certified connection is in place. The illustrative synthetic DC 0593 purchase order used in local tests is not a retailer implementation guide.
 
 ## Set up a retailer
 
 The owner adds the retailer as a customer and creates its warehouse bins first. Under **Retailer settings and item mappings**, enter the agreed sender/receiver IDs, fixed fulfilment warehouse, licensed GS1 company prefix and the retailer’s 855, 856 and 810 windows. New connections use test mode; production mode requires the approved retailer connection. Map each buyer item code (BP) or UPC (UP) to a Pier item, X12 unit and exact base units per EDI unit. Conflicting BP/UPC matches and mismatched units block intake.
 
-The owner needs the retailer’s current implementation and label guides, its agreed identifiers and deadlines, a GS1 prefix assigned to the business, and an authorized network account. AS2, SFTP or VAN selection is pending. A network operator must implement the bridge contract below and complete certification against the actual retailer guide. General X12 support does not establish retailer acceptance.
+The owner needs the retailer’s current implementation and label guides, its agreed identifiers and deadlines, a GS1 prefix assigned to the business, and an authorized network account. AS2, SFTP or VAN selection is pending. A network operator must connect your chosen transport and complete certification against the actual retailer guide. General X12 support does not establish retailer acceptance.
 
 ## Purchase order to invoice
 
@@ -22,19 +30,7 @@ The owner needs the retailer’s current implementation and label guides, its ag
 
 On RER Managed, EDI delivery is not available yet. Preparing documents works; a provider action shows that line without making a network call. There is no provider simulator in the application.
 
-Self-hosted installations configure `EDI_BRIDGE_URL` and `EDI_BRIDGE_TOKEN` in private runtime settings. Both are optional secrets in `deploy.json`; they are excluded from business state and exports. Use HTTPS and a URL without credentials, query or fragment. A localhost HTTP bridge is permitted only in local development. The configured URL receives:
-
-```json
-{
-  "documentId": "durable-document-id",
-  "kind": "856",
-  "control": "000000003",
-  "partner": { "id": "retailer-id", "name": "Retailer", "senderId": "OUR-ID", "receiverId": "RETAILER-ID", "transport": "pending" },
-  "x12": "ISA*..."
-}
-```
-
-The POST uses `Authorization: Bearer <install secret>`, `Content-Type: application/json` and `Idempotency-Key: <documentId>`. The bridge must deduplicate that identity and return `{"documentId":"durable-document-id","status":"accepted","providerId":"bridge-receipt"}` only after durable acceptance. The bridge then owns onward AS2/SFTP/VAN delivery and custody; the owner is responsible for its costs and destination authorization. Order, party, price and carton contents leave the installation for that operator and retailer.
+For a self-hosted installation, a developer can connect your authorized network provider through Pier's [EDI bridge integration](edi-bridge.md). This needs technical setup and retailer certification; there is no direct SPS Commerce or Orderful account connection in Pier today. Until that is ready, download prepared X12 documents and arrange delivery with your provider. Pier does not track sends performed outside its bridge, so keep that delivery evidence with your provider.
 
 Pier records intent before sending. A timeout or mismatched response leaves delivery uncertain and prevents another send. The owner checks the bridge and uses **Reconcile bridge receipt** to record its accepted identity/time or verified absence with evidence. Only verified absence permits another send. A transport receipt never supplies retailer functional acceptance. Business documents require owner send authority; operators may receive POs and return their syntax acknowledgments.
 

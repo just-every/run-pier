@@ -17,6 +17,38 @@ async function freeze(h, batch) {
 for (const provider of ['cin7-core', 'inflow', 'fishbowl']) test(`${provider} move-in: review source coverage, independent totals, atomic apply, replay and safe undo`, async t => {
   const h = await installation(); t.after(() => h.close());
   const input = await fixture(provider);
+  if (provider === 'inflow') {
+    // Keep originals intact while explicitly naming a bin for blank sublocations,
+    // reading local source times and subtracting evidenced fulfilled quantities.
+    const normalized = structuredClone(input), stockFile = normalized.files.find(f => f.kind === 'positions');
+    stockFile.csv = stockFile.csv.replaceAll(',East,A1,', ',East,,'); stockFile.blankBin = 'Main stock';
+    normalized.files.find(f => f.kind === 'controls').csv = normalized.files.find(f => f.kind === 'controls').csv.replaceAll('A1', 'Main stock');
+    const purchase = normalized.files.find(f => f.kind === 'purchaseOrders');
+    purchase.csv = purchase.csv.trim().split(/\r?\n/).map((line, index) => `${line}${index === 0 ? ',ReceivedUnits' : index === 1 ? ',1' : ',0.5'}`).join('\n').replaceAll('11/1/2026', '11/1/2026 14:18');
+    purchase.columns.fulfilled = 'ReceivedUnits'; purchase.quantityMeaning = 'ordered-less-fulfilled';
+    const normalizedBatch = await h.command('import.stage', normalized);
+    assert.deepEqual(normalizedBatch.errors, []);
+    assert.deepEqual(normalizedBatch.reconciliation.expectedReceipts[0].lines.map(l => l.quantity), ['2', '1']);
+    assert.equal(normalizedBatch.reconciliation.expectedReceipts[0].promiseDate, '2026-11-01');
+    assert.ok(Object.values(normalizedBatch.reconciliation.names).includes('Main stock'));
+    const units = structuredClone(normalized); units.files.find(f => f.kind === 'purchaseOrders').csv = purchase.csv.replace(',ea,', ',case,');
+    const unitBatch = await h.command('import.stage', units);
+    assert.ok(unitBatch.errors.some(e => e.code === 'UNIT' && e.location.artifact === purchase.name && e.location.row === 2));
+    const missingSku = structuredClone(input); missingSku.files.find(f => f.kind === 'items').csv = missingSku.files.find(f => f.kind === 'items').csv.replace(',CAP-B,', ',,');
+    const skuBatch = await h.command('import.stage', missingSku);
+    assert.ok(skuBatch.errors.some(e => e.code === 'INPUT' && /SKU/.test(e.message) && e.location.row === 2 && e.location.artifact === input.files.find(f => f.kind === 'items').name));
+    const partial = structuredClone(normalized), completed = partial.files.find(f => f.kind === 'purchaseOrders');
+    completed.csv = completed.csv.replace('PO-101,Unfulfilled', 'PO-101,Fulfilled').replace(',ea,1.4,1', ',ea,1.4,3');
+    const completeBatch = await h.command('import.stage', partial);
+    assert.ok(completeBatch.errors.some(e => e.code === 'OPEN_DOCUMENT' && e.location.row === 2));
+    completed.excludedRows = { '2': 'Already received in full before cutoff; retained as source history only.' };
+    const retained = await h.command('import.stage', partial);
+    assert.deepEqual(retained.errors, []);
+    assert.equal(retained.moveIn.excluded[0].location.row, 2);
+    assert.equal(retained.source.records.find(r => r.kind === 'purchaseOrders').sourceId, 'PO-101:line:2');
+    assert.equal(Buffer.from(retained.source.artifacts.find(a => a.name === purchase.name).original.base64, 'base64').toString('utf8'), completed.csv);
+    assert.deepEqual((await h.state()).positions, []);
+  }
   const bad = structuredClone(input);
   bad.files.find(f => f.kind === 'controls').csv = bad.files.find(f => f.kind === 'controls').csv.replace('15.75', '15.76');
   let batch = await h.command('import.stage', bad);

@@ -23,11 +23,12 @@ export function sellThrough(c: Context, itemId: string, warehouse: string, selec
   });
 }
 
-export function learnedParameters(sold: string, windowDays: number, leadDays: number, reviewDays: number, safetyStock: string) {
+export function learnedParameters(sold: string, windowDays: number, leadDays: number, reviewDays: number, safetyStock: string, unit?: string) {
   const q = signedQuantity(sold), divisor = BigInt(windowDays);
-  const leadDemand = ceilDivide(q * BigInt(leadDays), divisor);
-  const reviewDemand = ceilDivide(q * BigInt(reviewDays), divisor);
-  const point = leadDemand + decimal(safetyStock);
+  const whole = (quantity: bigint) => ['each', 'ea', 'ea.'].includes(unit?.trim().toLowerCase() ?? '') ? ceilDivide(quantity, SCALE) * SCALE : quantity;
+  const leadDemand = whole(ceilDivide(q * BigInt(leadDays), divisor));
+  const reviewDemand = whole(ceilDivide(q * BigInt(reviewDays), divisor));
+  const point = whole(leadDemand + decimal(safetyStock));
   return { leadDemand: format(leadDemand), reviewDemand: format(reviewDemand),
     reorderPoint: format(point), reorderQuantity: format(reviewDemand), maximum: format(point + reviewDemand) };
 }

@@ -57,9 +57,9 @@ export const presets: Record<string, Preset[]> = {
     controls(false),
   ],
   inflow: [
-    { id: 'products', label: 'Product details', kind: 'items', signature: [['ProductName'], ['SKU'], ['Uom']], columns: { key: ['ProductName'], sku: ['SKU'], name: ['ProductName'], unit: ['Uom'], barcode: ['BarCode'], openingCost: ['Cost'] }, constants: { packSize: '1' }, reasons: { TrackSerials: 'Untracked products only; tracked products need their own move-in.', Description: 'Long description stays in the original.' } },
+    { id: 'products', label: 'Product details', kind: 'items', signature: [['ProductName'], ['SKU'], ['Uom']], columns: { key: ['ProductName'], sku: ['SKU'], name: ['Description', 'ProductName'], unit: ['Uom'], barcode: ['BarCode'], openingCost: ['Cost'] }, constants: { packSize: '1' }, reasons: { TrackSerials: 'Untracked products only; tracked products need their own move-in.' } },
     { id: 'stock-levels', label: 'Stock levels', kind: 'positions', signature: [['ProductName'], ['Location'], ['Sublocation'], ['Quantity']], columns: { itemKey: ['ProductName'], warehouse: ['Location'], bin: ['Sublocation'], quantity: ['Quantity'] }, constants: { status: 'sellable' }, reasons: { Serial: TRACKING } },
-    { id: 'purchase-orders', label: 'Purchase orders', kind: 'purchaseOrders', signature: [['OrderNumber'], ['Vendor'], ['ProductName'], ['ProductQuantity']], columns: { poKey: ['OrderNumber'], supplierKey: ['Vendor'], itemKey: ['ProductName'], quantity: ['ProductQuantity'], unit: ['ProductQuantityUoM'], price: ['ProductUnitPrice'], promiseDate: ['RequestedShipDate', 'DueDate'] }, lineIdentity: 'document-ordinal', quantityMeaning: 'remaining', dateFormat: 'M/D/YYYY', reasons: { InventoryStatus: 'Only Unfulfilled orders move in; Pier refuses other statuses.', CurrencyCode: CURRENCY, ProductSerials: TRACKING } },
+    { id: 'purchase-orders', label: 'Purchase orders', kind: 'purchaseOrders', signature: [['OrderNumber'], ['Vendor'], ['ProductName'], ['ProductQuantity']], columns: { poKey: ['OrderNumber'], supplierKey: ['Vendor'], itemKey: ['ProductName'], quantity: ['ProductQuantity'], fulfilled: ['ProductFulfilledQuantity', 'ProductQuantityFulfilled', 'FulfilledQuantity'], unit: ['ProductQuantityUoM'], price: ['ProductUnitPrice'], promiseDate: ['RequestedShipDate', 'DueDate'] }, lineIdentity: 'document-ordinal', quantityMeaning: 'remaining', dateFormat: 'M/D/YYYY', reasons: { InventoryStatus: 'Only Unfulfilled orders move in; Pier refuses other statuses.', CurrencyCode: CURRENCY, ProductSerials: TRACKING } },
     { id: 'vendors', label: 'Vendors', kind: 'suppliers', fileHint: /vendor|supplier/i, signature: [['Name']], columns: { key: ['Name'], name: ['Name'] }, reasons: { CurrencyCode: CURRENCY } },
     { id: 'customers', label: 'Customers', kind: 'customers', fileHint: /customer/i, signature: [['Name']], columns: { key: ['Name'], name: ['Name'] } },
     controls(false),
@@ -99,11 +99,12 @@ export function recognise(provider: string, name: string, rows: string[][]): Pre
 export function applyPreset(file: ExportFile, preset: Preset, rows: string[][], system: string): ExportFile & { preset: string } {
   const headers = exportHeaders(rows, preset.layout);
   const columns = Object.fromEntries(Object.entries(preset.columns).flatMap(([field, candidates]) => { const column = present(headers, candidates); return column ? [[field, column]] : [] }));
+  const quantityMeaning = system === 'inFlow Inventory' && preset.kind === 'purchaseOrders' && columns.fulfilled ? 'ordered-less-fulfilled' : preset.quantityMeaning;
   const used = new Set(Object.values(columns));
   const archivedColumns = Object.fromEntries(headers.filter(h => h !== '@line' && !used.has(h)).map(h => [h, preset.reasons?.[h] ?? (h.startsWith('Tracking-') ? TRACKING : `Pier does not use this ${system} column; it stays in the retained original.`)]));
   return { ...file, kind: preset.kind, columns, constants: { ...(preset.constants ?? {}) }, archivedColumns, preset: preset.id,
     ...(preset.layout ? { layout: preset.layout } : {}), ...(preset.lineIdentity ? { lineIdentity: preset.lineIdentity } : {}),
-    ...(preset.quantityMeaning ? { quantityMeaning: preset.quantityMeaning } : {}), ...(preset.dateFormat ? { dateFormat: preset.dateFormat } : {}) };
+    ...(quantityMeaning ? { quantityMeaning } : {}), ...(preset.dateFormat ? { dateFormat: preset.dateFormat } : {}) };
 }
 
 export const checkTemplate = (provider: string) => provider === 'fishbowl' ? 'Location,Unit,Quantity,Value\n' : 'Warehouse,Bin,Unit,Quantity,Value\n';

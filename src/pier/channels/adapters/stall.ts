@@ -16,7 +16,7 @@ export function createStallAdapter(config: ChannelConfig): Adapter {
       const state = await read('/api/stall/state');
       // Payment and reservation stay with Stall. Never import an unpaid cart or
       // race its reservation request; link the existing Pier order by identity.
-      return state.orders.filter((o: any) => o.payment && o.reservation?.id).map((o: any) => ({ externalId: o.id, reference: o.id, customer: o.customerEmail ?? 'Erased Stall customer', currency: o.currency.toUpperCase(), reservationId: o.reservation.id, lines: o.lines.map((l: any) => ({ externalId: l.sku, sku: l.sku, quantity: String(l.quantity), price: (l.unitCents / 100).toFixed(2) })) }));
+      return state.orders.filter((o: any) => o.payment && o.reservation?.id).map((o: any) => ({ externalId: o.id, reference: o.id, customer: o.customerEmail ?? 'Erased Stall customer', currency: o.currency.toUpperCase(), reservationId: o.reservation.id, payment: { provider: 'stripe', reference: o.payment.intentId, amount: (o.totalCents / 100).toFixed(2), currency: o.currency.toUpperCase(), paidAt: o.payment.paidAt, orderReference: o.id }, lines: o.lines.map((l: any) => ({ externalId: l.sku, sku: l.sku, quantity: String(l.quantity), price: (l.unitCents / 100).toFixed(2) })) }));
     },
     async stock(listing: Listing, quantity: string) {
       const catalogue = await read('/api/stall/catalogue', false);

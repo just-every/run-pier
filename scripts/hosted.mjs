@@ -50,8 +50,8 @@ function settings(file) {
 // This checkout's own wrangler, the one `rer install` put in node_modules.
 const wranglerPackage = createRequire(import.meta.url).resolve('wrangler/package.json');
 const wranglerBin = join(dirname(wranglerPackage), JSON.parse(readFileSync(wranglerPackage, 'utf8')).bin.wrangler);
-function wrangler(env, args, { capture = false } = {}) {
-  const result = spawnSync(process.execPath, [wranglerBin, ...args], { env: { ...process.env, ...env, WRANGLER_SEND_METRICS: 'false' }, stdio: capture ? ['ignore', 'pipe', 'inherit'] : 'inherit', encoding: 'utf8' });
+function wrangler(env, args, { capture = false, privateOutput = false } = {}) {
+  const result = spawnSync(process.execPath, [wranglerBin, ...args], { env: { ...process.env, ...env, WRANGLER_SEND_METRICS: 'false' }, stdio: privateOutput ? ['ignore', 'pipe', 'pipe'] : capture ? ['ignore', 'pipe', 'inherit'] : 'inherit', encoding: 'utf8' });
   if (result.status !== 0) stop(`wrangler ${args.slice(0, 3).join(' ')} failed (exit ${result.status}). Nothing after this step ran.`);
   return result.stdout;
 }
@@ -59,7 +59,8 @@ const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 function backup(env, db, label = '') {
   mkdirSync('exports', { recursive: true });
   const file = join('exports', `${db}${label}-${stamp()}.sql`);
-  wrangler(env, ['d1', 'export', db, '--remote', '--output', file]);
+  // Wrangler prints a temporary full-database download URL. Keep both streams private.
+  wrangler(env, ['d1', 'export', db, '--remote', '--output', file], { privateOutput: true });
   return file;
 }
 function counts(env, db) {

@@ -12,6 +12,8 @@ export type Correspondence = Row & {
   dueAt: string;
   approvedMaterial?: string;
   promiseDate?: string;
+  reservedPromiseDate?: string | null;
+  lines?: { orderLineId: string; itemId: string; quantity: string; promiseDate: string }[];
   policyVersion?: number;
   sendPolicyVersion?: number;
   purchaseMessageId?: string;
@@ -53,10 +55,13 @@ export function correspondenceEligible(message: Correspondence, source: Row | nu
         if (!policy?.enabled || policy.version !== message.policyVersion ||
             policy.recipient !== message.recipient || policy.approvedBy !== message.approvedBy) return false;
       }
-      return typeof message.promiseDate === "string" && !!message.promiseDate &&
-        source.promiseDate === message.promiseDate &&
-        source.lines.some((line: Row) =>
-          quantity(line.quantity) > quantity(line.dispatched) + quantity(line.cancelled));
+      return (source.promiseDate ?? null) === message.reservedPromiseDate &&
+        Array.isArray(message.lines) && message.lines.length > 0 && message.lines.every(promised => {
+          const line = source.lines.find((candidate: Row) => candidate.id === promised.orderLineId);
+          return !!line && line.itemId === promised.itemId && line.backorderPromiseDate === promised.promiseDate &&
+            line.backorderPromisedQuantity === promised.quantity && quantity(promised.quantity) > 0n &&
+            quantity(line.quantity) - quantity(line.dispatched) - quantity(line.cancelled) >= quantity(promised.quantity);
+        });
     }
     if (!["purchase-order", "supplier-chase"].includes(message.kind) ||
         source.status !== "committed" || typeof message.approvedMaterial !== "string" ||

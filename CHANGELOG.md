@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Channel setup explains every platform value and account requirement, loads Shopify locations and offers Amazon country choices; each platform has its own guide. EDI separates preparation today from provider-dependent sending that is coming.
+- Inventory reconciliation includes locally dated supplier bills through an explicit source date. Confirmed Stripe payments from Stall apply once to each shipped Pantry invoice in the selected account; a missing restored credential shows immediately.
+- Re-promises apply to chosen backorder quantities while reserved stock keeps its date; each-unit reorder policies round up; pack refusals stay visible. inFlow move-in supports an explicit bin for blank sublocations, row retention, date-times and clearer row-specific source errors.
+- Hosted backup suppresses temporary database download links. Restore instructions supply the owner email; daily-work guides move transport jargon to developer notes. Package mode pins rer 0.2.51.
+
 - A new look for the app: a cool white workbench with a left rail, warehouse switcher (Reno DC / Newark DC / All) and search; Sales orders open as a dense queue beside the selected order's card (ship-by date, carrier, progress, lines with scanner barcodes and margins, the shortage banner with its resolutions) and the Pier agent docked beneath with Approve, Apply, Prepare again and Review. Every other screen wears the same shell, cards and tables. The agent's **Review** opens that proposal in Activity in plain words (names, quantities, USD prices, dates) with the stock position behind **Show details**; in All every customer name shows whole; order progress counts shipped lines once anything has shipped ("7 of 8 lines shipped"); a partly dispatched order reads **Partly shipped**; once the business is named, Purchasing shows it on one line with its details on request. The demo names Maya's business, Collins Supply Co., with both warehouses' ship-to addresses.
 
 - Stall orders arrive priced: Stall sends each line's unit price and USD, so the sales order has a total and its shipment invoice posts to Pantry with cost of goods. A Stall reservation made before that takes the price Stall charged when the channel links it, and any order still unpriced shows **Price this order** on its page (saved prices never change). The Books review reason now has that fix.

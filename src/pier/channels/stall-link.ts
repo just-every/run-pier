@@ -12,7 +12,7 @@ import { execute } from '../api';
 // customer's orders and dispatch them, under the connection's owner approval.
 
 const KEY = /(?:^|;\s*)pier_channel=(pier_stall_[a-f0-9]{64})(?:;|$)/;
-const ALLOWED = ['order.create', 'dispatch.create'];
+const ALLOWED = ['order.create', 'order.channelPayment', 'dispatch.create'];
 export const newStallKey = () => 'pier_stall_' + Array.from(crypto.getRandomValues(new Uint8Array(32)), n => n.toString(16).padStart(2, '0')).join('');
 export const stallKeyHash = (key: string) => sha256('pier-stall-link\u0000' + key);
 
@@ -46,7 +46,7 @@ export async function stallLink(request: Request, env: Bindings): Promise<Respon
   if (typeof commandId !== 'string' || !/^[-a-zA-Z0-9_]{8,100}$/.test(commandId) || !ALLOWED.includes(type) || !payload || typeof payload !== 'object')
     return refuse('A Stall key reserves and dispatches shop orders only.', 403);
   if (type === 'order.create' && payload.customerId !== customerId) return refuse('Stall orders belong to the shop customer chosen in Pier.', 403);
-  if (type === 'dispatch.create' && s.orders.find(o => o.id === payload.orderId)?.customerId !== customerId) return refuse('Stall dispatches only its own shop orders.', 403);
+  if (['dispatch.create','order.channelPayment'].includes(type) && s.orders.find(o => o.id === payload.orderId)?.customerId !== customerId) return refuse('Stall dispatches only its own shop orders.', 403);
   const outcome = await execute(env, actor, commandId, type, payload, undefined, { collection: 'channels', id: channel.id, version: channel.version });
   if (!outcome) return Response.json({ ok: false, error: { code: 'BUSY', message: 'Retry the same command identity.' } }, { status: 409 });
   // Stall records the reservation after this reply; Pier's channel sync links the paid order then.

@@ -12,6 +12,7 @@ const MISSING='Pier holds no Pantry credential. A restored backup never carries 
 import type { BookDocument } from './adapters/types';
 import { valuationLedger } from '../valuation-ledger';
 import { amount, money } from '../money';
+import { withShopPayment, reconciliationDate } from './shop-payment';
 
 // A sync after a command runs under waitUntil, which Cloudflare ends about 30 s
 // after the response. Work stops well inside that, and the lease outlives the
@@ -52,13 +53,14 @@ export async function syncBooks(env:Bindings){
       if(job.sourceKind==='supplierBill')doc=withReceiptState(state,job.sourceId,doc);
       let creating=false;
       try{
+        doc=withShopPayment(state,job.sourceId,current,doc);
         let result=await remote.read(doc);
         // The owner's Check Pantry re-sends a request Pantry has no record of, under
         // its original idempotency keys, so a request that did arrive is never doubled.
         if(!result&&job.attempted&&!job.resend){
           await record('book.record',{jobId:job.id,result:{status:'uncertain',reason:'Pantry has not returned a matching record for a request already sent. Choose Check Pantry: Pier looks again and, if Pantry still has no record, re-sends the same request, which Pantry recognises if it already arrived.',fix:'Choose Check Pantry. Pier re-sends with the original request keys and never creates a second document.'}});continue;
         }
-        if(!result||['draft','approved'].includes(result.status)||(job.kind==='bill'&&!(result.evidenceCurrent??result.received))){
+        if(!result||['draft','approved'].includes(result.status)||(job.kind==='bill'&&!(result.evidenceCurrent??result.received))||(doc.payment&&!result.paymentCurrent)){
           // A known remote ID resumes state transitions, never creates another financial document.
           if(result)doc.remoteId=result.id;
           await record('book.begin',{jobId:job.id});creating=true;
@@ -71,7 +73,7 @@ export async function syncBooks(env:Bindings){
         if(error instanceof PantryRefusal&&error.status===401)connectionProblem=BROKEN;
         if(error instanceof PantryRefusal&&error.status===403)connectionProblem=`Pantry refused part of Pier's work: ${error.message}. In Pantry, create a new integration credential for Pier with every permission listed in Books settings, then reconnect here.`;
         const refused=error instanceof PantryRefusal&&error.status>=400&&error.status<500;
-        await record('book.record',{jobId:job.id,result:{status:refused||(!creating&&!job.attempted)?'review':'uncertain',...(refused&&error.safeCreationRefusal&&creating&&!doc.remoteId&&!job.attempted?{attempted:false}:{}),reason:refused?error.message:'Pantry did not confirm the request. The connection may have stopped after it saved. Pier will check for the source reference before any further write.',fix:refused?'Resolve this in Pantry or reconnect with a new integration credential, then retry.':'Check Pantry for the source reference, then check again. An uncertain create will never be repeated automatically.'}});
+        await record('book.record',{jobId:job.id,result:{...(error instanceof PantryRefusal?error.readback:{}),status:refused||(!creating&&!job.attempted)?'review':'uncertain',...(refused&&error.safeCreationRefusal&&creating&&!doc.remoteId&&!job.attempted?{attempted:false}:{}),reason:refused?error.message:'Pantry did not confirm the request. The connection may have stopped after it saved. Pier will check for the source reference before any further write.',fix:refused?'Resolve this in Pantry or reconnect with a new integration credential, then retry.':'Check Pantry for the source reference, then check again. An uncertain create will never be repeated automatically.'}});
       }
       // A revoked or under-permitted credential refuses every job alike; stop rather than mark each one.
       if(connectionProblem)break;
@@ -80,9 +82,10 @@ export async function syncBooks(env:Bindings){
     const layers=ledger.positions.flatMap(p=>p.layers).filter(l=>l.quantity>0n);
     const expected=layers.some(l=>l.value===null)?null:money(layers.reduce((n,l)=>n+l.value!,0n));
     try {
-      const tb=await pantryClient({baseUrl:connection.baseUrl,credentials:await credentials(env,'books:pantry')}).request('reports/trial-balance');
+      const through=reconciliationDate(state,new Date().toISOString().slice(0,10));
+      const tb=await pantryClient({baseUrl:connection.baseUrl,credentials:await credentials(env,'books:pantry')}).request('reports/trial-balance?to='+through);
       const actual=money(BigInt(tb.rows.find((r:any)=>r.id===connection.inventoryAccountId)?.net??0)*10000000000n);
-      await record('book.reconcile',{actual,expected});
+      await record('book.reconcile',{actual,expected,through});
     } catch (error) { connectionProblem??=error instanceof PantryRefusal&&error.status===401?BROKEN:`Pier could not reach Pantry at ${connection.baseUrl}. Check that Pantry is running at that address, then choose Sync now.`; await record('book.reconcile',{actual:null,expected,problem:'Pantry inventory value could not be checked. Restore the connection, then sync again.'}); }
     await record('book.checked',{problem:connectionProblem});return {processed};
   }finally{await env.DB.prepare('DELETE FROM pier_book_locks WHERE id=1 AND token=?').bind(token).run();}

@@ -3,6 +3,7 @@ import { available, decimal, fail, format, fresh, get, id, item, min, requireRol
 import { orders } from '../orders';
 import { priceUnpricedLines } from '../pricing';
 import { seal } from './secrets';
+import { recordChannelPayment } from '../channel-payment';
 import type { ChannelOrder, Listing } from './adapters/types';
 
 function match(c: Context, listing: Row) {
@@ -24,6 +25,7 @@ function importOrders(c: Context, channel: Row) {
         return price === undefined ? [] : [{ orderLineId: x.id, price }];
       });
       if (charged.length) priceUnpricedLines(c, existing, charged, 'channel');
+      recordChannelPayment(c, existing, source.payment);
       incoming.orderId = existing.id; incoming.reservedAt = existing.createdAt; incoming.problem = null; incoming.version++; continue;
     }
     const lines = source.lines.map(line => ({ ...line, listing: c.s.channelListings.find(l => l.channelId === channel.id && l.externalId === line.externalId) ?? c.s.channelListings.find(l => l.channelId === channel.id && l.sku && l.sku === line.sku) }));
@@ -106,7 +108,15 @@ export async function channels(c: Context, type: string, p: any, env: Bindings):
       match(c, listing);
     }
     for (const source of p.orders as ChannelOrder[]) {
-      if (c.s.channelOrders.some(o => o.channelId === channel.id && o.externalId === source.externalId)) continue;
+      const prior = c.s.channelOrders.find(o => o.channelId === channel.id && o.externalId === source.externalId);
+      if (prior) {
+        if (channel.provider === 'stall' && source.payment && prior.orderId) {
+          const order = get(c.s, 'orders', prior.orderId);
+          if (source.reservationId !== order.id) fail('CHANNEL_PAYMENT', 'The shop payment points to a different reservation.');
+          recordChannelPayment(c, order, source.payment);
+        }
+        continue;
+      }
       if (!source.lines.length) fail('CHANNEL_ORDER', 'The channel returned an order without lines.');
       for (const line of source.lines) { decimal(line.quantity, true); if (line.price !== undefined) decimal(line.price); }
       for (const line of source.lines) {

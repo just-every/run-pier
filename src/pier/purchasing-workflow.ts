@@ -18,16 +18,36 @@ function message(c: Context, kind: string, record: Row, recipient: string, subje
   return row(c, 'correspondence', { kind, recordId: record.id, recordVersion: record.version, recipient, subject, body,
     approvedBy: c.actor.id, approvalRole: c.actor.role, dueAt: c.now, ...extra });
 }
+/** Select only dated outstanding lines; one missing supplier date must not
+ * prevent a human from updating another line's independently supported date. */
+function selectedPromise(expected: any, ids: string[]) {
+  const waiting = expected.lines.filter((line: any) => decimal(line.backorder) > 0n);
+  if (!ids.length || new Set(ids).size !== ids.length || ids.some(id => !waiting.some((line: any) => line.orderLineId === id)))
+    fail('PROMISE_LINES', 'Choose the backordered lines to re-promise.');
+  const lines = waiting.filter((line: any) => ids.includes(line.orderLineId));
+  if (lines.some((line: any) => !line.expectedDate)) fail('NO_DATE', 'Add supplier lead time or open supply for every selected line before promising a date.');
+  return { ...expected, lines, expectedDate: lines.reduce((date: string, line: any) => line.expectedDate > date ? line.expectedDate : date, ''), estimated: lines.some((line: any) => line.estimated) };
+}
 function promiseMessage(c: Context, order: Row, expected: any, recipient: string, authority?: any) {
-  const previousDate = order.promiseDate;
-  order.promiseDate = expected.expectedDate;
+  const waiting = expected.lines.filter((line: any) => decimal(line.backorder) > 0n);
+  const changes = waiting.map((line: any) => {
+    const own = order.lines.find((candidate: any) => candidate.id === line.orderLineId);
+    const previousDate = own.backorderPromiseDate ?? order.promiseDate ?? null;
+    own.backorderPromiseDate = line.expectedDate;
+    own.backorderPromisedQuantity = line.backorder;
+    return { orderLineId: own.id, itemId: own.itemId, quantity: line.backorder, previousDate, promiseDate: line.expectedDate, estimated: line.estimated };
+  });
   order.promiseHistory ??= [];
-  order.promiseHistory.push({ previousDate, promiseDate: order.promiseDate, estimated: expected.estimated, sources: expected.lines, actorId: authority?.approvedBy ?? c.actor.id, at: c.now });
+  order.promiseHistory.push({ promiseDate: expected.expectedDate, estimated: expected.estimated, lines: changes, sources: expected.lines, actorId: authority?.approvedBy ?? c.actor.id, at: c.now });
   order.version++;
   const from = sender(c);
-  return message(c, 'customer-promise', order, recipient, `${from.name} order ${order.reference}: expected ${longDate(order.promiseDate)}`,
-    `Your order ${order.reference} with ${from.name} now has an expected fulfilment date of ${longDate(order.promiseDate)}.${expected.estimated ? ' This is an estimate based on unconfirmed supply or supplier lead time.' : ' This date is based on confirmed inbound supply.'}\nPrevious promise: ${previousDate ? longDate(previousDate) : 'not set'}. We will update you if this changes.\n\n${from.name}`,
-    { promiseDate: order.promiseDate, ...(authority ? { approvedBy: authority.approvedBy, approvalRole: authority.approvalRole, policyVersion: authority.version } : {}) });
+  const detail = changes.map((line: any) => {
+    const item = get(c.s, 'items', line.itemId);
+    return `${item.name} (${item.sku}): ${line.quantity} ${item.unit}, expected ${longDate(line.promiseDate)}${line.estimated ? ' (estimate based on unconfirmed supply or supplier lead time)' : ' (confirmed inbound supply)'}. Previous promise: ${line.previousDate ? longDate(line.previousDate) : 'not set'}.`;
+  }).join('\n');
+  return message(c, 'customer-promise', order, recipient, `${from.name} order ${order.reference}: backorder dates`,
+    `Backordered units on your order ${order.reference} with ${from.name} have updated expected fulfilment dates:\n${detail}\nThe promise for units already reserved remains ${order.promiseDate ? longDate(order.promiseDate) : 'not set'}. We will update you if this changes.\n\n${from.name}`,
+    { promiseDate: expected.expectedDate, reservedPromiseDate: order.promiseDate ?? null, lines: changes, ...(authority ? { approvedBy: authority.approvedBy, approvalRole: authority.approvalRole, policyVersion: authority.version } : {}) });
 }
 export function purchasingWorkflow(c: Context, type: string, p: any): Row | undefined {
   if (type === 'po.pauseChases') {
@@ -73,9 +93,10 @@ export function purchasingWorkflow(c: Context, type: string, p: any): Row | unde
       order.version++; return order;
     }
     const expected = backorderDates(c).find(r => r.orderId === order.id)!;
-    if (!expected.expectedDate) fail('NO_DATE', 'Add supplier lead time or open supply before promising a date.');
     if (p.fingerprint !== expected.fingerprint) fail('STALE', 'Inbound supply changed. Review the recalculated date.');
-    return promiseMessage(c, order, expected, recipient);
+    if (p.orderLineIds !== undefined && (!Array.isArray(p.orderLineIds) || p.orderLineIds.some((id: unknown) => typeof id !== 'string'))) fail('PROMISE_LINES', 'Choose valid backordered line identities.');
+    const ids = p.orderLineIds ?? expected.lines.filter((line: any) => decimal(line.backorder) > 0n).map((line: any) => line.orderLineId);
+    return promiseMessage(c, order, selectedPromise(expected, ids), recipient);
   }
 }
 
@@ -83,12 +104,14 @@ export function purchasingWorkflow(c: Context, type: string, p: any): Row | unde
 export function refreshPromises(c: Context) {
   for (const expected of backorderDates(c)) {
     const order = get(c.s, 'orders', expected.orderId), policy = order.promisePolicy;
-    if (!policy?.enabled || !expected.needsRepromise || !expected.expectedDate) continue;
+    if (!policy?.enabled || !expected.needsRepromise) continue;
+    const ids = expected.lines.filter((line: any) => decimal(line.backorder) > 0n && line.expectedDate && line.expectedDate !== line.promiseDate).map((line: any) => line.orderLineId);
+    if (!ids.length) continue;
     const role = c.automationActors?.[policy.approvedBy];
     if (!role || !['owner', 'operator', 'buyer'].includes(role)) continue;
     c.delegates ??= [];
     c.delegates.push({ actorId: policy.approvedBy, role, orderId: order.id, policyVersion: policy.version });
-    promiseMessage(c, order, expected, policy.recipient, policy);
+    promiseMessage(c, order, selectedPromise(expected, ids), policy.recipient, policy);
   }
 }
 

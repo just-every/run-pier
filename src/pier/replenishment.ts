@@ -27,7 +27,7 @@ export function forecast(c: Context) {
     const safetyStock = policy?.safetyStock ?? '0', windowDays = policy?.windowDays ?? 30, reviewDays = policy?.reviewDays ?? 30;
     const windows = sellThrough(c, i.id, warehouse, windowDays);
     const selected = windows.find(window => window.days === windowDays)!;
-    const learned = learnedParameters(selected.sold, windowDays, leadDays, reviewDays, safetyStock);
+    const learned = learnedParameters(selected.sold, windowDays, leadDays, reviewDays, safetyStock, i.unit);
     const position = supplyPosition(c, i.id, warehouse);
     const method = policy?.method ?? 'fixed';
     const reorderPoint = policy?.reorderPoint ?? null;
@@ -101,10 +101,13 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
   if (p.applyLearned) {
     if (p.stateVersion !== c.s.version) fail('STALE', 'Demand or supply changed. Reload before applying learned parameters.');
     const selected = sellThrough(c, i.id, warehouse, data.windowDays).find(window => window.days === data.windowDays)!;
-    Object.assign(data, learnedParameters(selected.sold, data.windowDays, data.leadDays, data.reviewDays, data.safetyStock));
+    Object.assign(data, learnedParameters(selected.sold, data.windowDays, data.leadDays, data.reviewDays, data.safetyStock, i.unit));
     for (const key of ['reorderPoint', 'reorderQuantity', 'maximum']) decimal(data[key]);
     data.learnedApplication = { actorId: c.actor.id, at: c.now, stateVersion: c.s.version, sold: selected.sold, shipmentIds: selected.shipmentIds };
   } else data.learnedApplication = null;
+  if (['each', 'ea', 'ea.'].includes(i.unit.trim().toLowerCase()))
+    for (const key of ['safetyStock', 'reorderPoint', 'reorderQuantity', 'maximum'])
+      if (data[key] !== null && decimal(data[key]) % SCALE !== 0n) fail('REPLENISHMENT_UNIT', `${key} must be a whole number for an each item.`);
   if (data.method === 'upTo' && data.maximum !== null && data.reorderPoint !== null && decimal(data.maximum) < decimal(data.reorderPoint))
     fail('MAXIMUM', 'Order-up-to maximum must be at least the reorder point.');
   if (data.autoDraft && (data.reorderPoint === null || (data.method === 'upTo' ? data.maximum === null : data.reorderQuantity === null && terms.reorderQuantity == null)))

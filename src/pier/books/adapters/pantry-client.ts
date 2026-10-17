@@ -2,6 +2,7 @@ import { sha256 } from '../../import-kit';
 import type { BookDocument, BooksAdapterConfig } from './types';
 export class PantryRefusal extends Error {
   safeCreationRefusal=false;
+  readback?: { paid?: string; open?: string };
   constructor(message:string,public status:number){super(message);}
 }
 export const PANTRY_CREDENTIAL=/^pantry_integration_[A-Za-z0-9_-]+$/;

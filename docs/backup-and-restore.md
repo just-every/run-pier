@@ -22,7 +22,7 @@ Restore only into an empty installation. On the same checkout, reset it first:
 ```sh
 rer reset --yes
 rer import --input exports/pier.rer --yes
-rer setup
+rer setup --owner-email you@example.com
 rer dev
 ```
 
@@ -33,9 +33,11 @@ To restore on another computer, clone Pier, check out the release that made the 
 ```sh
 rer install
 rer import --input exports/pier.rer --yes
-rer setup
+rer setup --owner-email you@example.com
 rer dev
 ```
+
+Replace `you@example.com` with your owner email. At a terminal, bare `rer setup` can ask for it; scripts must supply it explicitly. Reconnect Pantry, Stall and other providers after restore because archives exclude their credentials. Books shows a missing credential immediately.
 
 After restoring, sign in again as the owner with a fresh session (see [Getting started](getting-started.md#sign-in-again)). People, roles and approvals come back as history; nobody is signed in by the restore.
 

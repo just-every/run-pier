@@ -36,12 +36,12 @@ export function backorderDates(c: Context) {
         const policy = c.s.replenishmentPolicies.find(p => p.itemId === line.itemId && p.warehouse === warehouse);
         const terms = c.s.supplierItems.find(t => t.itemId === line.itemId && (!policy || t.supplierId === policy.supplierId));
         const date = terms ? afterDays(c.now, policy?.leadDays ?? terms.leadDays) : null;
-        expectedDate = latest(expectedDate, date);
+        expectedDate = date ? latest(expectedDate, date) : null;
         estimated = true;
         // The part no purchase order covers is shown with its own quantity and basis.
         sources.push({ poId: null, quantity: format(need), date, confirmed: false, basis: date ? 'not on a purchase order yet; supplier lead time' : 'not on a purchase order and no supplier lead time' });
       }
-      return { orderLineId: line.id, itemId: line.itemId, backorder: format(backorder), expectedDate,
+      return { orderLineId: line.id, itemId: line.itemId, promiseDate: line.backorderPromiseDate ?? order.promiseDate ?? null, backorder: format(backorder), expectedDate,
         estimated, uncovered: format(need), sources,
         explanation: backorder <= 0n ? 'Reserved stock covers this line.' : estimated ? 'Estimate: unconfirmed supply or supplier lead time; receipt is still required.' : 'Confirmed inbound purchase supply; receipt is still required.' };
     });
@@ -50,9 +50,9 @@ export function backorderDates(c: Context) {
     const fingerprint = JSON.stringify(waiting.map((l: any) => ({ line: l.orderLineId, date: l.expectedDate, sources: l.sources, uncovered: l.uncovered, estimated: l.estimated })));
     // `needsRepromise` is any move from the promise (earlier supply may re-promise
     // earlier); `late` is the exception: waiting lines that will not fill by the promise.
-    const late = waiting.length > 0 && !!order.promiseDate && (!expectedDate || expectedDate > order.promiseDate);
+    const late = waiting.some((line: any) => !!line.promiseDate && (!line.expectedDate || line.expectedDate > line.promiseDate));
     return { orderId: order.id, expectedDate, estimated: waiting.some((l: any) => l.estimated), lines, fingerprint,
-      needsRepromise: !!expectedDate && expectedDate !== order.promiseDate, late };
+      needsRepromise: waiting.some((line: any) => !!line.expectedDate && line.expectedDate !== line.promiseDate), late };
   });
 }
 

@@ -33,6 +33,30 @@
           "summary": "Connect stores, match existing listings, reserve incoming orders and publish stock after holds."
         },
         {
+          "slug": "stall",
+          "label": "Connect Stall",
+          "file": "docs/stall.md",
+          "summary": "Connect the shop with a scoped Pier key, choose its warehouse and check a paid order."
+        },
+        {
+          "slug": "shopify",
+          "label": "Connect Shopify",
+          "file": "docs/shopify.md",
+          "summary": "Prepare a custom app, enter renewable client credentials and select the matching inventory location."
+        },
+        {
+          "slug": "amazon",
+          "label": "Connect Amazon",
+          "file": "docs/amazon.md",
+          "summary": "Register SP-API access, choose a marketplace country and authorize renewable seller access."
+        },
+        {
+          "slug": "woocommerce",
+          "label": "Connect WooCommerce",
+          "file": "docs/woocommerce.md",
+          "summary": "Create read/write REST API credentials and optional signed order webhooks."
+        },
+        {
           "slug": "buying",
           "label": "Buy and receive",
           "file": "docs/buying.md",
@@ -84,7 +108,7 @@
           "slug": "edi",
           "label": "Retail EDI",
           "file": "docs/edi.md",
-          "summary": "Receive retailer purchase orders, review acknowledgments, prepare carton ASNs and invoices, and print SSCC labels."
+          "summary": "Prepare retailer orders, acknowledgments, carton ASNs, invoices and labels while network onboarding is arranged."
         }
       ]
     },
@@ -114,6 +138,40 @@
           "label": "Put Pier online",
           "file": "docs/hosting.md",
           "summary": "Deploy to your own Cloudflare account with your real owner address, back up and restore the hosted database, and remove it."
+        }
+      ]
+    },
+    {
+      "title": "Developer integrations",
+      "pages": [
+        {
+          "slug": "edi-bridge",
+          "label": "EDI bridge integration",
+          "file": "docs/edi-bridge.md",
+          "summary": "Connect an authorized EDI network provider to a self-hosted installation with durable document custody."
+        }
+      ]
+    },
+    {
+      "title": "Developer notes",
+      "pages": [
+        {
+          "slug": "books-developer",
+          "label": "Books transport and tests",
+          "file": "docs/books-developer.md",
+          "summary": "Source references, safe replay and integration test commands for developers."
+        },
+        {
+          "slug": "shipping-developer",
+          "label": "Shipping transport and tests",
+          "file": "docs/shipping-developer.md",
+          "summary": "Webhook validation, carrier evidence and test boundaries for developers."
+        },
+        {
+          "slug": "item-agent-developer",
+          "label": "Item-check tests",
+          "file": "docs/item-agent-developer.md",
+          "summary": "Item-check API evidence and provider boundaries for developers."
         }
       ]
     }

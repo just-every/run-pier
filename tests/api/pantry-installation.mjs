@@ -19,7 +19,7 @@ export async function pantryInstallation(){
       source=join(dir,'source');
       await exec('git',['clone','--quiet','--no-checkout','--filter=blob:none','https://github.com/just-every/run-pantry.git',source]);
       // Compatibility target, not a runtime dependency or a version assertion.
-      await exec('git',['-C',source,'checkout','--quiet','4e408e8ad848e4e181b27ff063895b5ae2670b75']);
+      await exec('git',['-C',source,'checkout','--quiet','5c712d42d1c2107a7550aba3b0dd6add0f1927ff']);
     }
     const bundled=await build({entryPoints:[join(source,'tests/api/worker.ts')],nodePaths:[resolve('node_modules')],bundle:true,write:false,format:'esm',platform:'neutral',conditions:['workerd','worker','browser'],target:'es2023',external:['node:*','cloudflare:*'],logLevel:'error'});
     let origin='http://127.0.0.1';

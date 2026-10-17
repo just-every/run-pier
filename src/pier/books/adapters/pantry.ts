@@ -1,5 +1,6 @@
 import { sha256 } from '../../import-kit';
 import { pantryClient, PantryRefusal } from './pantry-client';
+import { shopPaymentCurrent, postShopPayment } from './pantry-payment';
 import type { BookDocument, BookResult, BooksAdapter, BooksAdapterConfig } from './types';
 const cents=(value:string)=>BigInt(value.replace('.',''));
 const dollars=(value:bigint)=>{
@@ -48,7 +49,12 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
       paid:dollars((await client.payments(doc.kind,r.id)).filter(p=>!p.reversal_id).flatMap(p=>p.allocations).filter(a=>a.target_id===r.id&&a.target_kind===doc.kind).reduce((n:bigint,a:any)=>n+BigInt(a.amount_cents),0n)),
       open:dollars(BigInt(r.open_cents)),
     }:{};
-    return {id:r.id,status:r.status??'posted',...balance,...(doc.kind==='bill'?await receiptResult(doc,r):{})};
+    let paymentCurrent: boolean | undefined;
+    if(doc.payment) {
+      try { paymentCurrent=await shopPaymentCurrent(client,doc,r); }
+      catch(error) { if(error instanceof PantryRefusal) error.readback=balance; throw error; }
+    }
+    return {id:r.id,status:r.status??'posted',...balance,...(doc.kind==='bill'?await receiptResult(doc,r):{}),...(doc.payment?{paymentCurrent}:{})};
   };
   const receiptResult=async(doc:BookDocument,r:any)=>{
     const want=wanted(doc,BigInt(r.open_cents)),received=flag(r.received),readyToPay=flag(r.ready_to_pay);
@@ -76,6 +82,7 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
         if(!r){const party=await client.contact(doc);r=await client.post('invoices',{kind:doc.kind,...(target?{creditFor:target.id}:{}),customerId:party.id,number:doc.reference,issueDate:doc.date,memo:doc.key,post:true,lines:doc.lines.map(l=>({description:l.description,quantity:l.quantity,rate:l.unitPrice,accountId:l.account,taxCode:config.credentials.taxCode}))},doc,'invoice');}
         validate(doc,r);
         if(r.status!=='issued')throw new PantryRefusal('Issue the existing invoice in Pantry, then sync again. Pier will not create a replacement for its draft.',409);
+        if(doc.payment){await postShopPayment(client,doc,r);r=await raw(doc);}
       } else if(doc.kind==='bill'){
         if(!r){const party=await client.contact(doc);r=await client.post('bills',{vendorId:party.id,reference:doc.reference,billDate:doc.date,memo:doc.key,post:true,lines:doc.lines.map(l=>({description:l.description,accountId:l.account,amount:l.amount}))},doc,'bill');}
         validate(doc,r);

@@ -50,6 +50,7 @@ export async function pantryAccounts(env: Bindings, payload: any, connected?: { 
   if (!Array.isArray(state?.accounts)) fail('BOOK_UNREACHABLE', 'Pantry did not return its chart of accounts. Check that the address is a Pantry installation.');
   return {
     baseUrl,
+    bankAccounts: Array.isArray(state?.bankAccounts) ? state.bankAccounts.map((b: any) => ({id:String(b.id),name:String(b.name)})) : [],
     accounts: state.accounts.filter((a: any) => a.active === 1 || a.active === true)
       .map((a: any) => ({ id: String(a.id), code: String(a.code), name: String(a.name), type: String(a.type), subtype: String(a.subtype ?? 'other') })),
   };

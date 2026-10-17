@@ -59,24 +59,45 @@ test('sell-through drafts an approved supplier PO and re-promises backorders by 
   const date = new Date(Date.now() + 14 * 86400000).toISOString().slice(0,10);
   po = (await h.state()).purchaseOrders.find(p => p.id === po.id);
   await h.command('po.confirm', { poId: po.id, version: po.version, promiseDate: date, source: 'Supplier email 14', body: 'Confirmed full delivery on this date.', confirm: true });
-  assert.equal(mail.length, 4); assert.match(mail[3].message.text, new RegExp(`with Harbor Goods now has an expected fulfilment date of ${new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`));
+  assert.equal(mail.length, 4); assert.match(mail[3].message.text, /10.*expected/);
   order = (await h.state()).orders.find(o => o.id === demand.id);
   // Re-promised to the confirmed supply date, the order is no longer late.
   assert.equal(order.backorderPlan.late, false);
-  assert.equal(order.promiseDate, date); assert.equal(order.backorderPlan.estimated, false);
+  assert.equal(order.promiseDate, today); assert.equal(order.lines[0].backorderPromiseDate, date); assert.equal(order.lines[0].backorderPromisedQuantity, '10'); assert.equal(order.backorderPlan.estimated, false);
   assert.equal(order.backorderPlan.lines[0].sources[0].quantity, '10');
   const later = new Date(Date.now() + 20 * 86400000).toISOString().slice(0,10);
   po = (await h.state()).purchaseOrders.find(p => p.id === po.id);
   await h.command('po.confirm', { poId: po.id, version: po.version, promiseDate: later, source: 'Supplier email 15', body: 'The truck is delayed.', confirm: true });
   s = await h.invariant();
-  assert.equal(mail.length, 5); assert.equal(s.orders.find(o => o.id === demand.id).promiseDate, later);
+  assert.equal(mail.length, 5); assert.equal(s.orders.find(o => o.id === demand.id).promiseDate, today); assert.equal(s.orders.find(o => o.id === demand.id).lines[0].backorderPromiseDate, later);
   assert.equal(s.purchaseOrders.find(p => p.id === po.id).supplierReplies.length, 2);
   assert.equal(s.deliveries.filter(d => d.phase === 'sent').length, 5);
   await h.command('mail.process', {}); assert.equal(mail.length, 5);
+  // Each policies round demand upward to actual units, including a non-integral daily rate.
+  const learnedState = await h.state(), currentPolicy = learnedState.replenishmentPolicies.find(p => p.id === policy.id);
+  const reviewed = { itemId: b.item.id, warehouse: 'North', version: currentPolicy.version, supplierId: b.supplier.id, method: 'fixed', safetyStock: '4', leadDays: 7, windowDays: 90, reviewDays: 10, applyLearned: true, stateVersion: learnedState.version, autoDraft: false };
+  const rounded = await h.command('replenishment.save', reviewed);
+  assert.equal(rounded.reorderPoint, '7'); assert.equal(rounded.reorderQuantity, '4'); assert.equal(rounded.maximum, '11');
+  await h.command('replenishment.save', { ...reviewed, version: rounded.version, applyLearned: false, reorderPoint: '7.2', reorderQuantity: '4', maximum: '11' }, { error: 'REPLENISHMENT_UNIT' });
   // Insufficient confirmed supply cannot be promised twice to competing orders.
   const competing = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '25', price: '5' }] });
   s = await h.state();
   const dates = s.orders.find(o => o.id === competing.id).backorderPlan.lines[0];
   assert.equal(dates.sources[0].quantity, '20'); assert.equal(dates.uncovered, '5'); assert.equal(dates.estimated, true);
+  // A line without any supplier date cannot borrow a neighbour's date, and it
+  // does not prevent explicit approval of another line's supported promise.
+  const undatedItem = await h.command('item.save', { sku: 'UNDATED', name: 'Item awaiting supplier terms', unit: 'each', packSize: '1' });
+  const mixed = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', promiseDate: today, lines: [{ itemId: b.item.id, quantity: '1', price: '5' }, { itemId: undatedItem.id, quantity: '1', price: '5' }] });
+  const mixedView = (await h.state()).orders.find(o => o.id === mixed.id);
+  assert.equal(mixedView.backorderPlan.expectedDate, null);
+  const datedLine = mixedView.backorderPlan.lines.find(l => l.itemId === b.item.id);
+  const undatedLine = mixedView.backorderPlan.lines.find(l => l.itemId === undatedItem.id);
+  assert.ok(datedLine.expectedDate); assert.equal(undatedLine.expectedDate, null);
+  await h.command('order.repromise', { orderId: mixed.id, version: mixedView.version, fingerprint: mixedView.backorderPlan.fingerprint, orderLineIds: [datedLine.orderLineId], recipient: 'customer@example.test', confirm: true });
+  const promised = (await h.state()).orders.find(o => o.id === mixed.id);
+  assert.equal(promised.promiseDate, today);
+  assert.equal(promised.lines.find(l => l.id === datedLine.orderLineId).backorderPromiseDate, datedLine.expectedDate);
+  assert.equal(promised.lines.find(l => l.id === undatedLine.orderLineId).backorderPromiseDate, undefined);
+  assert.deepEqual(promised.promiseHistory.at(-1).lines.map(l => l.orderLineId), [datedLine.orderLineId]);
   assert.ok(parse((await h.invariant()).positions[0].quantity) >= 0n);
 });

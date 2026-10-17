@@ -54,7 +54,7 @@ export function StallLink({ state, run, busy, row }: ChannelProps & { row: Conne
       </dl>
       <h4>Put them in Stall</h4>
       <ol className="steps">
-        <li>In Stall, sign in as the owner and open <strong>Settings</strong>, then <strong>Provider connections</strong> (Stall's address followed by <code>/app#connections</code>).</li>
+        <li>In Stall, sign in as the owner and open <strong>Settings</strong>, then <strong>Provider connections</strong> (Stall's address followed by <code>/app#settings</code>).</li>
         <li>In <strong>Connect Pier</strong>, paste the Pier address and the Pier key above and choose <strong>Connect Pier</strong>. Stall checks the key with Pier and shows <strong>Connected</strong>. This works the same for a Stall on this computer and a Stall online.</li>
         <li>Stall takes payments through Stripe, on your own Stripe account. On the same Stall page, fill in <strong>Connect Stripe</strong> with your Stripe secret key (test keys first). A Stall on this computer confirms payments by asking Stripe; a Stall online also takes its Stripe webhook signing secret, and the form says where to find it.</li>
         <li>In Stall, publish a product whose SKU matches a Pier item. Its stock shows in Stall at once, and each paid Stall order appears here under Orders, reserved in Pier.</li>

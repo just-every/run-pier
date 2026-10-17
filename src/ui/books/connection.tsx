@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Field, text } from '../controls'
 import { when } from '../display'
 import { connections, type BooksProps, type BookConnection } from './model'
-import { loadPantryAccounts, type PantryAccount } from './pantry-lookup'
+import { loadPantryAccounts, type PantryAccount, type PantryBankAccount } from './pantry-lookup'
 
 // Connecting Pantry from this page alone: what Pantry is and how to start it,
 // the credential to create inside Pantry, then accounts picked from the list
 // Pantry returns. No account IDs or browser cookies are copied by hand.
 
-const SCOPES = 'Contacts, Invoices, Bills, Journals, Documents, Payments readback, Reports and Post approved sibling records'
+const SCOPES = 'Contacts, Invoices, Bills, Journals, Documents, Payments readback, Record external payments, Reports and Post approved sibling records'
 const option = (a: PantryAccount) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>
 const kinds = {
   inventory: (a: PantryAccount) => a.type === 'asset' && !['bank', 'receivable'].includes(a.subtype),
@@ -29,22 +29,23 @@ export function BookConnectionForm({ run, busy, connection, close }: BooksProps 
   const [baseUrl, setBaseUrl] = useState(connection?.baseUrl ?? '')
   const [token, setToken] = useState('')
   const [accounts, setAccounts] = useState<PantryAccount[] | null>(null)
+  const [bankAccounts, setBankAccounts] = useState<PantryBankAccount[]>([])
   const [checking, setChecking] = useState(false)
   const [problem, setProblem] = useState('')
-  const keepCredential = !!connection?.enabled && baseUrl.trim().replace(/\/$/, '') === connection.baseUrl
+  const keepCredential = !!connection?.enabled && connection.credentialPresent !== false && baseUrl.trim().replace(/\/$/, '') === connection.baseUrl
   async function check() {
     setChecking(true); setProblem('')
     const reply = await loadPantryAccounts({ baseUrl: baseUrl.trim(), integrationToken: token.trim() })
     setChecking(false)
     if (!reply.ok) { setAccounts(null); setProblem(reply.message); return }
-    setBaseUrl(reply.baseUrl); setAccounts(reply.accounts)
+    setBaseUrl(reply.baseUrl); setAccounts(reply.accounts); setBankAccounts(reply.bankAccounts)
   }
   async function connect(data: FormData) {
     const ok = await run('book.connect', {
       baseUrl: baseUrl.trim(), integrationToken: token.trim(),
       inventoryAccountId: text(data, 'inventoryAccountId'), cogsAccountId: text(data, 'cogsAccountId'),
       revenueAccountId: text(data, 'revenueAccountId'), writeOffAccountId: text(data, 'writeOffAccountId'), landedCostAccountId: text(data, 'landedCostAccountId'),
-      taxCode: text(data, 'taxCode'),
+      stripeBankAccountId: text(data, 'stripeBankAccountId'), taxCode: text(data, 'taxCode'),
     })
     if (ok) { setToken(''); close() }
   }
@@ -69,13 +70,14 @@ export function BookConnectionForm({ run, busy, connection, close }: BooksProps 
     </section>
     {accounts && <section className="panel"><h2>3. Choose where Pier posts</h2>
       <p className="muted">Connected to {baseUrl}. These are the active accounts in Pantry's chart.</p>
-      {missing && missing.length > 0 && <p className="error">Pantry's chart has no {missing.join(', no ')}. In Pantry open <strong>Books → Chart of accounts → Add an account</strong>, add it, then choose <strong>Check Pantry and load accounts</strong> again.</p>}
+      {missing && missing.length > 0 && <p className="error">Pantry's chart has no {missing.join(', no ')}. In Pantry open <strong>Books → Chart of accounts → Add an account</strong>, choose <strong>Ordinary account</strong> for Role, add it, then choose <strong>Check Pantry and load accounts</strong> again.</p>}
       <form onSubmit={event => { event.preventDefault(); if (!busy) void connect(new FormData(event.currentTarget)) }}><div className="form-grid">
         <label className="field"><span>Inventory (stock value)</span><select aria-label="Inventory account" name="inventoryAccountId" required defaultValue={guess(inventory, /inventor|stock/i, connection?.inventoryAccountId)}><option value="">Choose an asset account</option>{inventory.map(option)}</select><small>The asset account that holds the value of stock on your shelves.</small></label>
         <label className="field"><span>Cost of goods sold</span><select aria-label="Cost of goods sold account" name="cogsAccountId" required defaultValue={guess(expenses, /cost of goods|cogs/i, connection?.cogsAccountId)}><option value="">Choose an expense account</option>{expenses.map(option)}</select><small>The expense account for the cost of what you ship.</small></label>
         <label className="field"><span>Sales</span><select aria-label="Sales account" name="revenueAccountId" required defaultValue={guess(income, /product|sales/i, connection?.revenueAccountId)}><option value="">Choose an income account</option>{income.map(option)}</select><small>The income account for what customers pay for goods.</small></label>
         <label className="field"><span>Damaged stock (optional)</span><select aria-label="Damaged stock account" name="writeOffAccountId" defaultValue={guess(expenses, /damage|write.?off|shrink/i, connection?.writeOffAccountId ?? undefined)}><option value="">Not yet: damaged returns wait for this</option>{expenses.map(option)}</select><small>The expense account for damaged returns you write off.</small></label>
         <label className="field"><span>Freight and duty (needed once a receipt carries them)</span><select aria-label="Freight and duty account" name="landedCostAccountId" defaultValue={guess(expenses, /freight|duty|customs|shipping|postage/i, connection?.landedCostAccountId ?? undefined)}><option value="">Not yet: receipts with freight or duty wait for this</option>{expenses.map(option)}</select><small>The expense account you enter carrier and customs bills against in Pantry. Pier moves the freight and duty it spreads over received stock from there into Inventory.</small></label>
+        <label className="field"><span>Stripe payments from Stall (optional)</span><select aria-label="Stripe payment account" name="stripeBankAccountId" defaultValue={connection?.stripeBankAccountId ?? ''}><option value="">Not yet: paid shop invoices wait for this</option>{bankAccounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select><small>Choose the Pantry bank or Stripe clearing account that holds money Stripe collected. In Pantry open Bank → Statements → Add a bank or card account to create one. Grant Record external payments when creating Pier's credential, then load accounts again. Use the existing Checking ledger account or create a separate Asset account with the Bank or card role in Books → Chart of accounts. Enter the real last four digits, opening date and balance. This records money already collected; it does not charge the customer.</small></label>
         <label className="field"><span>Sales tax on invoices</span><select aria-label="Tax treatment for exported invoices" name="taxCode" required defaultValue={connection ? 'exempt' : ''}><option value="">Choose tax treatment</option><option value="exempt">All invoices Pier sends are tax-exempt (wholesale)</option></select><small>Pier does not yet send taxable invoices to Pantry. Choose this only for tax-exempt wholesale sales.</small></label>
       </div><div className="form-actions"><button className="primary" type="submit" disabled={busy || inventory.length === 0 || expenses.length === 0 || income.length === 0}>{busy ? 'Saving…' : connection ? 'Save and reconnect' : 'Connect Pantry'}</button></div></form>
     </section>}

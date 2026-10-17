@@ -18,11 +18,12 @@ export type BookDocument = {
   remoteId?: string;
   receiptState?: { received: boolean; readyToPay: boolean; attachment: { name: string; content: string } };
   creditForReference?: string;
+  payment?: { reference: string; sourceReference: string; amount: string; date: string; bankAccountId: string };
   /** UTF-8 source evidence; binary files require a future explicit encoding contract. */
   attachment?: { name: string; content: string };
 };
 
-export type BookResult = { id: string; status: string; paid?: string; open?: string; received?: boolean; readyToPay?: boolean; evidenceCurrent?: boolean };
+export type BookResult = { id: string; status: string; paid?: string; open?: string; received?: boolean; readyToPay?: boolean; evidenceCurrent?: boolean; paymentCurrent?: boolean };
 export interface BooksAdapter {
   post(document: BookDocument): Promise<BookResult>;
   read(document: BookDocument): Promise<BookResult | null>;

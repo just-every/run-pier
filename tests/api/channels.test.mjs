@@ -82,3 +82,73 @@ test('channel order reserves once and publishes net stock to every channel withi
   const cipher = await h.db.prepare('SELECT secret FROM pier_channel_secrets LIMIT 1').first();
   assert.ok(cipher.secret); assert.doesNotMatch(cipher.secret, /synthetic/);
 });
+
+test('an owner chooses Shopify locations read from the platform without saving credentials in command history', async t => {
+  let calls = 0, authorizations = 0, rejectAuthorization = false;
+  let expectedToken = 'synthetic-location-secret';
+  const h = await installation({ async outboundService(request) {
+    calls++;
+    const url = new URL(request.url);
+    assert.equal(url.hostname, 'harbor.myshopify.com');
+    if (url.pathname === '/admin/oauth/access_token') {
+      authorizations++;
+      assert.equal(request.method, 'POST');
+      const form = new URLSearchParams(await request.text());
+      assert.equal(form.get('grant_type'), 'client_credentials');
+      assert.equal(form.get('client_id'), 'synthetic-location-client');
+      assert.equal(form.get('client_secret'), 'synthetic-location-client-secret');
+      if (rejectAuthorization) return Response.json({ error: 'invalid_client' }, { status: 401 });
+      return Response.json({ access_token: 'synthetic-exchanged-location-token', expires_in: 86399 });
+    }
+    assert.equal(request.headers.get('x-shopify-access-token'), expectedToken);
+    const body = await request.json();
+    if (body.query.includes('query PierListings')) return Response.json({ data: { productVariants: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } });
+    if (body.query.includes('query PierOrders')) return Response.json({ data: { orders: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } });
+    const second = body.variables.after === 'next-location';
+    return Response.json({ data: { locations: { nodes: [{ id: `gid://shopify/Location/${second ? '2' : '1'}`, name: second ? 'Newark warehouse' : 'Reno warehouse' }], pageInfo: { hasNextPage: !second, endCursor: second ? null : 'next-location' } } } });
+  } }); t.after(() => h.close());
+  const result = await h.command('channel.shopifyLocations', { baseUrl: 'https://harbor.myshopify.com', accessToken: 'synthetic-location-secret' });
+  assert.deepEqual(result.locations.map(l => l.name), ['Reno warehouse', 'Newark warehouse']);
+  assert.equal(calls, 2);
+  assert.equal(authorizations, 0, 'existing legacy tokens do not perform a client credentials exchange');
+  const app = { baseUrl: 'https://harbor.myshopify.com', authMode: 'clientCredentials', clientId: 'synthetic-location-client', clientSecret: 'synthetic-location-client-secret' };
+  expectedToken = 'synthetic-exchanged-location-token';
+  const renewed = await h.command('channel.shopifyLocations', app);
+  assert.deepEqual(renewed, result);
+  assert.equal(authorizations, 1, 'both location pages share one exchanged token');
+  assert.equal(calls, 5);
+  rejectAuthorization = true;
+  await h.command('channel.shopifyLocations', app, { error: 'CHANNEL_SETUP' });
+  assert.equal(authorizations, 2);
+  assert.equal(calls, 6, 'a refused exchange makes no GraphQL call or alternate authorization attempt');
+  await h.command('channel.shopifyLocations', { baseUrl: 'https://unrelated.example.test', accessToken: 'synthetic-location-secret' }, { error: 'CHANNEL_SETUP' });
+  await h.command('channel.shopifyLocations', { ...app, baseUrl: 'https://unrelated.example.test' }, { error: 'CHANNEL_SETUP' });
+  assert.equal(calls, 6, 'an invalid platform address is refused before a network request');
+  await h.command('channel.shopifyLocations', { baseUrl: 'https://harbor.myshopify.com', accessToken: 'synthetic-location-secret' }, { as: '', error: 'AUTH' });
+  await h.command('channel.shopifyLocations', app, { as: '', error: 'AUTH' });
+  assert.equal(calls, 6);
+  const exported = await (await h.request('/api/pier/export')).text();
+  for (const secret of ['synthetic-location-secret', app.clientId, app.clientSecret, expectedToken]) {
+    assert.ok(!exported.includes(secret), 'setup credentials and exchanged tokens stay outside business export');
+    assert.ok(!JSON.stringify(renewed).includes(secret), 'the location reply contains no credentials or token');
+  }
+  const secrets = await h.db.prepare('SELECT COUNT(*) AS n FROM pier_channel_secrets').first();
+  assert.equal(secrets.n, 0, 'a setup lookup does not persist even an encrypted exchanged token');
+  const commands = await h.db.prepare("SELECT COUNT(*) AS n FROM pier_commands WHERE result LIKE '%Newark warehouse%'").first();
+  assert.equal(commands.n, 0, 'a setup lookup is read-only');
+  // Save the owner's renewable credentials, then prove two real sync runs each
+  // exchange once across their concurrent reads without persisting the token.
+  rejectAuthorization = false;
+  await basics(h);
+  const saved = await h.command('channel.save', { name: 'Own Shopify store', provider: 'shopify', baseUrl: app.baseUrl, warehouse: 'North', enabled: false, credentials: { authMode: app.authMode, clientId: app.clientId, clientSecret: app.clientSecret, locationId: result.locations[0].id } });
+  const cipherBefore = await h.db.prepare('SELECT secret FROM pier_channel_secrets WHERE channel_id=?').bind(saved.id).first();
+  await h.command('channel.save', { ...saved, enabled: true });
+  assert.equal(authorizations, 3, 'saved client credentials authorize concurrent listing and order reads once');
+  const sync = await h.command('channel.sync', {});
+  assert.ok(sync.channels.every(channel => !channel.problem));
+  assert.equal(authorizations, 4, 'a later sync obtains fresh authorization without an owner replacing a token');
+  const cipherAfter = await h.db.prepare('SELECT secret FROM pier_channel_secrets WHERE channel_id=?').bind(saved.id).first();
+  assert.equal(cipherAfter.secret, cipherBefore.secret, 'authorization never persists an exchanged token over the saved client credentials');
+  const savedExport = await (await h.request('/api/pier/export')).text();
+  for (const secret of [app.clientId, app.clientSecret, expectedToken]) assert.ok(!savedExport.includes(secret));
+});

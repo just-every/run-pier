@@ -12,7 +12,7 @@ export const moveInFields: Record<string, string[]> = {
   archive: [],
 };
 export const providerNames: Record<string, string> = { 'cin7-core': 'Cin7 Core', inflow: 'inFlow Inventory', fishbowl: 'Fishbowl Warehouse' };
-export type ExportFile = { name: string; kind: string; csv: string; columns?: Record<string, string>; constants?: Record<string, string>; archivedColumns?: Record<string, string>; archiveReason?: string; layout?: string; dateFormat?: string; lineIdentity?: string; quantityMeaning?: string };
+export type ExportFile = { name: string; kind: string; csv: string; columns?: Record<string, string>; constants?: Record<string, string>; archivedColumns?: Record<string, string>; archiveReason?: string; layout?: string; dateFormat?: string; lineIdentity?: string; quantityMeaning?: string; blankBin?: string; excludedRows?: Record<string, string> };
 export type ExportRow = { values: Record<string, string>; row: number; headers: string[] };
 
 /** Fishbowl's native PO file has two header/record shapes, not a flat table. */

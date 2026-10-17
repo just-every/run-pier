@@ -48,7 +48,7 @@ export function channelEdge() {
         }
       }
       if (url.hostname === 'stall.example.test') {
-        if (url.pathname.endsWith('/state')) return reply({ products: [{ id: 'CASE-BLUE', value: { sku: 'CASE-BLUE', name: 'Blue case', active: true } }], orders: stallReservation ? [{ id: 'stall-paid-one', currency: 'usd', customerEmail: 'buyer@example.test', payment: { sessionId: 'paid-session' }, reservation: { id: stallReservation.id }, lines: [{ sku: 'CASE-BLUE', quantity: 1, unitCents: 1250 }] }] : [] });
+        if (url.pathname.endsWith('/state')) return reply({ products: [{ id: 'CASE-BLUE', value: { sku: 'CASE-BLUE', name: 'Blue case', active: true } }], orders: stallReservation ? [{ id: 'stall-paid-one', currency: 'usd', customerEmail: 'buyer@example.test', totalCents: 1250, payment: { sessionId: 'cs_paid_session', intentId: 'pi_channel_fixture', paidAt: stallReservation.createdAt }, reservation: { id: stallReservation.id }, lines: [{ sku: 'CASE-BLUE', quantity: 1, unitCents: 1250 }] }] : [] });
         if (url.pathname.endsWith('/catalogue')) {
           const state = await readState(), item = state.items.find(i => i.sku === 'CASE-BLUE');
           const available = state.positions.filter(p => p.itemId === item.id && p.status === 'sellable').reduce((n, p) => n + Number(p.available), 0);

@@ -24,6 +24,8 @@ import { syncChannels } from './channels/sync';
 import { supplierBills, supplierBillViews } from "./books/supplier-bills";
 import { books } from "./books/commands";
 import { pantryAccounts } from './books/pantry-accounts';
+import { bookConnectionViews } from './books/connection-state';
+import { readShopifyLocations } from './channels/setup';
 import { newStallKey, stallKeyHash, stallLink } from './channels/stall-link';
 import { syncBooks } from "./books/sync";
 import { booksExport } from "./books/export";
@@ -349,6 +351,7 @@ export async function pierResponse(
         ...s,
         actor,
         people,
+        bookConnections: await bookConnectionViews(env,s),
         orders: s.orders.map((o) => ({ ...orderView(c, o), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),
         purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
@@ -437,6 +440,11 @@ export async function pierResponse(
       const outcome = await execute(env, actor, commandId, "channel.stallLink", { channelId: payload.channelId, version: payload.version, customerId: payload.customerId, keyHash: stallKeyHash(key) });
       if (!outcome) return json({ ok: false, error: { code: "BUSY", message: "Retry." } }, 409);
       return json({ ...outcome, result: { key, origin: new URL(env.AUTH_ORIGIN).origin, customerId: payload.customerId } });
+    }
+    if (type === "channel.shopifyLocations") {
+      if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect Shopify.",null,403);
+      try { return json({ok:true,result:await readShopifyLocations(payload),version:(await load(env.DB)).version}); }
+      catch { fail('CHANNEL_SETUP','Pier could not load Shopify locations. Check the myshopify.com address and read_locations scope. For a new app, check its client ID/secret and that it is installed on a store in the same Shopify organization; for a legacy app, check its Admin API token.'); }
     }
     if (type === "book.accounts") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect the books.",null,403);

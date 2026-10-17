@@ -3,14 +3,14 @@ import { records, type PierState, type RecordData, type RunCommand } from '../ap
 export type BooksProps = { state: PierState; run: RunCommand; busy: boolean }
 export type BookConnection = RecordData & {
   id: string; provider: 'pantry'; baseUrl: string; enabled: boolean
-  lastSync?: string | null; problem?: string | null; writeOffAccountId?: string; landedCostAccountId?: string | null
+  credentialPresent?: boolean; stripeBankAccountId?: string | null; lastSync?: string | null; problem?: string | null; writeOffAccountId?: string; landedCostAccountId?: string | null
 }
 export type BookJob = {
   id: string; kind: 'item' | 'invoice' | 'credit' | 'bill' | 'journal' | 'receipt' | 'valuation'
   reference: string; sourceId: string; sourceKind: string; total?: string | null; currency: 'USD'
   status: 'pending' | 'posted' | 'review' | 'uncertain' | 'reconciled' | 'skipped'
   remoteId?: string | null; paid?: string | null; open?: string | null; reason?: string | null; fix?: string | null
-  version: number; received?: boolean; readyToPay?: boolean; attempted: boolean
+  through?: string | null; version: number; received?: boolean; readyToPay?: boolean; attempted: boolean
 }
 export const connections = (state: PierState) => records(state, 'bookConnections') as BookConnection[]
 export const jobs = (state: PierState) => records(state, 'bookJobs') as BookJob[]

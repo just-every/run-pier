@@ -215,7 +215,7 @@ function preview(c: Context, b: Row) {
       code: (e as any).code ?? "IMPORT",
       message: (e as Error).message,
       details: detail,
-      ...(offending ? { sourceId: offending.sourceId, location: offending.location } : {}),
+      ...(offending ? { sourceId: offending.sourceId, location: offending.location } : detail?.artifact && Number.isInteger(detail.row) ? { location: detail } : {}),
     });
   }
   b.materialHash = sha256(materialHash(c));

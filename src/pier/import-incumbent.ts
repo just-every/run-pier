@@ -3,6 +3,7 @@ import { canonicalJson, sha256, type SourceBundle } from './import-kit';
 import { parseCSV } from './import-csv';
 import { fishbowlPurchase, moveInFields, providerNames, type ExportFile, type ExportRow } from './import-layouts';
 import { reconcileMoveIn } from './import-reconcile';
+import { sourcePromiseDate } from './import-normalize';
 
 type Mapped = { kind: string; payload: Record<string, string>; original: Record<string, string>; artifactHash: string; location: { artifact: string; row: number } };
 export function incumbentSource(p: any) {
@@ -45,41 +46,54 @@ export function incumbentSource(p: any) {
         coverage.push({ artifact: name, column, fields, reason: archived ?? '', disposition: fields.length ? 'mapped' : archived?.trim() ? 'retained only' : 'unmapped' });
         if (!fields.length && !archived?.trim()) issue('UNMAPPED_COLUMN', `Unmapped column “${column}”. Map it or record why it stays in the retained archive.`, { artifact: name, row: 1 }, column);
       }
+      for (const [number, reason] of Object.entries(file.excludedRows ?? {})) {
+        if (!rows.some(row => String(row.row) === number) || !reason.trim()) issue('ROW_RETENTION', 'A retained-only row must name an existing CSV row and a non-empty reason.', { artifact: name, row: Number(number) || 1 });
+      }
       const documentLines = new Map<string, number>();
       for (const row of rows) {
         const location = { artifact: name, row: row.row };
+        const documentField = file.kind === 'purchaseOrders' ? 'poKey' : file.kind === 'orders' ? 'orderKey' : null;
+        const document = documentField ? (constants[documentField] ?? row.values[columns[documentField]] ?? '') : '';
+        const ordinal = (documentLines.get(document) ?? 0) + 1;
+        if (documentField && row.values['@record'] !== 'PO') documentLines.set(document, ordinal);
+        const retainedReason = file.excludedRows?.[String(row.row)];
+        if (retainedReason?.trim()) { excluded.push({ location, reason: text(retainedReason, 'Row retention reason'), original: row.values }); continue; }
         if (row.values['@invalid']) { issue('UNMAPPED_ROW', 'Unrecognized Fishbowl record or missing PO/Item header.', location); continue; }
         if (file.kind === 'archive') { excluded.push({ location, reason: text(file.archiveReason), original: row.values }); continue; }
         if (row.values['@record'] === 'PO') continue;
         try {
           if (mixed && row.values.Status !== '20') fail('OPEN_DOCUMENT', 'Only issued Fishbowl POs (Status 20) may become expected receipts.');
           if (mixed && row.values.POItemTypeID !== '10') fail('UNSUPPORTED_ROW', 'Only Fishbowl purchase item type 10 maps to an open stock purchase line. Retain other line types separately.');
-          if (row.values.InventoryStatus && row.values.InventoryStatus !== 'Unfulfilled') fail('OPEN_DOCUMENT', 'This inFlow order export includes fulfilled or partially fulfilled processing state. Supply reviewed remaining-line evidence separately.');
+          if (row.values.InventoryStatus && row.values.InventoryStatus !== 'Unfulfilled' && file.quantityMeaning !== 'ordered-less-fulfilled') fail('OPEN_DOCUMENT', 'This inFlow row is not wholly unfulfilled. Map ordered and fulfilled quantities from reviewed evidence, or retain this row without importing it and record why.');
+          if (p.provider === 'inflow' && row.values.IsCancelled?.trim().toUpperCase() === 'TRUE') fail('OPEN_DOCUMENT', 'A cancelled inFlow line cannot become expected stock. Retain this row without importing it and record the cancellation.');
           if (row.values.PartType && row.values.PartType !== 'Inventory' && file.kind === 'items') fail('UNSUPPORTED_ROW', 'Only inventory parts are supported in this opening-stock mapping.');
           if (row.values.ItemType && row.values.ItemType !== 'Stockable' && file.kind === 'items') fail('UNSUPPORTED_ROW', 'Only stockable inFlow products are supported in this opening-stock mapping.');
-          if (Object.entries(row.values).some(([field, value]) => (field.startsWith('Tracking-') || field === 'Serial') && value.trim())) fail('UNSUPPORTED_TRACKING', 'Populated lot/serial tracking cannot be opened as untracked stock. Retain and reconcile these rows separately.');
+          if ((file.kind === 'items' && row.values.TrackSerials?.trim().toUpperCase() === 'TRUE') || Object.entries(row.values).some(([field, value]) => (field.startsWith('Tracking-') || ['Serial', 'ProductSerials'].includes(field)) && value.trim())) fail('UNSUPPORTED_TRACKING', 'Populated lot/serial tracking cannot be opened as untracked stock. Retain and reconcile these rows separately.');
           for (const field of ['Currency', 'CurrencyCode', 'CurrencyName']) {
             const currency = row.values[field];
             if (currency && !['USD', 'US Dollar', 'US Dollars'].includes(currency)) fail('CURRENCY', `Source ${field} is ${currency}; provide independently reviewed USD values before cutover.`);
           }
           const payload: Record<string, string> = { ...constants };
           for (const [field, column] of Object.entries(columns)) payload[field] = row.values[column] ?? '';
+          if (file.kind === 'items') {
+            text(payload.key, 'Stable product identity'); text(payload.sku, 'SKU'); text(payload.name, 'Product name'); text(payload.unit, 'Base unit'); decimal(payload.packSize, true);
+          }
+          if (['positions', 'controls'].includes(file.kind) && !payload.bin?.trim() && file.blankBin?.trim()) payload.bin = file.blankBin.trim();
           if ((file.kind === 'positions' || file.kind === 'controls') && !payload.locationKey) {
             payload.locationKey = JSON.stringify([text(payload.warehouse, 'Warehouse'), text(payload.bin, 'Bin')]);
           }
           if (file.kind === 'purchaseOrders' || file.kind === 'orders') {
-            const document = text(file.kind === 'purchaseOrders' ? payload.poKey : payload.orderKey);
-            const ordinal = (documentLines.get(document) ?? 0) + 1; documentLines.set(document, ordinal);
+            text(document, 'Document identity');
             if (file.lineIdentity === 'document-ordinal' && !payload.key) payload.key = `${document}:line:${ordinal}`;
             if (!['remaining', 'ordered-less-fulfilled'].includes(file.quantityMeaning ?? '')) fail('OPEN_QUANTITY', 'State whether the source quantity is remaining, or ordered less fulfilled.');
             if (file.quantityMeaning === 'ordered-less-fulfilled' && payload.fulfilled === undefined) fail('OPEN_QUANTITY', 'Map the fulfilled quantity before computing remaining demand.');
-            if (file.quantityMeaning === 'ordered-less-fulfilled') payload.quantity = format(decimal(payload.quantity) - decimal(payload.fulfilled));
-            if (decimal(payload.quantity) <= 0n) fail('OPEN_DOCUMENT', 'Only positive remaining open quantities can be imported.');
-            if (file.dateFormat === 'M/D/YYYY') {
-              // inFlow writes a midnight time after the date ("11/1/2026 0:00"); any other time is refused.
-              const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?: 0?0:00(?::00)?)?$/.exec(payload.promiseDate) ?? fail('DATE', 'Expected an explicit M/D/YYYY promise date.');
-              payload.promiseDate = `${match[3]}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`;
+            if (file.quantityMeaning === 'ordered-less-fulfilled') {
+              const remaining = decimal(payload.quantity) - decimal(payload.fulfilled);
+              if (remaining < 0n) fail('OPEN_QUANTITY', 'Fulfilled quantity exceeds ordered quantity. Reconcile this source line before importing it.');
+              payload.quantity = format(remaining);
             }
+            if (decimal(payload.quantity) <= 0n) fail('OPEN_DOCUMENT', 'This line has no remaining open quantity. Retain it without importing it and record that it is complete.');
+            payload.promiseDate = sourcePromiseDate(payload.promiseDate ?? '', file.dateFormat);
           }
           mapped.push({ kind: file.kind, payload, original: row.values, artifactHash, location });
         } catch (error) { issue((error as any).code ?? 'MAPPING', (error as Error).message, location); }
@@ -105,6 +119,7 @@ export function incumbentSource(p: any) {
         const item = items.get(payload.itemKey);
         // Unit/cost joins are exact source-key joins, never SKU/name fuzzy matches.
         if (!('unit' in payload) && item) payload.unit = item.unit;
+        if (item && payload.unit !== item.unit) fail('UNIT', `Source unit “${payload.unit}” for ${payload.itemKey} does not match its base unit “${item.unit}”. Provide reviewed quantities and per-base-unit prices in that base unit, or retain this row without importing it. Pier does not infer purchase-pack conversions.`);
         if (kind === 'positions' && !('cost' in payload) && item?.openingCost !== undefined) payload.cost = item.openingCost;
       }
       // Name the field and its source column instead of a bare number-format refusal.

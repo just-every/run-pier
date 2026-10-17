@@ -18,6 +18,7 @@ import {
 } from "./model";
 import { orderPrice, priceUnpricedLines } from "./pricing";
 import { money } from "./money";
+import { recordChannelPayment } from "./channel-payment";
 export function reserve(c: Context, o: Row) {
   for (const l of o.lines) {
     let need =
@@ -69,6 +70,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   if (
     ![
       "order.create",
+      "order.channelPayment",
       "order.reserve",
       "order.price",
       "order.cancel",
@@ -80,6 +82,11 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   )
     return;
   requireRole(c, type.startsWith("order.") ? ["operator"] : ["warehouse"]);
+  if (type === "order.channelPayment") {
+    const order = get(c.s, 'orders', p.orderId);
+    recordChannelPayment(c, order, p.payment);
+    return orderView(c, order);
+  }
   if (type === "order.create") {
     if (p.currency !== undefined && p.currency !== 'USD') fail('CURRENCY', 'Sales orders use USD. Foreign-currency conversion is not available yet.');
     if (get(c.s, "parties", p.customerId).kind !== "customer")
@@ -121,6 +128,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
         : null,
       lines,
     });
+    recordChannelPayment(c, o, p.channelPayment);
     reserve(c, o);
     return orderView(c, o);
   }
