@@ -20,8 +20,8 @@ Updated 17 October 2026 for books (rows 4, 35, 36 and 41): real Pantry financial
 | Status | Claims |
 |---|---|
 | backed | 39 |
-| partly | 9 |
-| contract, not yet in code | 7 |
+| partly | 12 |
+| contract, not yet in code | 4 |
 | **all claims** | **55** |
 
 ## Hero
@@ -68,9 +68,9 @@ Updated 17 October 2026 for books (rows 4, 35, 36 and 41): real Pantry financial
 | 23 | "Take EDI purchase orders from Target, Walmart and Home Depot" | contract, not yet in code | CONTRACT.md EDI clause |
 | 24 | "send the acknowledgment, ship notice and invoice on time" (855/856/810 card) | contract, not yet in code | No EDI documents or invoices; priced sales orders are covered by claim 54 |
 | 25 | "Carton 7 label reprinted · GS1-128" | contract, not yet in code | No carton labels |
-| 26 | "Pier compares UPS, FedEx and USPS through ShipStation or EasyPost" | contract, not yet in code | CONTRACT.md carrier clause |
-| 27 | "prints the label and sends tracking to your customer" | contract, not yet in code | Dispatch records a shipment reference the person types (`src/pier/orders.ts:117`); no label or tracking |
-| 28 | "Address corrected" | contract, not yet in code | No address validation |
+| 26 | "Pier compares UPS, FedEx and USPS through ShipStation or EasyPost" | partly | EasyPost v2 adapter compares returned UPS/FedEx/USPS rates from measured pack cartons, with cheapest/fastest markers. `src/pier/shipping/`, `src/ui/shipping/`, `tests/api/shipping.test.mjs`. Documented synthetic network recordings only; no owner EasyPost account yet. [Shipping](shipping.md). |
+| 27 | "prints the label and sends tracking to your customer" | partly | Per-carton label purchase/reconciliation, authenticated PDF/ZPL downloads, stored shipment tracking, install-mail submission and signed canonical tracking updates. `tests/api/shipping.test.mjs`; synthetic 4×6 carrier files at the network edge. Real tracking mail was received and standalone hosted setup exercised; live carrier postage, physical printers and Managed egress remain pending. [Shipping](shipping.md). |
+| 28 | "Address corrected" | partly | Delivery verification blocks undeliverable addresses; original and standardized street/ZIP+4/residential flag are shown for explicit accept or keep, retained on the order. `src/pier/shipping/commands.ts`, `tests/api/shipping.test.mjs`. Provider responses are documented synthetic recordings pending an EasyPost account. [Shipping](shipping.md). |
 
 ## Interlude (page 4)
 

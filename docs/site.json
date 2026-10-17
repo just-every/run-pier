@@ -39,6 +39,12 @@
           "summary": "Receive by scanning, pick waves with a scan check per line, pack cartons and close the day's dispatch."
         },
         {
+          "slug": "shipping",
+          "label": "Shipping labels and tracking",
+          "file": "docs/shipping.md",
+          "summary": "Review shipping addresses, compare carrier rates and buy carton labels through your EasyPost connection."
+        },
+        {
           "slug": "transfers-and-counts",
           "label": "Transfers and counts",
           "file": "docs/warehouse.md",

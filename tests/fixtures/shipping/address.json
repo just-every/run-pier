@@ -1,0 +1,1 @@
+{"id":"adr_synthetic","object":"Address","name":"North Cafe","street1":"417 MONTGOMERY ST","street2":"","city":"SAN FRANCISCO","state":"CA","zip":"94104-1210","country":"US","residential":false,"verifications":{"delivery":{"success":true,"errors":[],"details":{"latitude":37.793,"longitude":-122.402}}}}

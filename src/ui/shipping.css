@@ -1,0 +1,7 @@
+.pier-app .shipping-addresses { margin: 16px 0 24px; }
+.pier-app .shipping-addresses h4 { margin-top: 0; }
+.pier-app .shipping-address { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.pier-app .shipping-job > .actions { margin: 20px 0; }
+.pier-app .shipping-job .check { align-items: center; }
+.pier-app .shipping .shipping-job input[type=radio] { width: 20px; min-height: 20px; height: 20px; margin: 0; padding: 0; accent-color: var(--pier-ink); }
+.pier-app .shipping-job small { display: block; }

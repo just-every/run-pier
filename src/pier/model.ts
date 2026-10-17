@@ -89,6 +89,8 @@ export const collections = [
   "bookJobs",
   "supplierBills",
   "aiSettings",
+  "shippingSettings",
+  "shippingJobs",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {
@@ -131,7 +133,7 @@ export type Context = {
   actor: Actor;
   commandId: string;
   now: string;
-  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "channels" | "bookConnections"; id: string; version: number };
+  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "channels" | "bookConnections" | "shippingSettings"; id: string; version: number };
   channelSecrets?: { channelId: string; secret: string }[];
   automationActors?: Record<string, string>;
   delegates?: { actorId: string; role: string; orderId: string; policyVersion: number }[];

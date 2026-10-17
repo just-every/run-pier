@@ -83,6 +83,13 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
       shipmentReference: text(p.shipmentReference, "Shipment reference"),
       lines: [...quantities].map(([orderLineId, q]) => ({ orderLineId, quantity: format(q) })),
     })!;
+    const labels = c.s.shippingJobs.filter(j => j.packId === pack.id);
+    if (labels.length && (labels.length !== pack.cartons.length || labels.some(j => !['labelled','delivered'].includes(j.status)))) fail('LABELS', 'Buy or reconcile every carton label before dispatching this carrier shipment.');
+    if (labels.length) {
+      shipment.tracking = labels.map(j => ({ carton: j.carton, trackingCode: j.trackingCode, trackingUrl: j.trackingUrl, providerShipmentId: j.providerShipmentId }));
+      shipment.deliveryStatus = labels.every(j => j.status === 'delivered') ? 'delivered' : 'in_transit';
+      for (const label of labels) { label.shipmentId = shipment.id; label.version++; }
+    }
     shipment.packId = pack.id;
     shipment.waveId = w.id;
     shipment.carrierId = w.carrierId;

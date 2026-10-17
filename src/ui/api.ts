@@ -42,7 +42,7 @@ export function usePier() {
     setBusy(true); setError(''); setDetails(null); setNotice('')
     try {
       if (pending.current?.signature !== signature) pending.current = { signature, commandId: crypto.randomUUID() }
-      if (!['channel.save','book.connect','ai.save'].includes(type)) sessionStorage.setItem('pier.pending-command', JSON.stringify(pending.current))
+      if (!['channel.save','book.connect','ai.save', 'shipping.save'].includes(type)) sessionStorage.setItem('pier.pending-command', JSON.stringify(pending.current))
       const response = await fetch('/api/pier/commands', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commandId: pending.current.commandId, type, payload }) })
       const body = readReply(await response.json())
       if (body.ok && !response.ok) throw new Error('The server response did not confirm the command outcome.')

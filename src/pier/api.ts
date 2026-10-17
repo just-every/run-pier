@@ -9,6 +9,10 @@ import {
 } from "./model";
 import { load, saved, commit, authority, activeAutomationActors } from "./storage";
 import { channelWebhook } from './channels/webhook';
+import { shipping, unavailable as shippingUnavailable } from './shipping/commands';
+import { performShipping } from './shipping/transport';
+import { shippingWebhook } from './shipping/webhook';
+import { labelUrl } from './shipping/easypost';
 import { channels } from './channels/commands';
 import { channelState, markChannelPending } from './channels/availability';
 import { syncChannels } from './channels/sync';
@@ -133,6 +137,7 @@ export async function execute(
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, automationActors: await activeAutomationActors(env.DB) };
     await approver(env, c, type, payload);
     let result: any = supplierBills(c, type, payload);
+    if (result === undefined) result = await shipping(c, type, payload, env);
     if (result === undefined) result = await books(c, type, payload, env);
     if (result === undefined) result = await itemAgent(c, type, payload, env);
     if (result === undefined) result = await channels(c, type, payload, env);
@@ -214,6 +219,8 @@ export async function pierResponse(
   if (!url.pathname.startsWith("/api/pier")) return null;
   try {
     const env = runtimeBindings(original);
+    const carrierWebhook = await shippingWebhook(request, env);
+    if (carrierWebhook) return carrierWebhook;
     const webhook = await channelWebhook(request, env);
     if (webhook) return webhook;
     const actor = await current(request, env);
@@ -236,6 +243,17 @@ export async function pierResponse(
           null,
           401,
         );
+      const labelMatch = /^\/api\/pier\/shipping\/labels\/([^/]+)\.(pdf|zpl)$/.exec(url.pathname);
+      if (labelMatch) {
+        const blocked = shippingUnavailable(env);
+        if (blocked) fail('SHIPPING_UNAVAILABLE', blocked);
+        const job = s.shippingJobs.find(j => j.id === labelMatch[1]);
+        const destination = labelUrl(labelMatch[2] === 'pdf' ? job?.labelPdfUrl : job?.labelZplUrl);
+        if (!destination) fail('LABEL', 'This label format is not available from the carrier.');
+        const response = await fetch(destination!, { redirect: 'manual', signal: AbortSignal.timeout(25000) });
+        if (!response.ok) fail('LABEL', 'The carrier label could not be downloaded. Check EasyPost.');
+        return new Response(response.body, { headers: { 'content-type': labelMatch[2] === 'pdf' ? 'application/pdf' : 'application/octet-stream', 'content-disposition': `inline; filename="pier-label-${job!.carton}.${labelMatch[2]}"`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
+      }
       if (["/api/pier/books/export.csv","/api/pier/books/export.iif"].includes(url.pathname)) {
         const format = url.pathname.endsWith(".iif") ? "iif" : "csv";
         try { return new Response(booksExport(s, format), {headers:{"content-type":format === "csv" ? "text/csv; charset=utf-8" : "text/plain; charset=utf-8","content-disposition":`attachment; filename="pier-books.${format}"`,"cache-control":"no-store"}}); } catch(error) { fail("BOOK_EXPORT", error instanceof Error ? error.message : "Review the financial documents before exporting."); }
@@ -320,6 +338,7 @@ export async function pierResponse(
         counts: s.counts.map((count) => countView(c, count)),
         ...floorState(c),
         ...channelState(s),
+        shippingUnavailable: shippingUnavailable(env),
         positions: positions(s),
         reorder: reorder(c),
         commands,
@@ -382,6 +401,9 @@ export async function pierResponse(
           "Native owners retain owner authority. Assign agent roles only to native members.",
         );
     }
+    if (['shipping.record','shipping.complete'].includes(type)) fail('SHIPPING_INTERNAL', 'Pier records carrier outcomes itself.');
+    if (['shipping.verify','shipping.rates','shipping.buy','shipping.reconcile','shipping.email','shipping.track'].includes(type))
+      return json(await performShipping(env, actor, commandId, type, payload));
     if (["itemAgent.begin", "itemAgent.complete", "itemAgent.failed"].includes(type)) fail("AI_INTERNAL", "Pier records AI request outcomes itself.");
     if (type === "itemAgent.explain") return json(await explainItem(env, actor, commandId, payload, execute));
     if (["book.plan","book.begin","book.record","book.checked","book.reconcile"].includes(type)) fail("BOOK_INTERNAL","Pier records books traffic itself.");
