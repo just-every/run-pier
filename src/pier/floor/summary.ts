@@ -1,3 +1,4 @@
+import { dispatchBoard, dispatchOrder, orderWarehouse } from "./dispatch-board";
 import { decimal, format, fail, get, row, text, type Context, type Row, type State } from "../model";
 
 // The day's dispatch summary in one warehouse time zone: what shipped, by
@@ -28,10 +29,12 @@ function notShipped(s: State, o: Row) {
   return "packed, not shipped";
 }
 
-export function dispatchSummary(s: State, date: string, timeZone: string) {
-  if (!DATE.test(date)) fail("DATE", "Choose the day as YYYY-MM-DD.");
+export function dispatchSummary(s: State, date: string, timeZone: string, warehouse: string | null = null, now = new Date().toISOString()) {
+  if (!DATE.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) fail("DATE", "Choose the day as YYYY-MM-DD.");
   try { localDate(new Date().toISOString(), timeZone); } catch { fail("TIME_ZONE", "Choose a time zone such as America/Chicago."); }
-  const shipments = s.shipments.filter((x) => localDate(x.createdAt, timeZone) === date);
+  const board = dispatchBoard(s, date, warehouse, now, localDate, localTime);
+  const inWarehouse = (id: string) => !warehouse || orderWarehouse(s, s.orders.find(o => o.id === id)!) === warehouse;
+  const shipments = s.shipments.filter((x) => localDate(x.createdAt, timeZone) === date && inWarehouse(x.orderId));
   const carrierOf = (x: Row) => s.carriers.find((c) => c.id === (x.carrierId ?? s.orders.find((o) => o.id === x.orderId)?.carrierId));
   const groups = new Map<string, any>();
   for (const x of shipments) {
@@ -41,7 +44,7 @@ export function dispatchSummary(s: State, date: string, timeZone: string) {
     g.shipments++;
     g.cartons += x.cartons ?? 0;
     g.units += x.lines.reduce((n: bigint, l: any) => n + decimal(l.quantity), 0n);
-    if (g.cutoff && at > g.cutoff) g.late++;
+    if (carrier && g.cutoff && localTime(x.createdAt, carrier.timeZone) > g.cutoff) g.late++;
     if (at > g.lastAt) g.lastAt = at;
     groups.set(key, g);
   }
@@ -53,33 +56,33 @@ export function dispatchSummary(s: State, date: string, timeZone: string) {
     docks.set(g.dock, d);
   }
   const shippedOrders = new Set(shipments.map((x) => x.orderId));
-  const releasedToday = new Set(s.waves.filter((w) => localDate(w.createdAt, timeZone) === date).flatMap((w) => w.orders.map((o: any) => o.orderId)));
-  const due = s.orders.filter((o) => (o.promiseDate === date || releasedToday.has(o.id)) && !o.cancelReason);
+  const due = s.orders.filter(o => board.orders.some(v => v.orderId === o.id));
   const exceptions: any[] = [];
   for (const o of due)
     if (!o.lines.every(lineDone)) {
       // An order with some units out is partly shipped, not "did not ship".
       const shipped = o.lines.reduce((n: bigint, l: any) => n + decimal(l.dispatched), 0n);
       const ordered = o.lines.reduce((n: bigint, l: any) => n + decimal(l.quantity) - decimal(l.cancelled), 0n);
-      exceptions.push({ kind: shipped > 0n ? "partly shipped" : "not shipped", orderId: o.id, order: o.reference, shipped: format(shipped), ordered: format(ordered), reason: notShipped(s, o) });
+      exceptions.push({ kind: shipped > 0n ? "partly shipped" : "not shipped", orderId: o.id, order: o.reference, shipped: format(shipped), ordered: format(ordered), reason: notShipped(s, o), boardReason: dispatchOrder(s, o).reason });
     }
   for (const w of s.waves)
     for (const l of w.lines)
-      if (l.short && localDate(l.short.at, timeZone) === date) {
+      if (inWarehouse(l.orderId) && l.short && localDate(l.short.at, timeZone) === date) {
         const bin = (id: string | null) => (id ? s.locations.find((x) => x.id === id)?.name ?? "Removed bin" : null);
         exceptions.push({ kind: "short pick", wave: w.number, orderId: l.orderId, order: ref(s, "orders", l.orderId), itemId: l.itemId, bin: bin(l.locationId), overflow: bin(l.short.overflowLocationId), moved: l.short.moved, unfilled: l.short.unfilled, reason: l.short.reason });
       }
   for (const x of shipments) {
     const carrier = carrierOf(x), at = localTime(x.createdAt, timeZone);
-    if (carrier && at > carrier.cutoff) exceptions.push({ kind: "late", orderId: x.orderId, order: ref(s, "orders", x.orderId), carrier: carrier.name, at, cutoff: carrier.cutoff });
+    if (carrier && localTime(x.createdAt, carrier.timeZone) > carrier.cutoff) exceptions.push({ kind: "late", orderId: x.orderId, order: ref(s, "orders", x.orderId), carrier: carrier.name, at, cutoff: carrier.cutoff });
   }
   for (const r of s.receipts)
-    if (r.variance && localDate(r.createdAt, timeZone) === date)
+    if ((!warehouse || s.locations.find(l => l.id === r.locationId)?.warehouse === warehouse) && r.variance && localDate(r.createdAt, timeZone) === date)
       for (const v of r.variance)
         if (v.over !== "0" || v.short !== "0") exceptions.push({ kind: v.over !== "0" ? "received over" : "received short", purchaseOrder: ref(s, "purchaseOrders", r.poId), itemId: v.itemId, expected: v.expected, received: v.received, over: v.over, short: v.short });
   const lastAt = byCarrier.reduce((t, g) => (g.lastAt > t ? g.lastAt : t), "");
   const cutoffs = byCarrier.map((g) => g.cutoff).filter(Boolean).sort();
   return {
+    ...board,
     date,
     timeZone,
     ordersShipped: shippedOrders.size,
@@ -99,14 +102,16 @@ export function dispatchSummary(s: State, date: string, timeZone: string) {
 export function dayClose(c: Context, type: string, p: any): Row | undefined {
   if (type === "dispatch.close") {
     const date = text(p.date, "Day"), timeZone = text(p.timeZone, "Time zone");
-    const summary = dispatchSummary(c.s, date, timeZone);
+    const warehouse = p.warehouse ? text(p.warehouse, "Warehouse") : null;
+    const summary = dispatchSummary(c.s, date, timeZone, warehouse, c.now);
     const delivery = { status: "sending", to: "owner", detail: null, at: c.now };
-    const old = c.s.dispatchDays.find((d) => d.date === date && d.timeZone === timeZone);
+    const old = c.s.dispatchDays.find((d) => d.date === date && d.timeZone === timeZone && (d.warehouse ?? null) === warehouse);
     if (old) {
+      old.revisions = [...(old.revisions ?? []), { summary: old.summary, closedBy: old.closedBy, closedAt: old.closedAt, version: old.version }];
       Object.assign(old, { summary, delivery, closedBy: c.actor.id, closedAt: c.now, version: old.version + 1 });
       return old;
     }
-    return row(c, "dispatchDays", { date, timeZone, summary, delivery, closedBy: c.actor.id, closedAt: c.now });
+    return row(c, "dispatchDays", { date, timeZone, warehouse, summary, delivery, closedBy: c.actor.id, closedAt: c.now });
   }
   // dispatch.delivered is written only by Pier itself after the send (src/pier/api.ts).
   const day = get(c.s, "dispatchDays", p.dayId);

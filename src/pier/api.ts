@@ -292,6 +292,7 @@ export async function pierResponse(
             s,
             url.searchParams.get("date") ?? "",
             url.searchParams.get("timeZone") ?? "",
+            url.searchParams.get("warehouse"),
           ),
         );
       if (url.pathname === "/api/pier/export") {

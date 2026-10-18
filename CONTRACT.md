@@ -543,7 +543,7 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 | 26 | "Pier compares UPS, FedEx and USPS through ShipStation or EasyPost" | SHIP-001 | partial |
 | 27 | "prints the label and sends tracking to your customer" | SHIP-001 | partial |
 | 28 | "Address corrected" | SHIP-001 | partial |
-| 29 | "All 214 orders out by 4 pm" | WMS-003, PIER-009 | partial |
+| 29 | "All 214 orders out by 4 pm" | WMS-003, PIER-009 | done |
 | 30 | "Reorder points learn from what actually sells" | BUY-001 | partial |
 | 31 | "Pier drafts the purchase order" | BUY-005, AUTO-002, PIER-005 | partial |
 | 32 | "with landed cost" (card: "$4.82 per unit · freight and duty included") | COST-001 | partial |
@@ -575,6 +575,8 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 
 Judged from the code and tests at commit `1c0f1c674f4227a2ed79476be5e3ef3d29f7b92c` (17 October 2026).
 
+Updated 19 October 2026: WMS-003 is done for the warehouse dispatch board, conservative pre-cutoff risk, reviewed ship-by scheduling, retained close and overdue-report feed. Named Worker/D1 and desktop/phone journeys exercise these paths.
+
 Updated 19 October 2026: OPEN-001 is done for MIT licensing, account-free operation and provider-cost disclosure, with named public-door staff and desktop/phone journeys. Missing product capabilities remain under their own clauses.
 
 Updated 19 October 2026: STOCK-001 is done. Named Worker/D1 and desktop/phone journeys prove destination expected supply and independent warehouse/company reconciliation, including protected channel holds.
@@ -596,11 +598,11 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 12 | 0 | 0 | 12 |
-| Target | 4 | 38 | 13 | 55 |
+| Target | 5 | 37 | 13 | 55 |
 | Push further | 1 | 5 | 0 | 6 |
-| All | 17 | 43 | 13 | 73 |
+| All | 18 | 42 | 13 | 73 |
 
-**73 clauses: 17 done, 43 partial, 13 missing.**
+**73 clauses: 18 done, 42 partial, 13 missing.**
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -624,7 +626,7 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | SCAN-002 | Supplier unit, case and GS1 barcodes in warehouse work | target | partial | `src/pier/floor/codes.ts`; `src/pier/floor/receiving.ts`; `src/pier/floor/waves.ts`; `src/pier/floor/packing.ts`; `tests/api/floor.test.mjs` | A unit barcode counts one base unit and a case barcode its pack quantity at receive, pick and pack; an over-receipt posts only with a reason, a pick or pack scan beyond the line's quantity is refused, a different SKU is refused at pick. One case barcode per SKU only; GS1-128/DataMatrix lot, expiry and serial fields, SSCC/ASN receiving and linking an unknown barcode at the scan are absent. |
 | WMS-001 | Mobile receive, put away, pick, pack and count | target | partial | `src/pier/floor/`; `src/pier/returns.ts`; `src/ui/floor/`; `tests/api/floor.test.mjs`; `tests/api/returns.test.mjs` | Existing scan receive/wave/pick/pack/dispatch plus returns bench: order/item lookup, condition/reason, named-bin restock, quarantine, mapped damaged write-off and Pantry credit/cost postings with warehouse inspection authority. Zone picking, kits/lots, printed documents/labels, offline queue and physical-device acceptance remain incomplete. |
 | WMS-002 | Directed replenishment and slotting | target | missing |  | No directed put-away, replenishment task or slotting planner exists. |
-| WMS-003 | Daily dispatch board and carrier cut-offs | target | partial | `src/pier/floor/summary.ts`; `src/pier/floor/mail.ts`; `src/ui/floor/dispatch.tsx`; `tests/api/floor.test.mjs` | Carrier pickups carry a dock, cut-off and time zone; the day's summary counts orders, shipments and units shipped by carrier and dock, shipments after cut-off, the last shipment's time, and due orders not shipped with the reason (short, unpicked, unpacked, packed not shipped); closing the day keeps the record and mails the owner through the installation's mail (not on RER Managed yet). Live counts by state (to pick through labeled), at-risk flags against each cut-off before it passes and the REPORT-002 overdue report are absent. |
+| WMS-003 | Daily dispatch board and carrier cut-offs | target | done | `src/pier/floor/dispatch-board.ts`; `src/pier/floor/summary.ts`; `src/pier/reports.ts`; `src/ui/floor/dispatch.tsx`; `src/ui/reports.tsx`; `tests/api/dispatch.test.mjs`; `tests/browser/dispatch.spec.ts` | Per-warehouse day/time-zone board lists every due order by fulfillment state, using promise or the earlier reviewed carrier-service ship-by date. Conservative risk flags name unfinished work before each pickup cut-off. Actual dispatch alone marks shipped. Retained close records and revisions, JSON/business export and overdue report reconcile with independent shipment counts. The named 20-order journey ships 18 and retains one short and one unpicked; desktop/phone journeys exercise scheduling, board, close download and overdue drill-through. Service-date inference and real carrier acceptance remain SHIP-001 boundaries. |
 | COUNT-001 | Full-warehouse stocktake | target | partial | `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (11) | Per-bin captured-frontier counts and approved adjustments only; location-wide scope, freeze, blind count tasks and the uncounted-position rule absent |
 | SALES-001 | Quote, price and convert orders | target | partial | `src/pier/pricing.ts`; `src/pier/orders.ts`; `tests/api/costing.test.mjs` | USD prices and exact totals on orders, versioned customer quantity tiers and validity dates are implemented. Quotes, authorized discounts, tax, emailing and reviewed customer-file import remain. |
 | SALES-002 | Customer history, credit and financial returns | target | partial | `src/pier/returns.ts`; `src/pier/books/return-planning.ts`; `tests/api/returns.test.mjs` | Actual dispatch-linked sellable/damaged returns post native Pantry credit notes and adjust open invoice balances, returned inventory, COGS and mapped damage expense. Credit limits, aging/statements, refunds and sales-rep attribution remain incomplete. |

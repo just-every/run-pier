@@ -12,6 +12,8 @@ The tally shows what is still expected and what you have scanned, line by line, 
 
 Add each **Carrier pickup** with its warehouse, dock door, cut-off and time zone. Orders with reserved stock wait under **Orders waiting for a wave**, grouped by the pickup they ship with; **Release wave** puts the chosen orders on one pick list, in bin order, each order in its own tote.
 
+For an order waiting for a wave, review its pickup and optional carrier-service ship-by date, then **Save pickup schedule**. Pier uses the earlier of that date and its promise date on the dispatch board; it does not infer the date from a service estimate.
+
 Each line asks for its bin label first, then the item. A wrong bin or a wrong item is refused with the reason, and nothing is picked. If the bin is empty or short, **Bin empty or short** sends you to the next bin holding unreserved stock of the same item, moves only that line's reservation and opens a count for the bin you reported. When no bin has it, the line is picked short and only that order stays short.
 
 ## Pack and dispatch
@@ -20,6 +22,10 @@ In **Floor → Pack**, open a picked order and scan its items into carton 1; **S
 
 ## The day's dispatch
 
-**Floor → Dispatch day** shows, for a day in the warehouse's time zone, the orders, shipments and units shipped, by carrier and by dock against each cut-off, and the exceptions: due orders that did not ship and why (short, unpicked, unpacked or packed but not shipped), short picks and the overflow bin used, shipments after the cut-off and receipts that arrived over or short.
+**Floor → Dispatch day** opens the warehouse's board for a chosen day and time zone. It lists due orders as to pick, picking, picked, packed, labeled or shipped, with each pickup's cut-off and dock. A label does not mark an order shipped: dispatch must post. Every unfinished due order is conservatively flagged with its short, unpicked, unpacked or unlabeled work before the cut-off; this warns of remaining work rather than predicting a completion time. The shipped orders, shipments and units, last-out time, carrier/dock totals and operational exceptions remain visible.
+
+**Download board JSON** exports the current board. **Reports → Overdue orders** links unfinished earlier-due orders and shows retained day-close misses, with CSV downloads.
 
 **Close … and email the owner** keeps that day's summary under **Closed days** and sends a copy to the owner through your installation's mail. On your own computer Pier does not send mail, and says so; on a hosted installation the owner's copy goes through the mail provider you configured.
+
+Each close retains its exact summary, last shipment time and missed orders with reasons. **Download day-close JSON** saves the kept record; closing again preserves the earlier version in its revision history, also included in the complete business export.

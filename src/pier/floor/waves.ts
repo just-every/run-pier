@@ -62,6 +62,14 @@ export function waves(c: Context, type: string, p: any): Row | undefined {
   if (type === "order.carrier") {
     const o = get(c.s, "orders", p.orderId), carrier = get(c.s, "carriers", p.carrierId);
     if (openWave(c, o.id)) fail("IN_WAVE", "This order is in a wave being picked. Finish or short the wave first.");
+    if (p.shipByDate !== undefined) {
+      const shipByDate = p.shipByDate === null || p.shipByDate === '' ? null : text(p.shipByDate, "Carrier-service ship-by date");
+      if (shipByDate && (!/^\d{4}-\d{2}-\d{2}$/.test(shipByDate) || !Number.isFinite(Date.parse(shipByDate)) || new Date(shipByDate).toISOString().slice(0, 10) !== shipByDate))
+        fail("DATE", "Choose a valid carrier-service ship-by date as YYYY-MM-DD.");
+      o.shipByDate = shipByDate;
+      o.shipByReviewedBy = c.actor.id;
+      o.shipByReviewedAt = c.now;
+    }
     o.carrierId = carrier.id;
     o.version++;
     return o;

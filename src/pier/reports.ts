@@ -1,3 +1,4 @@
+import { overdueDispatch } from "./floor/dispatch-board";
 import { decimal, fail, format, type State } from './model';
 import { stockInactivity } from './stock-inactivity';
 import { amount, extended, money } from './money';
@@ -71,7 +72,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
   const inactivity = stockInactivity(s, valuationRows, end);
   const deadRows = inactivity.filter(row => row.inactiveDays >= days);
   const t = ledger.totals, expected = t.receipts + t.openings + t.returns + t.adjustments - t.cogs;
-  return { currency: 'USD', asOf, from, to, timezone: 'UTC', method: ledger.method, methodHistory: ledger.history,
+  return { overdueOrders: overdueDispatch(s, asOf), currency: 'USD', asOf, from, to, timezone: 'UTC', method: ledger.method, methodHistory: ledger.history,
     valuation: { rows: valuationRows, total: display(closing), unvaluedQuantity: format(allLayers.filter(l => l.value === null).reduce((n, l) => n + l.quantity, 0n)),
       reconciliation: { ...Object.fromEntries(Object.entries(t).map(([key, n]) => [key, ledger.incomplete.has(key as keyof typeof t) ? null : money(n)])), closing: display(closing), difference: closing === null || ledger.incomplete.size ? null : money(closing - expected) } },
     margin: { rows, bySku: group(rows, 'itemId'), byChannel: group(rows, 'channel'), byCustomer: group(rows, 'customerId'), ...marginTotal(rows),
