@@ -27,8 +27,8 @@ Updated 18 October 2026 for page-alone channel setup, explicit EDI network bound
 
 | Status | Claims |
 |---|---|
-| backed | 42 |
-| partly | 13 |
+| backed | 43 |
+| partly | 12 |
 | contract, not yet in code | 0 |
 | **all claims** | **55** |
 
@@ -106,7 +106,7 @@ Updated 18 October 2026 for page-alone channel setup, explicit EDI network bound
 | 38 | "sends the PO" | backed | An authenticated or scheduled inventory agent sends one exact committed PO under buyer authority: approved recipient, landed spend limit, expiry, reminders and stop control. Changed demand, terms, policy or destination stops it; live authority and durable provider outcomes prevent unapproved or duplicate sends. `src/pier/purchase-send.ts`, `tests/api/purchase-send.test.mjs`. Broader BUY-002/AGENT-002 targets and Managed email remain partial. |
 | 39 | "chases the supplier" | backed | Buyer authorizes 0–5 confirmation chases at 1–30-day intervals; cron sends only while the initial PO was accepted, supply is open and no confirmation, policy revocation or material change intervened. Supplier replies/confirmed dates are recorded on the PO. `src/pier/scheduled.ts`, `src/pier/purchasing-workflow.ts`. |
 | 40 | "re-promises affected orders" (and "customers emailed") | backed | A human approves a computed customer promise or an order-specific exact-recipient date-update policy. Confirmation/date changes recompute promises and submit customer emails; history and provider outcomes remain visible. `src/pier/backorders.ts`, `src/pier/purchasing-workflow.ts`. RER Managed email is not available yet. |
-| 41 | "checks the receipt closes in the books" | partly | A final receipt marks the matched Pantry payable received and ready to pay; Pantry payment readback closes it in Pier. Quantity/price tolerances, hold/approve and exclusive receipt allocations are native Pier flows. Readiness uses Pantry's native received/ready-to-pay bill states through the scoped integration credential: `docs/books.md`. |
+| 41 | "checks the receipt closes in the books" | backed | `src/pier/books/receipt-closure.ts`, `src/ui/books/receipt-closure.tsx` and `tests/api/books.test.mjs`: every receipt exposes unbilled units, its invoice review, missing goods, confirmed Pantry readiness and payment handoff. It closes only when its approved invoice allocations cover the goods, receipt journals post and Pantry confirms zero open payable balances. Payment reversals reopen it; revoked/missing credentials ask for reconnection. Real hosted Pier/Pantry receipt → invoice → final receipt → USD 115.68 payment completed at 1440px and 390px, including reversal/reopening. Broader QBO/Xero and agent planning targets remain partial. |
 | 42 | Agent log as a whole (an agent working the item's record) | backed | Stock → item → Work this item checks open demand/POs, posted receipt cost and native sell-through; exact human apply/reject/undo with logged source versions. Standalone AI setup stores the install's encrypted OpenAI key; deterministic checks need no key. `src/pier/item-agent/`, `src/ui/item-agent/`, `tests/api/item-agent.test.mjs`; [Item checks](item-agent.md). Live paid OpenAI account acceptance remains separate. |
 | 43 | "Move from Cin7, inFlow or Fishbowl" ("Importing from Cin7 Core") | backed | Explicit Cin7 Core, inFlow and Fishbowl export mappings, untouched originals, named unmapped columns/rows, independent per-bin unit/USD controls, frozen atomic apply, duplicate-free replay and one-step dependency-guarded undo. `src/pier/import-incumbent.ts`, `src/ui/import-movein.tsx`, `tests/api/movein.test.mjs`; documented synthetic vendor layouts in [Move in](move-in.md). Owner exports, historic/tracked stock and source FIFO layer dates remain unaccepted. |
 | 44 | "with your items, bins, stock on hand, customers, suppliers and open orders" | backed | The native kinds `items`, `locations`, `parties`, `positions`, `orders`, `purchaseOrders`, plus `reservations` (`IMPORT.md`, `src/pier/imports.ts`) |
@@ -143,3 +143,5 @@ Updated 18 October 2026 for page-alone channel setup, explicit EDI network bound
 - "Read the docs" opens /docs.
 
 The 17 October replenishment round backs rows 3, 11, 30, 31, 33, 34 and 37–40 for native shipments and self-hosted install mail. The core Worker/D1 test is `tests/api/replenishment.test.mjs`; Purchasing and Sales expose the same calculations and approval paths at desktop and phone widths. “Backed” here describes the narrow homepage behavior; full connected planning, optimization, routing and financial closure targets remain partial in CONTRACT.md.
+
+Updated 18 October 2026 for receipt accounting follow-through (row 41) and owned hosting (row 47). These two remaining account-free claims have hosted product evidence. Carrier, Shopify/Amazon, QBO/Xero, EDI and physical-printer acceptance remain the boundaries on the twelve partial claims.
