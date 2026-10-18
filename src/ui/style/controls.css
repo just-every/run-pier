@@ -14,14 +14,30 @@
 .pier-app button.product-name:hover { background: none; color: var(--cobalt-ink); }
 
 .pier-app input, .pier-app select, .pier-app textarea { min-width: 0; max-width: 100%; font: inherit; }
-.pier-app input:not([type=checkbox]):not([type=radio]):not([type=file]), .pier-app select, .pier-app textarea { width: 100%; min-height: 38px; padding: 0 11px; border: 1px solid var(--app-line-strong); border-radius: var(--app-radius); background: var(--surface); color: var(--ink); font-size: 14.5px; transition: border-color .12s ease, box-shadow .12s ease; }
+.pier-app input:not([type=checkbox]):not([type=radio]):not([type=file]), .pier-app select, .pier-app textarea { width: 100%; min-height: 38px; padding: 0 11px; border: 1px solid var(--app-line-strong); border-radius: var(--app-radius); background-color: var(--surface); color: var(--ink); font-size: 14.5px; transition: border-color .12s ease, box-shadow .12s ease; }
 .pier-app input:not([type=checkbox]):not([type=radio]):not([type=file]):hover, .pier-app select:hover, .pier-app textarea:hover { border-color: #b7c2d2; }
 .pier-app input:not([type=checkbox]):not([type=radio]):not([type=file]):focus-visible, .pier-app select:focus-visible, .pier-app textarea:focus-visible { outline: 0; border-color: var(--cobalt); box-shadow: 0 0 0 3px rgba(28, 80, 220, .16); }
-.pier-app input:disabled, .pier-app select:disabled, .pier-app textarea:disabled { background: var(--app-ground); color: var(--app-soft); }
+.pier-app input:disabled, .pier-app select:disabled, .pier-app textarea:disabled { background-color: var(--app-ground); color: var(--app-soft); }
 .pier-app textarea { min-height: 96px; padding: 9px 11px; resize: vertical; }
 .pier-app input::placeholder, .pier-app textarea::placeholder { color: #7d869a; opacity: 1; }
-/* The chevron is drawn with two gradients so selects need no image. */
-.pier-app select { appearance: none; padding-right: 34px; background-image: linear-gradient(45deg, transparent 50%, var(--app-soft) 50%), linear-gradient(135deg, var(--app-soft) 50%, transparent 50%); background-position: calc(100% - 17px) 52%, calc(100% - 12px) 52%; background-size: 5px 5px; background-repeat: no-repeat; }
+/* Base #247: single-choice chevrons; list boxes keep native controls. */
+.pier-app select:not([multiple],[size]:not([size="1"])) {
+  --rer-select-ink: var(--app-soft);
+  -webkit-appearance: none;
+  appearance: none;
+  padding-inline-end: 40px;
+  text-overflow: ellipsis;
+  background-image:
+    linear-gradient(to top right, transparent calc(50% - 1.1px), var(--rer-select-ink) calc(50% - .55px), var(--rer-select-ink) calc(50% + .55px), transparent calc(50% + 1.1px)),
+    linear-gradient(to top left, transparent calc(50% - 1.1px), var(--rer-select-ink) calc(50% - .55px), var(--rer-select-ink) calc(50% + .55px), transparent calc(50% + 1.1px));
+  background-repeat: no-repeat;
+  background-position: right 20px center, right 14px center;
+  background-size: 6px 6px;
+}
+.pier-app select:not([multiple],[size]:not([size="1"])):focus-visible { --rer-select-ink: var(--ink); }
+.pier-app select:not([multiple],[size]:not([size="1"])):disabled { --rer-select-ink: color-mix(in srgb, var(--app-soft) 55%, transparent); }
+/* Preserve table column widths while reserving six more pixels for the chevron. */
+.pier-app td select:not([multiple],[size]:not([size="1"])) { width: calc-size(auto, size - 6px); min-width: 100%; }
 .pier-app input[type=checkbox], .pier-app input[type=radio] { width: 16px; height: 16px; margin: 2px 0 0; flex: none; accent-color: var(--cobalt); }
 .pier-app input[type=file] { min-height: 38px; font-size: 14px; }
 .pier-app input[type=file]::file-selector-button { min-height: 34px; margin-right: 12px; padding: 0 14px; border: 1px solid var(--app-line-strong); border-radius: var(--app-radius); background: var(--surface); color: var(--ink); font: inherit; font-weight: 500; cursor: pointer; }

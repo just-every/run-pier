@@ -18,7 +18,7 @@
 .pier-app .chip[aria-pressed=true] b { background: rgba(255, 255, 255, .22); color: #fff; }
 .pier-app .queue-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin: 0 0 8px; color: var(--app-soft); }
 .pier-app .queue-tools svg { width: 18px; height: 18px; }
-.pier-app .queue-tools select { width: auto; min-height: 32px; padding: 0 30px 0 10px; font-size: 13px; background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%; }
+.pier-app .queue-tools select { width: calc-size(auto, size - 10px); min-height: 32px; padding: 0 40px 0 10px; font-size: 13px; }
 .pier-app .queue-empty { padding: 26px 20px; border: 1px dashed var(--app-line-strong); border-radius: 10px; background: var(--surface); color: var(--app-soft); }
 .pier-app .queue-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 /* Every column but the customer shrinks to its widest value on one line; the customer takes the rest

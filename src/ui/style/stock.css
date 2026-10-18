@@ -8,7 +8,7 @@
 .pier-app .table-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; margin: 0 0 12px; color: var(--app-soft); }
 .pier-app .table-tools-right { display: flex; align-items: center; gap: 0; }
 .pier-app .table-tools-right > span { padding-right: 20px; border-right: 1px solid var(--app-line); color: var(--ink); }
-.pier-app .table-tools-right .select select { width: auto; min-height: 40px; padding: 0 32px 0 20px; border: 0; background-color: transparent; background-position: calc(100% - 14px) 50%, calc(100% - 8px) 50%; color: var(--ink); }
+.pier-app .table-tools-right .select select { width: calc-size(auto, size - 8px); min-height: 40px; padding: 0 40px 0 20px; border: 0; background-color: transparent; color: var(--ink); }
 
 .pier-app .stock-table { margin-top: 0; }
 .pier-app .stock-table table { min-width: 1120px; table-layout: fixed; }
