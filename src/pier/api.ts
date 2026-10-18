@@ -1,3 +1,4 @@
+import { stockPosition } from './stock-position';
 import { edi } from "./edi/commands";
 import { ediState } from "./edi/view";
 import { deliverEdi } from "./edi/dispatch";
@@ -366,6 +367,7 @@ export async function pierResponse(
         shippingUnavailable: shippingUnavailable(env),
         ...ediState(s, c.now),
         positions: positions(s),
+        ...stockPosition(s),
         reorder: reorder(c),
         commands,
         operators,

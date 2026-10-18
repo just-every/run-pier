@@ -524,14 +524,14 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 | 7 | Tag "EDI 856 sent · Target DC 0593" | EDI-001 | partial |
 | 8 | Tag "Count mismatch · A-14 · recounted" | PIER-011 | done |
 | 9 | Tag "Picked 38 orders · 6:40 am" | WMS-001, PIER-009 | partial |
-| 10 | Tag "Bin A-14 · 212 units" | STOCK-001 | partial |
+| 10 | Tag "Bin A-14 · 212 units" | STOCK-001 | done |
 | 11 | Tag "Reorder suggested · Blue Mug 12oz · 600" | BUY-005, AUTO-001 | partial |
 | 12 | "Receive … from any phone or scanner" | WMS-001, SCAN-001, SCAN-002, PIER-006 | partial |
 | 13 | "put away" | PIER-006, WMS-001, WMS-002 | partial |
 | 14 | "pick" | WMS-001, PIER-009 | partial |
 | 15 | "pack" | WMS-001 | partial |
 | 16 | "and count" | PIER-011, WMS-001, COUNT-001 | partial |
-| 17 | "Every bin knows exactly what it holds" | STOCK-001, PIER-012 | partial |
+| 17 | "Every bin knows exactly what it holds" | STOCK-001, PIER-012 | done |
 | 18 | Pick list "Wave 14 · Dock A", scan check per line, "B-03 empty · picked from overflow B-09" | WMS-001, SCAN-002 | partial |
 | 19 | "Shopify, WooCommerce, Amazon and Stall orders land in Pier" | CHANNEL-001 | done |
 | 20 | "stock flows back to each one within a minute" | CHANNEL-001 | done |
@@ -573,6 +573,8 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 
 ## Status
 
+Updated 19 October 2026: STOCK-001 is done. Named Worker/D1 and desktop/phone journeys prove destination expected supply and independent warehouse/company reconciliation, including protected channel holds.
+
 Judged from the code and tests at commit `1c0f1c674f4227a2ed79476be5e3ef3d29f7b92c` (17 October 2026).
 
 Updated 17 October 2026 for sales channels: CHANNEL-001 and SALES-007 move from missing to partial. The implemented homepage claims have local live Stall/WooCommerce evidence and Shopify/Amazon synthetic API fixtures; live owner accounts and the broader integration boundaries remain explicit on the Channels page.
@@ -592,11 +594,11 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 12 | 0 | 0 | 12 |
-| Target | 2 | 40 | 13 | 55 |
+| Target | 3 | 39 | 13 | 55 |
 | Push further | 1 | 5 | 0 | 6 |
-| All | 15 | 45 | 13 | 73 |
+| All | 16 | 44 | 13 | 73 |
 
-**73 clauses: 15 done, 45 partial, 13 missing.**
+**73 clauses: 16 done, 44 partial, 13 missing.**
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -612,7 +614,7 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | PIER-010 | Cancel and inspect returns | published | done | `src/pier/orders.ts`; `tests/api/flows.test.mjs` (10) |  |
 | PIER-011 | Count at a captured movement frontier | published | done | `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (11) |  |
 | PIER-012 | Investigate and leave with native data | published | done | `src/pier/api.ts`; `src/pier/native-export.ts`; `tests/api/flows.test.mjs` (12); `tests/portable.mjs` |  |
-| STOCK-001 | Stock position across warehouses and bins | target | partial | `src/pier/model.ts`; `src/ui/stock.tsx`; `tests/api/flows.test.mjs`; `tests/browser/journey.spec.ts` | `positions()` computes on hand, reserved and available per item, bin and status from movements and reservations, and the Stock view filters them by warehouse, bin and status. Expected supply is shown per item rather than per destination warehouse, the view has no warehouse or company totals, and no test compares its figures with an independent sum of movements. |
+| STOCK-001 | Stock position across warehouses and bins | target | done | `src/pier/stock-position.ts`; `src/pier/api.ts`; `src/ui/stock.tsx`; `src/ui/stock-totals.tsx`; `tests/api/stock.test.mjs`; `tests/browser/stock.spec.ts` | Derived bin, destination-warehouse and company figures reconcile independently with exported movements, reservations, protected channel holds and open committed PO lines. Reserved includes protected holds; legacy POs without a destination stay in an explicit unassigned receiving-warehouse bucket. Search, warehouse/bin/status filters, transit and empty items are exercised at 1440px and 390px. |
 | CAT-001 | Wholesale catalog and units | target | partial | `src/pier/catalogue.ts`; `tests/api/flows.test.mjs` (01, 02) | SKU, barcode and exact units only; variants, dimensions and customer aliases absent |
 | KIT-001 | Kits and bundles from stocked components | target | missing |  | No kit definition, component reservation, kit availability or kitting task exists; `src/pier/orders.ts` reserves single SKUs only. |
 | TRACE-001 | Serial, lot and expiry traceability | target | missing |  | No lot/serial/expiry model or journey exists at the inspected commit. |
