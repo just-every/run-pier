@@ -573,9 +573,9 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 
 ## Status
 
-Updated 19 October 2026: STOCK-001 is done. Named Worker/D1 and desktop/phone journeys prove destination expected supply and independent warehouse/company reconciliation, including protected channel holds.
-
 Judged from the code and tests at commit `1c0f1c674f4227a2ed79476be5e3ef3d29f7b92c` (17 October 2026).
+
+Updated 19 October 2026: STOCK-001 is done. Named Worker/D1 and desktop/phone journeys prove destination expected supply and independent warehouse/company reconciliation, including protected channel holds.
 
 Updated 17 October 2026 for sales channels: CHANNEL-001 and SALES-007 move from missing to partial. The implemented homepage claims have local live Stall/WooCommerce evidence and Shopify/Amazon synthetic API fixtures; live owner accounts and the broader integration boundaries remain explicit on the Channels page.
 
