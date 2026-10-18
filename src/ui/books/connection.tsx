@@ -53,6 +53,7 @@ export function BookConnectionForm({ run, busy, connection, close }: BooksProps 
   const missing = accounts && [!inventory.length && 'an inventory account (type Asset, for example 1300 Inventory)', !expenses.length && 'a cost of goods sold account (type Expense, for example 5000 Cost of goods sold)', !income.length && 'a sales account (type Income, for example 4100 Product sales)'].filter(Boolean)
   return <div id="books-connection-editor">
     <section className="panel"><h2>{connection ? 'Reconnect Pantry' : 'Connect Pantry'}</h2>
+      <p className="muted"><strong>Provider costs.</strong> Pantry is open source. If you host it online, your hosting provider bills any hosting and usage charges under your account. Review those rates before connecting. Pier charges no connection, license or per-seat fee.</p>
       <h3>1. Create a credential for Pier inside Pantry</h3>
       <ol className="steps">
         <li>In Pantry, open <strong>People &amp; settings</strong> and scroll to <strong>Integration credentials</strong>.</li>

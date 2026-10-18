@@ -575,6 +575,8 @@ Every capability claim on the approved homepage (`src/site/landing/`, checked ag
 
 Judged from the code and tests at commit `1c0f1c674f4227a2ed79476be5e3ef3d29f7b92c` (17 October 2026).
 
+Updated 19 October 2026: OPEN-001 is done for MIT licensing, account-free operation and provider-cost disclosure, with named public-door staff and desktop/phone journeys. Missing product capabilities remain under their own clauses.
+
 Updated 19 October 2026: STOCK-001 is done. Named Worker/D1 and desktop/phone journeys prove destination expected supply and independent warehouse/company reconciliation, including protected channel holds.
 
 Updated 17 October 2026 for sales channels: CHANNEL-001 and SALES-007 move from missing to partial. The implemented homepage claims have local live Stall/WooCommerce evidence and Shopify/Amazon synthetic API fixtures; live owner accounts and the broader integration boundaries remain explicit on the Channels page.
@@ -594,11 +596,11 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 12 | 0 | 0 | 12 |
-| Target | 3 | 39 | 13 | 55 |
+| Target | 4 | 38 | 13 | 55 |
 | Push further | 1 | 5 | 0 | 6 |
-| All | 16 | 44 | 13 | 73 |
+| All | 17 | 43 | 13 | 73 |
 
-**73 clauses: 16 done, 44 partial, 13 missing.**
+**73 clauses: 17 done, 43 partial, 13 missing.**
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -668,7 +670,7 @@ Evidence paths are relative to this repository at the inspected commit. Existing
 | SCALE-001 | Measured performance at wholesale volume | target | missing |  | No named scale fixture or performance measurement exists; `src/pier/native-capacity.ts` bounds native import size only. |
 | OPS-001 | Owned operation, health and onboarding | target | partial | `OPERATIONS.json`; `scripts/hosted.mjs`; `scripts/installer/local.mjs`; `tests/runtime.mjs`; `tests/portable.mjs` | Local lifecycle/archive evidence; hosted backup, backup check (its database deleted at the end), live restore from a backup file and point-in-time rewind run through `scripts/hosted.mjs` as [Put Pier online](docs/hosting.md) writes them; Own-account deployment is exercised on 18 October: real owner sign-in mail, empty initial business state, retained owner/data across redeployment, and USD 57.84 partial PO receipts through the UI at 1440px and 390px. `src/ui/channels/brand.tsx` uses build-time asset imports, resolving the hosted server render failure. Connected diagnostics, measured capacity and fresh macOS/Linux/Windows one-line starts remain incomplete |
 | BASE-001 | Keep Base guarantees and explicit replacements | target | partial | `SEED-COMMAND-CONTRACT.md`; `src/pier/storage.ts`; `scripts/installer/local.mjs`; `tests/api/security-import.test.mjs`; `tests/portable.mjs` | Stock/lifecycle guarantees, not full inherited-baseline acceptance |
-| OPEN-001 | Free and open source under the MIT license | target | partial | `LICENSE`; `package.json` | The repository and package are MIT and nothing in the product charges; no test checks the license or the absence of paid gates, and provider-cost disclosure before a connection does not exist because no provider connection exists. |
+| OPEN-001 | Free and open source under the MIT license | target | done | `LICENSE`; `package.json`; `src/ui/channels/provider-cost.tsx`; `src/ui/books/connection.tsx`; `src/ui/shipping/settings.tsx`; `src/ui/edi/settings.tsx`; `tests/api/open.test.mjs`; `tests/browser/open.spec.ts` | MIT source, three account-free warehouses and 25 active native staff with assigned warehouse roles are exercised through public doors. Every current product area opens without author licensing or paid gates. Named provider billing is disclosed before store activation/re-enabling, Pantry connection, shipping setup and retailer transport setup; existing OpenAI consent retains its usage-cost disclosure. Other clauses keep their own implementation and provider-acceptance boundaries. |
 | AGENT-001 | Evidence-backed preparation and human authority | push-further | done | `src/pier/proposals.ts`; `src/pier/item-agent/`; `src/ui/item-agent/`; `tests/api/item-agent.test.mjs`; `tests/api/flows.test.mjs`; `tests/api/security-import.test.mjs` | Item-page stock/open-demand/PO, receipt-cost and native sell-through checks prepare exact price, reorder and draft-purchase changes with current source versions. Human apply/reject/undo is logged and stale or dependent work refuses. Optional encrypted install-key OpenAI explanation cannot authorize a change; deterministic checks run without a key. Live paid provider acceptance remains separate. |
 | AGENT-002 | Optimize replenishment against cash and service | push-further | partial | `src/pier/replenishment.ts`; `src/pier/backorders.ts`; `src/pier/purchasing-workflow.ts`; `src/pier/correspondence-delivery.ts`; `tests/api/replenishment.test.mjs` | Permission-scoped native sell-through forecast evidence and learned proposals feed unapproved PO drafts with expected landed cost; exact buyer approval precedes mail submission. Exact human-approved bounded initial PO sends now execute through the agent or scheduler (`src/pier/purchase-send.ts`; `tests/api/purchase-send.test.mjs`). Native receipt accounting now follows missing invoices, remaining goods, posted receipt journals, confirmed Pantry readiness and paid closure; bank reversals reopen the affected receipts (`src/pier/books/receipt-closure.ts`; `tests/api/books.test.mjs`). Connected history, cash/service optimization, backtesting and full plan-versus-actual closure remain incomplete. |
 | AGENT-003 | Close supplier confirmations and customer promises | push-further | partial | `src/pier/replenishment.ts`; `src/pier/backorders.ts`; `src/pier/purchasing-workflow.ts`; `src/pier/correspondence-delivery.ts`; `tests/api/replenishment.test.mjs` | Bounded approved supplier chases, recorded replies/confirmations, quantity-aware customer dates and approved re-promises/customer mail are implemented. Native receipt accounting now keeps unbilled goods, missing receipt quantities, uncertain posting and open payables visible through paid Pantry closure and reversal reopening (`src/pier/books/receipt-closure.ts`; `src/ui/books/receipt-closure.tsx`; `tests/api/books.test.mjs`). Direct Gmail/Microsoft 365 intake, ASN extraction, substitutes and complete supply/customer/ledger case closure remain incomplete. |

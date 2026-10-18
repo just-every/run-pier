@@ -2,6 +2,7 @@ import { records } from '../api'
 import { when } from '../display'
 import { ChannelBrand } from './brand'
 import { StallLink } from './stall-link'
+import { ChannelProviderCost } from './provider-cost'
 import { connectionPayload, connections, listings, providerName, providers, type ChannelOrder, type ChannelProps, type Connection, type Provider } from './model'
 
 type Props = ChannelProps & { edit: (row: Connection) => void; connect: (provider: Provider) => void }
@@ -33,7 +34,7 @@ export function ConnectionSetup({ state, run, busy, edit, connect }: Props) {
   return <section className="panel channel-setup"><h2>Connection setup</h2>
     {providers.flatMap(provider => {
       const connected = rows.filter(row => row.provider === provider.id)
-      return connected.length ? connected.map(row => <div className="channel-setup-row" key={row.id}><ChannelBrand provider={row.provider} /><div><strong>{row.name}</strong><small>{providerName(row.provider)} · {row.enabled ? 'Enabled' : 'Paused'}</small></div>{owner && <div className="actions"><button disabled={busy} onClick={() => edit(row)} aria-label={`Manage ${row.name}`}>Manage</button><button disabled={busy} onClick={() => void run('channel.save', { ...connectionPayload(row), enabled: !row.enabled })} aria-label={`${row.enabled ? 'Pause' : 'Enable'} ${row.name}`}>{row.enabled ? 'Pause' : 'Enable'}</button></div>}</div>) : [<div className="channel-setup-row" key={provider.id}><ChannelBrand provider={provider.id} /><div><strong>{provider.name}</strong><small>No owner account connected</small></div>{owner && <button disabled={busy} onClick={() => connect(provider.id)} aria-label={`Set up ${provider.name}`}>Connect</button>}</div>]
+      return connected.length ? connected.map(row => <div className="channel-setup-row" key={row.id}><ChannelBrand provider={row.provider} /><div><strong>{row.name}</strong><small>{providerName(row.provider)} · {row.enabled ? 'Enabled' : 'Paused'}</small>{!row.enabled && <ChannelProviderCost provider={row.provider} />}</div>{owner && <div className="actions"><button disabled={busy} onClick={() => edit(row)} aria-label={`Manage ${row.name}`}>Manage</button><button disabled={busy} onClick={() => void run('channel.save', { ...connectionPayload(row), enabled: !row.enabled })} aria-label={`${row.enabled ? 'Pause' : 'Enable'} ${row.name}`}>{row.enabled ? 'Pause' : 'Enable'}</button></div>}</div>) : [<div className="channel-setup-row" key={provider.id}><ChannelBrand provider={provider.id} /><div><strong>{provider.name}</strong><small>No owner account connected</small></div>{owner && <button disabled={busy} onClick={() => connect(provider.id)} aria-label={`Set up ${provider.name}`}>Connect</button>}</div>]
     })}
     {owner && <button className="link" disabled={busy} onClick={() => connect('stall')}>Add another connection</button>}
     <p className="channel-boundary">Shopify and Amazon connect once owner accounts exist. Their documented API adapters have been exercised with recorded fixtures only; live account acceptance is still required.</p>

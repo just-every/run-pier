@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Field, Form, Select, text } from '../controls'
 import { SetupGuide } from './setup-guides'
+import { ChannelProviderCost } from './provider-cost'
 import { ShopifyCredentials, shopifyCredentialNames } from './shopify-credentials'
 import { marketplaces, marketplaceOrigin } from './marketplaces'
 import { providers, warehouses, type ChannelProps, type Connection, type Provider } from './model'
@@ -49,6 +50,7 @@ export function ConnectionForm({ state, run, busy, connection, initialProvider, 
       <Field label="Store API address" name="baseUrl" type="url" value={provider === 'amazon' ? connection?.baseUrl ?? marketplaceOrigin(marketplaceId) : baseUrl} onChange={setBaseUrl} readOnly={!!connection || provider === 'amazon'} disabled={busy} hint={provider === 'amazon' ? 'Filled from your marketplace country. A different regional address needs a new connection.' : connection ? 'Create a new connection to use another store address.' : provider === 'shopify' ? 'Shopify → Settings → Domains: use https://your-store.myshopify.com, without an admin path.' : provider === 'woocommerce' ? 'WordPress → Settings → General → Site Address (URL): use the shop root, including any subdirectory.' : 'Copy Stall’s address from its browser tab. Do not include credentials.'} />
       <Select label="Warehouse" name="warehouse" rows={warehouseRows} defaultValue={connection?.warehouse ?? (warehouseRows.length === 1 ? warehouseRows[0].id : '')} />
       <Field label="Stock buffer (base units)" name="buffer" defaultValue={connection?.buffer ?? '0'} inputMode="decimal" pattern="[0-9]+([.][0-9]{1,6})?" disabled={busy} hint={provider === 'stall' ? 'Stall currently reads one company-wide pool: use one warehouse and a zero buffer.' : 'Deducted from unreserved sellable stock after holds.'} />
+      <ChannelProviderCost provider={provider} />
       <label className="check"><input type="checkbox" name="enabled" defaultChecked={connection?.enabled ?? true} disabled={busy} /><span>Enable this connection</span></label>
       {connection && <label className="check"><input type="checkbox" checked={replaceCredentials} disabled={busy} onChange={event => setReplaceCredentials(event.target.checked)} /><span>Replace credentials <small>Leave off to retain the saved credentials.</small></span></label>}
       {replaceCredentials && <fieldset disabled={busy}><legend>Account credentials</legend><div className="form-grid">

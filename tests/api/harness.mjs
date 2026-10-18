@@ -1,3 +1,4 @@
+import { request as httpsRequest } from 'node:https';
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { unstable_splitSqlQuery } from "wrangler";
 import { build } from "esbuild";
@@ -18,13 +19,14 @@ export async function installation(edge = {}) {
     external: ["node:*", "cloudflare:*"],
     loader: { ".css": "text", ".svg": "text" },
   });
-  let origin = "http://localhost";
+  let origin = edge.production ? "https://localhost" : "http://localhost";
   const setup = randomBytes(32).toString("hex"),
     devKey = randomBytes(32).toString("hex");
   const options = (port) => ({
     ...convertV4MiniflareOptions({
       host: "127.0.0.1",
       port,
+      ...(edge.production ? { https: true } : {}),
       modules: true,
       script: bundled.outputFiles[0].text,
       compatibilityDate: "2026-09-08",
@@ -50,7 +52,15 @@ export async function installation(edge = {}) {
     const address = await mf.ready;
     origin = address.origin;
     // Use the real HTTP listener so URL, Host and Origin all describe this
-    // installation. dispatchFetch rewrites Host to its internal transport.
+    // installation. HTTPS production-auth tests trust only their disposable
+    // loopback server certificate; provider mail is faked at the network edge.
+    const localHttps = (url, options) => new Promise((resolve, reject) => {
+      const req = httpsRequest(url, { ...options, rejectUnauthorized: false }, response => {
+        const chunks = []; response.on("data", chunk => chunks.push(chunk));
+        response.on("end", () => { const headers = []; for (let index = 0; index < response.rawHeaders.length; index += 2) headers.push([response.rawHeaders[index], response.rawHeaders[index + 1]]); resolve(new Response(Buffer.concat(chunks), { status: response.statusCode, headers })); });
+      });
+      req.on("error", reject); if (options.body) req.write(options.body); req.end();
+    });
     await mf.setOptions(options(Number(address.port)));
     const db = await mf.getD1Database("DB");
     for (const file of (await readdir("migrations/core"))
@@ -61,7 +71,7 @@ export async function installation(edge = {}) {
     }
     let cookie = "";
     const request = (path, { method = "GET", body, as = cookie } = {}) =>
-      fetch(origin + path, {
+      (edge.production ? localHttps : fetch)(origin + path, {
         method,
         redirect: "manual",
         headers: {

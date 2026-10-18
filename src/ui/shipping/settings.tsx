@@ -9,7 +9,7 @@ export function ShippingSettings({ state, run, busy, settings }: ShippingProps &
   const owner = state.actor.role === 'owner'
   return <section className="panel"><h2>EasyPost connection <Badge>{settings?.connected ? settings.mode === 'test' ? 'Test key saved' : 'Production key saved' : 'Connection pending'}</Badge></h2>
     {!settings?.connected && <p>Start with your EasyPost Test API key (EZTK…). When you are ready to buy postage, save your Production API key (EZAK…) in production mode.</p>}
-    <p className="muted">EasyPost and carriers charge for production postage and any account fees. UPS and FedEx services need activated carrier accounts in EasyPost.</p>
+    <p className="muted"><strong>Provider costs.</strong> EasyPost and carriers bill your connected accounts for production postage and applicable service or account fees. Review your EasyPost pricing and carrier agreements before saving a production key. Pier charges no connection, license or per-seat fee. UPS and FedEx services need activated carrier accounts in EasyPost.</p>
     {settings?.mode === 'test' && <p className="notice">Test labels are not postage and cannot be used to ship goods.</p>}
     {settings?.connected && <p>Tracking webhooks: {settings.webhookConfigured ? 'signing secret saved' : 'not configured'}.</p>}
     {!owner ? <p className="muted">The owner connects EasyPost and maintains the ship-from address.</p> : <details open={!settings?.connected}><summary>{settings?.connected ? 'Manage connection and ship-from address' : 'Set up EasyPost'}</summary>
