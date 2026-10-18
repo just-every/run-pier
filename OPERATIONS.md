@@ -1,6 +1,6 @@
 # Pier operations
 
-Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.45 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. The source graph records Base `1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74` (tag `rer-v0.2.22`) separately from the CLI package version. There is no checkout-local copy of the RER CLI.
+Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.53 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. The source graph records Base `1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74` (tag `rer-v0.2.22`) separately from the CLI package version. There is no checkout-local copy of the RER CLI.
 
 ## Local start
 
@@ -22,7 +22,7 @@ Node 22.20.0 and pnpm 10.12.4 are pinned. Local setup does not require Cloudflar
 - `rer export --output exports/pier.rer` and `rer import --input exports/pier.rer --yes` handle the complete installation archive. This archive is distinct from Pier's native CSV import workflow documented in [IMPORT.md](IMPORT.md).
 - Native CSV import accepts the six established kinds and optional `reservations.csv`. Include that file to retain exact reviewed open-order allocations by bin and explicit zero backorders; omit it to use the six-kind import's normal hard-reservation allocation.
 - `rer reset --yes` removes the declared local installation state and is destructive. Export first if the data matters.
-- `rer deploy` targets the owner's configured Cloudflare account using the declared `deploy.json` and the `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` inputs. No deployment was run and no hosted deployment is accepted in this round. Local success does not establish hosted health or provider behavior.
+- `rer deploy` targets the owner's configured Cloudflare account using the declared `deploy.json` and the `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` inputs. Own-account hosting, real sign-in mail and partial PO receipt entry were exercised on a disposable Cloudflare install on 18 October 2026 at 1440px and 390px. Fresh-machine and provider-specific acceptance remain separate.
 
 All public commands use bare `rer` verbs. `rer export`/`rer import` are the installation portability commands; native stock migration is reviewed inside Pier using the CSV contract. Replenishment and approved business mail are described in [Replenishment](docs/replenishment.md). Accounting, payments, carriers and embedded models remain separate integrations.
 

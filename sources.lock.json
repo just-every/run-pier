@@ -256,7 +256,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "5f59ca15db88d1d591e763ddf9adc59b54c4f2d0ce85338fd936812296525efb",
+      "sha256": "db9dd0a35ac95f3b095bb053ef7416fcc8cd17fa7b6a6f7274b4f5250faa12b7",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -264,7 +264,7 @@
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "3581e27eb587ed267684b653cf5cc45888fbb65ecf29a81c8e97df352af6f64a",
+      "sha256": "20511c26323cfefbc51c88e242d13e43c37df9c9af5b05c20bb0cd93ae7172d6",
       "executable": false
     },
     "API.md": {
@@ -284,7 +284,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "03c2805e7f79c6299d1e6975d2aabb5cd5f4d93150ab3670c345e62956060fb1",
+      "sha256": "68e9df5f682a12ad511c0e4cc2c2d424faa4a091f7b030af70143a7ad120baf8",
       "executable": false
     },
     "DEMO.md": {
@@ -332,7 +332,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "d8f69be040fe6753914e4f05dbb3a9feb8206ee56bdbaf825020254d56c76c88",
+      "sha256": "679da9e32674ca81532f90075e59e8dadfddc59e0e71579bc0314729f6f4e65f",
       "executable": false
     },
     "docs/edi-bridge.md": {
@@ -520,15 +520,15 @@
       "executable": false
     },
     "OPERATIONS.md": {
-      "sha256": "be36ca9d944a7832261ce87b6f6309fc2353a41cfb5da97e56f974f347e9d184",
+      "sha256": "ecd1caf7f5c0cc1e675778748eca03467fe69c2cdc699def60914804e99eb3c2",
       "executable": false
     },
     "package.json": {
-      "sha256": "da14dc59eea900988ff08f72322603a1bf8f1cd31518cc7390e66bf4e8c182c4",
+      "sha256": "29f0bc5b1d6a76488bb352b33ea10291d529f2ee7d8d6c64373dced54fa96626",
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "cb2d786669d6a3a0603774ad58ceae4ce18dbb61d851364f97a4027fd0ea69e5",
+      "sha256": "57ab71dc0261930182618bd615d7b3f78efa2df0cd9b566421b72a87f587af2c",
       "executable": false
     },
     "public/apple-touch-icon.png": {
@@ -829,6 +829,10 @@
     },
     "seed.json": {
       "sha256": "3a6f119c5a429571e0c73c79942b1a30e27577f78282485ad8eb6af5363abedc",
+      "executable": false
+    },
+    "src/assets.d.ts": {
+      "sha256": "09a38f2b6ad9d7bbdfac11bf5687f099d0f35580806b0a9ad53d21922ae6c98c",
       "executable": false
     },
     "src/auth.server.ts": {
@@ -3140,7 +3144,7 @@
       "executable": false
     },
     "src/ui/channels/brand.tsx": {
-      "sha256": "9463818d9501b4190ab5207cbb6af99df99d9e2fd80ee411a652932f24b17290",
+      "sha256": "d9d802698d1f42f3b1958a84ea57d077050f3bfebd5581822861f9978ee99b9e",
       "executable": false
     },
     "src/ui/channels/connection-form.tsx": {

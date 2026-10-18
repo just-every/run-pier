@@ -27,8 +27,8 @@ Updated 18 October 2026 for page-alone channel setup, explicit EDI network bound
 
 | Status | Claims |
 |---|---|
-| backed | 41 |
-| partly | 14 |
+| backed | 42 |
+| partly | 13 |
 | contract, not yet in code | 0 |
 | **all claims** | **55** |
 
@@ -117,7 +117,7 @@ Updated 18 October 2026 for page-alone channel setup, explicit EDI network bound
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 47 | "Run Pier on your own computer or server" | partly | Your own computer: `rer dev` (README, /run). A server: `rer deploy` to the owner's own Cloudflare account (`deploy.json`, OPERATIONS.md); no hosted deployment is accepted yet |
+| 47 | "Run Pier on your own computer or server" | backed | Local `rer dev` and own-account `rer deploy` (`deploy.json`, [Put Pier online](hosting.md)). On 18 October, a disposable Cloudflare install retained its owner and stock across redeployment; real owner sign-in mail arrived, and the owner entered and partially received USD 57.84 POs at 1440px and 390px. Channel artwork uses build-time asset imports (`src/ui/channels/brand.tsx`), so hosted app rendering completes without React 419. Full OPS-001 diagnostics, scale and fresh-machine targets remain partial. |
 | 48 | "keep every item, order and supplier. Export everything, any time" (and "Your stock, your data", "Export any time") | backed | `GET /api/pier/export` and `/api/pier/native-export` (`src/pier/api.ts:189-200`), the full archive `rer export` (`docs/backup-and-restore.md`, `tests/portable.mjs`) |
 | 49 | The Ownership terminal's one-line start `npx -y @runeditrun/rer dev just-every/run-pier` (live 17 Oct, main 1c0f1c6) | backed | rer 0.2.38's `dev <repo>` clones, installs, sets up a local owner and starts; the output lines are rer's own |
 
