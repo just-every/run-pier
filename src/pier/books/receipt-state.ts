@@ -3,7 +3,7 @@ import { sha256 } from '../import-kit';
 import { supplierReceiptState } from './supplier-bills';
 import type { BookDocument } from './adapters/types';
 
-/** Pantry v0.2 exposes linked documents, but no native payable receiving field. */
+/** Keep source receipt evidence beside Pantry’s native payable readiness. */
 export function withReceiptState(s: State, sourceId: string, document: BookDocument): BookDocument {
   const bill = s.supplierBills.find(b => b.id === sourceId);
   if (!bill) throw new Error('The approved supplier invoice is missing. Review its source before syncing.');

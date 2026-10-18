@@ -91,8 +91,12 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
         if(doc.receiptState)await client.upload({...doc,attachment:doc.receiptState.attachment},r.id);
         // Receipt and payment readiness are native Pantry bill states; they record no payment.
         const want=wanted(doc,BigInt(r.open_cents)),state=doc.receiptState?.attachment.name??'receipt';
-        if(flag(r.received)!==want.received||flag(r.ready_to_pay)!==want.readyToPay)
-          r=await client.post(`bills/${encodeURIComponent(r.id)}/readiness`,want,doc,'readiness:'+sha256(`${state}:${want.received}:${want.readyToPay}`).slice(0,24));
+        if(flag(r.received)!==want.received||flag(r.ready_to_pay)!==want.readyToPay) {
+          if(typeof r.revision!=='string'||!r.revision)throw new PantryRefusal('Pantry returned no current bill revision. Check the bill before changing its receipt readiness.',502);
+          // A later reversal can need the same readiness again. Its current bill
+          // revision makes that a new transition, while response-loss replay stays stable.
+          r=await client.post(`bills/${encodeURIComponent(r.id)}/readiness`,want,doc,'readiness:'+sha256(`${state}:${r.revision}:${want.received}:${want.readyToPay}`).slice(0,24));
+        }
       } else if(doc.kind==='journal'){
         if(!r)r=await client.post('journals',{date:doc.date,memo:doc.reference,post:true,lines:doc.lines.map(l=>({accountId:l.account,...(l.debit?{debit:l.debit}:{credit:l.credit}),memo:l.description}))},doc,'journal');
         if(r.status!=='posted')throw new PantryRefusal('Post the existing journal in Pantry, then sync again. Pier will not create a replacement for its draft.',409);

@@ -3,6 +3,7 @@ import { BookConnectionForm, BookConnections, PantryIntro } from './connection'
 import { SupplierBills } from './supplier-bills'
 import { BookDocuments } from './documents'
 import { BookReview } from './review'
+import { ReceiptClosures } from './receipt-closure'
 import { connections, jobs, needsReview, type BooksProps } from './model'
 
 export function Books(props: BooksProps & { section?: string }) {
@@ -22,7 +23,8 @@ export function Books(props: BooksProps & { section?: string }) {
     <div className="page-title"><div><h1>Books</h1><p className="muted">Accounting documents, payments and reconciliation</p></div>{owner && <div className="actions"><a className="button" href="#books/settings">Books settings</a><button className="primary" disabled={busy || !connected} onClick={() => void run('book.sync', {})}>{busy ? 'Working…' : 'Sync now'}</button></div>}</div>
     <Facts values={[{ label: 'Posted', value: rows.filter(job => job.status === 'posted').length }, { label: 'Reconciled', value: rows.filter(job => job.status === 'reconciled').length }, { label: 'In review', value: rows.filter(needsReview).length }, { label: 'Pending', value: rows.filter(job => job.status === 'pending').length }]} />
     {!owner && <p className="muted">You can review accounting records. The owner manages the ledger connection, sync and review actions.</p>}
-    <SupplierBills {...props} billId={props.section} />
+    <ReceiptClosures {...props} />
+    <SupplierBills {...props} billId={props.section?.startsWith('purchase-') ? undefined : props.section} poId={props.section?.startsWith('purchase-') ? props.section.slice(9) : undefined} />
     <BookReview {...props} />
     <BookConnections {...props} edit={edit} />
     <BookDocuments {...props} />

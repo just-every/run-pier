@@ -75,13 +75,15 @@ export function supplierBillViews(s: State) {
     const job = s.bookJobs.find(j => j.sourceKind === 'supplierBill' && j.sourceId === bill.id && j.kind === 'bill');
     const paid = job?.paid != null && job?.open != null && amount(job.open) === 0n && ['posted', 'reconciled'].includes(job.status);
     const readyToPay = approved(bill) && match.received && match.withinTolerance && !paid;
-    return { ...bill, status: paid ? 'paid' : bill.status, match, received: match.received, readyToPay, currentReceiptEvidence: match.receiptEvidence, books: job ? { billId: job.remoteId, paid: job.paid, open: job.open, status: job.status, received: job.received } : bill.books };
+    return { ...bill, poId: bill.poId, status: paid ? 'paid' : bill.status, match, received: match.received, readyToPay, currentReceiptEvidence: match.receiptEvidence, books: job ? { billId: job.remoteId, paid: job.paid, open: job.open, status: job.status, received: job.received, readyToPay: job.readyToPay, checkedAt: job.checkedAt } : bill.books };
   });
 }
 
 export function supplierReceiptState(s: State, bill: Row) {
   const view = supplierBillViews(s).find(b => b.id === bill.id)!;
-  return { received: view.received, readyToPay: view.readyToPay, evidence: view.currentReceiptEvidence };
+  // Goods readiness is independent of the last payment readback. Pantry gates
+  // ready-to-pay against its current open balance, including payment reversals.
+  return { received: view.received, readyToPay: approved(bill) && view.received && view.match.withinTolerance, evidence: view.currentReceiptEvidence };
 }
 
 export function supplierBills(c: Context, type: string, p: any): Row | undefined {

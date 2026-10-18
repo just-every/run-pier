@@ -35,6 +35,8 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await pier.command('book.connect',connection);
     let state=await pier.state();
     assert.equal(state.bookJobs.filter(j=>j.kind==='bill').length,0,'a goods receipt alone must not invent a supplier invoice');
+    assert.equal(state.receiptClosures.find(r=>r.id===receipt.id).status,'invoice');
+    assert.deepEqual(state.receiptClosures.find(r=>r.id===receipt.id).unbilled,[{itemId:b.item.id,quantity:'11'}]);
     let supplierBill=await pier.command('supplierBill.save',{poId:po.id,reference:'METALS-7731',date:new Date().toISOString().slice(0,10),quantityTolerancePercent:'0',priceTolerancePercent:'0',lines:[{poLineId:po.lines[0].id,quantity:'12',unitPrice:'0.30'}]});
     assert.equal(supplierBill.match.withinTolerance,false);
     assert.ok(supplierBill.match.differences.some(d=>d.kind==='receiptShortfall'));
@@ -48,10 +50,13 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await pier.command('supplierBill.approve',{id:supplierBill.id,version:supplierBill.version,receiptEvidence:supplierBill.match.receiptEvidence});
     state=await pier.state();
     let bill=state.bookJobs.find(j=>j.kind==='bill');assert.equal(bill.status,'posted',JSON.stringify(bill));assert.equal(bill.received,false);assert.equal(bill.readyToPay,false);
+    assert.equal(state.receiptClosures.find(r=>r.id===receipt.id).status,'receiving');
     const remoteBillId=bill.remoteId;
     await receive(pier,b,po,'1');
     state=await pier.state();bill=state.bookJobs.find(j=>j.kind==='bill');assert.equal(bill.received,true);assert.equal(bill.readyToPay,true);assert.equal(bill.remoteId,remoteBillId);
     assert.equal(state.supplierBills.find(r=>r.id===supplierBill.id).books.received,true);
+    assert.equal(state.supplierBills.find(r=>r.id===supplierBill.id).books.readyToPay,true);
+    assert.ok(state.receiptClosures.every(r=>r.status==='payment'&&r.unbilled.length===0));
     let sales=await pantry.view('sales');assert.equal(sales.bills.length,1);assert.equal(sales.bills[0].open_cents,300);
     assert.deepEqual([sales.bills[0].received,sales.bills[0].ready_to_pay],[1,1],'Pantry records receipt and payment readiness natively');
     const receiptStates=sales.bills[0].documents.filter(d=>d.name.includes('-receipt-state-'));
@@ -70,9 +75,16 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     const journal=(await pantry.view('journal')).entries.filter(e=>e.memo.startsWith('PIER-COGS-'));
     assert.equal(journal.length,1);assert.equal(journal[0].status,'posted');assert.equal(journal[0].lines.find(l=>l.account_id===cogs.id).debit_cents,100);assert.equal(journal[0].lines.find(l=>l.account_id===inventory.id).credit_cents,100);
     const payment=await pantry.command('payment.record',{direction:'received',contactId:sales.invoices[0].customer_id,date:new Date().toISOString().slice(0,10),amount:'8.00',bankAccountId:bank.id,reference:'SYNTHETIC-INVOICE-PAYMENT',allocations:[{targetId:sales.invoices[0].id,amount:'8.00'}]});
-    await pantry.command('payment.record',{direction:'paid',contactId:sales.bills[0].vendor_id,date:new Date().toISOString().slice(0,10),amount:'3.00',bankAccountId:bank.id,reference:'SYNTHETIC-BILL-PAYMENT',allocations:[{targetId:sales.bills[0].id,amount:'3.00'}]});
+    const supplierPayment=await pantry.command('payment.record',{direction:'paid',contactId:sales.bills[0].vendor_id,date:new Date().toISOString().slice(0,10),amount:'3.00',bankAccountId:bank.id,reference:'SYNTHETIC-BILL-PAYMENT',allocations:[{targetId:sales.bills[0].id,amount:'3.00'}]});
     await pier.command('book.sync',{});await pier.command('book.sync',{});
     state=await pier.invariant();assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).status,'paid');assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).books.open,'0.00');assert.equal(state.orders.find(o=>o.id===order.id).books.status,'reconciled');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').paid,'8.00');assert.equal(state.bookJobs.find(j=>j.kind==='bill').status,'reconciled');assert.equal(state.bookJobs.find(j=>j.kind==='bill').readyToPay,false);
+    assert.ok(state.receiptClosures.every(r=>r.status==='closed'));
+    await pantry.command('journal.reverse',{id:supplierPayment.journal_id,date:new Date().toISOString().slice(0,10),memo:'Supplier payment returned by bank'});
+    await pier.command('book.sync',{});state=await pier.state();
+    assert.ok(state.receiptClosures.every(r=>r.status==='payment'),'supplier payment reversal reopens each affected receipt: '+JSON.stringify({closures:state.receiptClosures,jobs:state.bookJobs.filter(j=>j.kind==='bill').map(({status,received,readyToPay,paid,open,reason})=>({status,received,readyToPay,paid,open,reason}))}));
+    assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).books.open,'3.00');
+    await pantry.command('payment.record',{direction:'paid',contactId:sales.bills[0].vendor_id,date:new Date().toISOString().slice(0,10),amount:'3.00',bankAccountId:bank.id,reference:'SYNTHETIC-REPLACEMENT-BILL-PAYMENT',allocations:[{targetId:sales.bills[0].id,amount:'3.00'}]});
+    await pier.command('book.sync',{});state=await pier.state();assert.ok(state.receiptClosures.every(r=>r.status==='closed'));
     await pantry.command('journal.reverse',{id:payment.journal_id,date:new Date().toISOString().slice(0,10),memo:'Synthetic bank payment was reversed'});
     await pier.command('book.sync',{});state=await pier.state();assert.equal(state.orders.find(o=>o.id===order.id).books.status,'open');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').paid,'0.00');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').open,'8.00');
     await pantry.command('payment.record',{direction:'received',contactId:sales.invoices[0].customer_id,date:new Date().toISOString().slice(0,10),amount:'8.00',bankAccountId:bank.id,reference:'SYNTHETIC-REPLACEMENT-PAYMENT',allocations:[{targetId:sales.invoices[0].id,amount:'8.00'}]});
@@ -86,6 +98,7 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await pantry.command('integration.revoke',{id:credential.id});
     await pier.command('book.sync',{});
     state=await pier.state();assert.match(state.bookConnections[0].problem,/revoked or replaced in Pantry.*Reconnect Pantry/);
+    assert.ok(state.receiptClosures.every(r=>r.status==='connection'),'revoked credentials cannot claim current receipt closure');
     assert.equal(state.bookJobs.filter(j=>j.status==='review'&&j.kind!=='valuation').length,1,'one refused check, not every job');
     credential=await pantry.command('integration.create',{name:'Pier replacement',scopes:ALL});
     await pier.command('book.connect',{...connection,integrationToken:credential.token});await pier.command('book.sync',{});

@@ -22,6 +22,7 @@ import { channels } from './channels/commands';
 import { channelState, markChannelPending } from './channels/availability';
 import { syncChannels } from './channels/sync';
 import { supplierBills, supplierBillViews } from "./books/supplier-bills";
+import { receiptBookViews } from "./books/receipt-closure";
 import { books } from "./books/commands";
 import { pantryAccounts } from './books/pantry-accounts';
 import { bookConnectionViews } from './books/connection-state';
@@ -347,11 +348,13 @@ export async function pierResponse(
           "SELECT id,display_name AS name FROM oa_operators",
         ).all()
       ).results;
+      const bookConnections = await bookConnectionViews(env, s);
       return json({
         ...s,
         actor,
         people,
-        bookConnections: await bookConnectionViews(env,s),
+        bookConnections,
+        receiptClosures: receiptBookViews(s, bookConnections.some(row => row.enabled && row.credentialPresent && !row.problem)),
         orders: s.orders.map((o) => ({ ...orderView(c, o), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),
         purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
