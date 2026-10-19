@@ -13,7 +13,9 @@
 .hero-scene { position: absolute; inset: 0; z-index: -1; --u: calc(100cqw / 1536); }
 .hero-art, .hero-art img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .hero-art img { object-fit: cover; object-position: 100% 0; }
-.hero-copy { position: relative; padding-top: 106px; }
+/* The copy stacks over the scene, so the tag wires never take a tap from the actions (on tablets and phones
+   the scene comes second and its canvas reaches up into the copy). */
+.hero-copy { position: relative; z-index: 1; padding-top: 106px; }
 .hero h1 { max-width: 640px; padding-bottom: .26em; margin-bottom: -.26em; font: 400 116px/.98 var(--font-head); letter-spacing: -.012em; color: var(--ink); text-wrap: balance; }
 .hero-sub { max-width: 560px; margin-top: 17px; font-size: 21.5px; line-height: 1.42; color: #262b38; letter-spacing: -.005em; }
 .hero-alt { margin-top: 24px; font-size: 17.25px; line-height: 1.4; color: #12161f; letter-spacing: -.005em; }
@@ -23,7 +25,7 @@
 
 .hero-tags { position: absolute; inset: 0; }
 .hero-canvas { position: absolute; left: 0; top: 0; width: calc(1536 * var(--u)); height: calc(1024 * var(--u)); }
-.hero-pins { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.hero-pins { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .hero-pins path { stroke: #fff; stroke-width: 2.4; fill: none; }
 .hero-pins circle { fill: #fff; stroke: rgba(11, 16, 32, .12); stroke-width: 1; }
 .pins-phone { display: none; }
@@ -42,7 +44,10 @@
   .hero h1 { max-width: calc(640vw / 14.4); font-size: calc(116vw / 14.4); }
   .hero-sub { max-width: calc(560vw / 14.4); margin-top: calc(17vw / 14.4); font-size: calc(21.5vw / 14.4); }
   .hero-alt { margin-top: calc(24vw / 14.4); font-size: calc(17.25vw / 14.4); }
-  .hero .site-actions { margin-top: calc(30vw / 14.4); }
+  /* The action row scales with them so "Read the docs" stays on the sky, left of the bow. */
+  .hero .site-actions { margin-top: calc(30vw / 14.4); gap: calc(16vw / 14.4) calc(36vw / 14.4); }
+  .hero .site-pill { min-width: calc(187vw / 14.4); min-height: max(44px, calc(50vw / 14.4)); padding: 0 calc(40vw / 14.4) 0 calc(42vw / 14.4); font-size: calc(19vw / 14.4); }
+  .hero .site-link { font-size: calc(16vw / 14.4); }
 }
 
 /* ---------- Tablets and phones: the copy above the painting ---------- */

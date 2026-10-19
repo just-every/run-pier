@@ -5,7 +5,7 @@ import { MATCH } from '../story'
  * payment and landed cost, posted to QuickBooks Online. */
 export function Books() {
   const label = `Three-way match, ${MATCH.sub}: ${MATCH.docs.map(doc => `${doc.title} ${doc.sub}`).join('; ')}. ${MATCH.held}. ${MATCH.steps.map(step => step.text).join('; ')}. ${MATCH.posted}.`
-  return <section id="books" className="band books" aria-labelledby="books-title">
+  return <section id="books" className="band books desk-scaled" aria-labelledby="books-title">
     <div className="page-wrap beat beat-copy-right">
       <div className="card match-card" role="img" aria-label={label}>
         <div aria-hidden="true">

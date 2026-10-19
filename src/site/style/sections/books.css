@@ -10,13 +10,13 @@
 .doc-icon { width: calc(26 * var(--d)); height: calc(26 * var(--d)); color: var(--cobalt); stroke-width: 1.7; }
 .match-docs .flag .doc-icon { color: var(--red); }
 .doc-title { margin-top: calc(14 * var(--d)); font-size: calc(17.5 * var(--d)); font-weight: 650; }
-.doc-sub { margin-top: calc(2 * var(--d)); font-size: calc(16.5 * var(--d)); color: #5b6172; }
+.doc-sub { margin-top: calc(2 * var(--d)); font-size: max(11px, calc(16.5 * var(--d))); color: #5b6172; }
 .match-card .alert { margin-top: calc(14 * var(--d)); }
 .match-steps { margin-top: calc(16 * var(--d)); }
 .match-steps li:last-child { border-bottom: 1px solid var(--row); }
-.match-card .chip-done { margin-top: calc(18 * var(--d)); min-height: calc(39 * var(--d)); padding-inline: calc(20 * var(--d)); border-radius: 999px; font-size: calc(16.5 * var(--d)); }
+.match-card .chip-done { margin-top: calc(18 * var(--d)); min-height: calc(39 * var(--d)); padding-inline: calc(20 * var(--d)); border-radius: 999px; font-size: max(11px, calc(16.5 * var(--d))); }
 
-@media (max-width: 1180px) {
+@media (max-width: 1000px) {
   .books .beat-copy-right { grid-template-columns: minmax(0, 1fr); }
   .books .section-head { padding-top: 0; }
   .match-card { max-width: 700px; }

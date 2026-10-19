@@ -32,7 +32,7 @@ function Wires({ side }: { side: 'in' | 'out' }) {
 
 export function Channels() {
   const label = `IN: ${ORDERS_IN.map(order => `${order.source} ${order.ref}, ${order.qty}`).join('; ')}. ${ITEM.name}, ${ITEM.sku}, ${ITEM.warehouse}: ${COUNT.available} available, ${COUNT.onHand} on hand, ${COUNT.reserved} ${COUNT.reservedLabel}; ${COUNT.ack}. OUT: ${CHANNELS_OUT.map(name => `${name} ${COUNT.available}`).join('; ')}.`
-  return <section id="channels" className="band channels" aria-labelledby="channels-title">
+  return <section id="channels" className="band channels desk-scaled" aria-labelledby="channels-title">
     <div className="page-wrap">
       <SectionHead id="channels" eyebrow="Nov 4 · Orders" title="Every channel, one count." className="head-split">
         Orders from your stores, marketplaces and EDI land in one queue. Stock goes back out to every channel.

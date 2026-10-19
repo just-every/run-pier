@@ -33,7 +33,7 @@ function RateShop() {
 
 export function ShipDay() {
   const label = `Nov 5, 6 am to 4 pm: ${SHIP_DAY.map(event => `${event.at}, ${event.title}, ${event.note}`).join('; ')}.`
-  return <section id="ship-day" className="band ship-day" aria-labelledby="ship-day-title">
+  return <section id="ship-day" className="band ship-day desk-scaled" aria-labelledby="ship-day-title">
     <div className="page-wrap">
       <SectionHead id="ship-day" eyebrow="Nov 5 · Ship day" title="All out by 4 pm.">
         Pick by wave, pack, rate-shop, print the label and send the ship notice. Tracking goes to each customer.

@@ -6,15 +6,20 @@
 .ledger-head { display: flex; align-items: flex-end; justify-content: space-between; gap: calc(24 * var(--d)); padding-bottom: calc(14 * var(--d)); border-bottom: 1px solid #dcdbd5; }
 .ledger-head .card-display { font-size: calc(38 * var(--d)); }
 .ledger-basis { flex: none; padding-bottom: calc(6 * var(--d)); font-size: max(11px, calc(14 * var(--d))); font-weight: 500; letter-spacing: .2em; color: #6b7182; white-space: nowrap; }
-.ledger-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+.ledger-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .ledger-table th { height: calc(46 * var(--d)); padding: 0; font-size: max(11px, calc(12.5 * var(--d))); font-weight: 600; letter-spacing: .16em; text-align: left; text-transform: uppercase; color: #6b7182; }
 .ledger-table td { height: calc(50 * var(--d)); padding: 0; border-top: 1px solid var(--row); font-size: calc(18 * var(--d)); line-height: 1.3; }
 .ledger-table .c-date { width: calc(150 * var(--d)); white-space: nowrap; }
 .ledger-table .c-move { width: calc(474 * var(--d)); }
-.ledger-table .c-ref { width: calc(250 * var(--d)); color: #5b6172; }
+.ledger-table .c-ref { width: calc(250 * var(--d)); }
+.ledger-table td.c-ref { color: #5b6172; }
 .ledger-table td.c-move, .ledger-table td.c-ref { padding-right: calc(14 * var(--d)); }
+/* Tabular figures on the number columns only: Inter's tnum also widens the hyphen, which would space out
+   "PO-1048-B", "CC-0412", "A-14" and "follow-on". */
+.ledger-table td:is(.c-qty, .c-hand, .c-value) { font-variant-numeric: tabular-nums; }
 .ledger-table .c-qty { width: calc(149 * var(--d)); text-align: right; white-space: nowrap; }
-.ledger-table .c-hand { width: calc(140 * var(--d)); text-align: right; font-weight: 650; }
+.ledger-table .c-hand { width: calc(140 * var(--d)); text-align: right; }
+.ledger-table td.c-hand { font-weight: 650; }
 .ledger-table .c-value { width: calc(160 * var(--d)); text-align: right; }
 .c-move .dot { margin-right: calc(10 * var(--d)); vertical-align: calc(1 * var(--d)); }
 .ledger-table tr.reorder td { border-top-color: transparent; background: var(--cobalt-tint); color: var(--cobalt-ink); }
@@ -31,37 +36,46 @@
   .ledger { padding: 24px 24px 12px; }
   .ledger-head .card-display { font-size: 32px; }
   .ledger-table td { font-size: 16px; }
-  .ledger-table .c-date { width: 14%; }
+  /* On hand gets the room to read apart from Qty; the reorder row's "+600 on order" takes two lines, as on phones. */
+  .ledger-table .c-date { width: 13%; }
   .ledger-table .c-move { width: auto; }
-  .ledger-table .c-ref { width: 22%; }
-  .ledger-table .c-qty { width: 14%; }
-  .ledger-table .c-hand { width: 9%; }
-  .ledger-table .c-value { width: 13%; }
+  .ledger-table .c-ref { width: 24%; }
+  .ledger-table .c-qty { width: 10%; }
+  .ledger-table .c-hand { width: 13%; }
+  .ledger-table .c-value { width: 10%; }
+  .ledger-table tr.reorder .c-qty { white-space: normal; }
 }
 /* Phones and tablets up to 960 (desk page-08-390): each row is two lines, Date · Movement · Qty · On hand,
-   then Reference · Value; the reorder row keeps its tint and reason. */
+   then Reference · Value; every movement on one line in semibold; the reorder row keeps its tint and reason. */
 @media (max-width: 960px) {
   .ledger { padding: 20px 14px 8px; }
   .ledger-head { flex-direction: column; align-items: flex-start; gap: 8px; }
   .ledger-head .card-display { font-size: 26px; line-height: 1.12; }
   .ledger-basis { padding-bottom: 0; font-size: 11.5px; }
   .ledger-table, .ledger-table thead, .ledger-table tbody { display: block; }
-  .ledger-table tr { display: grid; grid-template-columns: 76px minmax(0, 1fr) 42px 70px; column-gap: 8px; align-items: start; padding: 11px 0 10px; border-top: 1px solid var(--row); }
+  .ledger-table tr { display: grid; grid-template-columns: 76px minmax(0, 1fr) 44px 70px; column-gap: 8px; align-items: start; padding: 11px 0 10px; border-top: 1px solid var(--row); }
   .ledger-table thead tr { padding: 14px 0 8px; border-top: 0; }
   .ledger-table th, .ledger-table td { width: auto !important; height: auto; border: 0 !important; }
   .ledger-table th { font-size: 11px; letter-spacing: .06em; white-space: nowrap; }
   .ledger-table td { font-size: 14.5px; }
-  .ledger-table .c-date { grid-row: 1 / span 2; white-space: normal; font-size: 13px; color: #3d4354; }
+  .ledger-table td.c-move, .ledger-table td.c-ref { padding-right: 0; }
+  .ledger-table td.c-move { font-weight: 600; white-space: nowrap; }
+  .ledger-table .c-date { grid-row: 1 / span 2; }
+  .ledger-table td.c-date { white-space: normal; font-size: 13px; color: #3d4354; }
   .ledger-table .c-move { grid-column: 2; }
   .ledger-table .c-qty { grid-column: 3; grid-row: 1; }
   .ledger-table .c-hand { grid-column: 4; grid-row: 1; }
-  .ledger-table .c-ref { grid-column: 2 / 4; grid-row: 2; margin-top: 2px; font-size: 13px; }
-  .ledger-table .c-value { grid-column: 4; grid-row: 2; margin-top: 2px; font-size: 13.5px; white-space: nowrap; }
+  .ledger-table .c-ref { grid-column: 2 / 4; grid-row: 2; margin-top: 2px; }
+  .ledger-table .c-value { grid-column: 4; grid-row: 2; margin-top: 2px; white-space: nowrap; }
+  .ledger-table td.c-ref { font-size: 13px; }
+  .ledger-table td.c-value { font-size: 13.5px; }
   .ledger-table th.c-ref, .ledger-table th.c-value { display: none; }
   .ledger-table th.c-qty { grid-column: 3; }
   .ledger-table th.c-hand { grid-column: 4; }
   /* The reorder row: its movement and reason across, then PO-1061 and "+600 on order" under them. */
-  .ledger-table tr.reorder .c-move { grid-column: 2 / 4; }
+  .ledger-table tr.reorder .c-move { grid-column: 2 / 4; white-space: normal; }
+  .move-reorder { white-space: nowrap; }
+  .reorder-why { font-weight: 400; }
   .ledger-table tr.reorder .c-ref { grid-column: 2; }
   .ledger-table tr.reorder .c-qty { grid-column: 3 / 5; grid-row: 2; align-self: end; }
   .ledger-table tr.reorder .c-value { display: none; }
@@ -69,4 +83,31 @@
   .ledger-table tr.reorder td { background: none; }
   .ledger-table tr.reorder .c-date { padding-left: 0; }
   .reorder-why { font-size: 12.5px; }
+}
+/* Narrow phones (519 and under): the movement takes the row's width, as on a bank statement. Movement and
+   On hand, then Date · Reference with Qty and Value under them; the header names both lines. */
+@media (max-width: 519px) {
+  /* Qty sizes to its figure; Value's fixed column keeps every Qty's right edge in line. */
+  .ledger-table tr { grid-template-columns: max-content minmax(0, 1fr) max-content 68px; row-gap: 3px; }
+  .ledger-table .c-move, .ledger-table tr.reorder .c-move { grid-column: 1 / 4; grid-row: 1; }
+  .ledger-table .c-hand { grid-column: 4; grid-row: 1; }
+  .ledger-table .c-date { grid-column: 1; grid-row: 2; }
+  .ledger-table td.c-date { white-space: nowrap; }
+  .ledger-table .c-ref, .ledger-table tr.reorder .c-ref { grid-column: 2; grid-row: 2; margin-top: 0; }
+  .ledger-table .c-qty { grid-column: 3; grid-row: 2; }
+  .ledger-table td.c-qty { font-size: 13.5px; }
+  .ledger-table .c-value { grid-column: 4; grid-row: 2; margin-top: 0; }
+  .ledger-table td.c-ref, .ledger-table td.c-qty, .ledger-table td.c-value { align-self: start; }
+  .ledger-table tr.reorder .c-qty { grid-column: 3 / 5; grid-row: 2; align-self: start; }
+  .ledger-table tr:has(td.c-qty:empty) .c-ref { grid-column: 2 / 4; }
+  .ledger-table th.c-ref, .ledger-table th.c-value { display: block; }
+  .ledger-table th.c-move { grid-column: 1 / 4; grid-row: 1; }
+  .ledger-table th.c-hand { grid-column: 4; grid-row: 1; }
+  .ledger-table th.c-date { grid-row: 2; }
+  .ledger-table th.c-ref { grid-column: 2; grid-row: 2; }
+  .ledger-table th.c-qty { grid-column: 3; grid-row: 2; }
+  .ledger-table th.c-value { grid-column: 4; grid-row: 2; }
+  .ledger-table thead tr { row-gap: 8px; }
+  /* Date and reference read as one line: "Nov 3 · PO-1048". */
+  .ledger-table tr:has(.c-ref:not(:empty)) .c-date::after { content: '·'; margin-left: 6px; color: #8a8f9c; }
 }

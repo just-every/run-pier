@@ -9,7 +9,7 @@
 .flow-rows { display: grid; gap: calc(14 * var(--d)); }
 .flow-row { position: relative; display: flex; align-items: center; gap: calc(12 * var(--d)); height: calc(60 * var(--d)); padding: 0 calc(20 * var(--d)); border-radius: calc(10 * var(--d)); background: var(--surface); box-shadow: 0 1px 2px rgba(11, 16, 32, .04), 0 10px 26px -18px rgba(11, 16, 32, .3); font-size: calc(18 * var(--d)); white-space: nowrap; }
 .flow-row .dot { flex: none; width: calc(13 * var(--d)); height: calc(13 * var(--d)); margin-right: calc(3 * var(--d)); }
-.flow-ref { font-size: calc(16 * var(--d)); color: #6b7182; }
+.flow-ref { font-size: max(11px, calc(16 * var(--d))); color: #6b7182; }
 .flow-name + .flow-ref { margin-left: calc(4 * var(--d)); }
 .flow-qty { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
 .flow-row .check { width: calc(26 * var(--d)); height: calc(26 * var(--d)); }
@@ -34,7 +34,7 @@
 .count-card .chip-done { margin-top: calc(16 * var(--d)); }
 
 /* Tablets and phones (desk page-05-390): IN, then the count, then OUT two by two, joined by short wires. */
-@media (max-width: 1180px) {
+@media (max-width: 1000px) {
   .flow { grid-template-columns: minmax(0, 1fr); max-width: 560px; margin: 70px 0 0; }
   .wires { display: none; }
   .flow-label { position: static; margin-bottom: 14px; }

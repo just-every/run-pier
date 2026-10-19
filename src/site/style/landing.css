@@ -3,7 +3,8 @@
    --d is one desk pixel. The desk drew every frame 1536 wide; from 1181 to 1536 the page is that
    frame scaled to the screen (so 1440 is the build's 0.9375: H2 87 px, eyebrow 14 px), and wider
    screens keep the 1536 frame centred. Tablets and phones (1180 and below) draw at desk size in a
-   single column. Text that would fall under 11 px is held at 11. */
+   single column, except the .desk-scaled bands (05, 06, 07), whose drawings stay scaled down to 1001.
+   Text that would fall under 11 px is held at 11. */
 @property --d { syntax: '<length>'; inherits: true; initial-value: 1px; }
 :root { --d: min(1px, 100vw / 1536); }
 
@@ -42,6 +43,17 @@
   .beat-copy-right > .section-head { grid-row: 1; }
   .head-split { row-gap: 0; }
   .head-split .lead { grid-column: 1; grid-row: auto; margin-top: 20px; }
+}
+/* 05 Channels, 06 Ship day and 07 Books keep the desk drawing (the wired flow, the 6 am-4 pm axis, the match
+   card beside its copy) from 1001 to 1180, scaled as the desktop page is, rather than a phone stack. */
+@media (min-width: 1001px) and (max-width: 1180px) {
+  .desk-scaled { --d: calc(100vw / 1536); padding-top: calc(72 * var(--d)); }
+  .desk-scaled .page-wrap { width: calc(1392 * var(--d)); }
+  .desk-scaled .section-head h2 { font-size: calc(93 * var(--d)); }
+  .desk-scaled .head-split { grid-template-columns: minmax(0, 1fr) calc(462 * var(--d)); }
+  .desk-scaled .head-split .lead { grid-column: 2; grid-row: 1 / span 2; margin-top: calc(20 * var(--d)); }
+  .desk-scaled .beat-copy-right { row-gap: 0; }
+  .desk-scaled .beat-copy-right > .section-head { grid-row: auto; }
 }
 @media (max-width: 760px) {
   .band { padding: 52px 0 60px; }

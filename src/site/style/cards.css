@@ -7,7 +7,7 @@
 .title-icon { flex: none; width: calc(26 * var(--d)); height: calc(26 * var(--d)); color: var(--cobalt); stroke-width: 1.7; }
 .card :is(p, li, h3, td) { text-wrap: pretty; }
 .card-display { text-wrap: balance !important; padding-bottom: .2em; margin-bottom: -.2em; font: 400 calc(46 * var(--d))/1.08 var(--font-head); letter-spacing: -.004em; color: var(--ink); }
-.card-sub { margin-top: calc(5 * var(--d)); font-size: calc(16.5 * var(--d)); line-height: 1.35; color: #5b6172; }
+.card-sub { margin-top: calc(5 * var(--d)); font-size: max(11px, calc(16.5 * var(--d))); line-height: 1.35; color: #5b6172; }
 .icon { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .check { flex: none; width: calc(26 * var(--d)); height: calc(26 * var(--d)); }
 .check circle { fill: var(--green); }
@@ -34,7 +34,7 @@
 /* Chips and strips */
 .chip-agent { display: inline-flex; align-items: center; gap: calc(9 * var(--d)); height: calc(31 * var(--d)); padding: 0 calc(14 * var(--d)); border-radius: calc(8 * var(--d)); background: var(--cobalt-tint); color: var(--cobalt-ink); font-size: calc(16.5 * var(--d)); font-weight: 500; }
 .chip-agent .icon { width: calc(16 * var(--d)); height: calc(16 * var(--d)); stroke-width: 1.7; }
-.chip-done { display: inline-flex; align-items: center; gap: calc(10 * var(--d)); min-height: calc(31 * var(--d)); padding: calc(3 * var(--d)) calc(14 * var(--d)); border-radius: calc(8 * var(--d)); background: var(--green-tint); color: var(--green-ink); font-size: calc(16 * var(--d)); font-weight: 600; line-height: 1.25; }
+.chip-done { display: inline-flex; align-items: center; gap: calc(10 * var(--d)); min-height: calc(31 * var(--d)); padding: calc(3 * var(--d)) calc(14 * var(--d)); border-radius: calc(8 * var(--d)); background: var(--green-tint); color: var(--green-ink); font-size: max(11px, calc(16 * var(--d))); font-weight: 600; line-height: 1.25; }
 .chip-done .tick { width: calc(14 * var(--d)); height: calc(14 * var(--d)); }
 .advice { display: flex; align-items: center; gap: calc(14 * var(--d)); min-height: calc(51 * var(--d)); padding: calc(8 * var(--d)) calc(22 * var(--d)); border-radius: calc(8 * var(--d)); background: var(--yellow-tint); font-size: calc(18 * var(--d)); font-weight: 500; line-height: 1.3; color: #2a2412; }
 .advice .dot { flex: none; }

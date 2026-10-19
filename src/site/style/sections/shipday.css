@@ -22,7 +22,7 @@
 .out .event-card { box-shadow: inset 0 0 0 2px var(--green), 0 14px 30px -20px rgba(11, 16, 32, .3); }
 .event-at { font-size: max(11px, calc(14.5 * var(--d))); color: #6b7182; }
 .event-title { margin-top: calc(2 * var(--d)); font-size: calc(17.5 * var(--d)); font-weight: 650; line-height: 1.2; letter-spacing: -.01em; }
-.event-note { margin-top: calc(3 * var(--d)); font-size: calc(15.5 * var(--d)); color: #3d4354; }
+.event-note { margin-top: calc(3 * var(--d)); font-size: max(11px, calc(15.5 * var(--d))); color: #3d4354; }
 
 .day-axis { position: absolute; left: calc(40 / 1392 * 100%); width: calc(1250 / 1392 * 100%); top: calc(259 * var(--d)); height: 2px; margin-top: -1px; background: var(--ink); }
 .tick-mark { position: absolute; left: calc(var(--t) / 600 * 100%); top: calc(-8 * var(--d)); width: 2px; height: calc(18 * var(--d)); margin-left: -1px; background: var(--ink); }
@@ -42,7 +42,7 @@
 .rate-rows .tick { width: calc(18 * var(--d)); height: calc(18 * var(--d)); color: var(--cobalt); }
 
 /* Tablets and phones (desk page-06-390): the day turns vertical on a left rail, then the rate card. */
-@media (max-width: 1180px) {
+@media (max-width: 1000px) {
   .day { max-width: 640px; margin-top: 48px; }
   .day-line { position: relative; height: auto; }
   .day-events { position: relative; display: grid; gap: 14px; padding-left: 46px; }

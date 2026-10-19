@@ -10,6 +10,7 @@
 export const SEP = '\u00a0·\u00a0'
 const glueText = (text: string) => text.replaceAll(' · ', SEP).replaceAll(' → ', '\u00a0→\u00a0')
   .replace(/\b(Oct|Nov|Dec) (?=\d)/g, '$1\u00a0').replace(/(?<=[A-Za-z0-9])-(?=[A-Za-z0-9])/g, '\u2011')
+  .replace(/\([^()]{1,24}\)/g, part => part.replaceAll(' ', '\u00a0'))
 const glue = <T,>(value: T): T => (typeof value === 'string' ? glueText(value)
   : Array.isArray(value) ? value.map(glue)
   : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, glue(entry)]))
