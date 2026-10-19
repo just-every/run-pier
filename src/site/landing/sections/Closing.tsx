@@ -1,18 +1,20 @@
 import { Actions } from '../../shell/Actions'
 import { SiteFooter } from '../../shell/SiteFooter'
 import { Check, Icon, Painting } from '../parts'
+import { CLOSING_TAGS } from '../story'
 
-/** The closing promise over the dock at dusk, a loaded truck pulling out, then the footer.
- * The tags sit on the painting's 1536 x 934 canvas; phones show its right part (x 836-1536, y 440-906). */
+/** Desk page 10: the closing promise at the hero's size over the dock at dusk, a loaded truck pulling out,
+ * then the footer. The tags sit on the plate's 1536 x 1080 canvas: the reorder sent from the lit door and
+ * ship day's count on the truck. Phones show the plate's right part (x 836-1536, y 520-1080). */
 export function Closing() {
   return <>
     <section className="closing" aria-labelledby="closing-title">
       <div className="closing-scene">
-        <Painting className="closing-art" name="closing" widths={[768, 1152, 1536]} sizes="100vw" phone={{ name: 'closing-phone', widths: [700], media: '(max-width: 760px)' }} />
+        <Painting className="closing-art" name="closing" widths={[768, 1152, 1536, 2304, 3072]} sizes="(max-width: 760px) 220vw, 100vw" />
         <div className="closing-canvas" aria-hidden="true">
-          <svg className="closing-pins" viewBox="0 0 1536 934"><path d="M222 609 185 681" /><circle cx="185" cy="681" r="7.5" /><path d="M1317 648 1287 691" /><circle cx="1287" cy="691" r="7.5" /></svg>
-          <p className="closing-tag tag-bin-a14"><Icon name="box" />Bin A-14 · 212 units</p>
-          <p className="closing-tag tag-shipped"><Check />Shipped</p>
+          <svg className="closing-pins" viewBox="0 0 1536 1080"><circle className="pin-sent" cx="420" cy="716" r="7.5" /><path className="pin-out" d="M1316 700 1287 744" /><circle className="pin-out" cx="1287" cy="744" r="7.5" /></svg>
+          <p className="closing-tag tag-sent"><Icon name="doc" />{CLOSING_TAGS.po}</p>
+          <p className="closing-tag tag-out"><Check />{CLOSING_TAGS.out}</p>
         </div>
       </div>
       <div className="site-wrap closing-copy">

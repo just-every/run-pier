@@ -1,0 +1,58 @@
+/* 05: six orders IN, the one count, four channels OUT (desk page-05). The five columns are the desk's
+   430 | 111 | 410 | 111 | 330; rows are 60 high with 14 between, so the SVG wires (drawn on the desk's
+   430-high flow) meet each row's dot at every width. */
+.channels { padding-bottom: calc(86 * var(--d)); }
+.flow { position: relative; display: grid; grid-template-columns: calc(430 * var(--d)) minmax(0, 1fr) calc(410 * var(--d)) minmax(0, 1fr) calc(330 * var(--d)); align-items: start; margin-top: calc(79 * var(--d)); }
+.flow-label { position: absolute; top: calc(-27 * var(--d)); font-size: max(11px, calc(13.5 * var(--d))); font-weight: 600; letter-spacing: .24em; line-height: 1; text-transform: uppercase; color: var(--cobalt-ink); }
+.flow-in, .flow-out { position: relative; }
+.flow-out { margin-top: calc(74 * var(--d)); }
+.flow-rows { display: grid; gap: calc(14 * var(--d)); }
+.flow-row { position: relative; display: flex; align-items: center; gap: calc(12 * var(--d)); height: calc(60 * var(--d)); padding: 0 calc(20 * var(--d)); border-radius: calc(10 * var(--d)); background: var(--surface); box-shadow: 0 1px 2px rgba(11, 16, 32, .04), 0 10px 26px -18px rgba(11, 16, 32, .3); font-size: calc(18 * var(--d)); white-space: nowrap; }
+.flow-row .dot { flex: none; width: calc(13 * var(--d)); height: calc(13 * var(--d)); margin-right: calc(3 * var(--d)); }
+.flow-ref { font-size: calc(16 * var(--d)); color: #6b7182; }
+.flow-name + .flow-ref { margin-left: calc(4 * var(--d)); }
+.flow-qty { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+.flow-row .check { width: calc(26 * var(--d)); height: calc(26 * var(--d)); }
+.wire-end::after, .wire-start::after { content: ''; position: absolute; top: 50%; width: calc(10 * var(--d)); height: calc(10 * var(--d)); margin-top: calc(-5 * var(--d)); border-radius: 50%; background: var(--cobalt); }
+.wire-end::after { right: calc(-5 * var(--d)); }
+.wire-start::after { left: calc(-5 * var(--d)); }
+.dot-shopify { background: #22a052; } .dot-amazon { background: var(--amber); } .dot-target { background: var(--red); }
+.dot-faire { background: var(--ink); } .dot-stall { background: var(--cobalt); } .dot-wholesale { background: var(--violet); }
+
+.wires { width: 100%; height: calc(430 * var(--d)); overflow: visible; }
+.wires path { fill: none; stroke: var(--cobalt); stroke-width: 1.7; vector-effect: non-scaling-stroke; }
+
+.count-card { margin-top: calc(9 * var(--d)); padding: calc(30 * var(--d)) calc(30 * var(--d)) calc(24 * var(--d)); }
+.count-head { display: flex; align-items: center; gap: calc(19 * var(--d)); padding-bottom: calc(16 * var(--d)); border-bottom: 1px solid var(--row); }
+.count-mug { flex: none; width: calc(36 * var(--d)); height: calc(36 * var(--d)); color: var(--cobalt); stroke-width: 1.8; }
+.count-head .card-sub { margin-top: calc(2 * var(--d)); }
+.count-big { display: flex; align-items: baseline; gap: calc(12 * var(--d)); margin: calc(8 * var(--d)) 0 calc(-26 * var(--d)); padding: 0 0 calc(34 * var(--d)); font-size: calc(21 * var(--d)); color: #6b7182; }
+.count-big span { padding-bottom: .3em; margin-bottom: -.3em; font: 400 calc(104 * var(--d))/1 var(--font-head); letter-spacing: -.01em; color: var(--ink); }
+.count-rows li { gap: 0; font-size: calc(18 * var(--d)); }
+.count-rows b { width: calc(78 * var(--d)); font-size: calc(19 * var(--d)); }
+.count-rows li:last-child { border-bottom: 1px solid var(--row); }
+.count-card .chip-done { margin-top: calc(16 * var(--d)); }
+
+/* Tablets and phones (desk page-05-390): IN, then the count, then OUT two by two, joined by short wires. */
+@media (max-width: 1180px) {
+  .flow { grid-template-columns: minmax(0, 1fr); max-width: 560px; margin: 70px 0 0; }
+  .wires { display: none; }
+  .flow-label { position: static; margin-bottom: 14px; }
+  .wire-end::after, .wire-start::after { display: none; }
+  .count-card { margin-top: 64px; }
+  .flow-out { margin-top: 64px; }
+  .count-card::before, .flow-out::before { content: ''; position: absolute; left: 50%; top: -64px; height: 64px; border-left: 2px solid var(--cobalt); }
+  .count-card::before { top: -55px; height: 46px; }
+  .flow-out::before { top: -56px; height: 46px; }
+  .flow-out .flow-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}
+@media (max-width: 760px) {
+  .flow { margin-top: 48px; }
+  .flow-row { gap: 10px; height: 50px; padding: 0 16px; font-size: 16.5px; }
+  .flow-ref { font-size: 14.5px; }
+  .count-card { padding: 24px 20px 20px; }
+  .count-big span { font-size: 84px; }
+  .count-rows b { width: 62px; }
+  .flow-out .flow-rows { gap: 10px; }
+  .flow-out .flow-row { gap: 8px; padding: 0 12px; }
+}

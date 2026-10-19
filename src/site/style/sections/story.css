@@ -1,0 +1,56 @@
+/* 02: the story's line, then two beats, each a pair of cards joined by a cobalt wire (desk page-02). */
+.story { padding-bottom: calc(112 * var(--d)); }
+.story-line { padding-bottom: calc(22 * var(--d)); border-bottom: 1px solid #cfcdc6; text-align: center; font-size: max(11px, calc(15 * var(--d))); letter-spacing: .26em; }
+.story .beat-copy-left { margin-top: calc(65 * var(--d)); padding-bottom: calc(88 * var(--d)); border-bottom: 1px solid #e0ded7; }
+.story .beat-copy-right { margin-top: calc(71 * var(--d)); }
+#ship-notice .section-head { align-self: center; padding-top: calc(38 * var(--d)); }
+
+/* A pair: card A, then card B offset under it; the wire leaves A's right edge level with its title
+   and drops into B's top. Card widths and offsets are the desk's, as shares of the pair's 732. */
+.pair-cards { display: grid; align-items: start; }
+.pair-right { grid-template-columns: minmax(0, 292fr) minmax(0, 168fr) minmax(0, 272fr); row-gap: calc(5 * var(--d)); }
+.pair-right .pair-a { grid-column: 1 / 3; }
+.pair-right .pair-b { grid-column: 2 / 4; }
+.pair-left { grid-template-columns: minmax(0, 262fr) minmax(0, 158fr) minmax(0, 312fr); }
+.pair-left .pair-a { grid-column: 1 / 3; }
+.pair-left .pair-b { grid-column: 2 / 4; margin-top: calc(-22 * var(--d)); z-index: 1; }
+.wired::after { content: ''; position: absolute; left: 100%; top: calc(78 * var(--d)); width: 10.65%; bottom: calc(-5 * var(--d)); border: 2px solid var(--cobalt); border-width: 2px 2px 0 0; border-top-right-radius: calc(10 * var(--d)); pointer-events: none; }
+.wired::before { content: ''; position: absolute; z-index: 1; left: calc(100% - 6 * var(--d)); top: calc(78 * var(--d) - 5px); width: calc(12 * var(--d)); height: calc(12 * var(--d)); border-radius: 50%; background: var(--cobalt); }
+.pair-left .wired::after { width: 11.67%; bottom: calc(22 * var(--d)); }
+
+/* Card A of the reorder: the agent's read of BM-12. */
+.story .pair-a, .story .pair-b { padding: calc(24 * var(--d)) calc(26 * var(--d)) calc(22 * var(--d)); }
+.story .pair-right .pair-a .card-title { margin-top: calc(16 * var(--d)); margin-bottom: calc(14 * var(--d)); }
+.story .advice { margin-top: calc(8 * var(--d)); }
+.story .pair-right .pair-b { padding-top: calc(22 * var(--d)); padding-bottom: calc(6 * var(--d)); }
+.story .pair-right .pair-b .card-title { padding-bottom: calc(14 * var(--d)); }
+.story .pair-right .pair-b .rows .check { margin-left: 0; }
+.story .pair-left .card-title { padding-left: calc(3 * var(--d)); }
+.story .pair-left .card-sub { margin-bottom: calc(12 * var(--d)); }
+.story .pair-left .card-sub, .story .pair-left .rows { padding-left: 0; }
+.story .rows.split b { font-size: calc(18 * var(--d)); }
+.story .pair-left .pair-a .rows li:last-child { border-bottom: 1px solid var(--row); }
+.story .pair-left .alert { margin-top: calc(10 * var(--d)); }
+.story .pair-left .pair-b .rows li:last-child { border-bottom: 0; }
+.story .pair-left .chip-done { margin-top: calc(12 * var(--d)); }
+
+@media (max-width: 1180px) {
+  .story .beat-copy-left, .story .beat-copy-right { margin-top: 48px; }
+  .story .beat-copy-left { padding-bottom: 64px; }
+  #ship-notice .section-head { padding-top: 0; }
+  .pair-cards { width: min(100%, 732px); }
+  .pair-right { justify-self: end; }
+}
+
+/* Phones (desk page-02-390): each pair stacks, card B indented under A, joined by a short wire. */
+@media (max-width: 760px) {
+  .story-line { padding-bottom: 18px; line-height: 1.6; }
+  .story .beat-copy-left { padding-bottom: 48px; }
+  .pair-right, .pair-left { grid-template-columns: minmax(0, 1fr); row-gap: 36px; width: 100%; }
+  .pair-right .pair-a, .pair-right .pair-b, .pair-left .pair-a, .pair-left .pair-b { grid-column: 1; }
+  .pair-right .pair-b, .pair-left .pair-b { margin: 0 0 0 22px; }
+  .wired::after { left: 56px; top: 100%; width: 0; height: 36px; bottom: auto; border-width: 0 0 0 2px; border-radius: 0; }
+  .pair-left .wired::after { width: 0; bottom: auto; }
+  .wired::before { left: 51px; top: calc(100% - 6px); width: 12px; height: 12px; }
+  .story .pair-a, .story .pair-b { padding: 20px 18px 18px; }
+}

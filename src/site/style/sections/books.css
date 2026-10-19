@@ -1,0 +1,31 @@
+/* 07: the three-way match card beside the books' copy (desk page-07). */
+.books { padding-bottom: calc(86 * var(--d)); }
+.books .beat-copy-right { grid-template-columns: calc(700 * var(--d)) minmax(0, 1fr); column-gap: calc(102 * var(--d)); }
+.books .section-head { padding-top: calc(16 * var(--d)); }
+.match-card { padding: calc(28 * var(--d)) calc(36 * var(--d)) calc(30 * var(--d)); }
+.match-card .card-sub { margin-top: calc(4 * var(--d)); }
+.match-docs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(14 * var(--d)); margin-top: calc(22 * var(--d)); }
+.match-docs li { min-height: calc(118 * var(--d)); padding: calc(18 * var(--d)) calc(16 * var(--d)) calc(14 * var(--d)); border: 1px solid #e3e4e8; border-radius: calc(10 * var(--d)); }
+.match-docs li.flag { border-color: #f0a99b; background: #fff6f3; }
+.doc-icon { width: calc(26 * var(--d)); height: calc(26 * var(--d)); color: var(--cobalt); stroke-width: 1.7; }
+.match-docs .flag .doc-icon { color: var(--red); }
+.doc-title { margin-top: calc(14 * var(--d)); font-size: calc(17.5 * var(--d)); font-weight: 650; }
+.doc-sub { margin-top: calc(2 * var(--d)); font-size: calc(16.5 * var(--d)); color: #5b6172; }
+.match-card .alert { margin-top: calc(14 * var(--d)); }
+.match-steps { margin-top: calc(16 * var(--d)); }
+.match-steps li:last-child { border-bottom: 1px solid var(--row); }
+.match-card .chip-done { margin-top: calc(18 * var(--d)); min-height: calc(39 * var(--d)); padding-inline: calc(20 * var(--d)); border-radius: 999px; font-size: calc(16.5 * var(--d)); }
+
+@media (max-width: 1180px) {
+  .books .beat-copy-right { grid-template-columns: minmax(0, 1fr); }
+  .books .section-head { padding-top: 0; }
+  .match-card { max-width: 700px; }
+}
+/* Phones: the three documents stack (BUILD-NOTES 390 gap). */
+@media (max-width: 760px) {
+  .match-card { padding: 22px 18px 20px; }
+  .match-docs { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .match-docs li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 0; padding: 12px 14px; }
+  .doc-title, .doc-sub { margin-top: 0; }
+  .doc-sub { text-align: right; }
+}

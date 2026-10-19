@@ -1,0 +1,56 @@
+/* 04: three rugged handhelds side by side (desk page-04), the middle one larger and raised. Each is its
+   device plate (transparent around the device) with the blank glass set as HTML at --gl/--gt/--gw/--gh;
+   each device is as wide as puts its glass at the desk's screen width (276, 293, 281). --h is one desk
+   pixel of a 276-wide screen, so the screens keep the desk's proportions as the devices scale. */
+.counting { padding-bottom: calc(40 * var(--d)); }
+.handhelds { display: flex; justify-content: center; align-items: flex-end; gap: calc(40 * var(--d)); margin-top: calc(26 * var(--d)); padding-bottom: calc(40 * var(--d)); }
+.handheld { position: relative; flex: none; width: calc(434 * var(--d)); margin: 0; container-type: inline-size; }
+.handheld-cycle-count { width: calc(443 * var(--d)); }
+.handheld-body, .handheld-body img { display: block; width: 100%; height: auto; }
+.screen { --h: calc(var(--gw) * 100cqw / 276); position: absolute; left: var(--gl); top: var(--gt); width: calc(var(--gw) * 100%); height: var(--gh); display: flex; flex-direction: column; overflow: hidden; border-radius: calc(3 * var(--h)); background: #fff; color: var(--ink); }
+.screen-status { display: flex; justify-content: space-between; align-items: center; height: calc(27 * var(--h)); padding: 0 calc(15 * var(--h)); background: #0b1020; color: #fff; font-size: max(11px, calc(12.5 * var(--h))); font-weight: 500; }
+.screen-head { padding: calc(12 * var(--h)) calc(16 * var(--h)) calc(13 * var(--h)); background: var(--cobalt); color: #fff; }
+.screen-title { font-size: max(11px, calc(21 * var(--h))); font-weight: 700; line-height: 1.15; letter-spacing: -.015em; }
+.screen-sub { margin-top: calc(3 * var(--h)); font-size: max(11px, calc(13.5 * var(--h))); opacity: .86; }
+.screen-body { flex: 1; display: flex; flex-direction: column; padding: calc(15 * var(--h)) calc(15 * var(--h)) calc(16 * var(--h)); }
+.screen-item { display: flex; align-items: center; gap: calc(10 * var(--h)); font-size: max(11px, calc(17 * var(--h))); font-weight: 500; letter-spacing: -.01em; }
+.item-mug { width: calc(19 * var(--h)); height: calc(19 * var(--h)); color: var(--cobalt); stroke-width: 2; }
+.bin-chip { display: inline-grid; place-items: center; min-width: calc(62 * var(--h)); height: calc(36 * var(--h)); padding: 0 calc(8 * var(--h)); border: 2px solid var(--cobalt); border-radius: calc(6 * var(--h)); color: var(--cobalt-ink); font-size: max(11px, calc(19 * var(--h))); font-weight: 600; }
+.bin-move { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: calc(10 * var(--h)) calc(12 * var(--h)); margin-top: calc(14 * var(--h)); padding: calc(14 * var(--h)) calc(12 * var(--h)) calc(12 * var(--h)); border: 1px solid #e3e4e8; border-radius: calc(8 * var(--h)); }
+.bin-move + .bin-move { margin-top: calc(12 * var(--h)); }
+.bin-change { text-align: right; font-size: max(11px, calc(23 * var(--h))); font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
+.bin-note, .overflow { grid-column: 1 / -1; grid-row: 2; }
+.bin-add { grid-column: 2; grid-row: 2; }
+.bin-note { font-size: max(11px, calc(13.5 * var(--h))); color: #5b6172; white-space: nowrap; }
+.overflow { justify-self: start; padding: calc(2 * var(--h)) calc(7 * var(--h)); border-radius: calc(4 * var(--h)); background: var(--yellow-tint); color: #8a6200; font-size: max(11px, calc(13 * var(--h))); font-weight: 600; }
+.bin-add { text-align: right; font-size: max(11px, calc(13.5 * var(--h))); font-weight: 700; color: var(--green-ink); }
+.screen-figure { display: flex; align-items: center; justify-content: space-between; gap: calc(8 * var(--h)); min-height: calc(96 * var(--h)); border-bottom: 1px solid #e6e7eb; }
+.screen-item + .screen-figure { margin-top: calc(6 * var(--h)); }
+.figure-label { display: flex; align-items: center; gap: calc(6 * var(--h)); font-size: max(11px, calc(15.5 * var(--h))); }
+.figure-alert { width: calc(19 * var(--h)); height: calc(19 * var(--h)); stroke-width: 2; }
+.figure-sub { margin-top: calc(3 * var(--h)); font-size: max(11px, calc(13 * var(--h))); color: #5b6172; white-space: nowrap; }
+.figure-value { font-size: max(11px, calc(40 * var(--h))); font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.screen-figure.red .figure-label, .screen-figure.red .figure-value { color: var(--red-ink); }
+.screen-figure.green .figure-value { color: var(--green-ink); }
+.screen-note { padding: calc(14 * var(--h)) 0; border-bottom: 1px solid #e6e7eb; text-align: center; font-size: max(11px, calc(14.5 * var(--h))); line-height: 1.45; color: #5b6172; }
+.screen-line { display: flex; justify-content: space-between; gap: calc(8 * var(--h)); padding-top: calc(14 * var(--h)); font-size: max(11px, calc(14.5 * var(--h))); }
+.bin-move + .screen-line { margin-top: calc(14 * var(--h)); border-top: 1px solid #e6e7eb; }
+.screen-line span { color: #3d4354; white-space: nowrap; }
+.screen-line b { font-weight: 650; white-space: nowrap; }
+.screen-action { display: flex; align-items: center; gap: calc(12 * var(--h)); min-height: calc(46 * var(--h)); margin-top: auto; padding: 0 calc(14 * var(--h)); border-radius: calc(7 * var(--h)); font-size: max(11px, calc(15.5 * var(--h))); font-weight: 600; }
+.screen-action.green { background: var(--green-tint); color: var(--green-ink); }
+.screen-action.red { background: var(--red-tint); color: var(--red-ink); }
+.screen-action .check, .screen-action .icon { width: calc(24 * var(--h)); height: calc(24 * var(--h)); }
+.screen-action .icon { stroke-width: 2; }
+
+/* Tablets: the three share the column. */
+@media (min-width: 1000px) and (max-width: 1180px) {
+  .handhelds { gap: 24px; }
+  .handheld { width: calc((100% - 48px) / 3.02); }
+  .handheld-cycle-count { width: calc((100% - 48px) / 3.02 * 1.02); }
+}
+/* Narrow tablets and phones: the three devices stack, each whole, in order. */
+@media (max-width: 999px) {
+  .handhelds { flex-direction: column; align-items: center; gap: 40px; }
+  .handheld, .handheld-cycle-count { width: min(360px, 100%); }
+}

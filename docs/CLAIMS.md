@@ -1,155 +1,123 @@
 # Pier homepage: every capability claim and what backs it
 
-Branch `br/style` of just-every/run-pier (17 Oct 2026). The copy is the desk's, owner-accepted, kept word for word (one spelling changed: "recognise" → "recognize"). Each claim the homepage makes (headline copy and every drawn card) is mapped to the code on this branch.
+Branch `br/page` of just-every/run-pier (19 October 2026). The homepage now follows the owner-approved structure (page-s1, 17 October 2026): one purchase order, PO-1048 for 500 Blue Mug 12oz, followed from the reorder to the books. Its copy is the design desk's, accepted by the owner. Each claim the page makes, in its copy and in every drawn card, is mapped here to the code on this branch. The page may show the product being built toward; a claim the code does not make yet says so.
 
 Status:
 - **backed**: the code does it today (path given).
 - **partly**: the code does part of it; the rest is named.
-- **contract, not yet in code**: a target in CONTRACT.md (the new connected-wholesale contract on main, 16–17 Oct 2026); nothing in the code does it yet.
+- **contract, not yet in code**: a target in CONTRACT.md; nothing in the code does it yet.
 
-Command names are the `type` strings Pier's command door accepts (`POST /api/pier/commands`, `src/pier/api.ts:258`).
-
-Updated 17 October 2026 for pricing, costing and native reports. New costing evidence is `tests/api/costing.test.mjs`; the broad clause statuses and outstanding integrations remain in CONTRACT.md. Updated again 17 October 2026 for the warehouse floor (rows 9, 12, 14, 15, 18 and 29): scan-to-receive, pick waves with a scan check per line and overflow bins, the pack step and the daily dispatch summary; evidence `tests/api/floor.test.mjs`.
-
-Updated 17 October 2026 for channels (rows 2, 19–22 and 46): live Stall/WooCommerce, Shopify/Amazon documented API adapters with synthetic recorded network fixtures, listing matching, source holds and accepted stock publication. Broader CHANNEL-001 remains partial; see [Sales channels](channels.md).
-
-Updated 17 October 2026 for books (rows 4, 35, 36 and 41): real Pantry financial HTTP/D1 flow, one queue and accountant exports; QBO/Xero remain fixture-only and the Pantry catalogue boundary remains explicit. Updated again 17 October 2026: Pantry connects with its scoped integration credential and native bill readiness; Stall connects with a Pier-issued key; rows 19, 20 and 38 corrected to partly. The second books round adds three-way supplier invoice matching, standalone settings, final-receipt readiness evidence on the existing payable and supplier payment closure. Rows 4, 35 and 41 remain partly because scoped Pantry financial credentials/native readiness and real QBO/Xero account acceptance remain external boundaries.
-
-Updated 18 October 2026 (rows 4, 19 and 36): with freight and duty on a receipt, cost of goods, return cost, the freight-and-duty journal and inventory valuation post to Pantry in whole cents and Pantry's inventory equals Pier's valuation (`tests/api/books-landed.test.mjs`); an unknown outcome Pantry never received is re-sent with its idempotency keys on Check Pantry; Stall connects to Pier from Stall's own Settings page with Pier's address and key. Row 44 also covers native rows in USD or another ISO currency at a recorded rate (`tests/api/security-import.test.mjs`).
-
-Updated 18 October 2026 (rows 4 and 19): a Stall order carries each line's unit price and currency, so the sales order is priced and its shipment invoice posts to Pantry beside cost of goods; a reservation made before Stall sent prices takes Stall's charged price when it links, and any unpriced order is priced once from its order page (`tests/api/channels.test.mjs`).
-
-Updated 17 October 2026 for EDI (rows 7, 23–25): the X12 core flow and SSCC labels are implemented with synthetic network-edge fixtures; retailer transport/certification and physical printer acceptance remain pending. [Retail EDI](edi.md) names the owner setup and Managed egress boundary.
-
-Updated 18 October 2026 for page-alone channel setup, explicit EDI network boundaries, dated inventory comparison and Stripe-paid Stall invoice allocations. See `tests/api/channels.test.mjs`, `tests/api/books-shop.test.mjs` and `tests/api/books-landed.test.mjs`; live external provider acceptance remains separate.
+Command names are the `type` strings Pier's command door accepts (`POST /api/pier/commands`, `src/pier/api.ts`). The sample figures (dates, quantities, money) are the story's, in `src/site/landing/story.ts`; they are internally consistent but are not read from an installation.
 
 ## Totals
 
 | Status | Claims |
 |---|---|
-| backed | 43 |
-| partly | 12 |
-| contract, not yet in code | 0 |
-| **all claims** | **55** |
+| backed | 26 |
+| partly | 17 |
+| contract, not yet in code | 3 |
+| **all claims** | **46** |
 
-## Hero
-
-| # | Claim | Status | Code path / note |
-|---|---|---|---|
-| 1 | "Pier tracks stock across your warehouses" | backed | Warehouses and bins: `location.save` (`src/pier/catalogue.ts:44,83`); stock per item, warehouse and bin with on hand, reserved, available, quarantine, expected: `src/pier/model.ts` availability, `src/ui/stock.tsx:23-25` |
-| 2 | "runs orders from channel to carrier" | partly | Channel orders reserve through `src/pier/channels/commands.ts`; Stall links its paid checkout reservation and WooCommerce imports processing orders. Dispatch is native; carrier integration remains SHIP-001. |
-| 3 | "reorders before you run out" | backed | Buyer-applied learned points, stock-position netting, case packs/MOQs and automatic unapproved drafts: `src/pier/replenishment.ts`, Purchasing. Native shipment history only; broader connected planning remains partial. |
-| 4 | "and keeps the books in step" | partly | Pantry matched supplier-invoice payables, shipment invoices/COGS, payment readback and inventory balance reconciliation: `src/pier/books/`, `tests/api/books.test.mjs`. Buyer-reviewed supplier invoices now match PO/receipt quantities and prices with explicit tolerances and hold/approve; payments close the payable. Freight and duty spread over a receipt post as a whole-cent journal into inventory, and COGS, return cost and valuation post in whole cents: `tests/api/books-landed.test.mjs`. Stripe-confirmed Stall payments are allocated per shipped invoice to the owner-picked Pantry bank account, and inventory compares through the latest source date (`tests/api/books-shop.test.mjs`; `src/pier/books/shop-payment.ts`). Books settings connects with a revocable Pantry integration credential and accounts picked from Pantry's chart; there is no direct QuickBooks Online or Xero connection (adapters exist with protocol fixtures only, awaiting owner apps). |
-| 5 | "100% free, open source alternative to Cin7, inFlow and Fishbowl" | backed | MIT licence: `LICENSE`, `package.json` `license`. (Feature parity with those products is the contract; the free/open-source claim is true today) |
-| 6 | Tag "PO-1048 · 480 of 500 received · 20 short" | backed | Partial receipts into bins, the rest stays expected: `receipt.create` `src/pier/purchasing.ts:121` |
-| 7 | Tag "EDI 856 sent · Target DC 0593" | partly | X12 856 generation from closed packs, retained SSCC cartons and bridge send records: `src/pier/edi/`, `tests/api/edi.test.mjs`. No live retailer transport or Target certification; the DC 0593 fixture is synthetic. |
-| 8 | Tag "Count mismatch · A-14 · recounted" | backed | Counts capture a bin's movement frontier, show drift and ask for a recount when stock moved: `count.capture/count.record/count.recount` `src/pier/warehouse.ts:119-147`, `src/ui/stock.tsx:18-19` |
-| 9 | Tag "Picked 38 orders · 6:40 am" | backed | A pick wave records each line's picker and time and reads "Picked N orders · time" when its last line is picked: `wave.release`, `pick.scan` `src/pier/floor/waves.ts`, Floor → Pick `src/ui/floor/pick.tsx`. The count of 38 is a story figure |
-| 10 | Tag "Bin A-14 · 212 units" | backed | Stock by bin: `src/ui/stock.tsx:24-25` |
-| 11 | Tag "Reorder suggested · Blue Mug 12oz · 600" | backed | Purchasing shows computed item/warehouse suggestions, rounding, draft coverage and expected landed cost; bounded policy drafts automatically when the position crosses its point. `src/pier/replenishment.ts`. |
-
-## Warehouse floor (page 2)
+## 01 Hero (unchanged)
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 12 | "Receive … from any phone or scanner" | backed | Scan-to-receive against a committed PO: `receiving.start/scan/post` `src/pier/floor/receiving.ts`, Floor → Receive `src/ui/floor/receive.tsx`, at 390px. A USB/Bluetooth scanner or a handheld's built-in scanner types into the scan box (keyboard wedge); a phone camera reads through the browser's barcode detection (`src/ui/floor/scanner.tsx`; Chrome on Android, not iPhone Safari, which types the code or uses a paired Bluetooth scanner). Unit and case barcodes (`item.save` `caseBarcode`); a bin label moves put-away; over and short lines are kept on the receipt |
-| 13 | "put away" | backed | A receipt names the destination bin for each line: `src/ui/purchasing.tsx:23` |
-| 14 | "pick" | backed | Pick waves in bin sequence into numbered totes, each line confirmed by its bin and item scans: `src/pier/floor/waves.ts`, `src/ui/floor/pick.tsx` |
-| 15 | "pack" | backed | Picked units are scanned into numbered cartons, each weighed and measured by hand (lb, in), the order marked packed, then dispatched: `pack.scan/carton/measure/close/dispatch` `src/pier/floor/packing.ts`, Floor → Pack `src/ui/floor/pack.tsx`. Packing slips and carton labels are not printed (CONTRACT.md PRINT-001, SCAN-001) |
-| 16 | "and count" | backed | As claim 8 |
-| 17 | "Every bin knows exactly what it holds" | backed | Append-only movements per bin: `src/pier/model.ts`, `src/ui/activity.tsx:16-17` |
-| 18 | Pick list "Wave 14 · Dock A", scan check per line, "B-03 empty · picked from overflow B-09" | backed | Waves per carrier pickup and dock (`carrier.save`, `wave.release`); a wrong bin or wrong item is refused with the reason and nothing is picked (`pick.scan`); "Bin empty or short" moves only that line's reservation to the next bin with unreserved stock and opens a count of the reported bin (`pick.short`): `src/pier/floor/waves.ts`, `src/ui/floor/pick.tsx`, `tests/api/floor.test.mjs` |
+| 1 | "Pier tracks stock across your warehouses" | backed | Warehouses and bins: `location.save` (`src/pier/catalogue.ts`); on hand, reserved, available, quarantine and expected per item, warehouse and bin: `src/pier/model.ts`, `src/ui/stock.tsx`; `tests/api/stock.test.mjs` |
+| 2 | "runs orders from channel to carrier" | partly | Channel orders reserve through `src/pier/channels/commands.ts` (Stall and WooCommerce live; Shopify and Amazon on recorded fixtures); dispatch is native (`src/pier/floor/`); carrier rates and labels through EasyPost on synthetic recordings (`src/pier/shipping/`). |
+| 3 | "reorders before you run out" | backed | Learned reorder points, stock-position netting and automatic unapproved drafts: `src/pier/replenishment.ts`, `src/pier/replenishment-demand.ts`; `tests/api/replenishment.test.mjs` |
+| 4 | "and keeps the books in step" | partly | Supplier-invoice matching, receipt and COGS journals, landed cost and valuation post to Pantry (`src/pier/books/`, `tests/api/books.test.mjs`, `tests/api/books-landed.test.mjs`); QuickBooks Online and Xero adapters run on protocol fixtures only, awaiting owner apps. |
+| 5 | "100% free, open source alternative to Cin7, inFlow and Fishbowl" | backed | MIT `LICENSE`; no licensing gates (`tests/api/open.test.mjs`). Feature parity with those products is the contract. |
+| 6 | The six hero tags (PO-1048 480 of 500 · 20 short; EDI 856 sent · Target DC 0593; Count mismatch · A-14 recounted; Picked 38 orders · 6:40 am; Bin A-14 · 212 units; Reorder suggested · 600) | partly | Each returns below as a stage and carries that stage's status: rows 9, 16, 15, 21, 13 and 8. The EDI 856 tag is partly (row 21); the others are backed. |
 
-## Channels (page 2)
-
-| # | Claim | Status | Code path / note |
-|---|---|---|---|
-| 19 | "Shopify, WooCommerce, Amazon and Stall orders land in Pier" | partly | `src/pier/channels/adapters/` and `commands.ts`: Stall and local WooCommerce exercised live; Shopify GraphQL and Amazon SP-API order intake exercised with synthetic recorded API fixtures in `tests/api/channels.test.mjs`. Setup pages include official account/menu instructions, a Shopify location lookup and Amazon country selection (`src/ui/channels/setup-guides.tsx`; `src/pier/channels/setup.ts`). Only Stall and WooCommerce orders have landed from real stores; Shopify and Amazon have no live account connection yet, and the Channels page states this. Stall connects with a Pier-issued key (`src/pier/channels/stall-link.ts`) that the owner pastes into Stall's Settings → Provider connections, with Pier's address; no files or restart. Stall orders arrive priced at the unit prices Stall charged, so their invoices post to Pantry; an order that arrived unpriced is priced once from its order page. |
-| 20 | "stock flows back to each one within a minute" | partly | `src/pier/channels/sync.ts`: background publication after committed changes, one-minute reconciliation, accepted quantities and lag. Core-flow test covers all four adapters; live Stall/WooCommerce read-backs observed within a minute. Shopify and Amazon publication is exercised only against recorded fixtures; production percentile and Amazon processing-time acceptance remain separate. |
-| 21 | Card: one available count per channel, "100 held for FBA transfer" | backed | `channel.hold/channel.release` allocate unreserved bin stock; `model.ts` excludes it from every new reservation and channel publication. Channels shows net availability, per-connection buffers and hold reasons. This is an FBA-style source hold, not Amazon inbound shipment management. |
-| 22 | Toast "Order #4471 … reserved 9:12 am" | backed | Channel source identities link to one native order and reservation timestamp in Channels; `tests/api/channels.test.mjs` verifies duplicate notifications reserve once. Stall and WooCommerce live orders inspected; Shopify account acceptance still requires the owner account. |
-
-## Retail EDI and shipping (page 3)
+## 02 Oct 6 · Reorder, "Ordered before it runs out." / Oct 21 · Ship notice, "Twenty short. Already sorted."
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 23 | "Take EDI purchase orders from Target, Walmart and Home Depot" | partly | 850 intake with BP/UPC and exact unit mapping, named unresolved lines, fixed-warehouse sales orders and 997: `src/pier/edi/intake.ts`, `src/ui/edi/`. Actual Target/Walmart/Home Depot guides, network account and certification remain pending; see [Retail EDI](edi.md). |
-| 24 | "send the acknowledgment, ship notice and invoice on time" (855/856/810 card) | partly | Reviewed accept/change/reject 855, pickup/arrival-window 856 from packs, and shipped-value 810; required/sent/late compliance and retained 997 outcomes: `tests/api/edi.test.mjs`. Sends proven at the synthetic bridge edge only; RER Managed delivery is unavailable. |
-| 25 | "Carton 7 label reprinted · GS1-128" | partly | GS1-128 SSCC SVG, 4×6 browser print sheet and Zebra ZPL match the ASN; print/reprint actor and reason retain the same carton serial and contents: `src/pier/edi/sscc.ts`, `src/pier/edi-labels.ts`. Physical printer/scanner and retailer artwork certification remain pending. |
-| 26 | "Pier compares UPS, FedEx and USPS through ShipStation or EasyPost" | partly | EasyPost v2 adapter compares returned UPS/FedEx/USPS rates from measured pack cartons, with cheapest/fastest markers. `src/pier/shipping/`, `src/ui/shipping/`, `tests/api/shipping.test.mjs`. Documented synthetic network recordings only; no owner EasyPost account yet. [Shipping](shipping.md). |
-| 27 | "prints the label and sends tracking to your customer" | partly | Per-carton label purchase/reconciliation, authenticated PDF/ZPL downloads, stored shipment tracking, install-mail submission and signed canonical tracking updates. `tests/api/shipping.test.mjs`; synthetic 4×6 carrier files at the network edge. Real tracking mail was received and standalone hosted setup exercised; live carrier postage, physical printers and Managed egress remain pending. [Shipping](shipping.md). |
-| 28 | "Address corrected" | partly | Delivery verification blocks undeliverable addresses; original and standardized street/ZIP+4/residential flag are shown for explicit accept or keep, retained on the order. `src/pier/shipping/commands.ts`, `tests/api/shipping.test.mjs`. Provider responses are documented synthetic recordings pending an EasyPost account. [Shipping](shipping.md). |
+| 7 | "The inventory agent reads sell-through across your channels, sees the gap" (card: 660 on hand · selling 16 a day; runs out Nov 16 · lead time 28 days) | partly | Agents read native-shipment forecasts, days of cover and projected stockout through the state API: `src/pier/replenishment-demand.ts`. Sell-through is from native shipments; channel and imported history are AGENT-002 work. |
+| 8 | "Order 500 by Oct 7 · 12 days safety" (order-by date from lead time plus safety stock) | backed | Lead demand plus editable safety stock sets the point and quantity: `src/pier/replenishment-demand.ts`, `src/ui/replenishment.tsx` |
+| 9 | "… and sends the purchase order" (PO-1048 · 500 × $4.20 · sent Oct 7 · confirmed Oct 8, ships Oct 21) | backed | An inventory agent sends one exact committed PO under buyer authority, with reminders and recorded supplier confirmations: `src/pier/purchase-send.ts`, `src/pier/purchasing-workflow.ts`; `tests/api/purchase-send.test.mjs`. RER Managed email is not available yet. |
+| 10 | "The supplier's ship notice drops to 480" (EDI 856 · Ship notice card from the supplier) | contract, not yet in code | Pier sends retail 856s (`src/pier/edi/outbound.ts`); taking a supplier's inbound ship notice against a PO is BUY-002/EDI-001 work. A changed supplier confirmation can be recorded on the PO today. |
+| 11 | "20 follow on PO-1048-B · due Nov 12" | partly | A partial receipt keeps the remainder expected on the PO with its date (`receipt.create`, `src/pier/purchasing.ts`); splitting the remainder onto a numbered follow-on PO is not automatic. |
+| 12 | "The agent checks each open order against stock, and no promise moves" (Fernwood Market SO-2318 · 40 ship Nov 5 from stock · promise kept; open orders checked · none late; no customer date moved) | partly | Supply changes recompute backorder promises and flag changed dates for review: `src/pier/backorders.ts`, `src/pier/purchasing-workflow.ts`. The agent-run check across all open orders is AGENT-003 work. |
 
-## Interlude (page 4)
-
-| # | Claim | Status | Code path / note |
-|---|---|---|---|
-| 29 | "All 214 orders out by 4 pm" | backed | Floor → Dispatch day shows the day's orders, shipments and units shipped by carrier and dock against each cut-off, with exceptions, headed "All N orders out by time" when every due order left on time; closing the day keeps it and emails the owner through the installation's mail: `src/pier/floor/summary.ts`, `src/pier/floor/mail.ts`, `src/ui/floor/dispatch.tsx`. On RER Managed the email is not available yet (no egress relay); the day's count is a story figure |
-
-## Replenishment and accounting (page 5)
+## 03 Nov 3 · Receiving, "Checked in at the door."
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 30 | "Reorder points learn from what actually sells" | backed | 30/90/365-day native shipment sell-through proposes points and quantities from lead demand plus editable safety stock. A buyer applies exact current parameters. `src/pier/replenishment-demand.ts`, `src/ui/replenishment.tsx`. |
-| 31 | "Pier drafts the purchase order" | backed | `draftReplenishment()` groups low-position lines by supplier and warehouse, nets existing drafts and retains expected freight/duty. Human exact-version approval and commitment remain required. `src/pier/replenishment.ts`. |
-| 32 | "with landed cost" (card: "$4.82 per unit · freight and duty included") | backed | `src/pier/landed-cost.ts`; `receipt.create` allocates freight and duty by received value or quantity, retains exact landed line totals and unit cost; `tests/api/costing.test.mjs`. |
-| 33 | "backorders get a real date" | backed | Quantity-limited inbound supply is allocated in promise/order priority. Lines show confirmed dates or labeled lead-time estimates and source POs. `src/pier/backorders.ts`. |
-| 34 | "Send PO-1052" (to the supplier) | backed | Buyer approves the exact committed PO, recipient and bounded reminders. The configured install mail submits it with durable provider outcomes. `src/pier/purchasing-workflow.ts`, `src/pier/correspondence-delivery.ts`. RER Managed email is not available yet. |
-| 35 | "Two-way sync with QuickBooks Online and Xero: items, invoices, bills, cost of goods and inventory value" | partly | Shared Pantry/QBO/Xero adapter interface. Real Pantry three-way supplier invoice matching, payable posting, final-receipt evidence and payment closure core flow; QBO/Xero documented synthetic protocol fixtures only, pending owner apps. Items and valuation snapshots are Pantry evidence, not its native catalogue. See [Books](books.md). |
-| 36 | "Anything off waits in one short queue" (review queue, bill 7731) | backed | Books has one review queue for provider refusals, missing source values, inventory differences and uncertain responses, with immediate missing-credential restore status, dated inventory comparison, source links and guarded retry/skip actions; Check Pantry re-sends a request Pantry has no record of under its original idempotency keys: `src/ui/books/`, `src/pier/books/sync.ts`. |
+| 13 | "Each carton is scanned against the PO as it comes off the truck" (Receiving · PO-1048 · Carton 24 of 24 scanned; Dock 2) | backed | Scan-to-receive against a committed PO with unit and case barcodes: `receiving.start/scan/post`, `src/pier/floor/receiving.ts`, `src/ui/floor/receive.tsx`; `tests/api/floor.test.mjs` |
+| 14 | "480 of 500 received · 20 short" | backed | Partial receipts post into bins and keep short lines on the receipt: `receipt.create`, `src/pier/purchasing.ts` |
 
-## Inventory agent and move in (page 6)
+## 04 Nov 3–4 · Put away and count, "Right bin, right count."
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 37 | "The agent forecasts from real sell-through" | backed | Agents read native-shipment forecasts through the state API: observed windows, days of cover, projected stockout and learned parameters. `src/pier/replenishment-demand.ts`. Imported/channel history, seasonality, cash optimization and backtesting remain outside this round. |
-| 38 | "sends the PO" | backed | An authenticated or scheduled inventory agent sends one exact committed PO under buyer authority: approved recipient, landed spend limit, expiry, reminders and stop control. Changed demand, terms, policy or destination stops it; live authority and durable provider outcomes prevent unapproved or duplicate sends. `src/pier/purchase-send.ts`, `tests/api/purchase-send.test.mjs`. Broader BUY-002/AGENT-002 targets and Managed email remain partial. |
-| 39 | "chases the supplier" | backed | Buyer authorizes 0–5 confirmation chases at 1–30-day intervals; cron sends only while the initial PO was accepted, supply is open and no confirmation, policy revocation or material change intervened. Supplier replies/confirmed dates are recorded on the PO. `src/pier/scheduled.ts`, `src/pier/purchasing-workflow.ts`. |
-| 40 | "re-promises affected orders" (and "customers emailed") | backed | A human approves a computed customer promise or an order-specific exact-recipient date-update policy. Confirmation/date changes recompute promises and submit customer emails; history and provider outcomes remain visible. `src/pier/backorders.ts`, `src/pier/purchasing-workflow.ts`. RER Managed email is not available yet. |
-| 41 | "checks the receipt closes in the books" | backed | `src/pier/books/receipt-closure.ts`, `src/ui/books/receipt-closure.tsx` and `tests/api/books.test.mjs`: every receipt exposes unbilled units, its invoice review, missing goods, confirmed Pantry readiness and payment handoff. It closes only when its approved invoice allocations cover the goods, receipt journals post and Pantry confirms zero open payable balances. Payment reversals reopen it; revoked/missing credentials ask for reconnection. Real hosted Pier/Pantry receipt → invoice → final receipt → USD 115.68 payment completed at 1440px and 390px, including reversal/reopening. Broader QBO/Xero and agent planning targets remain partial. |
-| 42 | Agent log as a whole (an agent working the item's record) | backed | Stock → item → Work this item checks open demand/POs, posted receipt cost and native sell-through; exact human apply/reject/undo with logged source versions. Standalone AI setup stores the install's encrypted OpenAI key; deterministic checks need no key. `src/pier/item-agent/`, `src/ui/item-agent/`, `tests/api/item-agent.test.mjs`; [Item checks](item-agent.md). Live paid OpenAI account acceptance remains separate. |
-| 43 | "Move from Cin7, inFlow or Fishbowl" ("Importing from Cin7 Core") | backed | Explicit Cin7 Core, inFlow and Fishbowl export mappings, untouched originals, named unmapped columns/rows, independent per-bin unit/USD controls, frozen atomic apply, duplicate-free replay and one-step dependency-guarded undo. `src/pier/import-incumbent.ts`, `src/ui/import-movein.tsx`, `tests/api/movein.test.mjs`; documented synthetic vendor layouts in [Move in](move-in.md). Owner exports, historic/tracked stock and source FIFO layer dates remain unaccepted. |
-| 44 | "with your items, bins, stock on hand, customers, suppliers and open orders" | backed | The native kinds `items`, `locations`, `parties`, `positions`, `orders`, `purchaseOrders`, plus `reservations` (`IMPORT.md`, `src/pier/imports.ts`) |
-| 45 | "Stock on hand … matched" (reconciliation at import) | backed | The reconciled and shadow review stages check totals before the frozen cutover: `import.review` `src/pier/imports.ts:317` |
-| 46 | "Channels reconnect to the same listings" (and "Amazon · 2 listings awaiting SKU match") | backed | Existing listing/variant IDs are retained, exact SKUs auto-match, and unknown listings wait for owner `channel.match` without publishing. A real WooCommerce legacy listing was matched in the UI without creating or relisting it; reconnect reads keep the mapping. |
+| 15 | "Scan the bin, scan the carton" (put away: A-14 212 → 452, A-15 overflow 0 → 240; 480 put away) on a rugged handheld | backed | A bin label moves put-away; a receipt names each line's bin; a handheld's built-in scanner types into the scan box: `src/pier/floor/receiving.ts`, `src/ui/floor/scanner.tsx`, `src/ui/purchasing.tsx` |
+| 16 | "A count that disagrees gets a recount" (Cycle count CC-0412 · expected 452 · counted 432; Recount · 452 · adjustment none) | backed | Counts capture the bin's movement frontier, show the difference and ask for a recount: `count.capture/count.record/count.recount`, `src/pier/warehouse.ts` |
+| 17 | "… before anything moves" ("Nothing moves from A-14 until a second count") | partly | No adjustment posts until a count is recorded and reviewed (`src/pier/warehouse.ts`); holding the bin against picks during the recount is COUNT-001/WMS-001 work. |
 
-## Ownership (page 7)
+## 05 Nov 4 · Orders, "Every channel, one count."
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 47 | "Run Pier on your own computer or server" | backed | Local `rer dev` and own-account `rer deploy` (`deploy.json`, [Put Pier online](hosting.md)). On 18 October, a disposable Cloudflare install retained its owner and stock across redeployment; real owner sign-in mail arrived, and the owner entered and partially received USD 57.84 POs at 1440px and 390px. Channel artwork uses build-time asset imports (`src/ui/channels/brand.tsx`), so hosted app rendering completes without React 419. Full OPS-001 diagnostics, scale and fresh-machine targets remain partial. |
-| 48 | "keep every item, order and supplier. Export everything, any time" (and "Your stock, your data", "Export any time") | backed | `GET /api/pier/export` and `/api/pier/native-export` (`src/pier/api.ts:189-200`), the full archive `rer export` (`docs/backup-and-restore.md`, `tests/portable.mjs`) |
-| 49 | The Ownership terminal's one-line start `npx -y @runeditrun/rer dev just-every/run-pier` (live 17 Oct, main 1c0f1c6) | backed | rer 0.2.38's `dev <repo>` clones, installs, sets up a local owner and starts; the output lines are rer's own |
+| 18 | "Orders from your stores, marketplaces and EDI land in one queue" (Shopify, Amazon, Target EDI 850, Stall, Wholesale SO-2318) | partly | Stall and WooCommerce live, Shopify and Amazon on recorded API fixtures (`src/pier/channels/adapters/`, `tests/api/channels.test.mjs`); EDI 850 intake makes sales orders (`src/pier/edi/intake.ts`); native wholesale sales orders (`src/pier/orders.ts`). |
+| 19 | Faire 7KQ2M9 · 24 among the orders, and Faire among the channels stock goes out to | contract, not yet in code | CHANNEL-001 names Faire; no Faire adapter exists yet. |
+| 20 | One count: 571 available, 692 on hand, 121 reserved for these 6 orders | backed | Hard reservations against on-hand stock give one available count: `src/pier/model.ts`; `tests/api/stock.test.mjs` |
+| 21 | "855 acknowledged to Target · 9:41 am" (and the hero's and ship day's "EDI 856 sent · Target DC 0593") | partly | Reviewed 855 and 856 from closed packs: `src/pier/edi/`, `tests/api/edi.test.mjs`. Sends proven at the synthetic bridge edge; no Target certification or live transport. |
+| 22 | "Stock goes back out to every channel" (571 to Shopify, Amazon, Faire, Stall) | partly | Publication after each committed change with one-minute reconciliation: `src/pier/channels/sync.ts`. Live read-backs for Stall and WooCommerce; Shopify and Amazon on fixtures; Faire is row 19. |
 
-## The quiet details (page 8)
+## 06 Nov 5 · Ship day, "All out by 4 pm."
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 50 | "FIFO or average cost. Valuation your accountant will recognize." | backed | `costing.method`, `src/pier/valuation-ledger.ts`, `/api/pier/reports`: FIFO or moving average per install, dated prospective owner changes, remaining layers and receipt/shipment reconciliation. Operational USD valuation; ledger posting, FX and period locks remain COST-001 work. |
-| 51 | "Transfers. Move stock between warehouses with a full trail." | backed | `transfer.send/transfer.receive` through a visible transit location: `src/pier/warehouse.ts:51,95` |
-| 52 | "Returns. Back on the shelf or written off in one scan." | backed | Floor → Returns resolves order/shipment labels or item/case scans; records reason and condition; authorized sellable restock, damaged quarantine or mapped write-off; exact returned value, native Pantry credit and COGS/write-off journals. Receivers without inspection authority leave quarantine. `src/pier/returns.ts`, `src/ui/floor/returns.tsx`, `tests/api/returns.test.mjs`; [Returns](returns.md). Physical camera/scanner acceptance and direct QBO/Xero credits remain separate. |
-| 53 | "Dead stock. Slow movers flagged before they cost you." | backed | Reports → Slow-mover warnings: scheduled native SKU/bin checks before the saved dead-stock threshold, owner-approved recipient/content and UTC quiet hours, value/last movement/days left, one warning and email per episode, actual sale/transfer closure or documented buyer decision. Buyers can flag an assortment concern early. New stock ages before becoming dead stock. `src/pier/slow-stock.ts`, `src/pier/stock-inactivity.ts`, `src/ui/slow-stock.tsx`, `tests/api/slow-stock.test.mjs`. Imported history and kits remain broader contract gaps. |
-| 54 | "Margin by SKU. Profit by item, channel and customer." | backed | Saved USD order prices/customer quantity tiers and shipment-consumed costs produce date-range margin by SKU, channel and customer (`src/pier/pricing.ts`, `orders.ts`, `reports.ts`). Operational shipment margin; invoice credits/ledger reconciliation remain REPORT-002 work. |
-| 55 | "Activity log. Every scan, edit and sync, recorded." | backed | Every movement with its document, person, reason and command identity: `src/ui/activity.tsx:16-17`, `src/pier/storage.ts:67-80` (there are no scans or syncs to record yet; every edit that exists is recorded) |
+| 23 | "Pick by wave" (6:40 am · Wave 14 picked · 38 orders) | backed | Pick waves with a scan per line, "Picked N orders · time": `wave.release`, `pick.scan`, `src/pier/floor/waves.ts`, `src/ui/floor/pick.tsx` |
+| 24 | "pack" (9:15 am · Packed · 61 cartons) | backed | Cartons packed, weighed and measured: `pack.scan/carton/measure/close`, `src/pier/floor/packing.ts` |
+| 25 | "send the ship notice" (11:20 am · EDI 856 sent) | partly | As row 21. |
+| 26 | "rate-shop" (Rate shop · SO-2291 · UPS $38.12, FedEx $36.40 chosen, USPS $44.90) | partly | EasyPost rates from measured cartons with cheapest and fastest markers: `src/pier/shipping/`, `tests/api/shipping.test.mjs`. Synthetic recordings until an owner EasyPost account; ShipStation is SHIP-001 work. |
+| 27 | 1:05 pm · Address corrected · 1420 E Main St | partly | SHIP-001 names address verification (the critic's gap predates that clause text). Code shows the standardized address beside the original for accept or keep: `src/pier/shipping/commands.ts`, on synthetic provider recordings. |
+| 28 | "print the label" (2:10 pm · UPS label failed · weight missing; 2:14 pm · re-weighed · label printed) | partly | A refused or uncertain label request is kept and reconciled before a second purchase; cartons are re-measured on the pack: `src/pier/shipping/`, `src/pier/floor/packing.ts`. Live postage and physical printers remain pending. |
+| 29 | "Tracking goes to each customer" | partly | Stored tracking and install-mail tracking messages: `src/pier/shipping/`, `tests/api/shipping.test.mjs`. RER Managed email is not available yet. |
+| 30 | 3:55 pm · 214 orders out (and the closing's "214 orders out") | backed | Floor → Dispatch day: the day's orders by state against each cut-off, "All N orders out by time" when every due order left: `src/pier/floor/summary.ts`, `src/ui/floor/dispatch.tsx`; `tests/api/dispatch.test.mjs`. The count is a story figure. |
 
-## Closing (page 9)
+## 07 Nov 6 · The books, "Billed for 500. Paid for 480."
 
-"Open source inventory and order management for wholesalers and distributors" and "Free and open source, MIT licensed" restate claims 1, 2 and 5. The tags "Bin A-14 · 212 units" and "Shipped" restate claims 10 and 29.
+| # | Claim | Status | Code path / note |
+|---|---|---|---|
+| 31 | "Pier matches each bill to its PO and receipt, holds the difference" (Three-way match · Bill 7731: PO-1048 500 × $4.20, received 480, bill 500 · $2,100.00; 20 units not received · $84.00 held) | backed | Supplier invoices match PO and receipt quantities and prices with tolerances and hold or approve: `src/pier/books/supplier-bills.ts`; `tests/api/books.test.mjs` |
+| 32 | "Agent requested a credit · Nov 6" | contract, not yet in code | Supplier credits for short goods are BUY-003; an agent asking for one is AGENT-003. Nothing sends the request yet. |
+| 33 | "Credit memo CM-311 · $84.00" and "Paid $2,016.00 for 480" | partly | Payments close the matched payable (`src/pier/books/receipt-closure.ts`, `tests/api/books.test.mjs`); recording a supplier credit memo against the bill is BUY-003 work. |
+| 34 | "posts landed cost" ("Landed cost $4.38 a unit · freight $86.00 included") | backed | Freight and duty allocated over a receipt to exact landed unit cost, posted as a whole-cent journal: `src/pier/landed-cost.ts`; `tests/api/costing.test.mjs`, `tests/api/books-landed.test.mjs` |
+| 35 | "… to QuickBooks Online or Xero" ("Posted to QuickBooks Online") | partly | Posts reach Pantry today; QuickBooks Online and Xero adapters run on protocol fixtures only, awaiting owner apps (`src/pier/books/adapters/`). |
+
+## 08 Oct 6 – Nov 16 · Stock card, "Six weeks, one card."
+
+| # | Claim | Status | Code path / note |
+|---|---|---|---|
+| 36 | "Each scan, sale, count and bill writes a line" (the stock card's movements with references) | backed | Append-only movements with their document, person and reason: `src/pier/model.ts`, `src/pier/storage.ts`, `src/ui/activity.tsx` |
+| 37 | "Value moves with it" (FIFO · USD values per line, landed cost applied Nov 9) | backed | FIFO or moving average per install with remaining layers: `src/pier/valuation-ledger.ts`, `/api/pier/reports`; `tests/api/costing.test.mjs` |
+| 38 | Reorder row: "Reorder suggested · 571 available = 36 days; 40 needed (28 lead + 12 safety) · PO-1061 +600 on order" | backed | Suggestions with days of cover, lead time and safety stock, and the PO they draft: `src/pier/replenishment.ts`, `src/pier/replenishment-demand.ts` |
+
+## 09 Move in, "Bring your warehouse with you."
+
+| # | Claim | Status | Code path / note |
+|---|---|---|---|
+| 39 | "Items, bins, stock on hand, customers, suppliers and open orders come across from Cin7, inFlow or Fishbowl" ("Importing from Cin7 Core": items 4,812, bins 1,206, stock on hand 318,440 units · matched, open sales orders 187, open purchase orders 37) | backed | Cin7 Core, inFlow and Fishbowl export mappings with reconciled review and frozen apply: `src/pier/import-incumbent.ts`, `src/pier/imports.ts`, `src/ui/import-movein.tsx`; `tests/api/movein.test.mjs` |
+| 40 | "Channels reconnect to the same listings" ("Amazon · 2 listings awaiting SKU match") | backed | Listing IDs carried over, exact SKUs auto-match, unknown listings wait for `channel.match` without publishing: `src/pier/channels/` |
+| 41 | The one-line start `npx -y @runeditrun/rer dev just-every/run-pier` and its output ("Restart: cd run-pier && rer dev", "rer dev: installing dependencies", "RER_READY http://127.0.0.1:8787") | backed | rer 0.2.63's `dev <repo>` clones, installs and starts; the three lines are rer's own (`global/cli/repo-command.mjs`, `global/launch/prepare.mjs`, `global/launch/render.mjs`). |
+| 42 | "Runs on your own computer or server" | backed | Local `rer dev` and own-account `rer deploy` (`deploy.json`, [Put Pier online](hosting.md)). |
+| 43 | "Where Pier stops. Manufacturing work orders, point of sale and 3PL client billing." | backed | CONTRACT.md, "Product separation and US operating boundary": Larder owns manufacturing and production orders; Stall owns the storefront and checkout, with Square or Stripe for payments; Pier integrates third-party warehouses rather than operating one. A boundary, not a capability. |
+
+## 10 Closing, "Every shelf, counted."
+
+| # | Claim | Status | Code path / note |
+|---|---|---|---|
+| 44 | "Open source inventory and order management for wholesalers and distributors" | backed | Restates rows 1, 2 and 5. |
+| 45 | Tag "PO-1061 sent · 600 Blue Mug 12oz" | backed | As rows 9 and 38: the suggestion of Nov 4, sent. |
+| 46 | "Free and open source, MIT licensed" | backed | `LICENSE`, `package.json` `license`. |
 
 ## Links
 
-- "Run Pier →" opens /run (Base's two-line Run page, rer 0.2.38).
-- "Try the demo" opens the hosted demo, https://demo.run-pier.com/ (DEMO.md; answered 200 on 17 Oct 2026).
-- "Read the docs" opens /docs.
+- "Run Pier →" opens /run (Base's Run page).
+- "Try the demo" opens the hosted demo, https://demo.run-pier.com/ (DEMO.md).
+- "Read the docs" opens /docs; "Read the contract →" opens /contract; "Runs on your own computer or server." opens /run.
 
-The 17 October replenishment round backs rows 3, 11, 30, 31, 33, 34 and 37–40 for native shipments and self-hosted install mail. The core Worker/D1 test is `tests/api/replenishment.test.mjs`; Purchasing and Sales expose the same calculations and approval paths at desktop and phone widths. “Backed” here describes the narrow homepage behavior; full connected planning, optimization, routing and financial closure targets remain partial in CONTRACT.md.
-
-Updated 18 October 2026 for receipt accounting follow-through (row 41) and owned hosting (row 47). These two remaining account-free claims have hosted product evidence. Carrier, Shopify/Amazon, QBO/Xero, EDI and physical-printer acceptance remain the boundaries on the twelve partial claims.
-
-The 19 October STOCK-001 round proves the full warehouse/bin stock clause with named `tests/api/stock.test.mjs` and `tests/browser/stock.spec.ts` journeys: exported-source reconciliation, destination expected supply and warehouse/company totals, protected holds, transit, filters and empty items at 1440px and 390px. Claims 10 and 17 retain their backed status; no homepage copy changed.
-
-The 19 October OPEN-001 round proves MIT licensing and absence of author licensing gates across the current product with three warehouses and 25 active staff. Store, Pantry, EasyPost and EDI setup now name provider billing before activation; OpenAI already required usage-cost consent. `tests/api/open.test.mjs` and `tests/browser/open.spec.ts` exercise these boundaries at 1440px and 390px. Other product/provider gaps retain their own statuses.
-
-The 19 October WMS-003 round completes the warehouse/day dispatch board behind claim 29: live per-state counts and order links, conservative pre-cutoff risk, reviewed service ship-by dates, retained exportable closes and the overdue-report feed. `tests/api/dispatch.test.mjs` independently reconciles 18 shipments from 20 due orders; `tests/browser/dispatch.spec.ts` exercises the UI and downloaded close at 1440px and 390px. Claim 29 stays backed. Carrier and physical shipment acceptance remain separate.
-
-The 19 October CAT-001 slice adds variant/catalogue metadata, customer/supplier references, multiple exact pack barcodes and reviewed bulk catalogue CSV changes. Named `tests/api/catalogue.test.mjs` and `tests/browser/catalogue.spec.ts` journeys cover the native flow. CAT-001 stays partial for custom fields and commercial/printed documents; this changes no homepage copy or claim status. See [Catalogue](catalogue.md).
+Earlier versions of this table, for the homepage built on the shared twelve-section skeleton (rows 1–55), are in the repository's history.

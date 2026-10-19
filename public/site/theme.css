@@ -69,6 +69,6 @@ body:has(> main > .intro) .num { background: var(--ink); color: #fff; font-weigh
 body:has(> main > .intro) .step h2 { font-family: var(--font-body); font-weight: 700; letter-spacing: -.02em; }
 body:has(> main > .intro) .code { background: var(--terminal); }
 body:has(> main) .brand span { font-family: var(--font-head); font-weight: 400; letter-spacing: 0; }
-body:has(> main > .intro), body:has(> main > .hero) {
+body:has(> main > .intro), body:has(> main > div.hero) {
   background: radial-gradient(50% 45% at 92% 4%, rgba(241, 85, 42, .07), transparent 70%), radial-gradient(46% 40% at 2% 30%, rgba(28, 80, 220, .06), transparent 70%), var(--paper);
 }

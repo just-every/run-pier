@@ -511,65 +511,56 @@ People ask operational questions against permission-scoped live records: why sto
 
 ## Homepage claims
 
-Every capability claim on the approved homepage (`src/site/landing/`, checked against br’s claims truth table of 17 October 2026, rows 1–55 in page order) maps to the clauses that promise it. A claim’s status is `done` when every mapped clause is done, `missing` when every one is missing, and `partial` otherwise. The closing section restates claims 1, 2, 5, 10 and 29, and its “Run Pier”, “Try the demo” and “Read the docs” actions are links, not capability claims. 55 claims: 8 done, 44 partial, 3 missing.
+Every capability claim on the approved homepage (`src/site/landing/`, the page-s1 structure the owner approved on 17 October 2026; rows 1–46 in page order, as in docs/CLAIMS.md) maps to the clauses that promise it. A claim's status is `done` when every mapped clause is done, `missing` when every one is missing, and `partial` otherwise. Row 43 is a scope boundary, mapped to the clause that keeps Pier's product honest about it; the "Run Pier", "Try the demo", "Read the docs" and "Read the contract" actions are links, not capability claims. 46 claims: 6 done, 40 partial, 0 missing.
 
 | # | Claim | Clause(s) | Status |
 | --- | --- | --- | --- |
-| 1 | "Pier tracks stock across your warehouses" | STOCK-001, PIER-001, PIER-008 | partial |
+| 1 | "Pier tracks stock across your warehouses" | STOCK-001, PIER-001, PIER-008 | done |
 | 2 | "runs orders from channel to carrier" | CHANNEL-001, PIER-004, PIER-009, WMS-001, SHIP-001 | partial |
 | 3 | "reorders before you run out" | BUY-005, BUY-001, AUTO-001 | partial |
 | 4 | "and keeps the books in step" | ACCOUNT-001, ACCOUNT-002 | partial |
 | 5 | "100% free, open source alternative to Cin7, inFlow and Fishbowl" | OPEN-001, MIGRATE-001 | partial |
-| 6 | Tag "PO-1048 · 480 of 500 received · 20 short" | PIER-006 | done |
-| 7 | Tag "EDI 856 sent · Target DC 0593" | EDI-001 | partial |
-| 8 | Tag "Count mismatch · A-14 · recounted" | PIER-011 | done |
-| 9 | Tag "Picked 38 orders · 6:40 am" | WMS-001, PIER-009 | partial |
-| 10 | Tag "Bin A-14 · 212 units" | STOCK-001 | done |
-| 11 | Tag "Reorder suggested · Blue Mug 12oz · 600" | BUY-005, AUTO-001 | partial |
-| 12 | "Receive … from any phone or scanner" | WMS-001, SCAN-001, SCAN-002, PIER-006 | partial |
-| 13 | "put away" | PIER-006, WMS-001, WMS-002 | partial |
-| 14 | "pick" | WMS-001, PIER-009 | partial |
-| 15 | "pack" | WMS-001 | partial |
-| 16 | "and count" | PIER-011, WMS-001, COUNT-001 | partial |
-| 17 | "Every bin knows exactly what it holds" | STOCK-001, PIER-012 | done |
-| 18 | Pick list "Wave 14 · Dock A", scan check per line, "B-03 empty · picked from overflow B-09" | WMS-001, SCAN-002 | partial |
-| 19 | "Shopify, WooCommerce, Amazon and Stall orders land in Pier" | CHANNEL-001 | done |
-| 20 | "stock flows back to each one within a minute" | CHANNEL-001 | done |
-| 21 | Card: one available count per channel, "100 held for FBA transfer" | CHANNEL-001, SALES-007 | done |
-| 22 | Toast "Order #4471 … reserved 9:12 am" | CHANNEL-001, PIER-004 | done |
-| 23 | "Take EDI purchase orders from Target, Walmart and Home Depot" | EDI-001 | partial |
-| 24 | "send the acknowledgment, ship notice and invoice on time" (855/856/810 card) | EDI-001, SALES-006 | partial |
-| 25 | "Carton 7 label reprinted · GS1-128" | SCAN-001, EDI-001 | partial |
-| 26 | "Pier compares UPS, FedEx and USPS through ShipStation or EasyPost" | SHIP-001 | partial |
-| 27 | "prints the label and sends tracking to your customer" | SHIP-001 | partial |
-| 28 | "Address corrected" | SHIP-001 | partial |
-| 29 | "All 214 orders out by 4 pm" | WMS-003, PIER-009 | done |
-| 30 | "Reorder points learn from what actually sells" | BUY-001 | partial |
-| 31 | "Pier drafts the purchase order" | BUY-005, AUTO-002, PIER-005 | partial |
-| 32 | "with landed cost" (card: "$4.82 per unit · freight and duty included") | COST-001 | partial |
-| 33 | "backorders get a real date" | SALES-003 | partial |
-| 34 | "Send PO-1052" (to the supplier) | BUY-002 | partial |
-| 35 | "Two-way sync with QuickBooks Online and Xero: items, invoices, bills, cost of goods and inventory value" | ACCOUNT-001, ACCOUNT-002 | partial |
-| 36 | "Anything off waits in one short queue" (review queue, bill 7731) | ACCOUNT-001, ACCOUNT-002, BUY-004 | partial |
-| 37 | "The agent forecasts from real sell-through" | AGENT-002 | partial |
-| 38 | "sends the PO" | AGENT-002, BUY-002 | partial |
-| 39 | "chases the supplier" | AGENT-003 | partial |
-| 40 | "re-promises affected orders" (and "customers emailed") | AGENT-003, SALES-003 | partial |
-| 41 | "checks the receipt closes in the books" | AGENT-002, AGENT-003, ACCOUNT-001 | partial |
-| 42 | Agent log as a whole (an agent working the item's record) | AGENT-001, AUDIT-001 | partial |
-| 43 | "Move from Cin7, inFlow or Fishbowl" ("Importing from Cin7 Core") | MIGRATE-001, MIGRATE-002 | partial |
-| 44 | "with your items, bins, stock on hand, customers, suppliers and open orders" | PIER-003, MIGRATE-001 | partial |
-| 45 | "Stock on hand … matched" (reconciliation at import) | PIER-003, MIGRATE-001, AGENT-005 | partial |
-| 46 | "Channels reconnect to the same listings" (and "Amazon · 2 listings awaiting SKU match") | CHANNEL-001, MIGRATE-001 | done |
-| 47 | "Run Pier on your own computer or server" | OPS-001 | partial |
-| 48 | "keep every item, order and supplier. Export everything, any time" (and "Your stock, your data", "Export any time") | PIER-012, DATA-001 | partial |
-| 49 | The Ownership terminal's one-line start `npx -y @runeditrun/rer dev just-every/run-pier` (live 17 Oct, main 1c0f1c6) | OPS-001 | partial |
-| 50 | "FIFO or average cost. Valuation your accountant will recognize." | COST-001, REPORT-002 | partial |
-| 51 | "Transfers. Move stock between warehouses with a full trail." | PIER-008, PIER-012 | done |
-| 52 | "Returns. Back on the shelf or written off in one scan." | PIER-010, WMS-001, COST-001 | partial |
-| 53 | "Dead stock. Slow movers flagged before they cost you." | REPORT-002, AUTO-001 | partial |
-| 54 | "Margin by SKU. Profit by item, channel and customer." | REPORT-002 | partial |
-| 55 | "Activity log. Every scan, edit and sync, recorded." | AUDIT-001, PIER-012 | partial |
+| 6 | The six hero tags, each a stage below | PIER-006, EDI-001, PIER-011, WMS-001, STOCK-001, BUY-005 | partial |
+| 7 | "The inventory agent reads sell-through across your channels, sees the gap" | AGENT-002, BUY-001 | partial |
+| 8 | "Order 500 by Oct 7 · 12 days safety" | BUY-001, BUY-005 | partial |
+| 9 | "… and sends the purchase order" (PO-1048 sent, confirmed) | AGENT-002, BUY-002 | partial |
+| 10 | "The supplier's ship notice drops to 480" (inbound EDI 856) | BUY-002, EDI-001 | partial |
+| 11 | "20 follow on PO-1048-B · due Nov 12" | PIER-006, BUY-002 | partial |
+| 12 | "The agent checks each open order against stock, and no promise moves" | AGENT-003, SALES-003 | partial |
+| 13 | "Each carton is scanned against the PO as it comes off the truck" | WMS-001, SCAN-002, PIER-006 | partial |
+| 14 | "480 of 500 received · 20 short" | PIER-006 | done |
+| 15 | "Scan the bin, scan the carton" (put away on a handheld) | WMS-001, SCAN-001, PIER-006 | partial |
+| 16 | "A count that disagrees gets a recount" | PIER-011, WMS-001 | partial |
+| 17 | "… before anything moves" | PIER-011, COUNT-001 | partial |
+| 18 | "Orders from your stores, marketplaces and EDI land in one queue" | CHANNEL-001, EDI-001, SALES-001 | partial |
+| 19 | Faire among the orders and channels | CHANNEL-001 | partial |
+| 20 | One count: 571 available, 692 on hand, 121 reserved | STOCK-001, PIER-004 | done |
+| 21 | "855 acknowledged to Target" and "EDI 856 sent · Target DC 0593" | EDI-001 | partial |
+| 22 | "Stock goes back out to every channel" | CHANNEL-001 | partial |
+| 23 | "Pick by wave" (Wave 14 picked · 38 orders) | WMS-001, PIER-009 | partial |
+| 24 | "pack" (Packed · 61 cartons) | WMS-001 | partial |
+| 25 | "send the ship notice" | EDI-001 | partial |
+| 26 | "rate-shop" (Rate shop · SO-2291) | SHIP-001 | partial |
+| 27 | "Address corrected · 1420 E Main St" | SHIP-001 | partial |
+| 28 | "print the label" (label failed, re-weighed, printed) | SHIP-001, WMS-001 | partial |
+| 29 | "Tracking goes to each customer" | SHIP-001 | partial |
+| 30 | "214 orders out" by 4 pm | WMS-003, PIER-009 | done |
+| 31 | "Pier matches each bill to its PO and receipt, holds the difference" | BUY-004 | partial |
+| 32 | "Agent requested a credit" | BUY-003, AGENT-003 | partial |
+| 33 | "Credit memo CM-311" and "Paid $2,016.00 for 480" | BUY-003, BUY-004 | partial |
+| 34 | "posts landed cost" (Landed cost $4.38 a unit) | COST-001 | partial |
+| 35 | "… to QuickBooks Online or Xero" | ACCOUNT-001, ACCOUNT-002 | partial |
+| 36 | "Each scan, sale, count and bill writes a line" | PIER-012, AUDIT-001 | partial |
+| 37 | "Value moves with it" (FIFO · USD) | COST-001, REPORT-002 | partial |
+| 38 | Reorder row: "571 available = 36 days; 40 needed (28 lead + 12 safety)" | BUY-001, BUY-005 | partial |
+| 39 | "Items, bins, stock on hand, customers, suppliers and open orders come across from Cin7, inFlow or Fishbowl" | MIGRATE-001, PIER-003 | partial |
+| 40 | "Channels reconnect to the same listings" | CHANNEL-001, MIGRATE-001 | partial |
+| 41 | The one-line start `npx -y @runeditrun/rer dev just-every/run-pier` and its output | OPS-001 | partial |
+| 42 | "Runs on your own computer or server" | OPS-001 | partial |
+| 43 | "Where Pier stops. Manufacturing work orders, point of sale and 3PL client billing." | OPEN-001 | done |
+| 44 | "Open source inventory and order management for wholesalers and distributors" | STOCK-001, CHANNEL-001, OPEN-001 | partial |
+| 45 | Tag "PO-1061 sent · 600 Blue Mug 12oz" | AGENT-002, BUY-002 | partial |
+| 46 | "Free and open source, MIT licensed" | OPEN-001 | done |
 
 ## Status
 

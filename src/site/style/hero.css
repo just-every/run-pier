@@ -1,0 +1,91 @@
+/* The painted harbour hero, as live main built it from the approved desk hero: the
+   header over its sky, the copy, and the six tags pinned to the scene. Sizes are set at
+   1440 wide (the desk's 1536 x 0.9375). */
+
+/* The header lies over the hero's sky. */
+.site-header.over-art { position: absolute; inset: 0 0 auto; }
+
+/* ---------- Hero ---------- */
+/* The scene is the painting's 1536 x 1024 canvas; --u is one canvas pixel, so the tags
+   and their pins stay on the ship, the crane and the pallets at every width. --t sizes a
+   tag's insides: one canvas pixel, enlarged on phones so every line reads. */
+.hero { position: relative; isolation: isolate; container-type: inline-size; max-width: 100%; min-height: 760px; aspect-ratio: 3 / 2; overflow: hidden; background: #f7f6f1; }
+.hero-scene { position: absolute; inset: 0; z-index: -1; --u: calc(100cqw / 1536); }
+.hero-art, .hero-art img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hero-art img { object-fit: cover; object-position: 100% 0; }
+.hero-copy { position: relative; padding-top: 106px; }
+.hero h1 { max-width: 640px; padding-bottom: .26em; margin-bottom: -.26em; font: 400 116px/.98 var(--font-head); letter-spacing: -.012em; color: var(--ink); text-wrap: balance; }
+.hero-sub { max-width: 560px; margin-top: 17px; font-size: 21.5px; line-height: 1.42; color: #262b38; letter-spacing: -.005em; }
+.hero-alt { margin-top: 24px; font-size: 17.25px; line-height: 1.4; color: #12161f; letter-spacing: -.005em; }
+.hero-alt strong { font-weight: 700; }
+.hero .site-actions { margin-top: 30px; gap: 16px 36px; }
+.hero .site-pill { min-width: 187px; }
+
+.hero-tags { position: absolute; inset: 0; }
+.hero-canvas { position: absolute; left: 0; top: 0; width: calc(1536 * var(--u)); height: calc(1024 * var(--u)); }
+.hero-pins { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.hero-pins path { stroke: #fff; stroke-width: 2.4; fill: none; }
+.hero-pins circle { fill: #fff; stroke: rgba(11, 16, 32, .12); stroke-width: 1; }
+.pins-phone { display: none; }
+.tag { --t: var(--u); position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(var(--w) * var(--t)); display: flex; gap: calc(10 * var(--t)); padding: calc(15 * var(--t)) calc(8 * var(--t)) calc(14 * var(--t)) calc(14 * var(--t)); border-radius: calc(9 * var(--t)); background: #fff; box-shadow: 0 2px 6px rgba(11, 16, 32, .12), 0 14px 30px -14px rgba(11, 16, 32, .4); color: var(--ink); }
+.tag .tag-icon { flex: none; width: calc(26 * var(--t)); height: calc(26 * var(--t)); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tag-icon.blue { stroke: var(--cobalt); } .tag-icon.green { stroke: var(--green); } .tag-icon.red { stroke: var(--red); } .tag-icon.navy { stroke: #1b3a8a; }
+.tag-title { font-size: calc(15.5 * var(--t)); font-weight: 650; line-height: 1.25; letter-spacing: -.015em; white-space: nowrap; }
+.tag-line { margin-top: calc(3 * var(--t)); font-size: max(11px, calc(14 * var(--t))); line-height: 1.3; color: #3c4252; }
+.tag-line .red { color: var(--red-ink); } .tag-line .green { color: var(--green-ink); } .tag-line strong { color: var(--ink); font-weight: 650; }
+.tag .barcode { width: calc(78 * var(--t)); height: calc(17 * var(--t)); margin-top: calc(8 * var(--t)); fill: var(--ink); }
+
+/* Narrow desktops (1101-1439): the painting scales with the screen, so the copy does too, keeping 1440's
+   composition: the headline clear of the PO-1048 tag and the lines on the sky, not the ship. */
+@media (min-width: 1101px) and (max-width: 1439px) {
+  .hero-copy { padding-top: calc(106vw / 14.4); }
+  .hero h1 { max-width: calc(640vw / 14.4); font-size: calc(116vw / 14.4); }
+  .hero-sub { max-width: calc(560vw / 14.4); margin-top: calc(17vw / 14.4); font-size: calc(21.5vw / 14.4); }
+  .hero-alt { margin-top: calc(24vw / 14.4); font-size: calc(17.25vw / 14.4); }
+  .hero .site-actions { margin-top: calc(30vw / 14.4); }
+}
+
+/* ---------- Tablets and phones: the copy above the painting ---------- */
+@media (max-width: 1100px) {
+  .hero { aspect-ratio: auto; min-height: 0; display: flex; flex-direction: column; background: linear-gradient(#f7f6f1, #f6f3ea); }
+  .hero-copy { order: 1; padding-top: 112px; padding-bottom: 40px; }
+  .hero-scene { position: relative; inset: auto; order: 2; z-index: 0; aspect-ratio: 3 / 2; container-type: inline-size; }
+  .hero-scene { --u: calc(100cqw / 1536); }
+  .hero-art img { object-position: 50% 50%; }
+}
+
+/* ---------- Tablets (761-1100) ---------- */
+@media (min-width: 761px) and (max-width: 1100px) {
+  /* The ship, crane and warehouse (canvas x 512-1536, y 140-990): every tag on its object at a size that reads. */
+  .hero-scene { aspect-ratio: 1024 / 850; overflow: hidden; --u: calc(100cqw / 1024); }
+  .hero-art, .hero-canvas { inset: auto; left: calc(-512 * var(--u)); top: calc(-140 * var(--u)); width: calc(1536 * var(--u)); height: calc(1024 * var(--u)); }
+  .tag { --t: max(var(--u), .8px); }
+}
+
+/* ---------- Phones (390 designed) ---------- */
+@media (max-width: 760px) {
+  .hero-copy { padding-top: 92px; padding-bottom: 28px; }
+  .hero h1 { font-size: clamp(62px, 18.5vw, 84px); line-height: .96; }
+  .hero-sub { margin-top: 16px; font-size: 18px; }
+  .hero-alt { margin-top: 16px; font-size: 16px; }
+  .hero .site-actions { margin-top: 22px; gap: 4px 28px; }
+  .hero .site-pill { width: 100%; }
+  /* The middle of the painting (canvas x 700-1340, y 74-1024) with all six tags at their phone places, enlarged to read. */
+  .hero-scene { aspect-ratio: 640 / 950; --u: calc(100cqw / 640); }
+  .hero-art img { object-position: 0 0; }
+  .hero-canvas { transform: translate(calc(-700 * var(--u)), calc(-74 * var(--u))); }
+  .tag { --t: calc(var(--u) * 1.32); left: calc(var(--px) * var(--u)); top: calc(var(--py) * var(--u)); }
+  .pins-wide { display: none; }
+  .pins-phone { display: inline; }
+  .hero-pins path { stroke-width: 3.6; }
+  .hero-pins circle { r: 9px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tag { animation: tag-in .7s cubic-bezier(.2, .7, .2, 1) both; }
+  .tag-po { animation-delay: .08s; } .tag-edi { animation-delay: .16s; } .tag-count { animation-delay: .24s; }
+  .tag-picked { animation-delay: .32s; } .tag-bin { animation-delay: .4s; } .tag-reorder { animation-delay: .48s; }
+  .hero-pins { animation: tag-fade 1s .3s both; }
+}
+@keyframes tag-in { from { opacity: 0; translate: 0 10px; } }
+@keyframes tag-fade { from { opacity: 0; } }

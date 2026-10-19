@@ -1,0 +1,72 @@
+/* 08: the stock card (desk page-08): a ledger table across the column, the reorder row tinted with its
+   reason. Columns are the desk's 150 | 474 | 250 | 149 | 140 | 160 of a 1324 table (the reorder row's
+   "+600 on order" sets the quantity column). */
+.stock-card { padding-bottom: calc(86 * var(--d)); }
+.ledger { margin-top: calc(54 * var(--d)); padding: calc(28 * var(--d)) calc(34 * var(--d)) calc(18 * var(--d)); }
+.ledger-head { display: flex; align-items: flex-end; justify-content: space-between; gap: calc(24 * var(--d)); padding-bottom: calc(14 * var(--d)); border-bottom: 1px solid #dcdbd5; }
+.ledger-head .card-display { font-size: calc(38 * var(--d)); }
+.ledger-basis { flex: none; padding-bottom: calc(6 * var(--d)); font-size: max(11px, calc(14 * var(--d))); font-weight: 500; letter-spacing: .2em; color: #6b7182; white-space: nowrap; }
+.ledger-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+.ledger-table th { height: calc(46 * var(--d)); padding: 0; font-size: max(11px, calc(12.5 * var(--d))); font-weight: 600; letter-spacing: .16em; text-align: left; text-transform: uppercase; color: #6b7182; }
+.ledger-table td { height: calc(50 * var(--d)); padding: 0; border-top: 1px solid var(--row); font-size: calc(18 * var(--d)); line-height: 1.3; }
+.ledger-table .c-date { width: calc(150 * var(--d)); white-space: nowrap; }
+.ledger-table .c-move { width: calc(474 * var(--d)); }
+.ledger-table .c-ref { width: calc(250 * var(--d)); color: #5b6172; }
+.ledger-table td.c-move, .ledger-table td.c-ref { padding-right: calc(14 * var(--d)); }
+.ledger-table .c-qty { width: calc(149 * var(--d)); text-align: right; white-space: nowrap; }
+.ledger-table .c-hand { width: calc(140 * var(--d)); text-align: right; font-weight: 650; }
+.ledger-table .c-value { width: calc(160 * var(--d)); text-align: right; }
+.c-move .dot { margin-right: calc(10 * var(--d)); vertical-align: calc(1 * var(--d)); }
+.ledger-table tr.reorder td { border-top-color: transparent; background: var(--cobalt-tint); color: var(--cobalt-ink); }
+.ledger-table tr.reorder .c-ref { color: var(--ink); }
+.ledger-table tr.reorder .c-date { padding-left: calc(14 * var(--d)); border-radius: calc(8 * var(--d)) 0 0 calc(8 * var(--d)); }
+.ledger-table tr.reorder .c-value { border-radius: 0 calc(8 * var(--d)) calc(8 * var(--d)) 0; }
+.ledger-table tr.reorder + tr td { border-top-color: transparent; }
+.ledger-table tr.reorder .c-hand { font-weight: 400; }
+.move-reorder { display: flex; align-items: center; gap: calc(8 * var(--d)); margin-top: calc(4 * var(--d)); }
+.move-reorder .mark-spark { width: calc(17 * var(--d)); height: calc(17 * var(--d)); margin: 0; }
+.reorder-why { display: block; margin-bottom: calc(5 * var(--d)); font-size: max(11px, calc(14 * var(--d))); line-height: 1.3; }
+
+@media (max-width: 1180px) {
+  .ledger { padding: 24px 24px 12px; }
+  .ledger-head .card-display { font-size: 32px; }
+  .ledger-table td { font-size: 16px; }
+  .ledger-table .c-date { width: 14%; }
+  .ledger-table .c-move { width: auto; }
+  .ledger-table .c-ref { width: 22%; }
+  .ledger-table .c-qty { width: 14%; }
+  .ledger-table .c-hand { width: 9%; }
+  .ledger-table .c-value { width: 13%; }
+}
+/* Phones and tablets up to 960 (desk page-08-390): each row is two lines, Date · Movement · Qty · On hand,
+   then Reference · Value; the reorder row keeps its tint and reason. */
+@media (max-width: 960px) {
+  .ledger { padding: 20px 14px 8px; }
+  .ledger-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .ledger-head .card-display { font-size: 26px; line-height: 1.12; }
+  .ledger-basis { padding-bottom: 0; font-size: 11.5px; }
+  .ledger-table, .ledger-table thead, .ledger-table tbody { display: block; }
+  .ledger-table tr { display: grid; grid-template-columns: 76px minmax(0, 1fr) 42px 70px; column-gap: 8px; align-items: start; padding: 11px 0 10px; border-top: 1px solid var(--row); }
+  .ledger-table thead tr { padding: 14px 0 8px; border-top: 0; }
+  .ledger-table th, .ledger-table td { width: auto !important; height: auto; border: 0 !important; }
+  .ledger-table th { font-size: 11px; letter-spacing: .06em; white-space: nowrap; }
+  .ledger-table td { font-size: 14.5px; }
+  .ledger-table .c-date { grid-row: 1 / span 2; white-space: normal; font-size: 13px; color: #3d4354; }
+  .ledger-table .c-move { grid-column: 2; }
+  .ledger-table .c-qty { grid-column: 3; grid-row: 1; }
+  .ledger-table .c-hand { grid-column: 4; grid-row: 1; }
+  .ledger-table .c-ref { grid-column: 2 / 4; grid-row: 2; margin-top: 2px; font-size: 13px; }
+  .ledger-table .c-value { grid-column: 4; grid-row: 2; margin-top: 2px; font-size: 13.5px; white-space: nowrap; }
+  .ledger-table th.c-ref, .ledger-table th.c-value { display: none; }
+  .ledger-table th.c-qty { grid-column: 3; }
+  .ledger-table th.c-hand { grid-column: 4; }
+  /* The reorder row: its movement and reason across, then PO-1061 and "+600 on order" under them. */
+  .ledger-table tr.reorder .c-move { grid-column: 2 / 4; }
+  .ledger-table tr.reorder .c-ref { grid-column: 2; }
+  .ledger-table tr.reorder .c-qty { grid-column: 3 / 5; grid-row: 2; align-self: end; }
+  .ledger-table tr.reorder .c-value { display: none; }
+  .ledger-table tr.reorder { margin: 0 -6px; padding-inline: 6px; border-radius: 8px; background: var(--cobalt-tint); }
+  .ledger-table tr.reorder td { background: none; }
+  .ledger-table tr.reorder .c-date { padding-left: 0; }
+  .reorder-why { font-size: 12.5px; }
+}

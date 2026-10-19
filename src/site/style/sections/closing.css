@@ -1,0 +1,54 @@
+/* 10: the closing promise at the hero's size over the dock at dusk (desk page-10), with the reorder sent
+   and ship day's count tagged on the plate; then the footer. The plate's canvas is 1536 x 1080; --u is
+   one canvas pixel. max-width: an aspect ratio would otherwise carry min-height over as a minimum width. */
+.closing { position: relative; isolation: isolate; max-width: 100%; aspect-ratio: 1536 / 1080; min-height: 760px; overflow: hidden; }
+.closing-scene { position: absolute; inset: 0; z-index: -1; container-type: inline-size; --u: calc(100cqw / 1536); }
+.closing-art, .closing-art img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.closing-art img { object-fit: cover; object-position: 50% 100%; }
+.closing-copy { position: relative; padding-top: 54px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.closing h2 { padding-bottom: .26em; margin-bottom: -.26em; font: 400 116px/.98 var(--font-head); letter-spacing: -.012em; color: var(--ink); }
+.closing-sub { margin-top: 14px; font-size: 24px; text-wrap: balance; letter-spacing: -.012em; color: #0e1220; }
+.closing .site-actions { margin-top: 26px; flex-direction: column; gap: 6px; }
+.closing .site-pill { min-height: 52px; padding: 0 36px 0 40px; font-size: 19px; font-weight: 600; }
+.closing .site-link { font-size: 17px; font-weight: 500; text-decoration-thickness: 1.5px; text-underline-offset: 5px; }
+.closing-small { margin-top: 6px; font-size: 14px; color: #4b5060; }
+.closing-canvas { position: absolute; left: 0; bottom: 0; width: calc(1536 * var(--u)); height: calc(1080 * var(--u)); }
+.closing-pins { position: absolute; inset: 0; width: 100%; height: 100%; }
+.closing-pins path { stroke: #fff; stroke-width: 2.4; fill: none; }
+.closing-pins circle { fill: #fff; }
+/* --t sizes a tag's insides: one canvas pixel, never under the size that keeps its words at 12 px. */
+.closing-tag { --t: max(var(--u), .75px); position: absolute; display: flex; align-items: center; gap: calc(12 * var(--t)); height: calc(48 * var(--t)); padding: 0 calc(18 * var(--t)) 0 calc(16 * var(--t)); border-radius: calc(10 * var(--t)); background: #fff; box-shadow: 0 2px 6px rgba(11, 16, 32, .14), 0 14px 30px -14px rgba(11, 16, 32, .5); font-size: calc(16.5 * var(--t)); font-weight: 500; white-space: nowrap; }
+.closing-tag.tag-sent { left: calc(72 * var(--u)); top: calc(664 * var(--u)); }
+.closing-tag.tag-out { right: calc(54 * var(--u)); top: calc(652 * var(--u)); }
+.closing-tag .icon { width: calc(24 * var(--t)); height: calc(24 * var(--t)); color: var(--cobalt); stroke-width: 1.7; }
+.closing-tag .check { width: calc(26 * var(--t)); height: calc(26 * var(--t)); }
+
+/* The footer under the closing: the lockup and what Pier is, then the links. */
+.site-footer-brand { display: flex; align-items: center; gap: 34px; min-width: 0; }
+.site-footer-line { font-size: 15.5px; color: #5b6172; }
+
+/* Tablets: the copy above the dock and the truck (canvas y 330-1080), the sky left to the copy. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .closing { aspect-ratio: auto; min-height: 0; display: flex; flex-direction: column; background: var(--paper); }
+  .closing-copy { order: 1; padding-top: 88px; padding-bottom: 12px; }
+  .closing h2 { font-size: min(116px, 11.5vw); }
+  .closing-scene { position: relative; inset: auto; order: 2; z-index: 0; aspect-ratio: 1536 / 750; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 12%); mask-image: linear-gradient(transparent, #000 12%); }
+  .closing-art, .closing-canvas { inset: auto; left: 0; top: calc(-330 * var(--u)); height: calc(1080 * var(--u)); }
+  .closing-art { width: 100%; }
+}
+/* Phones: the right of the plate, the truck pulling out under the dusk sky (canvas x 836-1536, y 520-1080),
+   its tag enlarged to read; the reorder tag, pinned off to the left, is told by the copy above. */
+@media (max-width: 760px) {
+  .closing { aspect-ratio: auto; min-height: 0; display: flex; flex-direction: column; background: var(--paper); }
+  .closing-copy { order: 1; padding-top: 56px; padding-bottom: 8px; }
+  .closing h2 { font-size: clamp(60px, 17.5vw, 80px); line-height: .95; }
+  .closing-sub { font-size: 18px; margin-top: 14px; }
+  .closing .site-actions, .closing .site-pill { width: 100%; }
+  .closing-scene { position: relative; inset: auto; order: 2; z-index: 0; aspect-ratio: 700 / 560; overflow: hidden; --u: calc(100cqw / 700); -webkit-mask-image: linear-gradient(transparent, #000 14%); mask-image: linear-gradient(transparent, #000 14%); }
+  .closing-art, .closing-canvas { inset: auto; left: calc(-836 * var(--u)); top: calc(-520 * var(--u)); width: calc(1536 * var(--u)); height: calc(1080 * var(--u)); }
+  .closing-tag { --t: calc(var(--u) * 1.6); }
+  .closing-tag.tag-sent, .closing-pins .pin-sent { display: none; }
+  .closing-tag.tag-out { right: calc(70 * var(--u)); }
+  .site-footer-brand { gap: 16px; }
+  .site-footer-line { display: none; }
+}

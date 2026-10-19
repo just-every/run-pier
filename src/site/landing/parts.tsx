@@ -1,18 +1,15 @@
 // The pieces every section is made of. Text in the drawings is real text; the
-// drawings are HTML and CSS (style/cards.css), never screenshots.
+// drawings are HTML and CSS (style/cards.css, style/sections/), never screenshots.
 import type { ReactNode } from 'react'
+import { SEP } from './story'
 
-/** One idea: eyebrow, heading and a short paragraph beside its drawing. `flip` puts the drawing first. */
-export function Feature({ id, eyebrow, title, children, art, label, flip = false }: { id: string; eyebrow: string; title: ReactNode; children: ReactNode; art: ReactNode; label: string; flip?: boolean }) {
-  return <section id={id} className={`feature${flip ? ' flip' : ''}`} aria-labelledby={`${id}-title`}>
-    <div className="feature-copy"><p className="eyebrow">{eyebrow}</p><h2 id={`${id}-title`}>{title}</h2><p className="feature-body">{children}</p></div>
-    <div className="feature-art" role="img" aria-label={label}><div aria-hidden="true" className="feature-drawing">{art}</div></div>
-  </section>
-}
-
-/** Two features on one band of paper, as each desk page draws them. */
-export function Pair({ children, className = '', rule = false }: { children: ReactNode; className?: string; rule?: boolean }) {
-  return <div className={`pair ${className}${rule ? ' ruled' : ''}`}><div className="site-wrap feature-wrap">{children}</div></div>
+/** A section's eyebrow (a date in PO-1048's story), heading and lead. */
+export function SectionHead({ id, eyebrow, title, children, className = '' }: { id: string; eyebrow: string; title: ReactNode; children?: ReactNode; className?: string }) {
+  return <div className={`section-head ${className}`.trim()}>
+    <p className="eyebrow">{eyebrow.replaceAll(' · ', SEP)}</p>
+    <h2 id={`${id}-title`}>{title}</h2>
+    {children && <p className="lead">{children}</p>}
+  </div>
 }
 
 /** A painted plate: AVIF, then WebP, at the sizes public/site holds. */
@@ -40,17 +37,11 @@ const PATHS: Record<string, ReactNode> = {
   trend: <><path d="m3 17 6-6 4 4 8-8" /><path d="M15 7h6v6" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5.2l3.4 2" /></>,
   doc: <><path d="M6 2.8h8.5l4.5 4.5v13.9H6z" /><path d="M14.3 2.8v4.6h4.7M9 12h7M9 15.5h7" /></>,
-  scan: <><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></>,
+  store: <><path d="M4 9.5V20h16V9.5" /><path d="M3 9.5 4.6 4h14.8L21 9.5c0 1.5-1.2 2.5-2.6 2.5S16 11 16 9.5c0 1.5-1.2 2.5-2.6 2.5h-2.8C9.2 12 8 11 8 9.5 8 11 6.8 12 5.4 12S3 11 3 9.5z" /><path d="M9.5 20v-5h5v5" /></>,
+  anchor: <><circle cx="12" cy="5" r="2.2" /><path d="M12 7.2V21M8 11h8M4.5 14.5c0 3.6 3.4 6.5 7.5 6.5s7.5-2.9 7.5-6.5M4.5 14.5l-1.6 1.8M4.5 14.5l2 1.2M19.5 14.5l1.6 1.8M19.5 14.5l-2 1.2" /></>,
+  'scan-line': <><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15M7.5 12h9" /></>,
   spark: <><path d="M12 2.5c.8 4.6 2.9 6.7 7.5 7.5-4.6.8-6.7 2.9-7.5 7.5-.8-4.6-2.9-6.7-7.5-7.5 4.6-.8 6.7-2.9 7.5-7.5z" /></>,
   mug: <><path d="M4.5 5.5h11.5v11a3 3 0 0 1-3 3H7.5a3 3 0 0 1-3-3z" /><path d="M16 8.5h1.5a3 3 0 0 1 0 6H16" /></>,
-  tall: <><path d="M6 3.5h10l-1.2 15.2a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8z" /><path d="M15.7 7.5h1.3a2.6 2.6 0 0 1 0 5.2h-1.8" /></>,
-  bowl: <><path d="M3 9.5h18a9 9 0 0 1-18 0z" /><path d="M4.2 9.5c1.6-2 4.5-3 7.8-3s6.2 1 7.8 3" /></>,
-  server: <><rect x="3" y="4" width="18" height="7" rx="2" /><rect x="3" y="13" width="18" height="7" rx="2" /><path d="M7 7.5h.01M10 7.5h.01M7 16.5h.01M10 16.5h.01" /></>,
-  database: <><ellipse cx="12" cy="5.5" rx="7.5" ry="2.8" /><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8" /></>,
-  export: <><path d="M13.5 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h10a1.5 1.5 0 0 0 1.5-1.5V16" /><path d="M13.5 3 18 7.5M11 12h10M17.5 8.5 21 12l-3.5 3.5" /></>,
-  swap: <><path d="M4 8.5h15l-3.5-3.5M20 15.5H5l3.5 3.5" /></>,
-  'box-return': <><path d="M10 7.5 16 10.8v6.6L10 20.7l-6-3.3v-6.6z" /><path d="M4 10.8 10 14l6-3.2M10 14v6.7" /><path d="M14 4.5a4.5 4.5 0 0 1 6.4 4.8M20.4 9.3l1.4-2.6M20.4 9.3l-2.7-1" /></>,
-  bars: <><rect x="4" y="12" width="3.6" height="8" rx="1" /><rect x="10.2" y="8" width="3.6" height="12" rx="1" /><rect x="16.4" y="4" width="3.6" height="16" rx="1" /></>,
 }
 export const Icon = ({ name, className = '' }: { name: keyof typeof PATHS | string; className?: string }) => <svg className={`icon ${className}`.trim()} viewBox="0 0 24 24">{PATHS[name]}</svg>
 

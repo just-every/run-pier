@@ -17,7 +17,8 @@ img, svg { display: block; }
 .site-header-row { display: flex; align-items: center; justify-content: space-between; min-height: 69px; border-bottom: 1px solid rgba(11, 16, 32, .16); }
 .site-brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
 .site-brand img { flex: none; width: 38px; height: 38px; }
-.site-brand span { font: 400 36px/1 var(--font-head); letter-spacing: .005em; transform: translateY(1px); }
+/* Pier Display's descenders hang below a line of 1; the padding holds them inside the box and the margin gives the room back. */
+.site-brand span { padding-bottom: .26em; margin-bottom: -.26em; font: 400 36px/1 var(--font-head); letter-spacing: .005em; transform: translateY(1px); }
 .site-header nav, .site-footer nav { display: flex; align-items: center; gap: 48px; }
 .site-header nav a { display: inline-flex; align-items: center; min-height: 44px; font-size: 16.5px; font-weight: 450; text-decoration: none; }
 .site-header nav a:hover, .site-footer nav a:hover { text-decoration: underline; text-underline-offset: 6px; }
