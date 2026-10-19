@@ -3,7 +3,7 @@ import { records, label, unit, type PierState, type RecordData, type RunCommand 
 import { ItemName, reference, when } from '../display'
 import { Badge, Empty, Field, Form, Select, Table, text } from '../controls'
 import { Refusal, ScanBox } from './scanner'
-import { same } from '../../pier/floor/codes'
+import { barcodesOf, same } from '../../pier/floor/codes'
 import { returnLookup, type ReturnCandidate } from '../../pier/returns-lookup'
 
 const options = (values: [string, string][]) => values.map(([id, name]) => ({ id, name, version: 1 }))
@@ -25,7 +25,7 @@ export function Returns({ state, run, busy, error }: { state: PierState; run: Ru
     setLocalError(''); setNotice('')
     let matches: ReturnCandidate[]
     try { matches = returnLookup(source, code) } catch (cause) { setLocalError(cause instanceof Error ? cause.message : 'Code could not be read.'); return false }
-    const isItem = source.items.some(i => [i.barcode, i.caseBarcode, i.sku].some(value => same(code, value)))
+    const isItem = source.items.some(i => [...barcodesOf(i).map(barcode => barcode.code), i.sku].some(value => same(code, value)))
     if (!matches.length) { setLocalError('No dispatched units eligible for return match this code. Check the order or shipment label.'); return false }
     setPending({ code, isItem, count })
     if (!isItem) { setCandidates(matches); setSelected(matches.length === 1 ? matches[0].id : ''); setNotice('Order found. Confirm its dispatch line and exact returned quantity below.'); return true }

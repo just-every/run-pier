@@ -43,6 +43,13 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   await h.command('pack.dispatch', { waveId: wave.id, orderId: order.id, shipmentReference: 'INNER-BLUE' }, { error: 'DUPLICATE' });
   await h.command('pack.dispatch', { waveId: wave.id, orderId: order.id, shipmentReference: 'CAT-SHIP' });
   assert.equal((await (await h.request('/api/pier/returns/lookup?code=INNER-BLUE')).json()).length, 1);
+  const second = await h.command('order.create', { customerId: b.customer.id, warehouse: 'Dallas', promiseDate: '2026-11-01', lines: [{ itemId: blue.id, quantity: '1', price: '5' }] });
+  await h.command('dispatch.create', { orderId: second.id, shipmentReference: 'CAT-SHIP', lines: [{ orderLineId: second.lines[0].id, quantity: '1' }] });
+  const shared = await (await h.request('/api/pier/returns/lookup?code=CAT-SHIP')).json();
+  assert.equal(shared.length, 2, 'one consolidated BOL is an alias for both dispatches');
+  assert.deepEqual(new Set(shared.map(row => row.orderId)), new Set([order.id, second.id]));
+  assert.equal(new Set(shared.map(row => row.shipmentId)).size, 2);
+  await h.command('item.save', { sku: 'BOL-COLLISION', name: 'Conflicting code', unit: 'each', packSize: '1', barcode: 'CAT-SHIP' }, { error: 'DUPLICATE' });
   const changed = catalogueCsv([{ sku: blue.sku, name: 'Blue stoneware mug revised', unit: 'each', packSize: '12' }]);
   const review = await h.preview(changed);
   assert.ok(review.rows[0].affectedDocuments.some(d => d.id === order.id));

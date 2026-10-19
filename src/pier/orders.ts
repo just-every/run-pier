@@ -207,7 +207,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
       });
       l.dispatched = format(decimal(l.dispatched) + decimal(x.quantity));
     }
-    if (owners.length) fail('DUPLICATE', `Shipment code ${shipmentCode} already belongs to ${owners.map(o => `${o.kind} ${o.name}`).join(', ')}.`, { owners });
+    if (owners.some(owner => owner.kind !== 'shipment')) fail('DUPLICATE', `Shipment code ${shipmentCode} already belongs to ${owners.map(o => `${o.kind} ${o.name}`).join(', ')}.`, { owners });
     c.s.reservations = c.s.reservations.filter((r) => BigInt(r.quantity) > 0n);
     o.version++;
     return shipment;

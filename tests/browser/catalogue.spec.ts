@@ -73,4 +73,36 @@ test('CAT-001: catalogue references, barcode search, metadata editing and bulk r
     await shot('applied')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
   }
+  let po = await h.command('po.draft', { supplierId: b.supplier.id, destinationWarehouse: 'Dallas', promiseDate: '2026-11-01', reason: 'Shared BOL return journey', lines: [{ itemId: blue.id, quantity: '6', price: '2.5' }] })
+  await h.command('po.approve', { poId: po.id, version: po.version })
+  po = await h.command('po.commit', { poId: po.id, version: po.version })
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'Catalogue delivery', lines: [{ poLineId: po.lines[0].id, locationId: b.location.id, quantity: '6', cost: '2.5' }] })
+  for (let index = 0; index < 2; index++) {
+    const order = await h.command('order.create', { customerId: b.customer.id, warehouse: 'Dallas', promiseDate: '2026-11-01', lines: [{ itemId: blue.id, quantity: '1', price: '5' }] })
+    await h.command('dispatch.create', { orderId: order.id, shipmentReference: 'CONSOLIDATED-BOL', lines: [{ orderLineId: order.lines[0].id, quantity: '1' }] })
+  }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto(`${origin}/app`)
+    await page.getByRole('navigation', { name: 'Stock operations' }).getByRole('link', { name: 'Floor', exact: true }).click()
+    await page.getByRole('navigation', { name: 'Floor steps' }).getByRole('link', { name: 'Returns', exact: true }).click()
+    const scan = page.getByRole('textbox', { name: 'Scan order label or returned item', exact: true })
+    await scan.fill('CONSOLIDATED-BOL'); await scan.press('Enter')
+    await expect(page.getByRole('button', { name: 'Use this dispatch', exact: true })).toHaveCount(2)
+    await expect(page.getByRole('heading', { name: 'Confirm scanned return', exact: true })).toHaveCount(0)
+    if (shots) await page.screenshot({ path: join(shots, `${width}-catalogue-shared-bol-choose.png`), fullPage: true })
+    await page.getByRole('button', { name: 'Use this dispatch', exact: true }).first().click()
+    await expect(page.getByRole('heading', { name: 'Confirm scanned return', exact: true })).toBeVisible()
+    if (shots) await page.screenshot({ path: join(shots, `${width}-catalogue-shared-bol-selected.png`), fullPage: true })
+  }
+  expect((await (await context.request.get(`${origin}/api/pier/state`)).json()).returns).toHaveLength(0)
+  await page.getByLabel('Return bin', { exact: true }).selectOption(b.location.id)
+  await page.getByLabel('Return reason', { exact: true }).fill('Customer returned the supplier half-unit pack')
+  await page.getByRole('textbox', { name: 'Scan order label or returned item', exact: true }).fill('SUP-BLUE')
+  await page.getByRole('textbox', { name: 'Scan order label or returned item', exact: true }).press('Enter')
+  await expect(page.getByRole('heading', { name: 'Confirm scanned return', exact: true })).toHaveCount(0)
+  const returned = (await (await context.request.get(`${origin}/api/pier/state`)).json()).returns
+  expect(returned).toHaveLength(1)
+  expect(returned[0].quantity).toBe('0.5')
+
 })
