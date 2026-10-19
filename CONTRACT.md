@@ -555,7 +555,7 @@ Every capability claim on the approved homepage (`src/site/landing/`, the page-s
 | 38 | Reorder row: "571 available = 36 days; 40 needed (28 lead + 12 safety)" | BUY-001, BUY-005 | partial |
 | 39 | "Items, bins, stock on hand, customers, suppliers and open orders come across from Cin7, inFlow or Fishbowl" | MIGRATE-001, PIER-003 | partial |
 | 40 | "Channels reconnect to the same listings" | CHANNEL-001, MIGRATE-001 | partial |
-| 41 | The one-line start `npx -y @runeditrun/rer dev just-every/run-pier` and its output | OPS-001 | partial |
+| 41 | The one-line start `npx -y @runeditrun/rer dev just-every/run-pier` and what it does | OPS-001 | partial |
 | 42 | "Runs on your own computer or server" | OPS-001 | partial |
 | 43 | "Where Pier stops. Manufacturing work orders, point of sale and 3PL client billing." | OPEN-001 | done |
 | 44 | "Open source inventory and order management for wholesalers and distributors" | STOCK-001, CHANNEL-001, OPEN-001 | partial |
