@@ -33,6 +33,7 @@ import { syncBooks } from "./books/sync";
 import { booksExport } from "./books/export";
 import { nativeExport } from "./native-export";
 import { catalogue } from "./catalogue";
+import { catalogueBulk, previewCatalogue } from "./catalogue-bulk";
 import { orders, orderView } from "./orders";
 import { returns } from "./returns";
 import { returnLookup } from "./returns-lookup";
@@ -159,6 +160,7 @@ export async function execute(
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
       catalogue,
+      catalogueBulk,
       pricing,
       costing,
       orders,
@@ -374,7 +376,7 @@ export async function pierResponse(
         operators,
       });
     }
-    if (request.method !== "POST" || url.pathname !== "/api/pier/commands")
+    if (request.method !== "POST" || !["/api/pier/commands", "/api/pier/catalogue/preview"].includes(url.pathname))
       return json(
         {
           ok: false,
@@ -402,6 +404,12 @@ export async function pierResponse(
       body = JSON.parse(raw);
     } catch {
       throw new Problem("JSON", "Malformed JSON.", null, 400);
+    }
+    if (url.pathname === "/api/pier/catalogue/preview") {
+      if (!body || typeof body !== "object" || Array.isArray(body)) throw new Problem("INPUT", "Supply a catalogue CSV object.", null, 400);
+      const s = await load(env.DB);
+      const { trial: _trial, ...preview } = previewCatalogue({ s, actor, commandId: "preview", now: new Date().toISOString() }, body.csv);
+      return json(preview);
     }
     const { commandId, type, payload = {} } = body;
     if (!payload || typeof payload !== "object" || Array.isArray(payload))

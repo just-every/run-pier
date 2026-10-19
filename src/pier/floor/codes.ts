@@ -16,9 +16,17 @@ const gtin = (value: string) =>
   /^\d{8}$|^\d{12,14}$/.test(value) ? value.padStart(14, "0") : null;
 export function same(a: unknown, b: unknown) {
   if (typeof a !== "string" || typeof b !== "string" || !a || !b) return false;
-  const x = clean(a), y = b.replace(/\s+/g, "");
+  const x = a.replace(SYMBOLOGY, "").replace(/\s+/g, ""), y = b.replace(SYMBOLOGY, "").replace(/\s+/g, "");
   const gx = gtin(x), gy = gtin(y);
   return gx && gy ? gx === gy : x.toLowerCase() === y.toLowerCase();
+}
+
+export function barcodesOf(item: Row): { code: string; quantity: string }[] {
+  return [
+    ...(item.barcode ? [{ code: item.barcode, quantity: "1" }] : []),
+    ...(item.caseBarcode ? [{ code: item.caseBarcode, quantity: item.packSize }] : []),
+    ...(item.barcodes ?? []),
+  ];
 }
 
 export type ItemScan = { item: Row; units: bigint; kind: "unit" | "case" | "sku" };
@@ -30,9 +38,11 @@ export function resolve(s: State, raw: unknown, warehouse?: string): Scan {
   const code = clean(raw);
   for (const item of s.items) {
     if (item.archived) continue;
-    if (same(code, item.barcode)) return { item: { item, units: SCALE, kind: "unit" } };
-    if (same(code, item.caseBarcode))
-      return { item: { item, units: decimal(item.packSize, true), kind: "case" } };
+    const barcode = barcodesOf(item).find(b => same(code, b.code));
+    if (barcode) {
+      const units = decimal(barcode.quantity, true);
+      return { item: { item, units, kind: units === SCALE ? "unit" : "case" } };
+    }
   }
   const bins = s.locations.filter(
     (l) => l.kind === "bin" && (same(code, l.barcode) || same(code, l.name)),

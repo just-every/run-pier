@@ -1,4 +1,5 @@
 import { decimal, fail, format, fresh, get, row, text, type Context, type Row } from '../model';
+import { codeOwners } from '../catalogue-fields';
 import { reserve } from '../orders';
 import { resolveOrder } from './intake';
 import { document, ediLines, exactProduct, timestamp, addMinutes } from './records';
@@ -66,7 +67,7 @@ export function prepareAsn(c: Context, p: any): Row {
   const cartons = pack.cartons.map((carton: any) => {
     if (!carton.lines?.length || !carton.weight || !carton.length || !carton.width || !carton.height) fail('EDI_CARTON', 'Each closed carton needs contents, weight and dimensions.');
     const sscc = issueSscc(partner.gs1Prefix, ++sequence);
-    if (!validateSscc(sscc) || c.s.ediDocuments.some(d => d.cartons?.some((x: any) => x.sscc === sscc))) fail('EDI_SSCC', 'This SSCC is invalid or already assigned. Review the company prefix and sequence.');
+    if (!validateSscc(sscc) || codeOwners(c.s, sscc).length) fail('EDI_SSCC', 'This SSCC is invalid or already assigned. Review the company prefix and sequence.');
     return { number: carton.number, sscc, weight: carton.weight, length: carton.length, width: carton.width, height: carton.height, lines: carton.lines.map((l: any) => ({ ...l })), ediLines: ediLines(incoming, carton.lines) };
   });
   const reference = text(p.shipmentReference, 'Shipment reference');

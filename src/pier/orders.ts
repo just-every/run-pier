@@ -17,6 +17,7 @@ import {
   type Row,
 } from "./model";
 import { orderPrice, priceUnpricedLines } from "./pricing";
+import { codeOwners } from "./catalogue-fields";
 import { money } from "./money";
 import { recordChannelPayment } from "./channel-payment";
 export function reserve(c: Context, o: Row) {
@@ -158,6 +159,8 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   }
   if (type === "dispatch.create") {
     const o = get(c.s, "orders", p.orderId);
+    const shipmentCode = text(p.shipmentReference);
+    const owners = codeOwners(c.s, shipmentCode);
     const shipment = row(c, "shipments", {
       orderId: o.id,
       reference: text(p.shipmentReference),
@@ -204,6 +207,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
       });
       l.dispatched = format(decimal(l.dispatched) + decimal(x.quantity));
     }
+    if (owners.length) fail('DUPLICATE', `Shipment code ${shipmentCode} already belongs to ${owners.map(o => `${o.kind} ${o.name}`).join(', ')}.`, { owners });
     c.s.reservations = c.s.reservations.filter((r) => BigInt(r.quantity) > 0n);
     o.version++;
     return shipment;

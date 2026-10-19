@@ -12,7 +12,8 @@ import {
   type Context,
   type Row,
 } from "./model";
-import { same } from "./floor/codes";
+import { barcodesOf, same } from "./floor/codes";
+import { catalogueFields, codeOwners, uniqueItemCodes } from "./catalogue-fields";
 export function catalogue(c: Context, type: string, p: any): Row | undefined {
   if (type === "role.set") {
     requireRole(c, []);
@@ -60,19 +61,9 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       unit: text(p.unit, "Base unit"),
       packSize: format(decimal(p.packSize, true)),
       archived: p.archived === true,
+      ...catalogueFields(c, p, old),
     };
-    const codes = [data.barcode, data.caseBarcode].filter(Boolean);
-    if (
-      (data.barcode && data.barcode === data.caseBarcode) ||
-      c.s.items.some(
-        (r) =>
-          r.id !== old?.id &&
-          (r.sku === data.sku ||
-            codes.some((code) => same(code, r.barcode) || same(code, r.caseBarcode))),
-      ) ||
-      c.s.locations.some((l) => codes.some((code) => same(code, l.barcode)))
-    )
-      fail("DUPLICATE", "SKU and barcode must be unique.");
+    uniqueItemCodes(c.s, { ...data, id: old?.id ?? "new", version: 1 }, old);
     if (
       old &&
       (c.s.movements.some((m) => m.itemId === old.id) ||
@@ -80,7 +71,8 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
         [...c.s.orders, ...c.s.purchaseOrders, ...c.s.counts].some((document) =>
           document.lines.some((line: any) => line.itemId === old.id),
         )) &&
-      (old.unit !== data.unit || old.packSize !== data.packSize)
+      (old.unit !== data.unit || old.packSize !== data.packSize ||
+        barcodesOf(old).some(b => barcodesOf({ ...data, id: old.id, version: 1 }).some(n => same(b.code, n.code) && b.quantity !== n.quantity)))
     )
       fail(
         "HISTORY",
@@ -94,12 +86,10 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       kind: p.kind,
       barcode: p.barcode ? text(p.barcode) : null,
     };
-    if (
-      data.barcode &&
-      (c.s.locations.some((l) => l.id !== old?.id && same(data.barcode, l.barcode)) ||
-        c.s.items.some((i) => same(data.barcode, i.barcode) || same(data.barcode, i.caseBarcode)))
-    )
-      fail("DUPLICATE", "A bin barcode must be unique and differ from every item barcode.");
+    for (const code of [data.barcode, data.name].filter(Boolean)) {
+      const owners = codeOwners(c.s, code, undefined, old?.id).filter(o => code === data.barcode || o.kind !== 'bin');
+      if (owners.length) fail("DUPLICATE", `Bin ${data.name}: code ${code} already belongs to ${owners.map(o => `${o.kind} ${o.name}`).join(', ')}.`, { owners });
+    }
     if (!["bin", "transit"].includes(p.kind))
       fail("LOCATION", "Choose bin or transit.");
     if (

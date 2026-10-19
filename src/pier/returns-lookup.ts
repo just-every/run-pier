@@ -1,5 +1,5 @@
 import { decimal, format, type Row } from './model';
-import { clean, same } from './floor/codes';
+import { barcodesOf, clean, same } from './floor/codes';
 
 export type ReturnSource = { items: Row[]; orders: Row[]; shipments: Row[]; returns: Row[]; parties: Row[] };
 export type ReturnCandidate = { id: string; shipmentId: string; shipmentLineId: string; orderId: string; orderReference: string; shipmentReference: string; customer: string; itemId: string; remaining: string };
@@ -8,7 +8,7 @@ export type ReturnCandidate = { id: string; shipmentId: string; shipmentLineId: 
  * Several matches always need a human choice, never newest-order guessing. */
 export function returnLookup(s: ReturnSource, raw: unknown): ReturnCandidate[] {
   const code = clean(raw);
-  const itemIds = new Set(s.items.filter(i => [i.barcode, i.caseBarcode, i.sku].some(value => same(code, value))).map(i => i.id));
+  const itemIds = new Set(s.items.filter(i => [...barcodesOf(i).map(b => b.code), i.sku].some(value => same(code, value))).map(i => i.id));
   const orderIds = new Set(s.orders.filter(o => same(code, o.reference) || same(code, o.id)).map(o => o.id));
   return s.shipments.flatMap(sh => {
     const order = s.orders.find(o => o.id === sh.orderId);

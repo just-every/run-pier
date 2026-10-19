@@ -21,6 +21,12 @@
       "title": "Daily work",
       "pages": [
         {
+          "slug": "catalogue",
+          "label": "Wholesale catalogue",
+          "file": "docs/catalogue.md",
+          "summary": "Review variants, item references and exact pack barcodes, then apply catalogue CSV changes together."
+        },
+        {
           "slug": "orders",
           "label": "Orders and dispatch",
           "file": "docs/orders.md",
