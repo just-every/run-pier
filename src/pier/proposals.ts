@@ -1,3 +1,5 @@
+import { kitDefinition } from './kits';
+import { planningWarehouses, supplyPosition, signedQuantity } from './replenishment-position';
 import {
   decimal,
   format,
@@ -16,19 +18,9 @@ import {
 import { warehouse } from "./warehouse";
 export function reorder(c: Context) {
   return c.s.items
-    .filter((i) => !i.archived)
+    .filter((i) => !i.archived && (!kitDefinition(c.s,i.id) || c.s.movements.filter(m=>m.itemId===i.id).reduce((n,m)=>n+BigInt(m.quantity),0n)>0n))
     .map((i) => {
-      const orders = c.s.orders.flatMap((o) =>
-        o.lines.filter((l: any) => l.itemId === i.id),
-      );
-      const demand = orders.reduce(
-        (n, l) =>
-          n +
-          decimal(l.quantity) -
-          decimal(l.dispatched) -
-          decimal(l.cancelled),
-        0n,
-      );
+      const demand = planningWarehouses(c).reduce((n,warehouse)=>n+signedQuantity(supplyPosition(c,i.id,warehouse).openDemand),0n);
       const onHand = positions(c.s)
         .filter((p) => p.itemId === i.id && p.status === "sellable")
         .reduce((n, p) => n + decimal(p.quantity), 0n);
