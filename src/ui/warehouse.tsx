@@ -3,13 +3,14 @@ import { ItemName, sourceDocument, when, words } from './display'
 import { Badge, Empty, Facts, Field, Form, Select, Table, text } from './controls'
 import { fromMillionths } from './quantity'
 import { CountRecord } from './count-record'
+import { WarehouseSlotting } from './warehouse-slotting'
 
 export function Transfers({ state, run, busy }: { state: PierState; run: RunCommand; busy: boolean }) {
   const locations = records(state, 'locations'), bins = locations.filter(row => row.kind === 'bin'), transit = locations.filter(row => row.kind === 'transit')
   return <><div className="page-title"><h1>Transfers</h1></div><Form title="Dispatch available stock to transit" submit="Dispatch transfer" busy={busy} note="Transfer stock is unavailable for sale until destination receipt. Receipt confirms the full transfer." onSubmit={data => run('transfer.send', { itemId: text(data, 'itemId'), fromLocationId: text(data, 'fromLocationId'), toLocationId: text(data, 'toLocationId'), transitLocationId: text(data, 'transitLocationId'), quantity: text(data, 'quantity'), reason: text(data, 'reason') })}><Select label="Item" name="itemId" rows={records(state, 'items').filter(item => !item.archived)} /><Select label="Source bin" name="fromLocationId" rows={bins} /><Select label="Destination bin" name="toLocationId" rows={bins} /><Select label="Transit location" name="transitLocationId" rows={transit} /><Field label="Quantity (base units)" name="quantity" inputMode="decimal" /><Field label="Transfer reason" name="reason" /></Form>
     {!records(state, 'transfers').length ? <Empty>{transit.length ? 'No transfers yet. Send one with the form above; the stock rides in the in-transit location until it is received.' : 'No transfers. Add an in-transit location in Stock before dispatching.'}</Empty> : <Table numeric={[3]} headings={['Item', 'From → to', 'In-transit location', 'Quantity', 'Status', 'Sent', '']}>
       {records(state, 'transfers').map(transfer => <tr id={`document-${transfer.id}`} key={transfer.id}><td><ItemName state={state} id={transfer.itemId} /></td><td>{label(locations, transfer.fromLocationId)} → {label(locations, transfer.toLocationId)}</td><td>{label(locations, transfer.transitLocationId)}</td><td>{transfer.quantity} {unit(state, transfer.itemId)}</td><td><Badge>{words(transfer.status)}</Badge></td><td><span className="nowrap">{when(transfer.createdAt)}</span>{transfer.reason && <small>{transfer.reason}</small>}</td><td>{transfer.status === 'transit' ? <button disabled={busy} onClick={() => run('transfer.receive', { transferId: transfer.id })}>Confirm full destination receipt</button> : '—'}</td></tr>)}
-    </Table>}</>
+    </Table>}<WarehouseSlotting state={state} run={run} busy={busy} /></>
 }
 
 export function Counts({ state, run, busy }: { state: PierState; run: RunCommand; busy: boolean }) {

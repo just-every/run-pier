@@ -102,6 +102,7 @@ export const collections = [
   "businessProfile",
   "slowStockPolicies",
   "slowStockExceptions",
+  "slottingPlans",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {

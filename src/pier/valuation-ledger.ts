@@ -69,7 +69,7 @@ export function valuationLedger(s: State, end: string) {
   for (const m of s.movements.filter(m => m.createdAt <= end)) {
     applyMethods(m.sequence - 1);
     const p = position(m), q = BigInt(m.quantity), key = `${m.documentId}:${m.itemId}`;
-    const isInternal = transfers.has(m.documentId) || (s.supplierReturns.some(r => r.id === m.documentId) && m.reason === 'Supplier return quarantine') || (returns.has(m.documentId) && m.reason === 'Reviewed restock');
+    const isInternal = (s.slottingPlans ?? []).some(p => p.id === m.documentId) || transfers.has(m.documentId) || (s.supplierReturns.some(r => r.id === m.documentId) && m.reason === 'Supplier return quarantine') || (returns.has(m.documentId) && m.reason === 'Reviewed restock');
     if (q < 0n) {
       const returnSource = returns.has(m.documentId) ? s.movements.find(source => source.documentId === m.documentId && source.status === 'quarantine' && BigInt(source.quantity) > 0n)?.id : undefined;
       const layers = takeLayers(p.layers, -q, returnSource ?? (receiptLines.has(m.reversalId ?? '') && !s.counts.some(c => c.id === m.documentId) ? m.reversalId! : undefined));

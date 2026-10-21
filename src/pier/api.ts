@@ -1,3 +1,5 @@
+import { slotting } from './slotting';
+import { validatePlacements } from './location-capacity';
 import { planningScope } from './replenishment-scope';
 import { supplierPerformance } from './supplier-performance';
 import { stockPosition } from './stock-position';
@@ -97,6 +99,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
 }
 async function approver(env: Bindings, c: Context, type: string, p: any) {
   let record: any;
+  if (type === "slotting.scan") record = c.s.slottingPlans.find(r => r.id === p.planId);
   if (type === "po.commit")
     record = c.s.purchaseOrders.find((r) => r.id === p.poId);
   if (type === "return.restock")
@@ -115,7 +118,7 @@ async function approver(env: Bindings, c: Context, type: string, p: any) {
       ? "owner"
       : "viewer";
   const allowed =
-    type === "po.commit"
+    type === "slotting.scan" ? ["owner"] : type === "po.commit"
       ? ["owner", "buyer"]
       : type === "return.restock"
         ? ["owner", "warehouse"]
@@ -163,6 +166,7 @@ export async function execute(
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
+      slotting,
       catalogue,
       catalogueBulk,
       pricing,
@@ -186,6 +190,7 @@ export async function execute(
       if (result !== undefined) break;
     }
     if (result === undefined) fail("COMMAND", "Unknown command type.");
+    validatePlacements(s, before);
     if (type === "import.commit" || type === "import.undo") {
       refreshReorderExceptions(c);
       await publishImport(

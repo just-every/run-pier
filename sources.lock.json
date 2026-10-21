@@ -2628,7 +2628,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "89c2ac9f98cd464daad64d9aca873d3dfb0ad81e35d250d77d3e61d2e0732097",
+      "sha256": "49563b714cd506493e984c979c408f57d5f3f6f3a68bdffb04ef4776c512735c",
       "executable": false
     },
     "src/pier/backorders.ts": {
@@ -2955,8 +2955,12 @@
       "sha256": "245963b42d81e1320e7ee019c6d543877ddb75ee3a841d867d865bf59aa3e81b",
       "executable": false
     },
+    "src/pier/location-capacity.ts": {
+      "sha256": "01b396f8367ec446074cebb071a3e3458e7ce9b699ea6949b3cf35e7a49c023f",
+      "executable": false
+    },
     "src/pier/model.ts": {
-      "sha256": "1127c3f1bd3f797515621d79ff39ac4c486c08cf56b09b3c803d7d40c652f36b",
+      "sha256": "267527a0372930e0969dd07c481f8e1194bd4731405c04de1f553e8e441077c7",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -3067,6 +3071,10 @@
       "sha256": "de64a276564f211d1663533ed06cbd9fd7d82e0f30cc6ab29c057198fa1eb286",
       "executable": false
     },
+    "src/pier/slotting.ts": {
+      "sha256": "4b7c04debfe26e0b5d3b5fb640389928eb035441dd955d1ab9f0d0446cb4a400",
+      "executable": false
+    },
     "src/pier/slow-stock.ts": {
       "sha256": "90601f92999ba2f74f78ae2f47c1e6544a9751d12dd9d267734d6e33d274af69",
       "executable": false
@@ -3096,7 +3104,7 @@
       "executable": false
     },
     "src/pier/valuation-ledger.ts": {
-      "sha256": "072e5efbc54e1b618cbcac4c79b0cab012dd0cec0e2acbf191edc608ee7b1db9",
+      "sha256": "b10b804b2a22bea78baa398bd479cd2ccbe1b5bdce25042384d21b09283ba724",
       "executable": false
     },
     "src/pier/warehouse.ts": {
@@ -3759,8 +3767,12 @@
       "sha256": "b3b8d3b3e22164324abce0f4d86dcc1d4687488f17d27cf92587818decb5bad0",
       "executable": false
     },
+    "src/ui/warehouse-slotting.tsx": {
+      "sha256": "bc088182e9c12f0308da82fc97087908c9a00b0810f2e353ca01ce5fee11b373",
+      "executable": false
+    },
     "src/ui/warehouse.tsx": {
-      "sha256": "db2d08dbb0d1c6d42dd99e9fb6d96d5cd95a4f1ceaa85742a98c5582541236c2",
+      "sha256": "a61768fce42571d76e6c3e299654b6db2ea84e3a78f231d9124030894b5fa6b1",
       "executable": false
     },
     "src/ui/wire.ts": {
@@ -3877,6 +3889,10 @@
     },
     "tests/api/shipping.test.mjs": {
       "sha256": "077e550ffaeb5e036bffc869426ffdd6870d9b82cdddbde6f74398c6c33ae04b",
+      "executable": false
+    },
+    "tests/api/slotting.test.mjs": {
+      "sha256": "ccb2daeb9916fdc9a0b48814b1f542e9fef892d55a0fbaafab67e4948ca8e3f6",
       "executable": false
     },
     "tests/api/slow-stock.test.mjs": {
