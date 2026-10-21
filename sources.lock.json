@@ -256,7 +256,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "593139b6358bfde5c80f4453b668e916f0379b08c9cbef812038e14c8e34e2fa",
+      "sha256": "c39914ef0621168e08048f022863458aca9d1de8c61bbad104e335ecd0a590a7",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -268,7 +268,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "abfb3313f22265424c4ed7ae50cc5f650c74ac4c3c72132340f989ac05f6ab2e",
+      "sha256": "27154c861e827e00142f21a48cec032deebdb5ca148aa24cf5ea339e721c9a1d",
       "executable": false
     },
     "base-copies.json": {
@@ -284,7 +284,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "3b74fc8bd48dae1f856966efacabd2747adb2377db52131b8f56c1c3b8c1dee0",
+      "sha256": "f5f279e6728d83e0b5d027b3feb062f26dc8864cd2633cb47b314be929e8a718",
       "executable": false
     },
     "DEMO.md": {
@@ -413,6 +413,10 @@
     },
     "docs/stall.md": {
       "sha256": "71f74b4f88378cdc5b6d0392a1c037ffabcf90cbbea264e3059e9e7732474620",
+      "executable": false
+    },
+    "docs/warehouse-placement.md": {
+      "sha256": "ce6c5bc79cc0d151640334e325e34906dcd9887991bc6e64afb0ad07a8ec0952",
       "executable": false
     },
     "docs/warehouse.md": {
@@ -2956,7 +2960,7 @@
       "executable": false
     },
     "src/pier/location-capacity.ts": {
-      "sha256": "01b396f8367ec446074cebb071a3e3458e7ce9b699ea6949b3cf35e7a49c023f",
+      "sha256": "a9193a1e199dc527364e1325536ac2bc97c253d8db3ed575296f7e9ee27b9cff",
       "executable": false
     },
     "src/pier/model.ts": {
@@ -3072,7 +3076,7 @@
       "executable": false
     },
     "src/pier/slotting.ts": {
-      "sha256": "4b7c04debfe26e0b5d3b5fb640389928eb035441dd955d1ab9f0d0446cb4a400",
+      "sha256": "010cb65221b616ab84c799661058bf12ef510698a0b61fefbea481ef70aaa243",
       "executable": false
     },
     "src/pier/slow-stock.ts": {
@@ -3892,7 +3896,7 @@
       "executable": false
     },
     "tests/api/slotting.test.mjs": {
-      "sha256": "ccb2daeb9916fdc9a0b48814b1f542e9fef892d55a0fbaafab67e4948ca8e3f6",
+      "sha256": "aad06fed1db921d3ff2cf7cbbe1cc30f2309bfb71664fc0c7bc0ef42c473bea1",
       "executable": false
     },
     "tests/api/slow-stock.test.mjs": {

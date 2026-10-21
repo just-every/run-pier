@@ -34,14 +34,13 @@ export function slottingPlan(s: State, warehouse: string, now: string, sourceLoc
     // Account for earlier recommendations so a plan never overcommits space/stock.
     staged.movements.push({ itemId, locationId: from.id, status: 'sellable', quantity: (-quantity).toString() } as any, { itemId, locationId: to.id, status: 'sellable', quantity: quantity.toString() } as any);
   };
-  for (const to of [...bins].sort((a,b) => compareDecimal(a.storagePolicy.pickSequence,b.storagePolicy.pickSequence))) {
-    for (const face of to.storagePolicy.pickFaces) {
-      const current = available(staged, face.itemId, to.id);
-      if (current > decimal(face.minimum)) continue;
-      for (const from of bins.filter(b => !b.storagePolicy.pickFace && b.id !== to.id).sort((a,b) => compareDecimal(distance(a,to) ?? '0', distance(b,to) ?? '0') || compareDecimal(a.storagePolicy.pickSequence,b.storagePolicy.pickSequence))) {
-        const gap = decimal(face.maximum) - available(staged, face.itemId, to.id);
-        if (gap > 0n) propose(face.itemId, from, to, gap, 'replenish', current <= 0n ? 0 : 1);
-      }
+  const needs = bins.flatMap(to => to.storagePolicy.pickFaces.map((face: any) => ({ to, face, current: available(staged, face.itemId, to.id) })))
+    .filter(({face,current}) => current <= decimal(face.minimum))
+    .sort((a,b) => (a.current <= 0n ? 0 : 1) - (b.current <= 0n ? 0 : 1) || compareDecimal(a.to.storagePolicy.pickSequence,b.to.storagePolicy.pickSequence));
+  for (const {to,face,current} of needs) {
+    for (const from of bins.filter(b => !b.storagePolicy.pickFace && b.id !== to.id).sort((a,b) => compareDecimal(distance(a,to) ?? '0', distance(b,to) ?? '0') || compareDecimal(a.storagePolicy.pickSequence,b.storagePolicy.pickSequence))) {
+      const gap = decimal(face.maximum) - available(staged, face.itemId, to.id);
+      if (gap > 0n) propose(face.itemId, from, to, gap, 'replenish', current <= 0n ? 0 : 1);
     }
   }
   if (sourceLocationId) {

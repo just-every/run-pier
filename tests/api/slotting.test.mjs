@@ -26,11 +26,14 @@ test('WMS-002: capacity, directed put-away/replenishment and source-backed ABC r
   const other = await h.command('item.save', { sku: 'OTHER', name: 'Other box', unit: 'each', packSize: '1', dimensions: { length: '1', width: '1', height: '1', unit: 'cm' } });
   const otherPo = await buy(h, { ...b, item: other }, '1');
   await unchanged('receipt.create', receiveAt(otherPo, face, '1'), 'BIN_STOCK');
+  await h.command('receipt.create', receiveAt(largePo, b.source, '1'));
+  const beforePlanning = await stable();
   let plan = await h.command('slotting.plan', { warehouse: 'North', sourceLocationId: b.source.id });
   assert.equal(plan.tasks.length, 1); assert.equal(plan.tasks[0].kind, 'put-away');
   assert.equal(plan.tasks[0].quantity, '10', 'ten 8-cm³ units fill an 80-cm³ reserve bin');
   const raw = await stable();
-  assert.equal(raw.movements.length, 1, 'planning never relocates stock');
+  assert.deepEqual(raw.movements, beforePlanning.movements, 'planning never relocates stock');
+  assert.equal(plan.tasks.some(t => t.itemId === oversized.id), false, 'received oversized stock remains in staging when no destination fits');
   const scan = (p, taskIndex = 0) => { const task = p.tasks[taskIndex]; const source = raw.locations.find(l => l.id === task.fromLocationId), dest = raw.locations.find(l => l.id === task.toLocationId); return { planId: p.id, version: p.version, taskIndex, fromCode: source.name, toCode: dest.name, itemCode: b.item.barcode, quantity: task.quantity, device: 'USB scanner at receiving bench' }; };
   await unchanged('slotting.scan', scan(plan), 'SLOTTING_STATE');
   plan = await h.command('slotting.approve', { planId: plan.id, version: plan.version });
@@ -43,7 +46,7 @@ test('WMS-002: capacity, directed put-away/replenishment and source-backed ABC r
   assert.equal(posted.tasks[0].confirmation.device, 'USB scanner at receiving bench');
   const reports = await h.request('/api/pier/reports'); assert.equal(reports.status, 200, await reports.clone().text());
   const initialValue = (await reports.json()).valuation;
-  assert.equal(initialValue.total, '3.000000000000');
+  assert.equal(initialValue.total, '3.250000000000');
   assert.equal(initialValue.reconciliation.difference, '0.000000000000');
   let replenishment = await h.command('slotting.plan', { warehouse: 'North' });
   assert.equal(replenishment.tasks.length, 1);
@@ -94,6 +97,7 @@ test('WMS-002: capacity, directed put-away/replenishment and source-backed ABC r
   // Changed policy invalidates tasks and their approval; no implicit grandfathering.
   await policy(face, { pickFace:true, pickFaces:[{itemId:b.item.id,minimum:'5',maximum:'8'}] });
   let stale = await h.command('slotting.plan', { warehouse:'North' });
+  assert.equal(stale.tasks[0].priority, 1, 'nonempty low faces follow empty faces');
   stale = await h.command('slotting.approve', {planId:stale.id,version:stale.version});
   await policy(face, { pickFace:true, pickFaces:[{itemId:b.item.id,minimum:'5',maximum:'7'}] });
   await unchanged('slotting.scan', scan(stale), 'STALE');
@@ -105,4 +109,34 @@ test('WMS-002: capacity, directed put-away/replenishment and source-backed ABC r
   const exported = await stable();
   assert.deepEqual(exported.slottingPlans.find(p=>p.id===posted.id), posted);
   assert.equal((await h.state()).actor.id, owner.id);
+  // Exact inch conversion, fit boundary and quarantine occupancy through receiving.
+  const inch = await h.command('item.save', { sku:'INCH',name:'One inch cube',unit:'each',packSize:'1',dimensions:{length:'1',width:'1',height:'1',unit:'in'} });
+  const inchPo = await buy(h,{...b,item:inch},'2'), tiny = await bin('TINY');
+  await policy(tiny,{allowedItemIds:[],capacityCm3:'16',lengthCm:'2.539999',widthCm:'2.54',heightCm:'2.54'});
+  await unchanged('receipt.create',receiveAt(inchPo,tiny,'1'),'BIN_SIZE');
+  await policy(tiny,{allowedItemIds:[],capacityCm3:'16.387064',lengthCm:'2.54',widthCm:'2.54',heightCm:'2.54'});
+  const inchReceipt = await h.command('receipt.create',receiveAt(inchPo,tiny,'1'));
+  await h.command('supplierReturn.create',{receiptId:inchReceipt.id,reason:'Inspect packaging',lines:[{receiptLineId:inchReceipt.lines[0].id,quantity:'1'}]});
+  await unchanged('receipt.create',receiveAt(inchPo,tiny,'1'),'BIN_CAPACITY');
+  // Approval authority is checked again after preparation and at SQL admission.
+  await policy(reserve,{allowedItemIds:[],capacityCm3:'160',aisleMetres:'5',bayMetres:'4',pickSequence:'2'});
+  await h.command('receipt.create',receiveAt(po,reserve,'1'));
+  let revoked = await h.command('slotting.plan',{warehouse:'North'});
+  assert.ok(revoked.tasks.length > 0);
+  await h.command('role.set',{operatorId:staff.actor.id,role:'owner'});
+  revoked = await h.command('slotting.approve',{planId:revoked.id,version:revoked.version},{as:cookie});
+  await h.command('role.set',{operatorId:staff.actor.id,role:'viewer'});
+  await unchanged('slotting.scan',scan(revoked),'APPROVER_REVOKED');
+  // Allocate scarce reserve stock to the empty face before a nonempty low face,
+  // even when the nonempty face occurs first in the walking sequence.
+  const priorityItem = await h.command('item.save',{sku:'PRIORITY',name:'Priority cartons',unit:'each',packSize:'1',dimensions:{length:'1',width:'1',height:'1',unit:'cm'}});
+  const low = await bin('LOW'), empty = await bin('EMPTY'), stock = await bin('STORAGE');
+  for (const [location,sequence] of [[low,'1'],[empty,'2'],[stock,'3']]) await policy(location,{allowedItemIds:[priorityItem.id],pickFace:location.id !== stock.id,pickSequence:sequence,pickFaces:location.id === stock.id ? [] : [{itemId:priorityItem.id,minimum:'2',maximum:'4'}]});
+  const priorityPo = await buy(h,{...b,item:priorityItem},'5');
+  await h.command('receipt.create',receiveAt(priorityPo,low,'1'));
+  await h.command('receipt.create',receiveAt(priorityPo,stock,'4'));
+  const prioritized = await h.command('slotting.plan',{warehouse:'North'});
+  const offered = prioritized.tasks.filter(t=>t.itemId === priorityItem.id);
+  assert.equal(offered.length,1);
+  assert.deepEqual([offered[0].toLocationId,offered[0].quantity,offered[0].priority],[empty.id,'4',0]);
 });

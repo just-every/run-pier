@@ -1,6 +1,7 @@
-import { balance, decimal, fail, format, get, SCALE, type Row, type State } from './model';
+import { balance, decimal, fail, get, SCALE, type Row, type State } from './model';
 
-// Integer volume uses micrometres cubed. No binary floating point conversions.
+// Integer dimensions use 1e-8 cm, preserving the exact inch conversion.
+// Volume also retains fractional base-unit occupancy without binary floats.
 export function sizeCm(item: Row): bigint[] | null {
   const d = item.dimensions;
   if (!d) return null;
