@@ -6,11 +6,11 @@ export function sellThrough(c: Context, itemId: string, warehouse: string, selec
   const now = Date.parse(c.now);
   const warehouses = new Map(c.s.locations.map(l => [l.id, l.warehouse]));
   const observations = c.s.shipments.flatMap(shipment => shipment.lines
-    .filter((line: any) => line.itemId === itemId)
+    .filter((line: any) => line.itemId === itemId || line.components?.some((part:any)=>part.itemId===itemId))
     .map((line: any) => ({
       at: Date.parse(shipment.createdAt),
       quantity: (line.reservations as { locationId: string; quantity: string }[])
-        .filter(link => warehouses.get(link.locationId) === warehouse)
+        .filter(link => warehouses.get(link.locationId) === warehouse && (!('itemId' in link) || link.itemId === itemId))
         .reduce((n, link) => n + decimal(link.quantity), 0n),
       shipmentId: shipment.id,
     })));

@@ -1,3 +1,4 @@
+import { kitDefinition } from './kits';
 import { decimal, fail, format, fresh, get, item, MAX, requireRole, row, SCALE, text, type Context, type Row } from './model';
 import { money } from './money';
 import { purchasing } from './purchasing';
@@ -23,7 +24,7 @@ function optionalQuantity(value: unknown): string | null {
 export function forecast(c: Context, overrides: { itemId: string; warehouse: string; supplierId?: string }[] = []) {
   const scope = planningScope(c);
   if (!scope.valid) return [];
-  return c.s.items.filter(i => !i.archived).flatMap(i => (scope.company ? [scope.destination] : scope.warehouses).map(warehouse => {
+  return c.s.items.filter(i => !i.archived && (!kitDefinition(c.s,i.id) || c.s.movements.some(m=>m.itemId===i.id && BigInt(m.quantity)>0n))).flatMap(i => (scope.company ? [scope.destination] : scope.warehouses).map(warehouse => {
     const effective = effectivePolicy(c, i.id, warehouse);
     const defaults = effective.defaults, local = effective.local;
     const policy = scope.company ? defaults ?? effective.policy ?? scope.warehouses.map(w => effectivePolicy(c, i.id, w).policy).find(Boolean) : effective.policy;

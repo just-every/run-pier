@@ -139,6 +139,8 @@ test('KIT-001: concurrent channel kits, whole shortages, versioned picks, assemb
   assert.equal(s.reservations.filter(r=>r.itemId===b.components[0].id).reduce((n,r)=>n+BigInt(r.quantity),0n),8000000n);
   assert.equal(s.reservations.filter(r=>r.itemId===b.components[1].id).reduce((n,r)=>n+BigInt(r.quantity),0n),4000000n);
   assert.equal(s.channelListings[0].available,'10');
+  assert.ok(!s.forecasts.some(f=>f.itemId===b.assortment.id), 'A virtual kit is not purchased as independent stock');
+  assert.equal(s.forecasts.find(f=>f.itemId===b.components[0].id&&f.warehouse==='North').reserved,'8');
   assert.equal(publications.at(-1),10);
   await h.command('kit.define',{itemId:b.assortment.id,version:b.definition.version,components:b.components.slice(0,2).map(part=>({itemId:part.id,quantity:'1',unit:'each'})),shortagePolicy:'block',reason:'Next version'});
   assert.equal((await h.state()).orders.find(o=>o.id===manual.id).lines[0].kit.revision,1);
@@ -199,4 +201,21 @@ test('KIT-001: concurrent channel kits, whole shortages, versioned picks, assemb
   s=await h.state();
   for(const position of s.positions) assert.ok(Number(position.available)>=0);
   assert.equal(s.positions.find(p=>p.itemId===b.display.id&&p.status==='sellable').quantity,'3');
+});
+
+test('KIT-001: splitting and disassembling cent-valued kits conserves every cost layer', async t => {
+  const { kitStock }=await import('./kits-fixture.mjs');
+  const h=await installation();t.after(()=>h.close());
+  const b=await kitStock(h,{prices:['0.01','0.01','0.01']});
+  let task=await h.command('kitting.plan',{itemId:b.display.id,quantity:'2',locationId:b.bin.id,bins:Object.fromEntries(b.components.map(part=>[part.id,b.bin.id])),direction:'assemble',reason:'Cent-valued kit batch'});
+  await h.command('kitting.approve',{taskId:task.id,version:task.version});await h.command('kitting.post',{taskId:task.id,version:task.version});
+  const order=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.display.id,quantity:'1',price:'1'}]});
+  const shipment=await h.command('dispatch.create',{orderId:order.id,shipmentReference:'synthetic-pier-901',lines:[{orderLineId:order.lines[0].id,quantity:'1'}]});
+  const returned=await h.command('return.create',{shipmentId:shipment.id,shipmentLineId:shipment.lines[0].id,locationId:b.bin.id,quantity:'1',reason:'Checked cent-valued kit',inspection:b.components.map(part=>({itemId:part.id,condition:'sellable',reason:'Intact'}))});
+  await h.command('return.approve',{returnId:returned.id,version:returned.version});await h.command('return.restock',{returnId:returned.id,version:returned.version});
+  task=await h.command('kitting.plan',{itemId:b.display.id,quantity:'1',locationId:b.bin.id,bins:Object.fromEntries(b.components.map(part=>[part.id,b.bin.id])),direction:'disassemble',reason:'Recover original pennies'});
+  await h.command('kitting.approve',{taskId:task.id,version:task.version});await h.command('kitting.post',{taskId:task.id,version:task.version});
+  const response=await h.request('/api/pier/reports');assert.equal(response.status,200);const report=await response.json();
+  assert.equal(Number(report.valuation.total),0.9);assert.equal(Number(report.valuation.reconciliation.difference),0);
+  assert.equal(Number(report.margin.bySku.find(row=>row.key===b.display.id).cost),0.03);
 });

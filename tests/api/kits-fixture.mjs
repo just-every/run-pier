@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-export async function kitStock(h) {
+export async function kitStock(h, {prices}={}) {
   const components = [];
   for (let n = 1; n <= 3; n++) components.push(await h.command('item.save', { sku:`synthetic-pier-${n}`, name:`Component ${n}`, unit:'each', barcode:`synthetic-pier-code-${n}`, packSize:'1' }));
   const assortment = await h.command('item.save', { sku:'synthetic-pier-4', name:'Case assortment', unit:'kit', barcode:'synthetic-pier-code-4', packSize:'1' });
@@ -7,10 +7,10 @@ export async function kitStock(h) {
   const bin = await h.command('location.save', { name:'Kit bench', warehouse:'North', kind:'bin', barcode:'synthetic-pier-bin-1' });
   const supplier = await h.command('party.save', { kind:'supplier', name:'Synthetic supplier' });
   const customer = await h.command('party.save', { kind:'customer', name:'Synthetic customer' });
-  let po = await h.command('po.draft', { supplierId:supplier.id, destinationWarehouse:'North', promiseDate:'2026-11-01', reason:'Kit stock', lines:components.map((part,n) => ({ itemId:part.id, quantity:'30', price:String(n+1) })) });
+  let po = await h.command('po.draft', { supplierId:supplier.id, destinationWarehouse:'North', promiseDate:'2026-11-01', reason:'Kit stock', lines:components.map((part,n) => ({ itemId:part.id, quantity:'30', price:prices?.[n] ?? String(n+1) })) });
   await h.command('po.approve', { poId:po.id, version:po.version });
   po = await h.command('po.commit', { poId:po.id, version:po.version });
-  await h.command('receipt.create', { poId:po.id, supplierReference:'synthetic-pier-receipt-1', lines:po.lines.map((part,n) => ({ poLineId:part.id, locationId:bin.id, quantity:'30', cost:String(n+1) })) });
+  await h.command('receipt.create', { poId:po.id, supplierReference:'synthetic-pier-receipt-1', lines:po.lines.map((part,n) => ({ poLineId:part.id, locationId:bin.id, quantity:'30', cost:prices?.[n] ?? String(n+1) })) });
   const definition = await h.command('kit.define', { itemId:assortment.id, components:components.slice(0,2).map((part,n) => ({ itemId:part.id, quantity:n ? '1':'2', unit:'each' })), shortagePolicy:'backorder', reason:'Two-component assortment' });
   const displayDefinition = await h.command('kit.define', { itemId:display.id, components:components.map(part => ({ itemId:part.id, quantity:'1', unit:'each' })), shortagePolicy:'backorder', reason:'Three-component display' });
   return { components, assortment, display, definition, displayDefinition, bin, supplier, customer };

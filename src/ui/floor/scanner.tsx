@@ -69,7 +69,7 @@ export function ScanBox({ label, hint, onScan, busy, count = false, focus = true
   }, [camera])
   function submit(event: FormEvent) { event.preventDefault(); void send(code) }
   return <form className="scan-box" onSubmit={submit}>
-    <label className="field scan-field"><span>{label}</span><input ref={input} aria-label={label} value={code} onChange={event => setCode(event.target.value)} autoComplete="off" autoCapitalize="off" spellCheck={false} enterKeyHint="go" placeholder="Scan or type" />{hint && <small>{hint}</small>}</label>
+    <label className="field scan-field"><span>{label}</span><input ref={input} aria-label={label} value={code} onChange={event => setCode(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void send(event.currentTarget.value) } }} autoComplete="off" autoCapitalize="off" spellCheck={false} enterKeyHint="go" placeholder="Scan or type" />{hint && <small>{hint}</small>}</label>
     {count && <label className="field scan-count"><span>Times</span><input aria-label="Times scanned" value={times} onChange={event => setTimes(event.target.value)} inputMode="numeric" placeholder="1" /></label>}
     <div className="scan-actions"><button className="primary" type="submit" disabled={busy || !code.trim()}>Enter code</button>{camera === 'on' ? <button type="button" onClick={() => { stop(); setCamera('off') }}>Stop camera</button> : <button type="button" onClick={() => void start()}>Scan with camera</button>}</div>
     {waiting > 1 && <p className="muted scan-note" role="status">{waiting - 1} more {waiting === 2 ? 'scan' : 'scans'} waiting to record…</p>}
