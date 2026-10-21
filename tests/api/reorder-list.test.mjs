@@ -19,6 +19,8 @@ test('BUY-005: exported A–E stock reproduces reorder batches, coverage, altern
   return po;
  };
  await purchase(items.A, '8', east); await purchase(items.A, '6', east, '0');
+ let legacy = await command('po.draft', { supplierId: s1.id, promiseDate: '2026-11-01', reason: 'Legacy supply with no destination', lines: [{ itemId: items.A.id, quantity: '1000', price: '1' }] });
+ await command('po.approve', { poId: legacy.id, version: legacy.version }); await command('po.commit', { poId: legacy.id, version: legacy.version });
  const bp = await purchase(items.B, '30', west, '25');
  await command('order.create', { customerId: customer.id, warehouse: 'West', lines: [{ itemId: items.B.id, quantity: '32', price: '2' }] });
  // Later receipt leaves the existing 25 allocated and 7 unfilled, without silently reallocating.
@@ -93,7 +95,7 @@ test('BUY-005: exported A–E stock reproduces reorder batches, coverage, altern
  state = await concordance(); assert.ok(!low(state).some(f => f.itemId === items.B.id));
  await command('replenishment.check', {}); await command('replenishment.check', {}); assert.equal((await h.state()).replenishmentExceptions.length, state.replenishmentExceptions.length);
  let settings = await command('replenishment.configure', { version: 0, mode: 'company', warehouses: ['East', 'West'], destinationWarehouse: 'East' });
- state = await concordance(); assert.ok(!low(state).some(f => f.itemId === items.E.id)); assert.ok(low(state).every(f => f.warehouse === 'East' && f.scope === 'company'));
+ state = await concordance(); assert.equal(low(state).find(f => f.itemId === items.A.id).position, '14', 'unassigned legacy supply is outside included warehouse positions'); assert.ok(!low(state).some(f => f.itemId === items.E.id)); assert.ok(low(state).every(f => f.warehouse === 'East' && f.scope === 'company'));
  assert.deepEqual((await read('/api/pier/export')).movements, movements, 'drafts, settings, checks and reports never move physical stock');
  // A SKU default fills missing local settings; an explicit location retains precedence.
  await policy('E', 'East', s1, '4', '9', { scope: 'sku', companyReorderPoint: '60' });

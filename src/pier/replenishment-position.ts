@@ -15,8 +15,8 @@ export function demandWarehouse(c: Context, order: any, line: any): string | nul
 }
 
 export function purchaseWarehouse(c: Context, po: any, line: any): string | null {
-  return line.destinationWarehouse ?? po.destinationWarehouse
-    ?? c.s.locations.find(l => l.kind === 'bin')?.warehouse ?? null;
+  // STOCK-001 keeps legacy supply in its unassigned bucket until a destination exists.
+  return line.destinationWarehouse ?? po.destinationWarehouse ?? null;
 }
 
 /** The canonical stock position. Drafts are coverage, not committed supply. */

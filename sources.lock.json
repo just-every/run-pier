@@ -284,7 +284,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "95ae615761360793d51404a38b0a63b290eeaa7613741b14c28ea0021107c7da",
+      "sha256": "3b74fc8bd48dae1f856966efacabd2747adb2377db52131b8f56c1c3b8c1dee0",
       "executable": false
     },
     "DEMO.md": {
@@ -3016,7 +3016,7 @@
       "executable": false
     },
     "src/pier/replenishment-position.ts": {
-      "sha256": "8150c2554e341760ccb57b94580a124f5ec4635c2a5f07b3c971d33068063343",
+      "sha256": "20404b72a5aaa6425b8fc6517d65fd7247e79903505428516309785ce34cf340",
       "executable": false
     },
     "src/pier/replenishment-scope.ts": {
@@ -3852,7 +3852,7 @@
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
-      "sha256": "1fbeae22414ff0933f1866fbe524c249f41bcf63a3608a8555869d2b1c9583c8",
+      "sha256": "e9354f280d15cc2d8980e5129ff480814e2e085836e33e792b7143200f6179f6",
       "executable": false
     },
     "tests/api/replenishment.test.mjs": {
