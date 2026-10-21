@@ -3024,7 +3024,7 @@
       "executable": false
     },
     "src/pier/replenishment.ts": {
-      "sha256": "1856aa2716470573cb49740fec0f75ea91cebe4c6b90c90de2da3610d5287da1",
+      "sha256": "6a5125d4fb8ee24d85d4864871b220f6e8f9f148c4e97be249398d92e1df865b",
       "executable": false
     },
     "src/pier/reports.ts": {
@@ -3852,7 +3852,7 @@
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
-      "sha256": "924b4879f289c0efddb5be4aa8ea6c5a20f8811004de79fad8832fa375db61d2",
+      "sha256": "1fbeae22414ff0933f1866fbe524c249f41bcf63a3608a8555869d2b1c9583c8",
       "executable": false
     },
     "tests/api/replenishment.test.mjs": {

@@ -46,7 +46,7 @@ export function forecast(c: Context, overrides: { itemId: string; warehouse: str
     const unrounded = low ? nonnegative((method === 'upTo' ? decimal(maximum) : decimal(reorderPoint) + decimal(reorderQuantity)) - signedQuantity(position.position)) : 0n;
     const pack = terms ? decimal(terms.packSize, true) : null;
     const minimum = terms ? decimal(terms.minimum) : 0n;
-    const rounded = pack !== null && unrounded > 0n ? roundPack(unrounded > minimum ? unrounded : minimum, pack) : 0n;
+    const rounded = pack !== null && low ? roundPack(unrounded > minimum ? unrounded : minimum, pack) : 0n;
     const remaining = nonnegative(rounded - signedQuantity(position.draftQuantity));
     const freight = policy?.freight ?? '0', duty = policy?.duty ?? '0';
     const productCost = terms ? remaining * decimal(terms.price) : null;

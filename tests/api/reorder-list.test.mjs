@@ -63,6 +63,11 @@ test('BUY-005: exported A–E stock reproduces reorder batches, coverage, altern
    assert.equal(Number(f.position), expected.position); assert.equal(Number(f.onHand), expected.onHand); assert.equal(Number(f.reserved), expected.reserved); assert.equal(Number(f.backorders), expected.backorders);
    assert.equal(Number(f.inboundTransfers), expected.inbound); assert.equal(Number(f.unroundedNeed), expected.need); assert.equal(Number(f.roundedQuantity), expected.rounded); assert.equal(Number(f.suggestedQuantity), expected.remaining);
  }
+ const aPolicy = state.replenishmentPolicies.find(p => p.itemId === items.A.id);
+ const threshold = await command('replenishment.save', { ...aPolicy, reorderPoint: '14', reorderQuantity: '0' });
+ const atPoint = (await h.state()).forecasts.find(f => f.itemId === items.A.id && f.warehouse === 'East');
+ assert.equal(atPoint.unroundedNeed, '0'); assert.equal(atPoint.roundedQuantity, '24', 'at the inclusive point, supplier MOQ raises even a zero unrounded need');
+ await command('replenishment.save', { ...aPolicy, version: threshold.version });
  const movements = source.movements;
  const batch = await command('replenishment.plan', {});
  assert.equal(batch.drafts.length, 2);
