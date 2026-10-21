@@ -1,4 +1,4 @@
-import { valuationLedger } from './valuation-ledger';
+import { matchesKit, valuationLedger } from './valuation-ledger';
 import { available, decimal, fail, format, fresh, get, id, item, min, move, requireRole, row, SCALE, text, type Context, type Row, type State } from './model';
 
 /** Definitions are immutable records. New versions never change reserved orders. */
@@ -17,8 +17,19 @@ export function buildable(s: State, definition: Row, warehouse: string, buffer =
     return count === null || kits < count ? kits : count;
   }, null) as bigint;
 }
+export function physicalKitAvailable(s: State, definition: Row, binId: string) {
+  const layers=valuationLedger(s,'9999').positions.find(p=>p.itemId===definition.itemId && p.locationId===binId && p.status==='sellable')?.layers ?? [];
+  const compatible=layers.filter(layer=>matchesKit(layer,definition)).reduce((n,layer)=>n+layer.quantity,0n);
+  const reserved=s.reservations.filter(r=>r.itemId===definition.itemId && r.locationId===binId).reduce((n,r)=>{
+    const line=s.orders.find(o=>o.id===r.orderId)?.lines.find((l:any)=>l.id===r.orderLineId);
+    const same=line?.kit && JSON.stringify([...line.kit.components].sort((a:any,b:any)=>a.itemId.localeCompare(b.itemId)))===JSON.stringify([...definition.components].sort((a:any,b:any)=>a.itemId.localeCompare(b.itemId)));
+    return n+(same?BigInt(r.quantity):0n);
+  },0n);
+  const free=min(compatible-reserved,available(s,definition.itemId,binId));
+  return free>0n?free:0n;
+}
 export function kitAvailability(s: State, definition: Row, warehouse: string, buffer = '0') {
-  const physical = kitBins(s, warehouse).reduce((n,b) => n + available(s, definition.itemId, b.id), 0n) - decimal(buffer);
+  const physical = kitBins(s, warehouse).reduce((n,b) => n + physicalKitAvailable(s, definition, b.id), 0n) - decimal(buffer);
   return (physical > 0n ? physical / SCALE : 0n) * SCALE + buildable(s, definition, warehouse, buffer) * SCALE;
 }
 export function reservedKits(s: State, line: any) {
@@ -30,7 +41,7 @@ export function reservedKits(s: State, line: any) {
 }
 function allocate(c: Context, order: Row, line: any, itemId: string, quantity: bigint) {
   for (const bin of kitBins(c.s, order.warehouse)) {
-    const take = min(quantity, available(c.s, itemId, bin.id));
+    const take = min(quantity, itemId===line.itemId ? physicalKitAvailable(c.s,line.kit,bin.id) : available(c.s, itemId, bin.id));
     if (take > 0n) { c.s.reservations.push({ id: id(), orderId: order.id, orderLineId: line.id, itemId, locationId: bin.id, quantity: take.toString() }); quantity -= take; }
   }
   if (quantity) fail('KIT_STOCK', 'The complete component set is no longer available. Reserve again.');
@@ -44,7 +55,7 @@ export function reserveKit(c: Context, order: Row, line: any) {
   const fill = min(need, kitAvailability(c.s, line.kit, warehouse));
   if (fill < need && line.kit.shortagePolicy === 'block') fail('KIT_SHORTAGE', 'The configured kit policy blocks an incomplete kit order.');
   order.warehouse = warehouse;
-  const physical = min(fill, kitBins(c.s, warehouse).reduce((n,b) => n + available(c.s, line.itemId, b.id), 0n) / SCALE * SCALE);
+  const physical = min(fill, kitBins(c.s, warehouse).reduce((n,b) => n + physicalKitAvailable(c.s,line.kit,b.id), 0n) / SCALE * SCALE);
   allocate(c, order, line, line.itemId, physical);
   for (const component of line.kit.components) allocate(c, order, line, component.itemId, componentQuantity(fill - physical, component.quantity));
 }
@@ -59,8 +70,8 @@ export function dispatchKit(c: Context, order: Row, line: any, shipment: Row, qu
       const take = min(need, BigInt(reservation.quantity));
       if (!take) continue;
       reservation.quantity = (BigInt(reservation.quantity) - take).toString();
-      move(c, { itemId: part.itemId, locationId: reservation.locationId, status: 'sellable', quantity: (-take).toString(), reason: 'Dispatch ' + shipment.reference, documentId: shipment.id });
-      links.push({ reservationId: reservation.id, itemId: part.itemId, locationId: reservation.locationId, quantity: format(take) }); need -= take;
+      const movement=move(c, { itemId: part.itemId, locationId: reservation.locationId, status: 'sellable', quantity: (-take).toString(), reason: 'Dispatch ' + shipment.reference, documentId: shipment.id });
+      links.push({ movementId: movement.id, reservationId: reservation.id, itemId: part.itemId, locationId: reservation.locationId, quantity: format(take) }); need -= take;
     }
     if (need) fail('RESERVATION', 'The complete kit reservation changed.');
     components.push({ itemId: part.itemId, quantity: format(part.quantity) });

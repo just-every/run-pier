@@ -23,10 +23,10 @@ function revalueLayer(layer: Layer, value: bigint | null) {
   layer.parts.forEach((part,i)=>revalueLayer(part,values[i]));
 }
 
-export function takeLayers(layers: Layer[], quantity: bigint, sourceId?: string): Layer[] {
+export function takeLayers(layers: Layer[], quantity: bigint, sourceId?: string, matches?: (layer: Layer)=>boolean): Layer[] {
   const taken: Layer[] = [];
   for (const layer of layers) {
-    if (quantity === 0n || (sourceId && layer.sourceId !== sourceId)) continue;
+    if (quantity === 0n || (sourceId && layer.sourceId !== sourceId) || (matches && !matches(layer))) continue;
     const q = quantity < layer.quantity ? quantity : layer.quantity;
     if (!q) continue;
     let value = layer.value === null ? null : share(layer.value, q, layer.quantity);
@@ -50,6 +50,11 @@ export function takeLayers(layers: Layer[], quantity: bigint, sourceId?: string)
   }
   if (quantity) throw new Error('Cost layers do not reconcile to physical movements.');
   return taken;
+}
+
+/** Pre-assembled stock of another component definition is never interchangeable. */
+export function matchesKit(layer: Layer, definition: any) {
+  return !!layer.parts && definition.components.every((part:any)=>layer.parts!.filter(p=>p.itemId===part.itemId).reduce((n,p)=>n+p.quantity,0n)*SCALE===layer.quantity*decimal(part.quantity)) && layer.parts.every(part=>definition.components.some((p:any)=>p.itemId===part.itemId));
 }
 
 /** Each commercial shipment line owns exactly its physical issue layers. */
@@ -109,7 +114,10 @@ export function valuationLedger(s: State, end: string) {
     const isInternal = (s.slottingPlans ?? []).some(p => p.id === m.documentId) || transfers.has(m.documentId) || (s.supplierReturns.some(r => r.id === m.documentId) && m.reason === 'Supplier return quarantine') || (returns.has(m.documentId) && m.reason === 'Reviewed restock');
     if (q < 0n) {
       const returnSource = returns.has(m.documentId) ? s.movements.find(source => source.documentId === m.documentId && source.status === 'quarantine' && BigInt(source.quantity) > 0n)?.id : undefined;
-      const layers = takeLayers(p.layers, -q, returnSource ?? (receiptLines.has(m.reversalId ?? '') && !s.counts.some(c => c.id === m.documentId) ? m.reversalId! : undefined));
+      const shipmentLine = shipments.get(m.documentId)?.lines.find((line:any)=>line.kit && line.itemId===m.itemId && line.reservations.some((link:any)=>link.movementId===m.id));
+      const task = kitting.get(m.documentId);
+      const definition = shipmentLine?.kit ?? (task?.direction==='disassemble' && task.itemId===m.itemId ? task.definition : null);
+      const layers = takeLayers(p.layers, -q, returnSource ?? (receiptLines.has(m.reversalId ?? '') && !s.counts.some(c => c.id === m.documentId) ? m.reversalId! : undefined), definition ? layer=>matchesKit(layer,definition) : undefined);
       if (kitting.has(m.documentId)) kitIssues.set(m.documentId, [...(kitIssues.get(m.documentId) ?? []), ...layers.map(layer => ({ ...layer, itemId: m.itemId }))]);
       else if (isInternal) moved.set(key, layers);
       else if (shipments.has(m.documentId)) {

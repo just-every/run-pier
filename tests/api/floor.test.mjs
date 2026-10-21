@@ -180,6 +180,10 @@ test('KIT-001: concurrent channel kits, whole shortages, versioned picks, assemb
   await h.command('kitting.post',{taskId:task.id,version:1},{commandId:taskCommand});
   const displays=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.display.id,quantity:'2',price:'12'}]});
   assert.equal(displays.lines[0].reserved,'2');
+  await h.command('kit.define',{itemId:b.display.id,version:b.displayDefinition.version,components:b.components.map((part,n)=>({itemId:part.id,quantity:n===0?'2':'1',unit:'each'})),shortagePolicy:'backorder',reason:'New display composition while old kits remain'});
+  const revised=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.display.id,quantity:'1',price:'12'}]});
+  assert.equal((await h.state()).reservations.filter(r=>r.orderId===revised.id&&r.itemId===b.display.id).length,0,'An old pre-assembled composition cannot satisfy a newer definition');
+  await h.command('order.cancel',{orderId:revised.id,reason:'End versioned-stock probe'});
   const shipment=await h.command('dispatch.create',{orderId:displays.id,shipmentReference:'synthetic-pier-shipment-5',lines:[{orderLineId:displays.lines[0].id,quantity:'2'}]});
   const payload={shipmentId:shipment.id,shipmentLineId:shipment.lines[0].id,locationId:b.bin.id,quantity:'1',reason:'Inspect each returned component'};
   await h.command('return.create',payload,{error:'KIT_INSPECTION'});
