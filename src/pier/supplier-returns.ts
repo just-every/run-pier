@@ -1,5 +1,7 @@
 import { balance, decimal, fail, format, fresh, get, id, move, nextReference, requireRole, row, text, type Context, type Row } from './model';
 import { landReceipt } from './landed-cost';
+import { amount, money, share, toCents } from './money';
+import { supplierReturnCosts } from './supplier-return-cost';
 
 /** Physical supplier returns never reverse or reopen the original receipt/PO. */
 export function supplierReturns(c: Context, type: string, p: any): Row | undefined {
@@ -46,11 +48,18 @@ export function supplierReturns(c: Context, type: string, p: any): Row | undefin
     }
     document.dispatch = { reference, actorId: c.actor.id, at: c.now };
     document.status = 'dispatched';
+    const costs = supplierReturnCosts(c.s, document, c.now);
+    for (const line of document.lines) {
+      const cost = costs.get(line.id)!;
+      line.dispatchCostTotal = cost.total;
+      line.dispatchCostLayers = cost.layers;
+    }
   } else {
     if (document.status !== 'dispatched') fail('SUPPLIER_RETURN_STATE', 'Only dispatched, unresolved returns can be reconciled.');
     if (!Array.isArray(p.lines) || !p.lines.length) fail('LINES', 'Choose quantities to reconcile.');
     const reference = text(p.reference, 'Supplier credit or replacement reference');
     if (c.s.supplierReturns.some(r => r.supplierId === document.supplierId && r.resolutions.some((x: any) => x.kind === type && x.reference === reference))) fail('SUPPLIER_RETURN_DUPLICATE', 'This supplier resolution reference is already recorded.');
+    const costs = supplierReturnCosts(c.s, document, c.now);
     const seen = new Set<string>();
     const entries = p.lines.map((x: any) => {
       const l = document.lines.find((l: any) => l.id === x.returnLineId);
@@ -58,7 +67,10 @@ export function supplierReturns(c: Context, type: string, p: any): Row | undefin
       seen.add(l.id);
       const q = decimal(x.quantity, true);
       if (q + decimal(l.credited) + decimal(l.replaced) > decimal(l.quantity)) fail('SUPPLIER_RETURN_LIMIT', 'Credit and replacement exceed the dispatched quantity.');
-      return { returnLineId: l.id, quantity: format(q), locationId: x.locationId };
+      const cost = costs.get(l.id)!.total, resolved = decimal(l.credited) + decimal(l.replaced);
+      // Cumulative whole-cent shares leave the remainder on the final resolution.
+      const costTotal = cost === null ? null : money(share(amount(cost), resolved + q, decimal(l.quantity)) - share(amount(cost), resolved, decimal(l.quantity)));
+      return { returnLineId: l.id, quantity: format(q), locationId: x.locationId, costTotal };
     });
     const resolution: any = { kind: type, reference, evidence: text(p.evidence, 'Supplier resolution evidence'), lines: entries, actorId: c.actor.id, at: c.now };
     if (type === 'supplierReturn.credit') {
@@ -74,9 +86,17 @@ export function supplierReturns(c: Context, type: string, p: any): Row | undefin
         const l = document.lines.find((l: any) => l.id === x.returnLineId);
         if (get(c.s, 'locations', x.locationId).kind !== 'bin') fail('BIN', 'Receive replacements into a bin.');
         const movement = move(c, { itemId: l.itemId, locationId: x.locationId, status: 'sellable', quantity: decimal(x.quantity).toString(), documentId: receipt.id, reason: 'Supplier replacement ' + reference });
-        receipt.lines.push({ id: id(), poLineId: l.poLineId, itemId: l.itemId, locationId: x.locationId, quantity: x.quantity, cost: l.cost, movementId: movement.id });
+        receipt.lines.push({ id: id(), poLineId: l.poLineId, itemId: l.itemId, locationId: x.locationId, quantity: x.quantity, cost: l.cost, movementId: movement.id, replacementCostTotal: x.costTotal, returnedLineId: l.id });
       }
       landReceipt(receipt);
+      // A replacement restores the issued inventory value. It is not a second
+      // purchase, and the supplier unit price alone omits freight and duty.
+      for (const line of receipt.lines) {
+        line.landedTotal = line.replacementCostTotal;
+        line.landedUnitCost = line.replacementCostTotal === null ? null : money(toCents(amount(line.replacementCostTotal) * 1000000n / decimal(line.quantity)));
+      }
+      receipt.valuationBasis = 'supplier-return-dispatch';
+      receipt.landedCost.total = receipt.lines.some((line: any) => line.replacementCostTotal === null) ? null : money(receipt.lines.reduce((n: bigint, line: any) => n + amount(line.replacementCostTotal), 0n));
       resolution.receiptId = receipt.id;
     }
     for (const x of entries) {

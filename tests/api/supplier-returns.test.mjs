@@ -51,3 +51,84 @@ test('BUY-003: quarantine, supplier authority, once-only dispatch, credit/replac
   await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '5', locationId: b.source.id }] });
   await unchanged('supplierReturn.create', { ...payload, lines: [{ receiptLineId: receipt.lines[0].id, quantity: '1' }] }, 'DEPENDENCY');
 });
+
+for (const method of ['fifo', 'average']) test(`BUY-003: ${method} replacements preserve the dispatched landed value across partial credit and replacement resolutions`, async t => {
+  const h = await installation(); t.after(() => h.close());
+  const b = await basics(h);
+  await h.command('costing.method', { method, confirm: true, reason: 'Reviewed supplier return costing' });
+  const receiveLayer = async (price, freight, duty, reference) => {
+    let po = await h.command('po.draft', { supplierId: b.supplier.id, promiseDate: '2026-11-01', reason: reference, lines: [{ itemId: b.item.id, quantity: '3', price }] });
+    await h.command('po.approve', { poId: po.id, version: po.version });
+    po = await h.command('po.commit', { poId: po.id, version: po.version });
+    return h.command('receipt.create', { poId: po.id, supplierReference: reference, landedCost: { freight, duty }, lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '3', cost: price }] });
+  };
+  await receiveLayer('1', '0.01', '0.01', 'Earlier goods');
+  const receipt = await receiveLayer('2', '0.02', '0.01', 'Rejected delivery');
+  const original = structuredClone(receipt), po = (await h.state()).purchaseOrders.find(p => p.id === receipt.poId);
+  const report = async () => {
+    const response = await h.request('/api/pier/reports'); assert.equal(response.status, 200);
+    const value = await response.json(); assert.equal(value.valuation.reconciliation.difference, '0.000000000000'); return value;
+  };
+  assert.equal((await report()).valuation.total, '9.050000000000');
+  let returned = await h.command('supplierReturn.create', { receiptId: receipt.id, reason: 'Supplier will credit one and replace two', lines: [{ receiptLineId: receipt.lines[0].id, quantity: '3' }] });
+  assert.equal((await report()).valuation.total, '9.050000000000', 'quarantine transfers existing value');
+  returned = await h.command('supplierReturn.authorize', { returnId: returned.id, version: returned.version, authorizationReference: 'RMA-VALUE', evidence: 'Approved supplier response' });
+  const dispatch = { returnId: returned.id, version: returned.version, dispatchReference: 'VALUE-OUT' }, dispatchId = randomUUID();
+  returned = await h.command('supplierReturn.dispatch', dispatch, { commandId: dispatchId });
+  const dispatchResult = structuredClone(returned);
+  const dispatched = method === 'fifo' ? '3.020000000000' : '4.530000000000';
+  assert.equal(returned.lines[0].dispatchCostTotal, dispatched);
+  assert.equal(returned.lines[0].dispatchCostLayers.reduce((n, l) => n + BigInt(l.value.replace('.', '')), 0n), BigInt(dispatched.replace('.', '')));
+  assert.equal((await report()).valuation.total, method === 'fifo' ? '6.030000000000' : '4.520000000000');
+  const credit = { returnId: returned.id, version: returned.version, reference: 'CM-VALUE', evidence: 'One unit credited at the supplier price', amount: '2', lines: [{ returnLineId: returned.lines[0].id, quantity: '1' }] };
+  returned = await h.command('supplierReturn.credit', credit);
+  assert.equal(returned.resolutions[0].lines[0].costTotal, method === 'fifo' ? '1.010000000000' : '1.510000000000');
+  assert.equal(returned.resolutions[0].posting, 'not-posted');
+  const expectedParts = method === 'fifo' ? ['1.000000000000', '1.010000000000'] : ['1.510000000000', '1.510000000000'];
+  for (let i = 0; i < 2; i++) {
+    const payload = { returnId: returned.id, version: returned.version, reference: `REPLACE-VALUE-${i}`, evidence: 'Inspected replacement arrives with no new purchase obligation', lines: [{ returnLineId: returned.lines[0].id, quantity: '1', locationId: b.destination.id }] }, commandId = randomUUID();
+    returned = await h.command('supplierReturn.replace', payload, { commandId });
+    assert.deepEqual(await h.command('supplierReturn.replace', payload, { commandId }), returned);
+    const replacement = (await h.state()).receipts.find(r => r.id === returned.resolutions.at(-1).receiptId);
+    assert.equal(replacement.lines[0].replacementCostTotal, expectedParts[i]);
+    assert.equal(replacement.lines[0].landedTotal, expectedParts[i]);
+    assert.equal(replacement.valuationBasis, 'supplier-return-dispatch');
+    assert.equal(replacement.originalReceiptId, receipt.id);
+  }
+  const final = await report();
+  assert.equal(final.valuation.total, method === 'fifo' ? '8.040000000000' : '7.540000000000');
+  assert.equal(final.margin.cost, '0.000000000000', 'supplier returns are not sales COGS');
+  assert.equal(returned.status, 'reconciled');
+  assert.equal(returned.resolutions.flatMap(r => r.lines).reduce((n, l) => n + BigInt(l.costTotal.replace('.', '')), 0n), BigInt(dispatched.replace('.', '')), 'all partial resolutions retain exactly the issued cents');
+  assert.deepEqual(await h.command('supplierReturn.dispatch', dispatch, { commandId: dispatchId }), dispatchResult);
+  const state = await h.invariant();
+  assert.deepEqual(state.receipts.find(r => r.id === receipt.id), original);
+  assert.deepEqual(state.purchaseOrders.find(p => p.id === po.id), po);
+  const exported = await (await h.request('/api/pier/export')).json();
+  assert.deepEqual(exported.supplierReturns.find(r => r.id === returned.id), returned);
+  assert.equal(exported.receipts.filter(r => r.replacementFor === returned.id).length, 2);
+});
+
+test('BUY-003: replacements keep unknown dispatched valuation unknown instead of inventing cost from the supplier price', async t => {
+  const h = await installation(); t.after(() => h.close());
+  const b = await basics(h);
+  await h.command('costing.method', { method: 'average', confirm: true, reason: 'Average inventory policy' });
+  let count = await h.command('count.capture', { locationId: b.source.id });
+  count = await h.command('count.record', { countId: count.id, version: count.version, reason: 'Found stock without purchase-cost evidence', lines: [{ itemId: b.item.id, status: 'sellable', quantity: '1' }] });
+  await h.command('count.approve', { countId: count.id, version: count.version });
+  const po = await buy(h, b, '3'), receipt = await receive(h, b, po, '3');
+  let returned = await h.command('supplierReturn.create', { receiptId: receipt.id, reason: 'Reject three units', lines: [{ receiptLineId: receipt.lines[0].id, quantity: '3' }] });
+  returned = await h.command('supplierReturn.authorize', { returnId: returned.id, version: returned.version, authorizationReference: 'UNKNOWN-RMA', evidence: 'Supplier approves exchange' });
+  returned = await h.command('supplierReturn.dispatch', { returnId: returned.id, version: returned.version, dispatchReference: 'UNKNOWN-OUT' });
+  assert.equal(returned.lines[0].dispatchCostTotal, null);
+  returned = await h.command('supplierReturn.replace', { returnId: returned.id, version: returned.version, reference: 'UNKNOWN-REPLACEMENT', evidence: 'One replacement received', lines: [{ returnLineId: returned.lines[0].id, quantity: '1', locationId: b.destination.id }] });
+  const replacement = (await h.state()).receipts.find(r => r.id === returned.resolutions[0].receiptId);
+  assert.equal(replacement.lines[0].replacementCostTotal, null);
+  assert.equal(replacement.lines[0].landedTotal, null);
+  assert.equal(replacement.landedCost.total, null);
+  const report = await (await h.request('/api/pier/reports')).json();
+  assert.equal(report.valuation.total, null);
+  assert.equal(report.valuation.rows.find(r => r.locationId === b.destination.id).value, null);
+  assert.equal(report.valuation.unvaluedQuantity, '2');
+  await h.invariant();
+});

@@ -256,7 +256,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "534051c6297ba03a65586c7e921c97cd93720ddb8cfd7334395c1dc72719b1bf",
+      "sha256": "16b3c7e77baf2e66ade4053c64eaad6c9f21b46b8bffabfc9613efc096cdc021",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -284,7 +284,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a07d94bce17f5ae35b56ee14ce0520285a0950028293c47dafb608a849040680",
+      "sha256": "a4c825c651a909653bd7bc0e2e109e94d2b6262c217ea9dd2dffae166dda02f2",
       "executable": false
     },
     "DEMO.md": {
@@ -3103,12 +3103,16 @@
       "sha256": "923ce522fec7d2ccef9e711d576001c25f7083aa3f7ffd3ac53a19557c411f65",
       "executable": false
     },
+    "src/pier/supplier-return-cost.ts": {
+      "sha256": "877cff37a652f94f4eab48bf694787f8080fb9faa74a37c70471cfeb728df3ef",
+      "executable": false
+    },
     "src/pier/supplier-returns.ts": {
-      "sha256": "a77902d0e972e3b0befc5c7aeded529497bfabcbd8fcb4fbdb31061c350a9056",
+      "sha256": "dcde017e63499c11a0d04d3bcccc05cd01b77737f850722aa56b988935a25454",
       "executable": false
     },
     "src/pier/valuation-ledger.ts": {
-      "sha256": "b10b804b2a22bea78baa398bd479cd2ccbe1b5bdce25042384d21b09283ba724",
+      "sha256": "329e6c48fdd83557579ff128eed75d5c95823ccbca29bd9b72cec6796f972628",
       "executable": false
     },
     "src/pier/warehouse.ts": {
@@ -3920,7 +3924,7 @@
       "executable": false
     },
     "tests/api/supplier-returns.test.mjs": {
-      "sha256": "584f371a0f230750d9461cc1068a1fa2f222b247f5da33580d68a56ab27275a7",
+      "sha256": "cf5114c49d1f8380263fef73c58e5646c6a65a8bab4b72940ff0c86b7eadd40f",
       "executable": false
     },
     "tests/api/worker.ts": {
@@ -3976,7 +3980,7 @@
       "executable": false
     },
     "tests/browser/supplier-returns.spec.ts": {
-      "sha256": "226f9b35a2ed436e1f774e47acf732ef503aee90826ad937e993da70c9de3e95",
+      "sha256": "2ebd8575f546e426e81c701631a94197f0683855415907f7f0b8bcb63e4e0d93",
       "executable": false
     },
     "tests/email-link.mjs": {

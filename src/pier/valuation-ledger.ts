@@ -6,7 +6,9 @@ export type Layer = { quantity: bigint; value: bigint | null; sourceId: string; 
 export type Position = { itemId: string; locationId: string; status: string; layers: Layer[] };
 const sumValue = (layers: Layer[]) => layers.reduce((n, layer) => n + (layer.value ?? 0n), 0n);
 // Cost layers carry whole cents, so every COGS, return and valuation amount is postable.
-const receiptValue = (line: any): bigint | null => line.currency === 'USD'
+const receiptValue = (line: any): bigint | null => Object.hasOwn(line, 'replacementCostTotal')
+  ? line.replacementCostTotal === null ? null : toCents(amount(line.replacementCostTotal))
+  : line.currency === 'USD'
   ? toCents(line.landedTotal ? amount(line.landedTotal) : extended(line.quantity, line.cost))
   : null;
 // A non-USD opening is valued only through the USD rate its batch records.
@@ -90,7 +92,10 @@ export function valuationLedger(s: State, end: string) {
           }
           totals.receipts -= originalValue;
         } else record('receipts', layers, -1n);
-      } else record('adjustments', layers, -1n);
+      } else {
+        if (s.supplierReturns.some(r => r.id === m.documentId)) consumed.set(key, [...(consumed.get(key) ?? []), ...layers]);
+        record('adjustments', layers, -1n);
+      }
     } else if (q > 0n) {
       if (isInternal) {
         const layers = moved.get(key);
