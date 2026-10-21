@@ -93,7 +93,7 @@ body:has(.pier-app) { margin: 0; padding: 0; background: var(--app-ground); }
   .topbar .wordmark img { width: 34px; height: 34px; }
   .topbar .account-name { display: none; }
   .switcher { order: 3; flex: 1 1 100%; max-width: 100%; }
-  .pier-app .switcher button { flex: 1 1 0; min-width: 0; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; }
+  .pier-app .switcher button { flex: 1 0 auto; min-width: 0; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; }
   .pier-app .sync { order: 6; flex: 1 1 100%; white-space: normal; font-size: 13px; }
   .rail { padding: 8px 12px; }
   .rail-main, .rail-foot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
