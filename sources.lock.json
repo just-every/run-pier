@@ -256,7 +256,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "31c99436abcbff960c87a9b80360443dde4a05526d0d5474854dea3099174b1f",
+      "sha256": "593139b6358bfde5c80f4453b668e916f0379b08c9cbef812038e14c8e34e2fa",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -284,7 +284,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "44e2e15aa7d78fcdcccce114c2da2645a57f2d0e97762241e4c3efe7f7c2d4e8",
+      "sha256": "95ae615761360793d51404a38b0a63b290eeaa7613741b14c28ea0021107c7da",
       "executable": false
     },
     "DEMO.md": {
@@ -2628,7 +2628,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "58226c79400d72d365bfd6a736fb246b1a71933e47797e17b0265cbd37a7db2e",
+      "sha256": "05983a4adbe3561029548d70cfb28463a5a584cd427ca98057a89bb653d0eae3",
       "executable": false
     },
     "src/pier/backorders.ts": {
@@ -2724,7 +2724,7 @@
       "executable": false
     },
     "src/pier/catalogue.ts": {
-      "sha256": "9ce0ffcce4e4f60b664f6d373ca37106678ca0a02125c65a5780b142b5422229",
+      "sha256": "05eab36f53781706570654442ddfee8c52f92a0a472fde3401a406f927c1a6c3",
       "executable": false
     },
     "src/pier/channel-payment.ts": {
@@ -2956,7 +2956,7 @@
       "executable": false
     },
     "src/pier/model.ts": {
-      "sha256": "b417d104b35ea807e403dcfddb42807e60339b546435d51de84903cdc40beb68",
+      "sha256": "1127c3f1bd3f797515621d79ff39ac4c486c08cf56b09b3c803d7d40c652f36b",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -3020,11 +3020,11 @@
       "executable": false
     },
     "src/pier/replenishment.ts": {
-      "sha256": "bf08c626d4c49c9fa73efc343fede58dede1ecf1b40cf7b18e68a983bc551372",
+      "sha256": "e30fca9a647ec2340071f18de4f892422298ef24143fa49aff19bb21a737b968",
       "executable": false
     },
     "src/pier/reports.ts": {
-      "sha256": "5c015a30be121264b2bbce9fe042846a807379cc61a403a4d7f94e37be2b9eb3",
+      "sha256": "002f704cbdfba9dad59917e58833483f65ea753c02e298a3f47b624fb59a4ec8",
       "executable": false
     },
     "src/pier/returns-cost.ts": {
@@ -3640,7 +3640,7 @@
       "executable": false
     },
     "src/ui/purchasing.tsx": {
-      "sha256": "81b7a393ceb781e7feee2d97fdcccc9ed80623d694f9576aa9444056d43def94",
+      "sha256": "dbd6dd10e445fb1c162b6c857a4139511e72e8afa02e14a0a0b88a0188f793f9",
       "executable": false
     },
     "src/ui/quantity.ts": {
@@ -3648,11 +3648,11 @@
       "executable": false
     },
     "src/ui/replenishment.tsx": {
-      "sha256": "fa06c96b062897f9bc9fc5f552c26ea820f4dbf0a506f7d36cdd278cf561da8e",
+      "sha256": "0530b681dcac338b961306d0ed3869bf7c41577fcec11ba2c66380dc1e3a7f4e",
       "executable": false
     },
     "src/ui/reports.tsx": {
-      "sha256": "d5bec1cbb9fb0a3a1c81c276c9dae7d3ac2e322cd57e5149d321b6bb0130f806",
+      "sha256": "82c17d18f824482d55d6c28442e568ac72bdbf07ac27f54cc0ff14d04509e189",
       "executable": false
     },
     "src/ui/shell.tsx": {

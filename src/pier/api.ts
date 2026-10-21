@@ -42,7 +42,7 @@ import { itemAgent, explainItem } from "./item-agent";
 import { purchasing } from "./purchasing";
 import { supplierReturns } from './supplier-returns';
 import { supplierInspections } from "./supplier-inspections";
-import { replenishment, forecast, draftReplenishment } from './replenishment';
+import { replenishment, forecast, draftReplenishment, refreshReorderExceptions } from './replenishment';
 import { backorderDates } from './backorders';
 import { purchasingWorkflow, expectedLandedCost, refreshPromises } from './purchasing-workflow';
 import { deliverCorrespondence, correspondenceDeliveries } from './correspondence-delivery';
@@ -204,8 +204,9 @@ export async function execute(
     }
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
-      if (!backgroundPolicy && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
+      if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
     }
+    refreshReorderExceptions(c);
     refreshPromises(c);
     invalidatePurchaseSends(c);
     refreshSlowStock(c, backgroundPolicy?.collection === "slowStockPolicies");
@@ -293,6 +294,7 @@ export async function pierResponse(
       if (url.pathname === "/api/pier/returns/lookup")
         return json(returnLookup(s, url.searchParams.get("code")));
       if (url.pathname === "/api/pier/supplier-performance") return json(supplierPerformance(s));
+      if (url.pathname === '/api/pier/replenishment') return json(forecast(c, [{ itemId: url.searchParams.get('itemId') ?? '', warehouse: url.searchParams.get('warehouse') ?? '', supplierId: url.searchParams.get('supplierId') ?? undefined }]));
       if (url.pathname === "/api/pier/reports") return json(reports(s, url.searchParams));
       if (url.pathname === "/api/pier/dispatch-summary")
         return json(

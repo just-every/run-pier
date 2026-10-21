@@ -4,6 +4,8 @@ import { purchasing } from './purchasing';
 import { learnedParameters, sellThrough, stockProjection } from './replenishment-demand';
 import { planningWarehouses, roundPack, signedQuantity, supplyPosition } from './replenishment-position';
 
+import { companyHistory, companyPosition, effectivePolicy, planningScope, scopeCommand } from './replenishment-scope';
+
 const policies = (c: Context): Row[] => c.s.replenishmentPolicies;
 const nonnegative = (value: bigint) => value > 0n ? value : 0n;
 function days(value: unknown, name: string, defaultValue: number, positive = false) {
@@ -18,19 +20,24 @@ function optionalQuantity(value: unknown): string | null {
 }
 
 /** Read-only, including for SKUs without a policy or sales history. */
-export function forecast(c: Context) {
-  return c.s.items.filter(i => !i.archived).flatMap(i => planningWarehouses(c).map(warehouse => {
-    const policy = policies(c).find(p => p.itemId === i.id && p.warehouse === warehouse);
-    const supplierId = policy?.supplierId ?? i.defaultSupplierId ?? null;
+export function forecast(c: Context, overrides: { itemId: string; warehouse: string; supplierId?: string }[] = []) {
+  const scope = planningScope(c);
+  return c.s.items.filter(i => !i.archived).flatMap(i => (scope.company ? [scope.destination] : scope.warehouses).map(warehouse => {
+    const effective = effectivePolicy(c, i.id, warehouse);
+    const defaults = effective.defaults, local = effective.local;
+    const policy = scope.company ? defaults ?? effective.policy ?? scope.warehouses.map(w => effectivePolicy(c, i.id, w).policy).find(Boolean) : effective.policy;
+    const override = overrides.find(o => o.itemId === i.id && o.warehouse === warehouse);
+    const supplierId = override?.supplierId ?? policy?.supplierId ?? i.defaultSupplierId ?? null;
     const terms = c.s.supplierItems.find(t => t.itemId === i.id && t.supplierId === supplierId);
-    const leadDays = policy?.leadDays ?? terms?.leadDays ?? 0;
+    const leadDays = override?.supplierId ? terms?.leadDays ?? 0 : policy?.leadDays ?? terms?.leadDays ?? 0;
     const safetyStock = policy?.safetyStock ?? '0', windowDays = policy?.windowDays ?? 30, reviewDays = policy?.reviewDays ?? 30;
-    const windows = sellThrough(c, i.id, warehouse, windowDays);
+    const windows = scope.company ? companyHistory(c, i.id, scope.warehouses, windowDays) : sellThrough(c, i.id, warehouse, windowDays);
     const selected = windows.find(window => window.days === windowDays)!;
     const learned = learnedParameters(selected.sold, windowDays, leadDays, reviewDays, safetyStock, i.unit);
-    const position = supplyPosition(c, i.id, warehouse);
+    const position = scope.company ? companyPosition(c, i.id, scope.warehouses) : supplyPosition(c, i.id, warehouse);
     const method = policy?.method ?? 'fixed';
-    const reorderPoint = policy?.reorderPoint ?? null;
+    const summedPoints = scope.warehouses.map(w => effectivePolicy(c, i.id, w).policy?.reorderPoint);
+    const reorderPoint = scope.company ? defaults?.companyReorderPoint ?? (summedPoints.some(p => p != null) ? format(summedPoints.reduce((sum, p) => sum + decimal(p ?? '0'), 0n)) : null) : policy?.reorderPoint ?? null;
     const reorderQuantity = terms?.reorderQuantity ?? policy?.reorderQuantity ?? null;
     const maximum = policy?.maximum ?? null;
     const configured = reorderPoint !== null && (method === 'upTo' ? maximum !== null : reorderQuantity !== null);
@@ -44,12 +51,12 @@ export function forecast(c: Context) {
     const productCost = terms ? remaining * decimal(terms.price) : null;
     const chargeCost = remaining > 0n ? (decimal(freight) + decimal(duty)) * SCALE : 0n;
     return {
-      itemId: i.id, warehouse, supplierId, terms: terms ?? null, policy: policy ?? null,
+      itemId: i.id, warehouse, scope: scope.company ? 'company' : 'location', includedWarehouses: scope.warehouses, defaults: defaults ?? null, localPolicy: local ?? null, supplierId, terms: terms ?? null, policy: policy ?? null,
       policyId: policy?.id ?? null, policyVersion: policy?.version ?? 0,
       leadDays, safetyStock, windowDays, reviewDays, windows,
       observedSold: selected.sold, soldPerDay: selected.soldPerDay, hasHistory: selected.hasHistory,
       learned, applied: { reorderPoint, reorderQuantity, maximum, method,
-        quantitySource: terms?.reorderQuantity != null ? 'supplier' : 'policy' },
+        quantitySource: terms?.reorderQuantity != null ? 'supplier' : scope.company ? policy?.scope === 'sku' ? 'sku' : 'location' : local?.reorderQuantity != null ? 'location' : 'sku' },
       ...position, ...stockProjection(c, position, selected.sold, windowDays),
       configured, low, autoDraft: policy?.autoDraft === true,
       unroundedNeed: format(unrounded), packSize: terms?.packSize ?? null, minimum: terms?.minimum ?? null,
@@ -71,16 +78,21 @@ export function forecast(c: Context) {
 }
 
 export function replenishment(c: Context, type: string, p: any): Row | undefined {
+  const settings = scopeCommand(c, type, p);
+  if (settings) return settings;
+  if (type === 'replenishment.check') { requireRole(c, ['buyer']); refreshReorderExceptions(c); return { id: c.commandId, version: 1 }; }
   if (!['replenishment.save', 'replenishment.plan'].includes(type)) return;
   requireRole(c, ['buyer']);
   if (type === 'replenishment.plan') {
     if (p.policyId && !policies(c).some(policy => policy.id === p.policyId)) fail('NOT_FOUND', 'Replenishment policy not found.');
-    const drafts = draftReplenishment(c, { autoOnly: false, policyId: p.policyId });
+    if (p.lines !== undefined && (!Array.isArray(p.lines) || !p.lines.length)) fail('LINES', 'Select reorder lines to draft.');
+    if (p.stateVersion !== undefined && p.stateVersion !== c.s.version) fail('STALE', 'Stock or terms changed. Review the reorder list.');
+    const drafts = draftReplenishment(c, { autoOnly: false, policyId: p.policyId, selected: p.lines });
     return { id: c.commandId, version: 1, draftIds: drafts.map(draft => draft.id), drafts };
   }
-  const i = item(c.s, p.itemId), warehouse = text(p.warehouse, 'Warehouse');
-  if (!planningWarehouses(c).includes(warehouse)) fail('WAREHOUSE', 'Choose a warehouse containing a real bin.');
-  const old = policies(c).find(policy => policy.itemId === i.id && policy.warehouse === warehouse);
+  const i = item(c.s, p.itemId), skuDefault = p.scope === 'sku', warehouse = skuDefault ? null : text(p.warehouse, 'Warehouse');
+  if (!skuDefault && !planningWarehouses(c).includes(warehouse!)) fail('WAREHOUSE', 'Choose a warehouse containing a real bin.');
+  const old = policies(c).find(policy => policy.itemId === i.id && (skuDefault ? policy.scope === 'sku' : policy.scope !== 'sku' && policy.warehouse === warehouse));
   if (p.id && p.id !== old?.id) fail('POLICY', 'Policy identity must match the item and warehouse.');
   if (old) fresh(old, p.version);
   else if (p.version !== 0) fail('STALE', 'Review the current item-location policy version before saving.');
@@ -91,22 +103,22 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
   if (p.autoDraft !== undefined && typeof p.autoDraft !== 'boolean') fail('POLICY', 'Automatic drafting must be true or false.');
   if (p.applyLearned !== undefined && typeof p.applyLearned !== 'boolean') fail('POLICY', 'Applying learned parameters must be explicit.');
   const data: Record<string, any> = {
-    itemId: i.id, warehouse, supplierId: p.supplierId, method: p.method,
+    itemId: i.id, warehouse, scope: skuDefault ? 'sku' : 'location', supplierId: p.supplierId, method: p.method,
     safetyStock: format(decimal(p.safetyStock)), leadDays: days(p.leadDays, 'Lead time', terms.leadDays),
     windowDays: days(p.windowDays, 'Sales window', 30, true), reviewDays: days(p.reviewDays, 'Review period', 30, true),
-    reorderPoint: optionalQuantity(p.reorderPoint), reorderQuantity: optionalQuantity(p.reorderQuantity), maximum: optionalQuantity(p.maximum),
+    companyReorderPoint: optionalQuantity(p.companyReorderPoint), reorderPoint: optionalQuantity(p.reorderPoint), reorderQuantity: optionalQuantity(p.reorderQuantity), maximum: optionalQuantity(p.maximum),
     autoDraft: p.autoDraft === true, freight: format(decimal(p.freight ?? '0')), duty: format(decimal(p.duty ?? '0')),
     approvedBy: c.actor.id, approvalRole: c.actor.role, approvedAt: c.now,
   };
   if (p.applyLearned) {
     if (p.stateVersion !== c.s.version) fail('STALE', 'Demand or supply changed. Reload before applying learned parameters.');
-    const selected = sellThrough(c, i.id, warehouse, data.windowDays).find(window => window.days === data.windowDays)!;
+    const selected = (skuDefault ? companyHistory(c, i.id, planningWarehouses(c), data.windowDays) : sellThrough(c, i.id, warehouse!, data.windowDays)).find(window => window.days === data.windowDays)!;
     Object.assign(data, learnedParameters(selected.sold, data.windowDays, data.leadDays, data.reviewDays, data.safetyStock, i.unit));
     for (const key of ['reorderPoint', 'reorderQuantity', 'maximum']) decimal(data[key]);
     data.learnedApplication = { actorId: c.actor.id, at: c.now, stateVersion: c.s.version, sold: selected.sold, shipmentIds: selected.shipmentIds };
   } else data.learnedApplication = null;
   if (['each', 'ea', 'ea.'].includes(i.unit.trim().toLowerCase()))
-    for (const key of ['safetyStock', 'reorderPoint', 'reorderQuantity', 'maximum'])
+    for (const key of ['safetyStock', 'reorderPoint', 'reorderQuantity', 'maximum', 'companyReorderPoint'])
       if (data[key] !== null && decimal(data[key]) % SCALE !== 0n) fail('REPLENISHMENT_UNIT', `${key} must be a whole number for an each item.`);
   if (data.method === 'upTo' && data.maximum !== null && data.reorderPoint !== null && decimal(data.maximum) < decimal(data.reorderPoint))
     fail('MAXIMUM', 'Order-up-to maximum must be at least the reorder point.');
@@ -117,10 +129,24 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
 }
 
 /** Called only inside a command admission, never from a state GET. */
-export function draftReplenishment(c: Context, options: { policyId?: string; autoOnly?: boolean } = {}): Row[] {
+export function draftReplenishment(c: Context, options: { policyId?: string; autoOnly?: boolean; selected?: { itemId: string; warehouse: string; supplierId?: string; quantity?: string }[] } = {}): Row[] {
   const autoOnly = options.autoOnly !== false;
-  const candidates = forecast(c).filter(f => f.policy && (!options.policyId || f.policyId === options.policyId)
+  const selected = options.selected;
+  if (selected?.some(l => !l || typeof l.itemId !== 'string' || typeof l.warehouse !== 'string' || (l.supplierId !== undefined && typeof l.supplierId !== 'string'))) fail('LINES', 'Select item, warehouse and supplier identities.');
+  if (selected && new Set(selected.map(l => JSON.stringify([l.itemId, l.warehouse]))).size !== selected.length) fail('LINES', 'Select each reorder line once.');
+  const available = forecast(c, selected);
+  if (selected?.some(l => !available.some(f => f.itemId === l.itemId && f.warehouse === l.warehouse && f.low && !f.blockedReason))) fail('REPLENISHMENT_SELECTION', 'A selected line is no longer low or has unavailable supplier terms.');
+  const candidates = available.filter(f => f.policy && (!options.policyId || f.policyId === options.policyId)
+    && (!selected || selected.some(l => l.itemId === f.itemId && l.warehouse === f.warehouse))
     && (!autoOnly || f.autoDraft) && f.low && !f.blockedReason && decimal(f.suggestedQuantity) > 0n);
+  for (const candidate of candidates) {
+    const choice = selected?.find(l => l.itemId === candidate.itemId && l.warehouse === candidate.warehouse);
+    if (choice?.quantity !== undefined) {
+      const q = decimal(choice.quantity, true), pack = decimal(candidate.terms!.packSize, true);
+      if (q < decimal(candidate.terms!.minimum) || q % pack !== 0n) fail('REPLENISHMENT_QUANTITY', 'Edited quantities must meet supplier minimum and whole case packs.');
+      candidate.suggestedQuantity = format(q);
+    }
+  }
   const groups = new Map<string, typeof candidates>();
   for (const candidate of candidates) {
     const key = JSON.stringify([candidate.supplierId, candidate.warehouse]);
@@ -137,6 +163,10 @@ export function draftReplenishment(c: Context, options: { policyId?: string; aut
       reason: `Replenishment plan for ${group.length} buyer-applied item policies at ${group[0].warehouse}. Policy versions and shipment evidence are retained on this draft.`,
       lines: group.map(f => ({ itemId: f.itemId, quantity: f.suggestedQuantity, price: f.unitPrice })),
     })!;
+    const goods = group.reduce((sum, f) => sum + decimal(f.suggestedQuantity) * decimal(f.unitPrice!), 0n);
+    const minimumValue = group.reduce((highest, f) => f.minimumValue && decimal(f.minimumValue) > highest ? decimal(f.minimumValue) : highest, 0n);
+    draft.minimumOrderValue = format(minimumValue);
+    draft.minimumOrderValueUnmet = goods < minimumValue * SCALE;
     draft.replenishment = { plannedAt: c.now, policyVersions: group.map(f => ({ policyId: f.policyId, version: f.policyVersion })),
       evidence: group.map(f => ({ itemId: f.itemId, warehouse: f.warehouse, windowDays: f.windowDays,
         observedSold: f.observedSold, position: f.position, quantity: f.suggestedQuantity,
@@ -145,4 +175,13 @@ export function draftReplenishment(c: Context, options: { policyId?: string; aut
     drafts.push(draft);
   }
   return drafts;
+}
+
+/** One persistent open exception per item/planning scope, closed by real supply. */
+export function refreshReorderExceptions(c: Context) {
+  const low = forecast(c).filter(f => f.configured && f.low);
+  const key = (r: { [key: string]: any }) => JSON.stringify([r.itemId, r.scope ?? 'location', r.warehouse]);
+  const keys = new Set(low.map(key));
+  for (const e of c.s.replenishmentExceptions.filter(e => e.status === 'open')) if (!keys.has(key(e))) Object.assign(e, { status: 'closed', closedAt: c.now, version: e.version + 1, reason: 'Position is above the reorder point or planning scope changed.' });
+  for (const f of low) if (!c.s.replenishmentExceptions.some(e => e.status === 'open' && key(e) === key(f))) row(c, 'replenishmentExceptions', { itemId: f.itemId, warehouse: f.warehouse, scope: f.scope, status: 'open', assigneeId: f.policy?.approvedBy, nextAction: 'Review current supply and prepare a purchase draft.' });
 }

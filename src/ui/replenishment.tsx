@@ -1,3 +1,4 @@
+import { ReorderBatch, ReorderScope } from './reorder-batch';
 import { useState } from 'react';
 import { label, records, unit, type PierState, type RunCommand } from './api';
 import { day, ItemName, reference } from './display';
@@ -17,6 +18,7 @@ export function Replenishment({ state, run, busy }: Props) {
   const [selected, setSelected] = useState('');
   const current = rows.find(row => JSON.stringify([row.itemId, row.warehouse]) === selected);
   return <>
+    <ReorderScope state={state} run={run} busy={busy} /><ReorderBatch state={state} run={run} busy={busy} />
     <section className="panel"><h2>Demand and replenishment</h2>
       <p className="muted">Shipment history proposes reorder points and quantities. A buyer applies the parameters; planning creates supplier purchase drafts for exact approval.</p>
       <div className="actions"><button className="primary" disabled={busy || !canBuy(state)} onClick={() => run('replenishment.plan', {})}>Create replenishment drafts</button></div>
@@ -79,19 +81,20 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
       {f.draftIds.length > 0 && <p>Purchase drafts: {f.draftIds.map((id: string) => <a key={id} href={`#purchasing/${id}`}>{reference(records(state, 'purchaseOrders').find(po => po.id === id))} </a>)}</p>}
     </section>
     <Form key={`${f.policyVersion}-${supplierId}`} title="Replenishment policy" submit="Save buyer policy" busy={busy} disabled={!canBuy(state)} note="Policies are versioned per item and warehouse. Enabling automatic drafts never approves or commits a purchase. Leave the point and quantity/maximum blank to save planning settings without a reorder trigger. Freight and duty are total USD estimates contributed by this item to each generated supplier draft."
-      onSubmit={data => run('replenishment.save', {
-        ...(policy ? { id: policy.id } : {}), version: f.policyVersion, itemId: f.itemId, warehouse: f.warehouse,
+      onSubmit={data => { const asDefault = data.get('skuDefault') === 'on', saved = asDefault ? f.defaults : f.localPolicy; return run('replenishment.save', {
+        ...(saved ? { id: saved.id } : {}), version: saved?.version ?? 0, itemId: f.itemId, warehouse: f.warehouse, scope: asDefault ? 'sku' : 'location', companyReorderPoint: text(data, 'companyReorderPoint'),
         supplierId: text(data, 'supplierId'), safetyStock: text(data, 'safetyStock'), leadDays: text(data, 'leadDays'),
         windowDays: text(data, 'windowDays'), reviewDays: text(data, 'reviewDays'), method: text(data, 'method'),
         reorderPoint: text(data, 'reorderPoint'), reorderQuantity: text(data, 'reorderQuantity'), maximum: text(data, 'maximum'),
         freight: text(data, 'freight'), duty: text(data, 'duty'), autoDraft: data.get('autoDraft') === 'on',
-      })}>
+      }) }}>
       <Select label="Replenishment supplier" name="supplierId" rows={suppliers} value={supplierId} onChange={setSupplierId} />
       <Field label={`Safety stock (${unit(state, f.itemId)})`} name="safetyStock" defaultValue={policy?.safetyStock ?? '0'} inputMode="decimal" />
       <Field label="Lead time (days)" name="leadDays" defaultValue={String(policy?.leadDays ?? supplierTerms?.leadDays ?? 0)} inputMode="numeric" />
       <Field label="Sales window (days)" name="windowDays" defaultValue={String(f.windowDays)} inputMode="numeric" />
       <Field label="Review period (days)" name="reviewDays" defaultValue={String(f.reviewDays)} inputMode="numeric" />
       <Select label="Replenishment method" name="method" defaultValue={f.applied.method} rows={[{ id: 'fixed', version: 1, label: 'Fixed reorder quantity' }, { id: 'upTo', version: 1, label: 'Order up to maximum' }]} />
+      <Field label="Save as SKU default for locations without overrides" name="skuDefault" type="checkbox" required={false} /><Field label="Company reorder point (SKU default only; blank sums location points)" name="companyReorderPoint" defaultValue={f.defaults?.companyReorderPoint ?? ''} required={false} inputMode="decimal" />
       <Field label="Applied reorder point" name="reorderPoint" defaultValue={policy?.reorderPoint ?? ''} required={false} inputMode="decimal" />
       <Field label="Applied reorder quantity" name="reorderQuantity" defaultValue={policy?.reorderQuantity ?? ''} required={false} inputMode="decimal" hint={supplierTerms?.reorderQuantity != null ? `Supplier reorder quantity ${supplierTerms.reorderQuantity} takes precedence.` : undefined} />
       <Field label="Applied order-up-to maximum" name="maximum" defaultValue={policy?.maximum ?? ''} required={false} inputMode="decimal" />

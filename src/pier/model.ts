@@ -81,6 +81,8 @@ export const collections = [
   "packs",
   "dispatchDays",
   "replenishmentPolicies",
+  "replenishmentSettings",
+  "replenishmentExceptions",
   "correspondence",
   "channels",
   "channelListings",

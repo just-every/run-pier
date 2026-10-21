@@ -119,8 +119,8 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       price: format(decimal(p.price)),
       minimum: format(decimal(p.minimum)),
       leadDays: Number(p.leadDays),
-      ...(p.reorderQuantity !== undefined ? { reorderQuantity: format(decimal(p.reorderQuantity)) } : {}),
-      ...(p.minimumValue !== undefined ? { minimumValue: format(decimal(p.minimumValue)) } : {}),
+      ...(p.reorderQuantity !== undefined ? { reorderQuantity: p.reorderQuantity === null || p.reorderQuantity === '' ? null : format(decimal(p.reorderQuantity)) } : {}),
+      ...(p.minimumValue !== undefined ? { minimumValue: p.minimumValue === null || p.minimumValue === '' ? null : format(decimal(p.minimumValue)) } : {}),
     };
     if (
       c.s.supplierItems.some(
