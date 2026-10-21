@@ -1,3 +1,4 @@
+import { returnCost } from './returns-cost';
 import { reservedKits } from './kits';
 import { forecast } from './replenishment';
 import { overdueDispatch } from "./floor/dispatch-board";
@@ -70,6 +71,14 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
     costed(reservation.orderLineId, quantity > held ? [...takeLayers(layers, held), { quantity: quantity - held, value: null, sourceId: '', receivedAt: '' }] : takeLayers(layers, quantity));
   }
   const orderCosts = Object.fromEntries([...lineCosts].map(([orderLineId, layers]) => { const line = s.orders.flatMap(o=>o.lines).find(l=>l.id===orderLineId); return [orderLineId, { quantity: format(line?.kit ? decimal(line.dispatched) + reservedKits(s,line) : layers.reduce((n,l)=>n+l.quantity,0n)), cost: display(valueOf(layers)) }]; }));
+  const kitMargins = [...new Set(s.kitDefinitions.map(k=>k.itemId))].map(itemId => {
+    const shipped = rows.filter(row=>row.itemId===itemId), gross = marginTotal(shipped);
+    const returned = s.returns.filter(r=>r.itemId===itemId && r.kit && r.createdAt.slice(0,10)>=from && r.createdAt.slice(0,10)<=to);
+    const credits = returned.map(r=>{ const sh=s.shipments.find(sh=>sh.id===r.shipmentId)!; const line=sh.lines.find((l:any)=>l.id===r.shipmentLineId); const order=s.orders.find(o=>o.id===sh.orderId)!;const price=order.lines.find((l:any)=>l.id===line.orderLineId)?.price;return {revenue:typeof price==='string'?extended(r.quantity,price):null,cost:returnCost(s,r,end)};});
+    const revenue=gross.revenue===null||credits.some(r=>r.revenue===null)?null:amount(gross.revenue)-credits.reduce((n,r)=>n+r.revenue!,0n);
+    const cost=gross.cost===null||credits.some(r=>r.cost===null)?null:amount(gross.cost)-credits.reduce((n,r)=>n+amount(r.cost!),0n);
+    return {key:itemId,quantity:format(decimal(gross.quantity)-returned.reduce((n,r)=>n+decimal(r.quantity),0n)),returned:format(returned.reduce((n,r)=>n+decimal(r.quantity),0n)),revenue:display(revenue),cost:display(cost),margin:display(revenue===null||cost===null?null:revenue-cost)};
+  });
   const inactivity = stockInactivity(s, valuationRows, end);
   const deadRows = inactivity.filter(row => row.inactiveDays >= days);
   const t = ledger.totals, expected = t.receipts + t.openings + t.returns + t.adjustments - t.cogs;
@@ -81,6 +90,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
       unpricedLines: rows.filter(r => r.revenue === null).length, unvaluedLines: rows.filter(r => r.cost === null).length },
     // Each order line's own cost: the layers its dispatches consumed and its reservations hold.
     orderCosts,
+    kitMargins,
     inactivity,
     deadStock: { days, rows: deadRows, total: deadRows.some(r => r.value === null) ? null : money(deadRows.reduce((n, r) => n + amount(r.value!), 0n)) },
   };

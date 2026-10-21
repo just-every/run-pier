@@ -23,7 +23,7 @@ export function stockInactivity(s: State, positions: ValuedPosition[], at: strin
       if (before <= 0n && balance > 0n) { start = group.find(m => BigInt(m.quantity) > 0n)!; lastOut = undefined; }
       for (const m of group) {
         if (BigInt(m.quantity) < 0n && s.shipments.some(sh => sh.id === m.documentId)) lastSale = m;
-        if (BigInt(m.quantity) < 0n && (s.shipments.some(sh => sh.id === m.documentId) || s.transfers.some(t => t.id === m.documentId && t.fromLocationId === locationId))) lastOut = m;
+        if (BigInt(m.quantity) < 0n && (s.shipments.some(sh => sh.id === m.documentId) || s.kittingTasks.some(task=>task.id===m.documentId) || s.transfers.some(t => t.id === m.documentId && t.fromLocationId === locationId))) lastOut = m;
       }
     }
     const since = lastOut ?? start;

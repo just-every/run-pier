@@ -191,6 +191,8 @@ test('KIT-001: concurrent channel kits, whole shortages, versioned picks, assemb
   const displayMargin=report.margin.bySku.find(row=>row.key===b.display.id);
   assert.deepEqual([Number(displayMargin.revenue),Number(displayMargin.cost),Number(displayMargin.margin)],[24,12,12]);
   assert.equal(Number(report.valuation.reconciliation.difference),0);
+  const net=report.kitMargins.find(row=>row.key===b.display.id);
+  assert.deepEqual([net.quantity,net.returned,Number(net.revenue),Number(net.cost),Number(net.margin)],['1','1',12,6,6]);
   const exported=await (await h.request('/api/pier/export')).json();
   assert.equal(exported.kittingTasks.filter(task=>task.status==='posted').length,2);
   assert.equal(exported.returns[0].inspection.length,3);
