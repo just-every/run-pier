@@ -74,8 +74,10 @@ test('BUY-004: buyer corrects source packs, retains originals and approves at 14
     // The same receipt carries a supplier inspection that feeds the scorecard.
     const receipt = state.receipts.find((row: any) => row.supplierReference === `DELIVERY-${width}`)
     await page.goto(`${origin}/app#purchasing`); await page.reload()
+    await page.getByRole('button', { name: 'All', exact: true }).click()
     const record = page.locator(`#document-${receipt.id}`)
-    const inspection = record.locator('form').filter({ has: page.getByRole('heading', { name: 'Record a supplier inspection', exact: true }) })
+    const inspection = record.locator('section').filter({ has: page.getByRole('heading', { name: 'Record a supplier inspection', exact: true }) })
+    await inspection.getByLabel('Received line', { exact: true }).selectOption({ index: 1 })
     await inspection.getByLabel('Inspected quantity', { exact: true }).fill('24')
     await inspection.getByLabel('Defective quantity', { exact: true }).fill('3')
     await inspection.getByLabel('Defect description (required when any are defective)', { exact: true }).fill('Glaze crazing')
