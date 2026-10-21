@@ -25,11 +25,16 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
    if (received !== '0') await command('receipt.create', { poId: po.id, supplierReference: `DEL-${item.sku}-${location.name}`, lines: [{ poLineId: po.lines[0].id, locationId: location.id, quantity: received, cost: '1' }] })
   }
   await purchase(a, '8', east); await purchase(a, '6', east, '0'); await purchase(e, '2', east); await purchase(e, '40', west)
-  for (const [item, source, pack, minimum] of [[a, supplier, '12', '24'], [a, alternate, '10', '0'], [e, supplier, '1', '0']] as const) await command('supplierItem.save', { itemId: item.id, supplierId: source.id, code: `${item.sku}-${pack}`, packSize: pack, minimum, price: '1', leadDays: 7, ...(source.id === alternate.id ? { minimumValue: '1000' } : {}) })
+  for (const [item, source, pack, minimum] of [[a, supplier, '12', '24'], [a, alternate, '10', '0'], [e, supplier, '1', '0']] as const) await command('supplierItem.save', { itemId: item.id, supplierId: source.id, code: `${item.sku}-${pack}`, packSize: pack, minimum, price: '1', leadDays: 7, ...(source.id === alternate.id ? { minimumValue: '900' } : {}) })
   for (const [item, point, quantity] of [[a, '20', '40'], [e, '5', '10']] as const) await command('replenishment.save', { itemId: item.id, warehouse: eastName, version: 0, supplierId: supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: point, reorderQuantity: quantity })
   const state = await (await context.request.get(`${origin}/api/pier/state`)).json()
   await command('replenishment.configure', { version: state.replenishmentSettings[0]?.version ?? 0, mode: 'location', warehouses: [eastName, westName], destinationWarehouse: eastName })
   await page.setViewportSize({ width, height: 1000 }); await page.goto(`${origin}/app#purchasing`); await page.reload(); await page.getByRole('button', { name: 'All', exact: true }).click()
+  await page.getByRole('row').filter({ hasText: `Alternate supply ${width}` }).filter({ hasText: `Blue mugs ${width}` }).getByRole('button', { name: 'Edit terms', exact: true }).click()
+  const termsEditor = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Revise supplier-item terms', exact: true }) }).last()
+  await termsEditor.getByLabel('Supplier minimum order value (USD, optional)', { exact: true }).fill('1000')
+  if (shots) await termsEditor.screenshot({ path: join(shots, `${width}-reorder-supplier-terms.png`) })
+  await termsEditor.getByRole('button', { name: 'Save', exact: true }).click()
   const batch = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Reorder list and purchase batch', exact: true }) }).last()
   const aLabel = `Blue mugs ${width} · PLAN-A-${width}`, eLabel = `Tea cups ${width} · PLAN-E-${width}`
   await expect(batch.getByLabel(`Purchase quantity for ${aLabel} at ${eastName}`, { exact: true })).toHaveValue('48')
@@ -66,5 +71,6 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   await expect(report).toContainText(a.sku); await expect(report).not.toContainText(e.sku)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
   if (shots) await report.screenshot({ path: join(shots, `${width}-reorder-report.png`) })
+  await command('item.save', { ...a, archived: true }); await command('item.save', { ...e, archived: true })
  }
 })

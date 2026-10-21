@@ -2628,7 +2628,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "05983a4adbe3561029548d70cfb28463a5a584cd427ca98057a89bb653d0eae3",
+      "sha256": "89c2ac9f98cd464daad64d9aca873d3dfb0ad81e35d250d77d3e61d2e0732097",
       "executable": false
     },
     "src/pier/backorders.ts": {
@@ -3008,7 +3008,7 @@
       "executable": false
     },
     "src/pier/purchasing.ts": {
-      "sha256": "0ced84ea8d4ba0f632ba91c5b5308961d7d35731f85d28f21f5085ec9729dd21",
+      "sha256": "87843a6b39eb052659914c506a58076ddec7da0e077dabad2a5f3da25b570236",
       "executable": false
     },
     "src/pier/replenishment-demand.ts": {
@@ -3020,11 +3020,11 @@
       "executable": false
     },
     "src/pier/replenishment-scope.ts": {
-      "sha256": "0cccff0cf62121b156897adc9d2c4eac39d9f4ef956a8b8270675f0709e14458",
+      "sha256": "7b036b5b882931d4011fbf1b62ed5c791da7c2972c0f44da027094574dc6ad8f",
       "executable": false
     },
     "src/pier/replenishment.ts": {
-      "sha256": "e30fca9a647ec2340071f18de4f892422298ef24143fa49aff19bb21a737b968",
+      "sha256": "1856aa2716470573cb49740fec0f75ea91cebe4c6b90c90de2da3610d5287da1",
       "executable": false
     },
     "src/pier/reports.ts": {
@@ -3652,11 +3652,11 @@
       "executable": false
     },
     "src/ui/reorder-batch.tsx": {
-      "sha256": "be932eafed2bba6fb7ea8aded9cf2595e0d2ced391fcb3de13a308ef5a699216",
+      "sha256": "10a5f19eae9c8a137853d8734f4558d333869422330e5920062aacba34205588",
       "executable": false
     },
     "src/ui/replenishment.tsx": {
-      "sha256": "0530b681dcac338b961306d0ed3869bf7c41577fcec11ba2c66380dc1e3a7f4e",
+      "sha256": "e934a4c9e6bdeb9bff332a4b66bdab29e21c7ae01de90cfe230063919a856cbe",
       "executable": false
     },
     "src/ui/reports.tsx": {
@@ -3852,7 +3852,7 @@
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
-      "sha256": "66def6313aef538e772e9f493e8840f7b376591ef3d8c87af49c791594aa777f",
+      "sha256": "924b4879f289c0efddb5be4aa8ea6c5a20f8811004de79fad8832fa375db61d2",
       "executable": false
     },
     "tests/api/replenishment.test.mjs": {
@@ -3928,7 +3928,7 @@
       "executable": false
     },
     "tests/browser/reorder-list.spec.ts": {
-      "sha256": "096b9008dc73dccb76fc562f9142dea7ab4a8f0a5f1cadc403a694dc2f73addd",
+      "sha256": "fce7a0d14580290fff5aa41d3b32d572dd0cad7490731467c3eb91042808fdf5",
       "executable": false
     },
     "tests/browser/run.mjs": {

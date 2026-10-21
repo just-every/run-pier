@@ -5,7 +5,8 @@ import { sellThrough } from './replenishment-demand';
 export function planningScope(c: Context) {
   const settings = c.s.replenishmentSettings[0];
   const warehouses: string[] = settings?.warehouses ?? planningWarehouses(c);
-  return { settings, warehouses, company: settings?.mode === 'company', destination: settings?.destinationWarehouse ?? warehouses[0] };
+  const valid = warehouses.every(w => planningWarehouses(c).includes(w)) && (!settings || warehouses.includes(settings.destinationWarehouse));
+  return { settings, warehouses, valid, company: settings?.mode === 'company', destination: settings?.destinationWarehouse ?? warehouses[0] };
 }
 export function scopeCommand(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'replenishment.configure') return;

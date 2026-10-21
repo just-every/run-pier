@@ -1,3 +1,4 @@
+import { planningScope } from './replenishment-scope';
 import { supplierPerformance } from './supplier-performance';
 import { stockPosition } from './stock-position';
 import { edi } from "./edi/commands";
@@ -186,6 +187,7 @@ export async function execute(
     }
     if (result === undefined) fail("COMMAND", "Unknown command type.");
     if (type === "import.commit" || type === "import.undo") {
+      refreshReorderExceptions(c);
       await publishImport(
         env,
         c,
@@ -371,6 +373,7 @@ export async function pierResponse(
         supplierBills: supplierBillViews(s),
         purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
         forecasts: forecast(c),
+        replenishmentProblem: planningScope(c).valid ? null : 'Planning warehouses changed. Save the current planning scope before drafting.',
         deliveries: await correspondenceDeliveries(env.DB),
         counts: s.counts.map((count) => countView(c, count)),
         ...floorState(c),

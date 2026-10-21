@@ -90,6 +90,9 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       status: "draft",
       approval: null,
     };
+    const minimumValue = d.lines.reduce((highest: bigint, line: any) => { const value = decimal(line.terms?.minimumValue ?? '0'); return value > highest ? value : highest; }, 0n);
+    const goodsValue = d.lines.reduce((sum: bigint, line: any) => sum + decimal(line.quantity) * decimal(line.price), 0n);
+    Object.assign(d, { minimumOrderValue: format(minimumValue), minimumOrderValueUnmet: goodsValue < minimumValue * 1000000n });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d.promiseDate) || Number.isNaN(Date.parse(d.promiseDate))) fail("DATE", "Use a valid promise date.");
     if (d.destinationWarehouse && !c.s.locations.some(l => l.kind === "bin" && l.warehouse === d.destinationWarehouse)) fail("WAREHOUSE", "Choose a receiving warehouse.");
     if (type === "po.draft")

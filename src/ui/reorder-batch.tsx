@@ -6,11 +6,11 @@ type Props = { state: PierState; run: RunCommand; busy: boolean }
 export function ReorderScope({ state, run, busy }: Props) {
  const settings = records(state, 'replenishmentSettings')[0], warehouses = [...new Set(records(state, 'locations').filter(l => l.kind === 'bin').map(l => l.warehouse as string))]
  if (state.actor.role !== 'owner' || !warehouses.length) return null
- return <Form key={settings?.version ?? 0} title="Reorder planning scope" submit="Save planning scope" busy={busy} onSubmit={data => run('replenishment.configure', { version: settings?.version ?? 0, mode: text(data, 'mode'), warehouses: data.getAll('warehouses'), destinationWarehouse: text(data, 'destinationWarehouse') })}>
+ return <><p role={state.replenishmentProblem ? "alert" : undefined}>{state.replenishmentProblem ?? ''}</p><Form key={settings?.version ?? 0} title="Reorder planning scope" submit="Save planning scope" busy={busy} onSubmit={data => run('replenishment.configure', { version: settings?.version ?? 0, mode: text(data, 'mode'), warehouses: data.getAll('warehouses'), destinationWarehouse: text(data, 'destinationWarehouse') })}>
   <Select label="Replenishment scope" name="mode" defaultValue={settings?.mode ?? 'location'} rows={[{ id: 'location', version: 1, label: 'Per location' }, { id: 'company', version: 1, label: 'Company-wide' }]} />
   <fieldset><legend>Warehouses included in planning</legend>{warehouses.map(w => <Field key={w} label={w} name="warehouses" type="checkbox" value={w} defaultChecked={!settings || settings.warehouses.includes(w)} required={false} />)}</fieldset>
   <Select label="Default receiving warehouse" name="destinationWarehouse" defaultValue={settings?.destinationWarehouse ?? warehouses[0]} rows={warehouses.map(w => ({ id: w, version: 1, label: w }))} />
- </Form>
+ </Form></>
 }
 export function ReorderBatch({ state, run, busy }: Props) {
  const low = (state.forecasts ?? []).filter((f: any) => f.configured && f.low)

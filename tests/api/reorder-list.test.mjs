@@ -68,6 +68,10 @@ test('BUY-005: exported A–E stock reproduces reorder batches, coverage, altern
  assert.equal(batch.drafts.length, 2);
  const eastDraft = batch.drafts.find(p => p.destinationWarehouse === 'East'), westDraft = batch.drafts.find(p => p.destinationWarehouse === 'West');
  assert.equal(eastDraft.supplierId, s1.id); assert.equal(eastDraft.minimumOrderValueUnmet, true);
+ let revised = await command('po.revise', { poId: eastDraft.id, version: eastDraft.version, supplierId: s1.id, destinationWarehouse: 'East', promiseDate: eastDraft.promiseDate, reason: 'Reviewed price revision', lines: eastDraft.lines.map(l => ({ ...l, price: l.itemId === items.A.id ? '100' : l.price })) });
+ assert.equal(revised.minimumOrderValueUnmet, false, 'the actual revised draft value is checked again');
+ revised = await command('po.revise', { poId: eastDraft.id, version: revised.version, supplierId: s1.id, destinationWarehouse: 'East', promiseDate: eastDraft.promiseDate, reason: 'Restore supplier price', lines: eastDraft.lines });
+ assert.equal(revised.minimumOrderValueUnmet, true);
  assert.deepEqual(eastDraft.lines.map(l => [items.A.id === l.itemId ? 'A' : items.C.id === l.itemId ? 'C' : 'E', l.quantity]).sort(), [['A', '48'], ['C', '10'], ['E', '13']]);
  assert.equal(westDraft.supplierId, s2.id); assert.equal(westDraft.lines[0].quantity, '66');
  state = await concordance(); assert.equal(low(state).length, 4); assert.ok(low(state).every(f => f.suggestedQuantity === '0' && f.draftIds.length === 1));
@@ -94,5 +98,8 @@ test('BUY-005: exported A–E stock reproduces reorder batches, coverage, altern
  const eEast = state.forecasts.find(f => f.itemId === items.E.id && f.warehouse === 'East'); assert.equal(eEast.applied.reorderPoint, '5'); assert.equal(eEast.applied.reorderQuantity, '10');
  await command('replenishment.plan', { stateVersion: state.version - 1, lines: [{ itemId: items.E.id, warehouse: 'East' }] }, { error: 'STALE' });
  await command('replenishment.configure', { version: settings.version, mode: 'company', warehouses: ['East'], destinationWarehouse: 'West' }, { error: 'WAREHOUSE' });
+ await command('location.save', { ...west, warehouse: 'Renamed West' });
+ state = await h.state(); assert.match(state.replenishmentProblem, /Planning warehouses changed/);
+ await command('replenishment.plan', {}, { error: 'WAREHOUSE' });
  await h.invariant();
 });

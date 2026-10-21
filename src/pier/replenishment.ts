@@ -22,6 +22,7 @@ function optionalQuantity(value: unknown): string | null {
 /** Read-only, including for SKUs without a policy or sales history. */
 export function forecast(c: Context, overrides: { itemId: string; warehouse: string; supplierId?: string }[] = []) {
   const scope = planningScope(c);
+  if (!scope.valid) return [];
   return c.s.items.filter(i => !i.archived).flatMap(i => (scope.company ? [scope.destination] : scope.warehouses).map(warehouse => {
     const effective = effectivePolicy(c, i.id, warehouse);
     const defaults = effective.defaults, local = effective.local;
@@ -112,7 +113,7 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
   };
   if (p.applyLearned) {
     if (p.stateVersion !== c.s.version) fail('STALE', 'Demand or supply changed. Reload before applying learned parameters.');
-    const selected = (skuDefault ? companyHistory(c, i.id, planningWarehouses(c), data.windowDays) : sellThrough(c, i.id, warehouse!, data.windowDays)).find(window => window.days === data.windowDays)!;
+    const selected = (skuDefault ? companyHistory(c, i.id, planningScope(c).warehouses, data.windowDays) : sellThrough(c, i.id, warehouse!, data.windowDays)).find(window => window.days === data.windowDays)!;
     Object.assign(data, learnedParameters(selected.sold, data.windowDays, data.leadDays, data.reviewDays, data.safetyStock, i.unit));
     for (const key of ['reorderPoint', 'reorderQuantity', 'maximum']) decimal(data[key]);
     data.learnedApplication = { actorId: c.actor.id, at: c.now, stateVersion: c.s.version, sold: selected.sold, shipmentIds: selected.shipmentIds };
@@ -130,6 +131,7 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
 
 /** Called only inside a command admission, never from a state GET. */
 export function draftReplenishment(c: Context, options: { policyId?: string; autoOnly?: boolean; selected?: { itemId: string; warehouse: string; supplierId?: string; quantity?: string }[] } = {}): Row[] {
+  if (!planningScope(c).valid) fail('WAREHOUSE', 'Planning warehouses changed. Save the current planning scope before drafting.');
   const autoOnly = options.autoOnly !== false;
   const selected = options.selected;
   if (selected?.some(l => !l || typeof l.itemId !== 'string' || typeof l.warehouse !== 'string' || (l.supplierId !== undefined && typeof l.supplierId !== 'string'))) fail('LINES', 'Select item, warehouse and supplier identities.');
@@ -163,10 +165,6 @@ export function draftReplenishment(c: Context, options: { policyId?: string; aut
       reason: `Replenishment plan for ${group.length} buyer-applied item policies at ${group[0].warehouse}. Policy versions and shipment evidence are retained on this draft.`,
       lines: group.map(f => ({ itemId: f.itemId, quantity: f.suggestedQuantity, price: f.unitPrice })),
     })!;
-    const goods = group.reduce((sum, f) => sum + decimal(f.suggestedQuantity) * decimal(f.unitPrice!), 0n);
-    const minimumValue = group.reduce((highest, f) => f.minimumValue && decimal(f.minimumValue) > highest ? decimal(f.minimumValue) : highest, 0n);
-    draft.minimumOrderValue = format(minimumValue);
-    draft.minimumOrderValueUnmet = goods < minimumValue * SCALE;
     draft.replenishment = { plannedAt: c.now, policyVersions: group.map(f => ({ policyId: f.policyId, version: f.policyVersion })),
       evidence: group.map(f => ({ itemId: f.itemId, warehouse: f.warehouse, windowDays: f.windowDays,
         observedSold: f.observedSold, position: f.position, quantity: f.suggestedQuantity,
