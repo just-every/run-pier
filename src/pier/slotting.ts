@@ -101,7 +101,7 @@ export function slotting(c: Context, type: string, p: any): Row | undefined {
   if (!binMatches(from, p.fromCode) || !binMatches(to, p.toCode)) fail('WRONG_BIN', 'Scan the task source and destination bin labels.');
   const hit=itemScan(c.s,p.itemCode,'confirm movement');
   if(hit.item.id!==task.itemId)fail('WRONG_ITEM','Scan the task item.');
-  if(task.trace){const identity=get(c.s,'traceIdentities',task.trace[0].identityId);if(!hit.trace || (hit.trace.identityId!==identity.id && !(hit.trace.serial&&hit.trace.serial===identity.serial) && !(hit.trace.lot&&hit.trace.lot===identity.lot&&!identity.serial)))fail('TRACE_SCAN','Scan the lot/serial identity approved on this movement task.');}
+  if(task.trace){const identity=get(c.s,'traceIdentities',task.trace[0].identityId);if(!hit.trace || (hit.trace.identityId!==identity.id && !(hit.trace.serial&&hit.trace.serial.toLowerCase()===identity.serial?.toLowerCase()) && !(hit.trace.lot&&hit.trace.lot===identity.lot&&!identity.serial)))fail('TRACE_SCAN','Scan the lot/serial identity approved on this movement task.');}
   if (decimal(p.quantity, true) !== decimal(task.quantity)) fail('SLOTTING_QUANTITY', 'Confirm the exact approved base-unit quantity.');
   const quantity = decimal(task.quantity);
   if (available(c.s, task.itemId, from.id) < quantity) fail('AVAILABLE', 'Source stock was reserved or moved; prepare a new plan.');

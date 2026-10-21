@@ -9,7 +9,7 @@ export type ReturnCandidate = { id: string; shipmentId: string; shipmentLineId: 
  * Several matches always need a human choice, never newest-order guessing. */
 export function returnLookup(s: ReturnSource, raw: unknown): ReturnCandidate[] {
   const parsed=gs1(raw), code=clean(parsed?.code ?? raw);
-  const identities=(s.traceIdentities??[]).filter(i=>same(code,i.serial)||same(code,i.code)||(parsed?.trace?.serial&&i.serial===parsed.trace.serial));
+  const identities=(s.traceIdentities??[]).filter(i=>same(code,i.serial)||same(code,i.code)||(parsed?.trace?.serial&&i.serial?.toLowerCase()===parsed.trace.serial.toLowerCase()));
   const itemIds = new Set([...identities.map(i=>i.itemId),...s.items.filter(i => [...barcodesOf(i).map(b => b.code), i.sku].some(value => same(code, value))).map(i => i.id)]);
   const orderIds = new Set(s.orders.filter(o => same(code, o.reference) || same(code, o.id)).map(o => o.id));
   return s.shipments.flatMap(sh => {

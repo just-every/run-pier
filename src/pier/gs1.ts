@@ -15,6 +15,7 @@ export function gs1(raw: unknown): {code:string;trace?:{lot?:string;serial?:stri
       if(fixed){fields[ai]=input.slice(0,fixed);input=input.slice(fixed);}else{const at=input.indexOf('\x1d');fields[ai]=at<0?input:input.slice(0,at);input=at<0?'':input.slice(at+1);}
     }
   }
+  for(const ai of ['10','21'])if(fields[ai]!==undefined&&(!fields[ai]||fields[ai].length>20))fail('GS1','GS1 lot and serial fields use one to twenty characters.');
   if(!/^\d{14}$/.test(fields['01']??''))fail('GS1','A GS1 stock scan needs its 14-digit GTIN.');
   const date=(v:string)=>{if(!/^\d{6}$/.test(v))return fail('GS1_DATE','Use a GS1 YYMMDD date.');const year=2000+Number(v.slice(0,2)),month=Number(v.slice(2,4)),day=Number(v.slice(4));const d=day===0?new Date(Date.UTC(year,month,0)):new Date(Date.UTC(year,month-1,day));if(d.getUTCFullYear()!==year||d.getUTCMonth()!==month-1)return fail('GS1_DATE','Invalid GS1 date.');return d.toISOString().slice(0,10);};
   return {code:fields['01'],trace:{...(fields['10']?{lot:fields['10']}:{}),...(fields['21']?{serial:fields['21']}:{}),...(fields['17']?{expiry:date(fields['17'])}:{}),...(fields['11']?{productionDate:date(fields['11'])}:{})}};

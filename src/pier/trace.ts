@@ -32,7 +32,7 @@ function selectors(s:State,itemId:string,inputs:any[]|undefined) {
   const relevant=inputs.filter(x=>(!x.itemId||x.itemId===itemId)&&(!x.identityId||s.traceIdentities.some(i=>i.id===x.identityId&&i.itemId===itemId)));
   if(!relevant.length)fail('TRACE_SOURCE','The selected identity belongs to another SKU.');
   return relevant.map(x=>{
-    const identity=x.identityId?s.traceIdentities.find(i=>i.id===x.identityId&&i.itemId===itemId):s.traceIdentities.find(i=>i.itemId===itemId&&(!x.serial||i.serial===x.serial)&&(!x.lot||i.lot===x.lot));
+    const identity=x.identityId?s.traceIdentities.find(i=>i.id===x.identityId&&i.itemId===itemId):s.traceIdentities.find(i=>i.itemId===itemId&&(!x.serial||i.serial?.toLowerCase()===String(x.serial).toLowerCase())&&(!x.lot||i.lot===x.lot));
     if(!identity)fail('TRACE_SOURCE','The scanned or entered identity does not belong to this SKU.');
     return {identityId:identity!.id,...(x.quantity?{quantity:x.quantity}:{})};
   });
