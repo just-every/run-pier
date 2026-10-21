@@ -4,7 +4,13 @@ import { join } from 'node:path'
 import { ownerEntry } from './session'
 
 test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evidence at 1440 and 390', async ({ page, context }) => {
-  const origin = await ownerEntry(page)
+  const origin = process.env.PIER_BOOTSTRAP ? process.env.PIER_BASE_URL! : await ownerEntry(page)
+  if (process.env.PIER_BOOTSTRAP) {
+    const response = await context.request.post(`${origin}/auth/bootstrap`, { headers: { origin }, data: { token: process.env.PIER_BOOTSTRAP, displayName: 'Owner' }, maxRedirects: 0 })
+    expect(response.status()).toBe(303)
+    await page.goto(`${origin}/app`)
+    if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(url => url.pathname === '/app') }
+  }
   const command = async (type: string, payload: object) => {
     const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
     const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
@@ -26,6 +32,7 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     await reject.getByLabel('Receipt line to return', { exact: true }).selectOption({ index: 1 })
     await reject.getByLabel('Rejected quantity', { exact: true }).fill('3')
     await reject.getByLabel('Rejection reason', { exact: true }).fill(`Cracked handles ${width}`)
+    if (shots) await reject.screenshot({ path: join(shots, `${width}-return-entry.png`) })
     await reject.getByRole('button', { name: 'Quarantine rejected goods', exact: true }).click()
     const returned = page.locator('article.record').filter({ hasText: `Cracked handles ${width}` })
     await expect(returned).toContainText('Awaiting supplier')
