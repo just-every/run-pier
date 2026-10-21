@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { ownerEntry } from './session'
 
 test('WMS-002: configure capacity, review directions and confirm physical tasks at 1440 and 390', async ({ page, context }) => {
+  const suffix = crypto.randomUUID().slice(0, 6)
   const origin = await ownerEntry(page), errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   const state = async () => (await context.request.get(`${origin}/api/pier/state`)).json()
@@ -15,16 +16,16 @@ test('WMS-002: configure capacity, review directions and confirm physical tasks 
   if (shots) await mkdir(shots, { recursive: true })
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
-    const warehouse = `Slotting ${width}`
-    const item = await command('item.save', { sku: `SLOT-${width}`, name: `Warehouse mugs ${width}`, unit: 'each', packSize: '1', barcode: `ITEM-${width}`, dimensions: { length: '2', width: '2', height: '2', unit: 'cm' } })
-    const source = await command('location.save', { name: `Receiving-${width}`, warehouse, kind: 'bin' })
-    const reserve = await command('location.save', { name: `Reserve-${width}`, warehouse, kind: 'bin' })
-    const face = await command('location.save', { name: `Pick-${width}`, warehouse, kind: 'bin' })
-    const supplier = await command('party.save', { name: `Supplier ${width}`, kind: 'supplier' })
+    const warehouse = `Slotting ${width}-${suffix}`
+    const item = await command('item.save', { sku: `SLOT-${width}-${suffix}`, name: `Warehouse mugs ${width}`, unit: 'each', packSize: '1', barcode: `ITEM-${width}-${suffix}`, dimensions: { length: '2', width: '2', height: '2', unit: 'cm' } })
+    const source = await command('location.save', { name: `Receiving-${width}-${suffix}`, warehouse, kind: 'bin' })
+    const reserve = await command('location.save', { name: `Reserve-${width}-${suffix}`, warehouse, kind: 'bin' })
+    const face = await command('location.save', { name: `Pick-${width}-${suffix}`, warehouse, kind: 'bin' })
+    const supplier = await command('party.save', { name: `Supplier ${width}-${suffix}`, kind: 'supplier' })
     let po = await command('po.draft', { supplierId: supplier.id, promiseDate: '2026-11-01', reason: 'Directed warehouse proof', lines: [{ itemId: item.id, quantity: '20', price: '4' }] })
     await command('po.approve', { poId: po.id, version: po.version })
     po = await command('po.commit', { poId: po.id, version: po.version })
-    await command('receipt.create', { poId: po.id, supplierReference: `IN-${width}`, lines: [{ poLineId: po.lines[0].id, locationId: source.id, quantity: '12', cost: '4' }] })
+    await command('receipt.create', { poId: po.id, supplierReference: `IN-${width}-${suffix}`, lines: [{ poLineId: po.lines[0].id, locationId: source.id, quantity: '12', cost: '4' }] })
     await page.goto(`${origin}/app#transfers`); await page.reload()
     await expect(page.getByRole('heading', { name: 'Transfers', exact: true })).toBeVisible()
     if (shots) await page.screenshot({ path: join(shots, `${width}-transfers.png`), fullPage: true })
