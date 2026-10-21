@@ -3,6 +3,7 @@ import { itemLabel, label, records, type RecordData } from '../api'
 import { Amount, Badge, Empty, Facts, Field, Form, Select, Table, text } from '../controls'
 import { day, words } from '../display'
 import type { BooksProps } from './model'
+import { BillDocumentEditor, BillDocumentReview, type BillSources } from './supplier-bill-documents'
 import { PantryPaymentLink } from './receipt-closure'
 
 type Props = BooksProps & { poId?: string; billId?: string }
@@ -12,6 +13,7 @@ function SupplierBillEditor({ state, run, busy, bill, initialPoId, close }: Prop
   const pos = records(state, 'purchaseOrders').filter(po => po.status === 'committed')
   const [poId, setPoId] = useState(bill?.poId ?? initialPoId ?? '')
   const [lines, setLines] = useState<InvoiceLine[]>(bill?.lines ?? [])
+  const [documents, setDocuments] = useState<BillSources>(bill?.documents ?? {})
   const po = pos.find(row => row.id === poId)
   function update(poLineId: string, key: 'quantity' | 'unitPrice', value: string) {
     if (!po) return
@@ -21,10 +23,10 @@ function SupplierBillEditor({ state, run, busy, bill, initialPoId, close }: Prop
   }
   async function save(data: FormData) {
     const entered = lines.filter(line => line.quantity.trim() !== '')
-    if (await run('supplierBill.save', { ...(bill ? { id: bill.id, version: bill.version } : {}), poId, reference: text(data, 'reference'), date: text(data, 'date'), quantityTolerancePercent: text(data, 'quantityTolerancePercent'), priceTolerancePercent: text(data, 'priceTolerancePercent'), lines: entered })) close()
+    if (await run('supplierBill.save', { ...(bill ? { id: bill.id, version: bill.version } : {}), poId, reference: text(data, 'reference'), date: text(data, 'date'), quantityTolerancePercent: text(data, 'quantityTolerancePercent'), priceTolerancePercent: text(data, 'priceTolerancePercent'), lines: entered, documents: documents.invoice ? Object.fromEntries(Object.entries(documents).map(([kind, source]) => [kind, { ...source, lines: source!.lines.filter(line => line.quantity.trim()) }])) : null })) close()
   }
   return <Form title={bill ? `Revise supplier invoice ${bill.reference}` : 'Record supplier invoice'} submit="Save for matching review" busy={busy} disabled={!po || !lines.some(line => line.quantity.trim())} onSubmit={save} note="Enter the supplier's actual invoice quantities and prices. Leave quantity blank for a PO line absent from this invoice. Tolerances require an explicit buyer decision and do not change the purchase order.">
-    <Select label="Committed purchase order" rows={pos.map(row => ({ ...row, label: `${row.reference} · ${label(records(state, 'parties'), row.supplierId)}` }))} value={poId} onChange={value => { setPoId(value); setLines([]) }} />
+    <Select label="Committed purchase order" rows={pos.map(row => ({ ...row, label: `${row.reference} · ${label(records(state, 'parties'), row.supplierId)}` }))} value={poId} onChange={value => { setPoId(value); setLines([]); setDocuments({}) }} />
     <Field label="Supplier invoice reference" name="reference" defaultValue={bill?.reference} disabled={busy} maxLength={2000} />
     <Field label="Supplier invoice date" name="date" type="date" defaultValue={bill?.date} disabled={busy} />
     <Field label="Quantity tolerance (%)" name="quantityTolerancePercent" defaultValue={bill?.quantityTolerancePercent ?? '0'} inputMode="decimal" disabled={busy} hint="Maximum receipt shortfall and cumulative quantity above the PO, as a percentage. Every line needs posted receipt evidence." />
@@ -33,6 +35,7 @@ function SupplierBillEditor({ state, run, busy, bill, initialPoId, close }: Prop
       const entered = lines.find(value => value.poLineId === line.id)
       return <tr key={line.id}><td>{itemLabel(state, line.itemId)}</td><td>{line.quantity}</td><td>{line.received}</td><td><Amount value={line.price} /></td><td><Field label={`Billed quantity · ${itemLabel(state, line.itemId)}`} value={entered?.quantity ?? ''} required={false} onChange={value => update(line.id, 'quantity', value)} inputMode="decimal" disabled={busy} /></td><td><Field label={`Invoice unit price · ${itemLabel(state, line.itemId)}`} value={entered?.unitPrice ?? line.price} onChange={value => update(line.id, 'unitPrice', value)} inputMode="decimal" disabled={busy} /></td></tr>
     })}</Table></div>}
+    <BillDocumentEditor state={state} po={po} value={documents} onChange={setDocuments} busy={busy} />
     <button type="button" disabled={busy} onClick={close}>Cancel</button>
   </Form>
 }
@@ -45,6 +48,7 @@ function SupplierBillMatch({ state, bill }: Pick<Props, 'state'> & { bill: Recor
       <td>{itemLabel(state, line.itemId)}</td><td>{line.orderedQuantity} ordered<small>{line.previouslyBilledQuantity} on earlier approved invoices</small></td><td>{line.receivedQuantity} received<small>{line.matchedReceiptQuantity} allocated to this invoice</small></td><td>{line.billedQuantity}</td><td><Amount value={line.poUnitPrice} /> / <Amount value={line.unitPrice} /><small>Receipt prices: {line.receiptPrices.length ? [...new Set<string>(line.receiptPrices.map((receipt: any) => `${receipt.unitPrice} USD`))].join(', ') : 'No unused receipt'}</small></td>
       <td>{!line.differences.length ? 'Exact match' : line.differences.map((difference: any, i: number) => <p key={i}>{difference.message} <Badge>{difference.withinTolerance ? 'Within tolerance' : 'Outside tolerance'}</Badge></p>)}{!line.quantityWithinTolerance && !line.receiptAllocations.length && <p>No unused posted receipt supports this invoice line.</p>}</td>
     </tr>)}</Table>
+    <BillDocumentReview bill={bill} state={state} />
     {bill.holdReason && <p><strong>Held:</strong> {bill.holdReason}</p>}
     {bill.approval && <p className="muted">Approved {day(bill.approval.at)} by {state.actor.id === bill.approval.actorId ? 'you' : bill.approval.actorId}. The approval retains the exact invoice and evidence reviewed. Current receipt matching above follows later receipts and reversals.</p>}
     {bill.books?.billId && <p><PantryPaymentLink state={state} />. Find {records(state, 'bookJobs').find(job => job.kind === 'bill' && job.sourceId === bill.id)?.reference} under Bills; record payment under Payments, then Sync now in Pier.</p>}
@@ -71,7 +75,7 @@ export function SupplierBills(props: Props) {
     {bill && <section className="panel" id={`document-${bill.id}`}><h2>Match supplier invoice {bill.reference}</h2><SupplierBillMatch state={state} bill={bill} />
       <div className="actions">{mutable && preparer && <button disabled={busy} onClick={() => setEditing({ bill })}>Revise invoice or tolerances</button>}{mutable && buyer && <><button className="primary" disabled={busy || !bill.match?.withinTolerance} onClick={() => void run('supplierBill.approve', { id: bill.id, version: bill.version, receiptEvidence: bill.match.receiptEvidence })}>Approve exact invoice and differences</button><button disabled={busy} onClick={() => setHolding(true)}>Hold invoice</button></>}<button disabled={busy} onClick={() => { setSelected(''); setHolding(false) }}>Close review</button></div>
       {mutable && !buyer && <p className="muted">A buyer or owner approves or holds this invoice.</p>}
-      {mutable && !bill.match?.withinTolerance && <p>Approval is blocked until the named differences fit the explicitly reviewed tolerances and every line has unused receipt evidence.</p>}
+      {mutable && !bill.match?.withinTolerance && <p>Resolve source-document differences first. Receipt and price differences must fit the explicitly reviewed tolerances, and every line needs unused receipt evidence.</p>}
     </section>}
     {bill && mutable && buyer && holding && <Form title={`Hold invoice ${bill.reference}`} submit="Hold invoice" secondary busy={busy} onSubmit={async data => { if (await run('supplierBill.hold', { id: bill.id, version: bill.version, reason: text(data, 'reason') })) setHolding(false) }}><Field label="Hold reason" name="reason" disabled={busy} maxLength={2000} /><button type="button" disabled={busy} onClick={() => setHolding(false)}>Cancel</button></Form>}
   </>

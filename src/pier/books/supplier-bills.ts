@@ -1,5 +1,6 @@
 import { decimal, fail, format, fresh, get, id, requireRole, SCALE, text, type Context, type Row, type State } from '../model';
 import { amount, extended, money } from '../money';
+import { billDocuments, documentMatch } from './supplier-bill-documents';
 import type { BookDocument } from './adapters/types';
 
 type Allocation = { receiptId: string; receiptVersion: number; receiptLineId: string; quantity: string; unitPrice: string };
@@ -64,8 +65,9 @@ export function supplierBillMatch(s: State, bill: Row) {
     ];
     return { poLineId: line.poLineId, itemId: committed.itemId, orderedQuantity: committed.quantity, receivedQuantity: format(received), previouslyBilledQuantity: format(prior), billedQuantity: line.quantity, matchedReceiptQuantity: format(allocated), quantityDifference: format(shortfall), purchaseOrderExcess: format(excess), poUnitPrice: committed.price, unitPrice: line.unitPrice, priceDifference: format(priceDifference), receiptPrices, receiptAllocations: allocations, quantityWithinTolerance, priceWithinTolerance, differences };
   });
-  const receiptEvidence = JSON.stringify({ poId: po.id, poVersion: po.version, receipts: s.receipts.filter(r => r.poId === po.id).map(r => ({ id: r.id, version: r.version, status: r.status })), legacyReceipts: [...legacyReceiptIds(s)].sort(), priorBills: earlier.map(b => ({ id: b.id, version: b.version })), lines: lines.map(l => ({ poLineId: l.poLineId, previouslyBilledQuantity: l.previouslyBilledQuantity, receiptAllocations: l.receiptAllocations })) });
-  return { withinTolerance: po.status === 'committed' && lines.every(l => l.quantityWithinTolerance && l.priceWithinTolerance), received: lines.every(l => l.quantityDifference === '0'), receiptEvidence, lines, differences: lines.flatMap(l => l.differences.map(d => ({ ...d, poLineId: l.poLineId, itemId: l.itemId }))) };
+  const documentDifferences = documentMatch(s, bill, po);
+  const receiptEvidence = JSON.stringify({ documents: bill.documents ?? null, poId: po.id, poVersion: po.version, receipts: s.receipts.filter(r => r.poId === po.id).map(r => ({ id: r.id, version: r.version, status: r.status })), legacyReceipts: [...legacyReceiptIds(s)].sort(), priorBills: earlier.map(b => ({ id: b.id, version: b.version })), lines: lines.map(l => ({ poLineId: l.poLineId, previouslyBilledQuantity: l.previouslyBilledQuantity, receiptAllocations: l.receiptAllocations })) });
+  return { withinTolerance: documentDifferences.length === 0 && po.status === 'committed' && lines.every(l => l.quantityWithinTolerance && l.priceWithinTolerance), received: lines.every(l => l.quantityDifference === '0'), receiptEvidence, lines, differences: [...documentDifferences, ...lines.flatMap(l => l.differences.map(d => ({ ...d, poLineId: l.poLineId, itemId: l.itemId })))] };
 }
 
 /** Read-only state projection; payment always comes from ledger readback. */
@@ -107,8 +109,15 @@ export function supplierBills(c: Context, type: string, p: any): Row | undefined
     if (c.s.supplierBills.some(b => b.id !== old?.id && b.supplierId === po.supplierId && b.reference.toLowerCase() === reference.toLowerCase())) fail('SUPPLIER_BILL_DUPLICATE', 'This supplier invoice reference is already recorded.');
     const quantityTolerancePercent = format(decimal(p.quantityTolerancePercent)), priceTolerancePercent = format(decimal(p.priceTolerancePercent));
     if (decimal(quantityTolerancePercent) > 100n * SCALE || decimal(priceTolerancePercent) > 100n * SCALE) fail('SUPPLIER_BILL_TOLERANCE', 'Enter explicit tolerances from 0 to 100 percent.');
-    const fields = { poId: po.id, supplierId: po.supplierId, reference, date, currency: 'USD', lines, quantityTolerancePercent, priceTolerancePercent, total: money(lines.reduce((n: bigint, l: any) => n + extended(l.quantity, l.unitPrice), 0n)), status: 'review', approval: null, holdReason: null, updatedAt: c.now };
-    if (old) Object.assign(old, fields, { version: old.version + 1 });
+    const documents = billDocuments(p, po);
+    const fields = { documents, poId: po.id, supplierId: po.supplierId, reference, date, currency: 'USD', lines, quantityTolerancePercent, priceTolerancePercent, total: money(lines.reduce((n: bigint, l: any) => n + extended(l.quantity, l.unitPrice), 0n)), status: 'review', approval: null, holdReason: null, updatedAt: c.now };
+    if (old) {
+      if (old.documents && JSON.stringify(old.documents) !== JSON.stringify(documents)) {
+        old.documentHistory ??= [];
+        old.documentHistory.push({ documents: structuredClone(old.documents), version: old.version, replacedAt: c.now, replacedBy: c.actor.id });
+      }
+      Object.assign(old, fields, { version: old.version + 1 });
+    }
     else c.s.supplierBills.push({ ...fields, id: id(), version: 1, createdAt: c.now, createdBy: c.actor.id });
     const bill = old ?? c.s.supplierBills.at(-1)!;
     return supplierBillViews(c.s).find(b => b.id === bill.id)!;
@@ -120,7 +129,7 @@ export function supplierBills(c: Context, type: string, p: any): Row | undefined
   } else if (type === 'supplierBill.approve') {
     const match = supplierBillMatch(c.s, bill);
     if (p.receiptEvidence !== match.receiptEvidence) fail('SUPPLIER_BILL_STALE', 'Receipts or other approved invoices changed. Reload and review the current match.');
-    if (!match.withinTolerance) fail('SUPPLIER_BILL_MATCH', 'Resolve the named quantity and price differences or revise explicit tolerances before approval.', match);
+    if (!match.withinTolerance) fail('SUPPLIER_BILL_MATCH', 'Resolve source-document differences and review receipt quantity and price tolerances before approval.', match);
     if (amount(bill.total) === 0n) fail('SUPPLIER_BILL_ZERO', 'A zero-value invoice needs an accountant decision before posting.');
     const po = get(c.s, 'purchaseOrders', bill.poId);
     const sequence = c.s.supplierBills.filter(approved).reduce((n, b) => Math.max(n, b.approval.sequence), 0) + 1;
@@ -136,7 +145,7 @@ export function planSupplierBills(c: Context, connection: Row, add: Add, dollars
     add(`supplierBill:${bill.id}`, 'bill', bill, 'supplierBill', billReference(bill), () => {
       if (!bill.approval) throw new Error('Review the supplier invoice approval evidence.');
       const lines = bill.lines.map((line: any) => ({ itemId: line.itemId, description: `${bill.approval.items.find((i: Row) => i.id === line.itemId).sku} · invoice ${bill.reference} · ${line.quantity} at ${line.unitPrice} USD`, quantity: line.quantity, amount: dollars(money(extended(line.quantity, line.unitPrice))), account: connection.inventoryAccountId }));
-      return { key: `supplierBill:${bill.id}`, kind: 'bill', date: bill.date, reference: billReference(bill), party: { id: bill.supplierId, name: bill.approval.supplier.name, kind: 'supplier' }, lines, total: dollars(bill.total), attachment: { name: `${billReference(bill)}-approved-invoice.txt`, content: JSON.stringify({ invoiceReference: bill.reference, invoiceDate: bill.date, currency: bill.currency, lines: bill.lines, total: bill.total, quantityTolerancePercent: bill.quantityTolerancePercent, priceTolerancePercent: bill.priceTolerancePercent, approval: bill.approval }, null, 2) } };
+      return { key: `supplierBill:${bill.id}`, kind: 'bill', date: bill.date, reference: billReference(bill), party: { id: bill.supplierId, name: bill.approval.supplier.name, kind: 'supplier' }, lines, total: dollars(bill.total), attachment: { name: `${billReference(bill)}-approved-invoice.txt`, content: JSON.stringify({ documents: bill.documents ?? null, invoiceReference: bill.reference, invoiceDate: bill.date, currency: bill.currency, lines: bill.lines, total: bill.total, quantityTolerancePercent: bill.quantityTolerancePercent, priceTolerancePercent: bill.priceTolerancePercent, approval: bill.approval }, null, 2) } };
     });
   }
 }
