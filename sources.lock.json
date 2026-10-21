@@ -3019,6 +3019,10 @@
       "sha256": "8150c2554e341760ccb57b94580a124f5ec4635c2a5f07b3c971d33068063343",
       "executable": false
     },
+    "src/pier/replenishment-scope.ts": {
+      "sha256": "0cccff0cf62121b156897adc9d2c4eac39d9f4ef956a8b8270675f0709e14458",
+      "executable": false
+    },
     "src/pier/replenishment.ts": {
       "sha256": "e30fca9a647ec2340071f18de4f892422298ef24143fa49aff19bb21a737b968",
       "executable": false
@@ -3647,6 +3651,10 @@
       "sha256": "8eb81c7df69ced2d5432190fe6e8672fc8b29b08f441f793be5795e60e4c90f2",
       "executable": false
     },
+    "src/ui/reorder-batch.tsx": {
+      "sha256": "be932eafed2bba6fb7ea8aded9cf2595e0d2ced391fcb3de13a308ef5a699216",
+      "executable": false
+    },
     "src/ui/replenishment.tsx": {
       "sha256": "0530b681dcac338b961306d0ed3869bf7c41577fcec11ba2c66380dc1e3a7f4e",
       "executable": false
@@ -3843,6 +3851,10 @@
       "sha256": "87d0b58bdcae66e2eb4382edd7abe7573fb272193133884c1fd4a84e123240c6",
       "executable": false
     },
+    "tests/api/reorder-list.test.mjs": {
+      "sha256": "66def6313aef538e772e9f493e8840f7b376591ef3d8c87af49c791594aa777f",
+      "executable": false
+    },
     "tests/api/replenishment.test.mjs": {
       "sha256": "222f2f3d89667cab92d83876903db12edc2bfbce648e536f0caf4d0c29a854d5",
       "executable": false
@@ -3913,6 +3925,10 @@
     },
     "tests/browser/playwright.config.ts": {
       "sha256": "8a5390220b2242c5ce8160be6122c68dd235f3cdd5df42468391889fae885b3f",
+      "executable": false
+    },
+    "tests/browser/reorder-list.spec.ts": {
+      "sha256": "096b9008dc73dccb76fc562f9142dea7ab4a8f0a5f1cadc403a694dc2f73addd",
       "executable": false
     },
     "tests/browser/run.mjs": {
