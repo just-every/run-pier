@@ -1,3 +1,4 @@
+import { receiptConfirmation } from './supplier-performance';
 import {
   decimal,
   format,
@@ -134,6 +135,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
     const receipt = row(c, "receipts", {
       poId: po.id,
       supplierReference: text(p.supplierReference),
+      supplierConfirmation: receiptConfirmation(po),
       lines: [],
       status: "posted",
     });

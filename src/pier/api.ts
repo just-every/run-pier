@@ -1,3 +1,4 @@
+import { supplierPerformance } from './supplier-performance';
 import { stockPosition } from './stock-position';
 import { edi } from "./edi/commands";
 import { ediState } from "./edi/view";
@@ -287,6 +288,7 @@ export async function pierResponse(
         return json(nativeExport(s));
       if (url.pathname === "/api/pier/returns/lookup")
         return json(returnLookup(s, url.searchParams.get("code")));
+      if (url.pathname === "/api/pier/supplier-performance") return json(supplierPerformance(s));
       if (url.pathname === "/api/pier/reports") return json(reports(s, url.searchParams));
       if (url.pathname === "/api/pier/dispatch-summary")
         return json(

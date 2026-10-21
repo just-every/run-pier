@@ -74,7 +74,7 @@ export function purchasingWorkflow(c: Context, type: string, p: any): Row | unde
     po.supplierReplies ??= []; po.supplierReplies.push(reply);
     if (type === 'po.confirm') {
       const date = text(p.promiseDate, 'Confirmed date');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) fail('DATE', 'Use a valid confirmed date.');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) fail('DATE', 'Use a valid confirmed date.');
       if (p.confirm !== true) fail('APPROVAL', 'Approve the supplier date and affected customer promise changes.');
       po.promiseDate = date;
       po.confirmation = { promiseDate: date, replyId: reply.id, approvedBy: c.actor.id, at: c.now };
