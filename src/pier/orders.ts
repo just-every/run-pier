@@ -1,3 +1,4 @@
+import { kitDefinition, reserveKit, reservedKits, dispatchKit } from './kits';
 import {
   decimal,
   format,
@@ -22,6 +23,7 @@ import { money } from "./money";
 import { recordChannelPayment } from "./channel-payment";
 export function reserve(c: Context, o: Row) {
   for (const l of o.lines) {
+    if (l.kit) { reserveKit(c, o, l); continue; }
     let need =
       decimal(l.quantity) -
       decimal(l.dispatched) -
@@ -51,7 +53,7 @@ export function orderView(c: Context, o: Row) {
   return {
     ...o,
     lines: o.lines.map((l: any) => {
-      const q = c.s.reservations
+      const q = l.kit ? reservedKits(c.s, l) : c.s.reservations
         .filter((r) => r.orderLineId === l.id)
         .reduce((n, r) => n + BigInt(r.quantity), 0n);
       return {
@@ -71,6 +73,8 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   if (
     ![
       "order.create",
+      "quote.create",
+      "quote.accept",
       "order.channelPayment",
       "order.reserve",
       "order.price",
@@ -82,7 +86,19 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     ].includes(type)
   )
     return;
-  requireRole(c, type.startsWith("order.") ? ["operator"] : ["warehouse"]);
+  requireRole(c, (type.startsWith("order.") || type.startsWith("quote.")) ? ["operator"] : ["warehouse"]);
+  if (type === 'quote.create') {
+    const view = orders(c, 'order.create', p)!;
+    const quote = get(c.s, 'orders', view.id);
+    quote.documentType = 'quote'; quote.acceptedAt = null;
+    return orderView(c, quote);
+  }
+  if (type === 'quote.accept') {
+    const quote = get(c.s, 'orders', p.orderId); fresh(quote, p.version);
+    if (quote.documentType !== 'quote' || quote.acceptedAt) fail('QUOTE_STATE', 'Choose an open quote.');
+    quote.acceptedAt = c.now; quote.acceptedBy = c.actor.id; quote.version++;
+    return orderView(c, quote);
+  }
   if (type === "order.channelPayment") {
     const order = get(c.s, 'orders', p.orderId);
     recordChannelPayment(c, order, p.payment);
@@ -106,6 +122,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
         dispatched: "0",
         cancelled: "0",
         ...orderPrice(c, p.customerId, i.id, quantity, l.price),
+        ...(kitDefinition(c.s, i.id) ? { kit: structuredClone(kitDefinition(c.s, i.id)) } : {}),
       };
     });
     if (p.warehouse && !c.s.locations.some(l => l.kind === "bin" && l.warehouse === p.warehouse)) fail("WAREHOUSE", "Choose an existing warehouse.");
@@ -159,6 +176,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   }
   if (type === "dispatch.create") {
     const o = get(c.s, "orders", p.orderId);
+    if (o.documentType === 'quote' && !o.acceptedAt) fail('QUOTE_STATE', 'Accept this quote before dispatching it.');
     const shipmentCode = text(p.shipmentReference);
     const owners = codeOwners(c.s, shipmentCode);
     const shipment = row(c, "shipments", {
@@ -172,6 +190,11 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
       const l = o.lines.find((l: any) => l.id === x.orderLineId);
       if (!l) fail("LINE", "Dispatch line must belong to this order.");
       let q = decimal(x.quantity, true);
+      if (l.kit) {
+        shipment.lines.push(dispatchKit(c, o, l, shipment, q));
+        l.dispatched = format(decimal(l.dispatched) + q);
+        continue;
+      }
       const own = c.s.reservations.filter((r) => r.orderLineId === l.id);
       if (own.reduce((n, r) => n + BigInt(r.quantity), 0n) < q)
         fail(
@@ -226,6 +249,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   }
   if (!r.approval || r.approval.version !== r.version)
     fail("APPROVAL", "Review this exact return before restocking.");
+  if (r.kit && r.inspection.some((part: any) => part.condition !== 'sellable')) fail('KIT_INSPECTION', 'A kit with a damaged component must stay quarantined. Inspect its components before restocking.');
   move(c, {
     itemId: r.itemId,
     locationId: r.locationId,
@@ -260,8 +284,12 @@ export function createReturn(c: Context, p: any): Row {
       fail("RETURN_LIMIT", "Cumulative return exceeds dispatched quantity.");
     if (get(c.s, "locations", p.locationId).kind !== "bin")
       fail("BIN", "Returns require a warehouse bin.");
+    if (line.kit) {
+      if (!Array.isArray(p.inspection) || p.inspection.length !== line.kit.components.length || line.kit.components.some((part: any) => !p.inspection.some((x: any) => x.itemId === part.itemId && ['sellable','damaged'].includes(x.condition) && typeof x.reason === 'string' && x.reason.trim()))) fail('KIT_INSPECTION', 'Inspect every component of the returned kit and record its condition and reason.');
+    }
     const r = row(c, "returns", {
       shipmentId: sh.id,
+      ...(line.kit ? { kit: structuredClone(line.kit), inspection: structuredClone(p.inspection) } : {}),
       shipmentLineId: line.id,
       itemId: line.itemId,
       locationId: p.locationId,

@@ -1,3 +1,4 @@
+import { reservedKits } from './kits';
 import { decimal, format, min, type Context, type Row } from './model';
 
 export const afterDays = (now: string, days: number) => new Date(Date.parse(now) + days * 86400000).toISOString().slice(0, 10);
@@ -17,7 +18,7 @@ export function backorderDates(c: Context) {
   return orders.map(order => {
     const warehouse = order.warehouse || null;
     const lines = order.lines.map((line: any) => {
-      const reserved = c.s.reservations.filter(r => r.orderLineId === line.id).reduce((n, r) => n + BigInt(r.quantity), 0n);
+      const reserved = line.kit ? reservedKits(c.s, line) : c.s.reservations.filter(r => r.orderLineId === line.id).reduce((n, r) => n + BigInt(r.quantity), 0n);
       let need = decimal(line.quantity) - decimal(line.dispatched) - decimal(line.cancelled) - reserved;
       const backorder = need;
       let expectedDate: string | null = null, estimated = false;

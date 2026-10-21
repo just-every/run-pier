@@ -114,7 +114,7 @@ export function waves(c: Context, type: string, p: any): Row | undefined {
     const units = p.quantity === undefined || p.quantity === "" ? hit.units : decimal(p.quantity, true);
     // A line copied onto a second wave must not send the floor after units
     // another wave already picked or that have already shipped.
-    const pickable = reservedFor(c.s, line.orderLineId) - onOtherLines(c.s, line.orderLineId, line.id) - decimal(line.picked);
+    const pickable = reservedFor(c.s, line.orderLineId, line.itemId) - onOtherLines(c.s, line.orderLineId, line.id, line.itemId) - decimal(line.picked);
     if (units > pickable)
       fail("ALREADY_PICKED", `${get(c.s, "orders", line.orderId).reference} has ${format(pickable > 0n ? pickable : 0n)} ${itemRow.unit} of ${itemRow.sku} left to pick; the rest were already picked on another wave or shipped. Nothing was picked.`);
     if (units > open(line))
@@ -132,8 +132,9 @@ export function waves(c: Context, type: string, p: any): Row | undefined {
     // only this line's reservation, and count the reported bin.
     const rest = open(line), sequence = pickSequence(c.s, w.warehouse), at = sequence.findIndex((l) => l.id === binRow.id);
     const overflow = [...sequence.slice(at + 1), ...sequence.slice(0, at)].find((l) => available(c.s, line.itemId, l.id) > 0n);
+    if (get(c.s, 'orders', line.orderId).lines.find((l: any) => l.id === line.orderLineId)?.kit && (!overflow || available(c.s, line.itemId, overflow.id) < rest)) fail('KIT_SHORT_PICK', 'A kit needs its complete component set. Reconcile the short bin and reserve the complete kit again before picking.');
     let release = rest;
-    for (const r of c.s.reservations.filter((r) => r.orderLineId === line.orderLineId && r.locationId === binRow.id)) {
+    for (const r of c.s.reservations.filter((r) => r.orderLineId === line.orderLineId && r.itemId === line.itemId && r.locationId === binRow.id)) {
       const take = min(release, BigInt(r.quantity));
       r.quantity = (BigInt(r.quantity) - take).toString();
       release -= take;

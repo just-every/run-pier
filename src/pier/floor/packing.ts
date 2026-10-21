@@ -1,3 +1,5 @@
+import { componentQuantity } from '../kits';
+import { SCALE, min } from '../model';
 import {
   decimal,
   format,
@@ -21,11 +23,11 @@ const sum = (rows: any[], key = "quantity") => rows.reduce((n: bigint, x: any) =
 const DIMENSION = /^\d{1,4}(\.\d{1,2})?$/;
 
 /** Units of an order line picked in a wave, and how many of them are packed. */
-export function pickedFor(w: Row, orderLineId: string) {
-  return sum(w.lines.filter((l: any) => l.orderLineId === orderLineId), "picked");
+export function pickedFor(w: Row, orderLineId: string, itemId?: string) {
+  return sum(w.lines.filter((l: any) => l.orderLineId === orderLineId && (!itemId || l.itemId === itemId)), "picked");
 }
-const packedFor = (pack: Row, orderLineId: string) =>
-  sum(pack.cartons.flatMap((carton: any) => carton.lines.filter((l: any) => l.orderLineId === orderLineId)));
+const packedFor = (pack: Row, orderLineId: string, itemId?: string) =>
+  sum(pack.cartons.flatMap((carton: any) => carton.lines.filter((l: any) => l.orderLineId === orderLineId && (!itemId || l.itemId === itemId))));
 
 function packOf(c: Context, p: any, create: boolean) {
   const w = get(c.s, "waves", p.waveId);
@@ -45,16 +47,16 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
     const hit = itemScan(c.s, p.code, "pack it");
     const lines = w.lines.filter((l: any) => l.orderId === pack.orderId && l.itemId === hit.item.id);
     if (!lines.length) fail("NOT_ON_ORDER", `${hit.item.name} (${hit.item.sku}) was not picked for this order. Nothing was packed.`);
-    const orderLineId = lines[0].orderLineId, picked = pickedFor(w, orderLineId), packed = packedFor(pack, orderLineId);
+    const orderLineId = lines[0].orderLineId, picked = pickedFor(w, orderLineId, hit.item.id), packed = packedFor(pack, orderLineId, hit.item.id);
     if (packed + hit.units > picked)
       fail("OVER_PACK", `${format(picked)} ${hit.item.unit} of ${hit.item.sku} were picked and ${format(packed)} are packed; this ${hit.kind === "case" ? "case " : ""}scan would pack ${format(hit.units)}. Nothing was packed.`);
     // Units already in another unshipped carton for this line (an earlier
     // wave's pack) are not reserved twice; shipped units are no longer reserved.
-    const elsewhere = sum(c.s.packs.filter((x) => x.id !== pack.id && x.status !== "shipped").flatMap((x) => x.cartons.flatMap((carton: any) => carton.lines.filter((l: any) => l.orderLineId === orderLineId))));
-    if (elsewhere + packed + hit.units > reservedFor(c.s, orderLineId))
+    const elsewhere = sum(c.s.packs.filter(x => x.id !== pack.id && x.status !== 'shipped').flatMap(x => x.cartons.flatMap((carton: any) => carton.lines.filter((l: any) => l.orderLineId === orderLineId && l.itemId === hit.item.id))));
+    if (elsewhere + packed + hit.units > reservedFor(c.s, orderLineId, hit.item.id))
       fail("ALREADY_PACKED", `${get(c.s, "orders", pack.orderId).reference}'s ${hit.item.sku} units are already packed on another wave or have shipped. Nothing was packed.`);
     const carton = pack.cartons.at(-1);
-    const line = carton.lines.find((l: any) => l.orderLineId === orderLineId);
+    const line = carton.lines.find((l: any) => l.orderLineId === orderLineId && l.itemId === hit.item.id);
     if (line) line.quantity = format(decimal(line.quantity) + hit.units);
     else carton.lines.push({ orderLineId, itemId: hit.item.id, quantity: format(hit.units) });
   } else if (type === "pack.carton") {
@@ -70,7 +72,7 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
     }
   } else if (type === "pack.close") {
     for (const l of w.lines.filter((l: any) => l.orderId === pack.orderId)) {
-      const picked = pickedFor(w, l.orderLineId), packed = packedFor(pack, l.orderLineId);
+      const picked = pickedFor(w, l.orderLineId, l.itemId), packed = packedFor(pack, l.orderLineId, l.itemId);
       if (packed !== picked) fail("UNPACKED", `${format(picked - packed)} picked ${get(c.s, "items", l.itemId).sku} are not in a carton yet.`);
     }
     pack.cartons = pack.cartons.filter((x: any) => x.lines.length);
@@ -84,6 +86,15 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
     if (pack.status !== "packed") fail("PACK_STATE", pack.status === "shipped" ? "This pack already shipped." : "Mark the order packed first.");
     const quantities = new Map<string, bigint>();
     for (const carton of pack.cartons) for (const l of carton.lines) quantities.set(l.orderLineId, (quantities.get(l.orderLineId) ?? 0n) + decimal(l.quantity));
+    const order = get(c.s, 'orders', pack.orderId);
+    for (const line of order.lines.filter((line: any) => line.kit)) {
+      const packed = pack.cartons.flatMap((carton: any) => carton.lines.filter((part: any) => part.orderLineId === line.id));
+      const q = (itemId: string) => sum(packed.filter((part: any) => part.itemId === itemId));
+      const physical = q(line.itemId);
+      const virtual = line.kit.components.map((part: any) => q(part.itemId) * SCALE / decimal(part.quantity)).reduce((a: bigint,b: bigint) => min(a,b));
+      if (line.kit.components.some((part: any) => q(part.itemId) !== componentQuantity(virtual, part.quantity))) fail('KIT_PACK', 'Pack complete component sets before dispatching a kit.');
+      quantities.set(line.id, physical + virtual);
+    }
     const shipment = orders(c, "dispatch.create", {
       orderId: pack.orderId,
       shipmentReference: text(p.shipmentReference, "Shipment reference"),

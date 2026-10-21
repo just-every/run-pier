@@ -1,3 +1,5 @@
+import { kitDocument } from './kit-documents';
+import { kits, kitState, validateKitReservations } from './kits';
 import { slotting } from './slotting';
 import { validatePlacements } from './location-capacity';
 import { planningScope } from './replenishment-scope';
@@ -99,6 +101,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
 }
 async function approver(env: Bindings, c: Context, type: string, p: any) {
   let record: any;
+  if (type === "kitting.post") record = c.s.kittingTasks.find(r => r.id === p.taskId);
   if (type === "slotting.scan") record = c.s.slottingPlans.find(r => r.id === p.planId);
   if (type === "po.commit")
     record = c.s.purchaseOrders.find((r) => r.id === p.poId);
@@ -118,7 +121,7 @@ async function approver(env: Bindings, c: Context, type: string, p: any) {
       ? "owner"
       : "viewer";
   const allowed =
-    type === "slotting.scan" ? ["owner"] : type === "po.commit"
+    ["slotting.scan", "kitting.post"].includes(type) ? ["owner"] : type === "po.commit"
       ? ["owner", "buyer"]
       : type === "return.restock"
         ? ["owner", "warehouse"]
@@ -166,6 +169,7 @@ export async function execute(
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
+      kits,
       slotting,
       catalogue,
       catalogueBulk,
@@ -190,6 +194,7 @@ export async function execute(
       if (result !== undefined) break;
     }
     if (result === undefined) fail("COMMAND", "Unknown command type.");
+    validateKitReservations(s);
     validatePlacements(s, before);
     if (type === "import.commit" || type === "import.undo") {
       refreshReorderExceptions(c);
@@ -290,6 +295,8 @@ export async function pierResponse(
         if (!response.ok) fail('LABEL', 'The carrier label could not be downloaded. Check EasyPost.');
         return new Response(response.body, { headers: { 'content-type': labelMatch[2] === 'pdf' ? 'application/pdf' : 'application/octet-stream', 'content-disposition': `inline; filename="pier-label-${job!.carton}.${labelMatch[2]}"`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
       }
+      const packingSlip = /^\/api\/pier\/orders\/([^/]+)\/packing-slip$/.exec(url.pathname);
+      if (packingSlip) return kitDocument(s, packingSlip[1]);
       const ediDownload = ediFile(s, url.pathname);
       if (ediDownload) return ediDownload;
       if (["/api/pier/books/export.csv","/api/pier/books/export.iif"].includes(url.pathname)) {
@@ -382,6 +389,7 @@ export async function pierResponse(
         deliveries: await correspondenceDeliveries(env.DB),
         counts: s.counts.map((count) => countView(c, count)),
         ...floorState(c),
+        ...kitState(s),
         ...channelState(s),
         shippingUnavailable: shippingUnavailable(env),
         ...ediState(s, c.now),

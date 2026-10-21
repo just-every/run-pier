@@ -68,7 +68,7 @@ export function planBooks(c: Context) {
       return {key:`invoice:${shipment.id}`,kind:'invoice',date:shipment.createdAt.slice(0,10),reference:ref('INV',shipment.id),party:{id:customer.id,name:customer.name,kind:'customer'},lines,total:dollars(money(lines.reduce((n:bigint,l:any)=>n+amount(l.amount),0n)))};
     });
     add(`cogs:${shipment.id}`,'journal',shipment,'order',ref('COGS',shipment.id),() => {
-      const layers = [...new Set<string>(shipment.lines.map((l:any)=>l.itemId))].flatMap(itemId => ledger.consumed.get(`${shipment.id}:${itemId}`) ?? []);
+      const layers = [...new Set<string>(shipment.lines.flatMap((l:any)=>(l.components ?? [{ itemId:l.itemId }]).map((part:any)=>part.itemId)))].flatMap(itemId => ledger.consumed.get(`${shipment.id}:${itemId}`) ?? []);
       if (!layers.length || layers.some(l=>l.value===null)) throw new Error('This shipment contains stock without a reviewed USD cost. Resolve the stock valuation before posting cost of goods.');
       const total=dollars(money(layers.reduce((n,l)=>n+l.value!,0n)));
       if (!amount(total)) throw new Error('A zero-cost shipment needs an accountant decision before posting cost of goods.');

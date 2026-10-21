@@ -2,7 +2,7 @@ import { decimal, SCALE, type Movement, type State } from './model';
 import { usdRate } from './import-currency';
 import { allocate, amount, extended, share, toCents } from './money';
 
-export type Layer = { quantity: bigint; value: bigint | null; sourceId: string; receivedAt: string };
+export type Layer = { quantity: bigint; value: bigint | null; sourceId: string; receivedAt: string; parts?: (Layer & { itemId: string })[] };
 export type Position = { itemId: string; locationId: string; status: string; layers: Layer[] };
 const sumValue = (layers: Layer[]) => layers.reduce((n, layer) => n + (layer.value ?? 0n), 0n);
 // Cost layers carry whole cents, so every COGS, return and valuation amount is postable.
@@ -21,7 +21,9 @@ export function takeLayers(layers: Layer[], quantity: bigint, sourceId?: string)
     const q = quantity < layer.quantity ? quantity : layer.quantity;
     if (!q) continue;
     const value = layer.value === null ? null : share(layer.value, q, layer.quantity);
-    taken.push({ ...layer, quantity: q, value });
+    const parts = layer.parts?.map(part => ({ ...part, quantity: part.quantity * q / layer.quantity, value: part.value === null ? null : share(part.value, q, layer.quantity) }));
+    if (parts) layer.parts!.forEach((part, i) => { part.quantity -= parts[i].quantity; if (part.value !== null) part.value -= parts[i].value!; });
+    taken.push({ ...layer, quantity: q, value, ...(parts ? { parts } : {}) });
     layer.quantity -= q;
     if (value !== null && layer.value !== null) layer.value -= value;
     quantity -= q;
@@ -30,10 +32,25 @@ export function takeLayers(layers: Layer[], quantity: bigint, sourceId?: string)
   return taken;
 }
 
+/** Each commercial shipment line owns exactly its physical issue layers. */
+export function shipmentLayers(consumed: Map<string, Layer[]>, shipment: any, line: any): Layer[] {
+  const stock = new Map([...consumed].map(([key,layers]) => [key, structuredClone(layers)]));
+  for (const previous of shipment.lines) {
+    const parts: (Layer & { itemId: string })[] = (previous.components ?? [{ itemId: previous.itemId, quantity: previous.quantity }]).flatMap((part: any) => takeLayers(stock.get(`${shipment.id}:${part.itemId}`) ?? [], decimal(part.quantity)).map(layer => ({ ...layer, itemId: part.itemId })));
+    if (previous.id !== line.id) continue;
+    if (!line.kit) return parts;
+    const components = parts.flatMap(part => part.itemId === line.itemId ? part.parts ?? [] : [part]);
+    return [{ quantity: decimal(line.quantity), value: parts.some(part => part.value === null) ? null : sumValue(parts), sourceId: line.id, receivedAt: shipment.createdAt, parts: components }];
+  }
+  return [];
+}
+
 export function valuationLedger(s: State, end: string) {
   const positions = new Map<string, Position>();
   const consumed = new Map<string, Layer[]>();
   const moved = new Map<string, Layer[]>();
+  const kitting = new Map((s.kittingTasks ?? []).map(task => [task.id, task]));
+  const kitIssues = new Map<string, (Layer & { itemId: string })[]>();
   const returnedQuantities = new Map<string, bigint>();
   const shipments = new Map(s.shipments.map(row => [row.id, row]));
   const transfers = new Set(s.transfers.map(row => row.id));
@@ -73,7 +90,8 @@ export function valuationLedger(s: State, end: string) {
     if (q < 0n) {
       const returnSource = returns.has(m.documentId) ? s.movements.find(source => source.documentId === m.documentId && source.status === 'quarantine' && BigInt(source.quantity) > 0n)?.id : undefined;
       const layers = takeLayers(p.layers, -q, returnSource ?? (receiptLines.has(m.reversalId ?? '') && !s.counts.some(c => c.id === m.documentId) ? m.reversalId! : undefined));
-      if (isInternal) moved.set(key, layers);
+      if (kitting.has(m.documentId)) kitIssues.set(m.documentId, [...(kitIssues.get(m.documentId) ?? []), ...layers.map(layer => ({ ...layer, itemId: m.itemId }))]);
+      else if (isInternal) moved.set(key, layers);
       else if (shipments.has(m.documentId)) {
         consumed.set(key, [...(consumed.get(key) ?? []), ...layers]);
         record('cogs', layers);
@@ -101,24 +119,28 @@ export function valuationLedger(s: State, end: string) {
       }
       let layers: Layer[];
       const receiptLine = receiptLines.get(m.id), returned = returns.get(m.documentId);
-      if (receiptLine) {
+      const task = kitting.get(m.documentId);
+      if (task) {
+        const issued = kitIssues.get(task.id) ?? [];
+        if (task.direction === 'assemble') {
+          layers = [{ quantity: q, value: issued.some(l => l.value === null) ? null : sumValue(issued), sourceId: m.id, receivedAt: m.createdAt, parts: structuredClone(issued) }];
+        } else {
+          const parts = issued.flatMap(l => l.parts ?? [] ).filter(l => l.itemId === m.itemId);
+          if (parts.reduce((n,l) => n + l.quantity, 0n) !== q) throw new Error('Disassembly must use the assembled definition and component quantities.');
+          layers = parts;
+        }
+      } else if (receiptLine) {
         const value = receiptValue(receiptLine);
         layers = [{ quantity: q, value, sourceId: m.id, receivedAt: m.createdAt }];
         record('receipts', layers);
       } else if (returned) {
         const shipment = shipments.get(returned.shipmentId);
         const line = shipment?.lines.find((l: any) => l.id === returned.shipmentLineId);
-        const shipped = structuredClone(consumed.get(`${returned.shipmentId}:${m.itemId}`) ?? []);
-        for (const prior of shipment?.lines ?? []) {
-          if (prior.id === line?.id) break;
-          if (prior.itemId === m.itemId) takeLayers(shipped, decimal(prior.quantity));
-        }
-        const lineLayers = line ? takeLayers(shipped, decimal(line.quantity)) : [];
-        const shippedQ = lineLayers.reduce((n, l) => n + l.quantity, 0n);
+        const lineLayers = line ? shipmentLayers(consumed, shipment, line) : [];
         const priorReturned = returnedQuantities.get(returned.shipmentLineId) ?? 0n;
-        const value = !line || !shippedQ || lineLayers.some(l => l.value === null) ? null : share(sumValue(lineLayers), priorReturned + q, shippedQ) - share(sumValue(lineLayers), priorReturned, shippedQ);
+        if (priorReturned) takeLayers(lineLayers, priorReturned);
+        layers = line ? takeLayers(lineLayers, q).map(layer => ({ ...layer, sourceId: m.id, receivedAt: m.createdAt })) : [{ quantity:q, value:null, sourceId:m.id, receivedAt:m.createdAt }];
         returnedQuantities.set(returned.shipmentLineId, priorReturned + q);
-        layers = [{ quantity: q, value, sourceId: m.id, receivedAt: m.createdAt }];
         record('returns', layers);
       } else {
         const batch = s.imports.find(b => b.id === m.importId);

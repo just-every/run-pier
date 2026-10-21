@@ -1,3 +1,4 @@
+import { reservedKits } from './kits';
 import { forecast } from './replenishment';
 import { overdueDispatch } from "./floor/dispatch-board";
 import { decimal, fail, format, type State } from './model';
@@ -37,7 +38,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
     return { itemId: p.itemId, locationId: p.locationId, status: p.status,
       quantity: format(layers.reduce((n, l) => n + l.quantity, 0n)), value: display(valueOf(layers)),
       unvaluedQuantity: format(layers.filter(l => l.value === null).reduce((n, l) => n + l.quantity, 0n)),
-      layers: layers.map(l => ({ ...l, quantity: format(l.quantity), value: display(l.value) })),
+      layers: layers.map(function displayLayer(l): any { return { ...l, quantity: format(l.quantity), value: display(l.value), ...(l.parts ? { parts: l.parts.map(displayLayer) } : {}) }; }),
     };
   });
   const allLayers = ledger.positions.flatMap(p => p.layers).filter(l => l.quantity > 0n);
@@ -49,8 +50,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
   for (const shipment of s.shipments.filter(sh => sh.createdAt <= end)) {
     const order = s.orders.find(o => o.id === shipment.orderId)!;
     for (const line of shipment.lines) {
-      const source = consumed.get(`${shipment.id}:${line.itemId}`) ?? [];
-      const layers = takeLayers(source, decimal(line.quantity));
+      const layers = (line.components ?? [{ itemId: line.itemId, quantity: line.quantity }]).flatMap((part: any) => takeLayers(consumed.get(`${shipment.id}:${part.itemId}`) ?? [], decimal(part.quantity)));
       costed(line.orderLineId, layers);
       if (shipment.createdAt.slice(0, 10) < from || shipment.createdAt.slice(0, 10) > to) continue;
       const orderLine = order.lines.find((l: any) => l.id === line.orderLineId);
@@ -69,7 +69,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
     const quantity = BigInt(reservation.quantity), held = layers.reduce((n, l) => n + l.quantity, 0n);
     costed(reservation.orderLineId, quantity > held ? [...takeLayers(layers, held), { quantity: quantity - held, value: null, sourceId: '', receivedAt: '' }] : takeLayers(layers, quantity));
   }
-  const orderCosts = Object.fromEntries([...lineCosts].map(([orderLineId, layers]) => [orderLineId, { quantity: format(layers.reduce((n, l) => n + l.quantity, 0n)), cost: display(valueOf(layers)) }]));
+  const orderCosts = Object.fromEntries([...lineCosts].map(([orderLineId, layers]) => { const line = s.orders.flatMap(o=>o.lines).find(l=>l.id===orderLineId); return [orderLineId, { quantity: format(line?.kit ? decimal(line.dispatched) + reservedKits(s,line) : layers.reduce((n,l)=>n+l.quantity,0n)), cost: display(valueOf(layers)) }]; }));
   const inactivity = stockInactivity(s, valuationRows, end);
   const deadRows = inactivity.filter(row => row.inactiveDays >= days);
   const t = ledger.totals, expected = t.receipts + t.openings + t.returns + t.adjustments - t.cogs;

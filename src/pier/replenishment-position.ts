@@ -1,3 +1,4 @@
+import { componentQuantity, reservedKits } from './kits';
 import { decimal, fail, format, SCALE, type Context } from './model';
 
 const positive = (n: bigint) => n > 0n ? n : 0n;
@@ -28,7 +29,13 @@ export function supplyPosition(c: Context, itemId: string, warehouse: string) {
     .reduce((n, r) => n + BigInt(r.quantity), 0n);
   let backorders = 0n;
   for (const order of c.s.orders) for (const line of order.lines) {
-    if (line.itemId !== itemId || demandWarehouse(c, order, line) !== warehouse) continue;
+    if (demandWarehouse(c, order, line) !== warehouse) continue;
+    if (line.kit) {
+      const component = line.kit.components.find((part: any) => part.itemId === itemId);
+      if (component) backorders += componentQuantity(positive(decimal(line.quantity) - decimal(line.dispatched) - decimal(line.cancelled) - reservedKits(c.s, line)), component.quantity);
+      continue;
+    }
+    if (line.itemId !== itemId) continue;
     const allocated = c.s.reservations.filter(r => r.orderLineId === line.id)
       .reduce((n, r) => n + BigInt(r.quantity), 0n);
     backorders += positive(decimal(line.quantity) - decimal(line.dispatched) - decimal(line.cancelled) - allocated);

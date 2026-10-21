@@ -103,6 +103,8 @@ export const collections = [
   "slowStockPolicies",
   "slowStockExceptions",
   "slottingPlans",
+  "kitDefinitions",
+  "kittingTasks",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {

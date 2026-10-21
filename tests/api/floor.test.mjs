@@ -111,3 +111,90 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
     await h.command("dispatch.delivered", { dayId: closed.id, version: closed.version, status: "sent" }, { error: "COMMAND" });
   });
 });
+
+// Added to the existing warehouse journey budget: every business effect uses
+// the real authenticated Worker; only WooCommerce's network edge is synthetic.
+test('KIT-001: concurrent channel kits, whole shortages, versioned picks, assembly, returns and exact cost', async t => {
+  const { kitStock, kitFloor } = await import('./kits-fixture.mjs');
+  const incoming = [], publications = [];
+  const h = await installation({ async outboundService(request) {
+    const url = new URL(request.url);
+    assert.equal(url.hostname,'kits.example.test');
+    if (request.method === 'PUT') { const body=await request.json(); publications.push(body.stock_quantity); return Response.json({ id:1,...body }); }
+    if (url.pathname.endsWith('/products')) return Response.json([{ id:1, type:'simple', name:'Case assortment', sku:'synthetic-pier-4' }]);
+    if (url.pathname.endsWith('/orders')) return Response.json(incoming);
+    throw new Error('Unexpected kit network request');
+  } }); t.after(()=>h.close());
+  const b = await kitStock(h);
+  await h.command('channel.save', { name:'Kit shop', provider:'woocommerce', baseUrl:'https://kits.example.test', warehouse:'North', buffer:'1', credentials:{consumerKey:'synthetic-pier-6',consumerSecret:'synthetic-pier-7'} });
+  assert.equal((await h.state()).channelListings[0].available,'14');
+  incoming.push({ id:1,number:'1',status:'processing',currency:'USD',billing:{first_name:'Synthetic',last_name:'Buyer'},refunds:[],line_items:[{id:1,sku:b.assortment.sku,quantity:2,price:10}] });
+  const [manual] = await Promise.all([
+    h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.assortment.id,quantity:'2',price:'10'}]}),
+    h.command('channel.sync',{}),
+  ]);
+  let s=await h.state();
+  assert.equal(s.orders.length,2);
+  assert.ok(s.orders.every(order=>order.lines[0].reserved==='2'));
+  assert.equal(s.reservations.filter(r=>r.itemId===b.components[0].id).reduce((n,r)=>n+BigInt(r.quantity),0n),8000000n);
+  assert.equal(s.reservations.filter(r=>r.itemId===b.components[1].id).reduce((n,r)=>n+BigInt(r.quantity),0n),4000000n);
+  assert.equal(s.channelListings[0].available,'10');
+  assert.equal(publications.at(-1),10);
+  await h.command('kit.define',{itemId:b.assortment.id,version:b.definition.version,components:b.components.slice(0,2).map(part=>({itemId:part.id,quantity:'1',unit:'each'})),shortagePolicy:'block',reason:'Next version'});
+  assert.equal((await h.state()).orders.find(o=>o.id===manual.id).lines[0].kit.revision,1);
+  await kitFloor(h,b,manual);
+  let report=await (await h.request('/api/pier/reports')).json();
+  const margin=report.margin.bySku.find(row=>row.key===b.assortment.id);
+  assert.deepEqual([Number(margin.revenue),Number(margin.cost),Number(margin.margin)],[20,8,12]);
+  assert.equal(Number(report.valuation.reconciliation.difference),0);
+  // A component drain leaves no partially reserved kit set.
+  const drain=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.components[0].id,quantity:'100',price:'1'}]});
+  s=await h.state(); assert.equal(s.channelListings[0].available,'0');
+  const before=await (await h.request('/api/pier/export')).json();
+  await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.assortment.id,quantity:'1',price:'10'}]},{error:'KIT_SHORTAGE'});
+  assert.equal((await h.state()).version,before.version);
+  const currentDefinition=(await h.state()).kitDefinitions.filter(k=>k.itemId===b.assortment.id).sort((a,b)=>b.revision-a.revision)[0];
+  await h.command('kit.define',{itemId:b.assortment.id,version:currentDefinition.version,components:b.definition.components,shortagePolicy:'backorder',reason:'Retain whole-kit backorders'});
+  const short=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.assortment.id,quantity:'1',price:'10'}]});
+  assert.deepEqual([short.lines[0].reserved,short.lines[0].backorder],['0','1']);
+  assert.equal((await h.state()).reservations.filter(r=>r.orderId===short.id).length,0);
+  // Cancel only the drain: existing manual/channel reservations survive.
+  await h.command('order.cancel',{orderId:drain.id,reason:'End shortage probe'});
+  const quote=await h.command('quote.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.assortment.id,quantity:'1',price:'10'}]});
+  assert.equal(quote.lines[0].kit.revision,3);
+  assert.equal(quote.lines[0].reserved,'1');
+  await h.command('dispatch.create',{orderId:quote.id,shipmentReference:'synthetic-pier-quote-1',lines:[{orderLineId:quote.lines[0].id,quantity:'1'}]},{error:'QUOTE_STATE'});
+  const quoteDocument=await h.request(`/api/pier/orders/${quote.id}/packing-slip`);
+  assert.equal(quoteDocument.status,200); assert.match(await quoteDocument.text(),/Quote.*Kit definition 3/s);
+  await h.command('quote.accept',{orderId:quote.id,version:quote.version});
+  await h.command('order.cancel',{orderId:quote.id,reason:'Quote lifecycle proof'});
+  const packingSlip=await h.request(`/api/pier/orders/${manual.id}/packing-slip`);
+  assert.match(await packingSlip.text(),/Kit definition 1.*Component picks and bins.*Kit bench/s);
+  let task=await h.command('kitting.plan' ,{itemId:b.display.id,quantity:'5',locationId:b.bin.id,bins:Object.fromEntries(b.components.map(part=>[part.id,b.bin.id])),direction:'assemble',reason:'Preassemble five displays'});
+  await h.command('kitting.post',{taskId:task.id,version:task.version},{error:'APPROVAL'});
+  await h.command('kitting.approve',{taskId:task.id,version:task.version});
+  const taskCommand='synthetic-pier-assembly-1';
+  task=await h.command('kitting.post',{taskId:task.id,version:task.version},{commandId:taskCommand});
+  await h.command('kitting.post',{taskId:task.id,version:1},{commandId:taskCommand});
+  const displays=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.display.id,quantity:'2',price:'12'}]});
+  assert.equal(displays.lines[0].reserved,'2');
+  const shipment=await h.command('dispatch.create',{orderId:displays.id,shipmentReference:'synthetic-pier-shipment-5',lines:[{orderLineId:displays.lines[0].id,quantity:'2'}]});
+  const payload={shipmentId:shipment.id,shipmentLineId:shipment.lines[0].id,locationId:b.bin.id,quantity:'1',reason:'Inspect each returned component'};
+  await h.command('return.create',payload,{error:'KIT_INSPECTION'});
+  const returned=await h.command('return.create',{...payload,inspection:b.components.map(part=>({itemId:part.id,condition:'sellable',reason:'Checked intact'}))});
+  await h.command('return.approve',{returnId:returned.id,version:returned.version});
+  await h.command('return.restock',{returnId:returned.id,version:returned.version});
+  let disassembly=await h.command('kitting.plan',{itemId:b.display.id,definitionId:b.displayDefinition.id,quantity:'1',locationId:b.bin.id,bins:Object.fromEntries(b.components.map(part=>[part.id,b.bin.id])),direction:'disassemble',reason:'Recover returned display components'});
+  await h.command('kitting.approve',{taskId:disassembly.id,version:disassembly.version});
+  await h.command('kitting.post',{taskId:disassembly.id,version:disassembly.version});
+  report=await (await h.request('/api/pier/reports')).json();
+  const displayMargin=report.margin.bySku.find(row=>row.key===b.display.id);
+  assert.deepEqual([Number(displayMargin.revenue),Number(displayMargin.cost),Number(displayMargin.margin)],[24,12,12]);
+  assert.equal(Number(report.valuation.reconciliation.difference),0);
+  const exported=await (await h.request('/api/pier/export')).json();
+  assert.equal(exported.kittingTasks.filter(task=>task.status==='posted').length,2);
+  assert.equal(exported.returns[0].inspection.length,3);
+  s=await h.state();
+  for(const position of s.positions) assert.ok(Number(position.available)>=0);
+  assert.equal(s.positions.find(p=>p.itemId===b.display.id&&p.status==='sellable').quantity,'3');
+});

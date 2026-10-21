@@ -1,4 +1,4 @@
-import { decimal, format, positions, type State } from "./model";
+import { decimal, fail, format, positions, type State } from "./model";
 const csv = (columns: string[], rows: Record<string, unknown>[]) =>
   [columns, ...rows.map((r) => columns.map((k) => r[k] ?? ""))]
     .map((r) =>
@@ -6,6 +6,7 @@ const csv = (columns: string[], rows: Record<string, unknown>[]) =>
     )
     .join("\r\n") + "\r\n";
 export function nativeExport(s: State) {
+  if (s.orders.some(o=>o.lines.some((l:any)=>l.kit && decimal(l.quantity)>decimal(l.dispatched)+decimal(l.cancelled)))) fail('NATIVE_KITS', 'The native CSV shape cannot preserve open kit definitions and component allocations. Use the complete installation archive and business export; do not cut over these orders as single-SKU demand.');
   const files = [
     {
       name: "items.csv",

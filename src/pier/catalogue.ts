@@ -67,6 +67,7 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
     if (
       old &&
       (c.s.movements.some((m) => m.itemId === old.id) ||
+        c.s.kitDefinitions.some(k=>k.itemId===old.id || k.components.some((part:any)=>part.itemId===old.id)) ||
         c.s.supplierItems.some((terms) => terms.itemId === old.id) ||
         [...c.s.orders, ...c.s.purchaseOrders, ...c.s.counts].some((document) =>
           document.lines.some((line: any) => line.itemId === old.id),

@@ -1,5 +1,8 @@
+import { kitDefinition, kitAvailability } from '../kits';
 import { available, decimal, format, type Context, type Row, type State } from '../model';
 export function channelAvailability(s: State, channel: Row, itemId: string) {
+  const kit = kitDefinition(s, itemId);
+  if (kit) return format(kitAvailability(s, kit, channel.warehouse, channel.buffer ?? '0'));
   const bins = s.locations.filter(l => l.kind === 'bin' && l.warehouse === channel.warehouse);
   const free = bins.reduce((sum, l) => sum + available(s, itemId, l.id), 0n);
   const buffer = decimal(channel.buffer ?? '0');
