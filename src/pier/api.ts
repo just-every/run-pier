@@ -40,6 +40,7 @@ import { returns } from "./returns";
 import { returnLookup } from "./returns-lookup";
 import { itemAgent, explainItem } from "./item-agent";
 import { purchasing } from "./purchasing";
+import { supplierInspections } from "./supplier-inspections";
 import { replenishment, forecast, draftReplenishment } from './replenishment';
 import { backorderDates } from './backorders';
 import { purchasingWorkflow, expectedLandedCost, refreshPromises } from './purchasing-workflow';
@@ -167,6 +168,7 @@ export async function execute(
       orders,
       returns,
       purchasing,
+      supplierInspections,
       purchasingWorkflow,
       purchaseSend,
       slowStock,

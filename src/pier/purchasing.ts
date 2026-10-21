@@ -84,6 +84,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       destinationWarehouse: p.destinationWarehouse ? text(p.destinationWarehouse) : null,
       freight: format(decimal(p.freight ?? "0")),
       duty: format(decimal(p.duty ?? "0")),
+      tax: format(decimal(p.tax ?? "0")),
       reason: text(p.reason),
       lines: lines(c, p),
       status: "draft",

@@ -82,7 +82,7 @@ Command names are the `type` strings Pier's command door accepts (`POST /api/pie
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 31 | "Pier matches each bill to its PO and receipt, holds the difference" (Three-way match · Bill 7731: PO-1048 500 × $4.20, received 480, bill 500 · $2,100.00; 20 units not received · $84.00 held) | backed | Supplier invoices match PO and receipt quantities and prices with tolerances and hold or approve: `src/pier/books/supplier-bills.ts`; `tests/api/books.test.mjs` |
+| 31 | "Pier matches each bill to its PO and receipt, holds the difference" (Three-way match · Bill 7731: PO-1048 500 × $4.20, received 480, bill 500 · $2,100.00; 20 units not received · $84.00 held) | backed | Supplier invoices match PO and receipt quantities, prices, freight and tax with tolerances and hold or approve: `src/pier/books/supplier-bills.ts`; `tests/api/books.test.mjs`; `tests/api/supplier-bill-documents.test.mjs` |
 | 32 | "Agent requested a credit · Nov 6" | contract, not yet in code | Supplier credits for short goods are BUY-003; an agent asking for one is AGENT-003. Nothing sends the request yet. |
 | 33 | "Credit memo CM-311 · $84.00" and "Paid $2,016.00 for 480" | partly | Payments close the matched payable (`src/pier/books/receipt-closure.ts`, `tests/api/books.test.mjs`); recording a supplier credit memo against the bill is BUY-003 work. |
 | 34 | "posts landed cost" ("Landed cost $4.38 a unit · freight $86.00 included") | backed | Freight and duty allocated over a receipt to exact landed unit cost, posted as a whole-cent journal: `src/pier/landed-cost.ts`; `tests/api/costing.test.mjs`, `tests/api/books-landed.test.mjs` |

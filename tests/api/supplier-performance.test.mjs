@@ -61,8 +61,6 @@ test('BUY-004: supplier fill and on-time quantities reconcile to exported PO/rec
     assert.equal(report.timezone, 'UTC');
     assert.deepEqual(report.suppliers.find(s => s.supplierId === empty.id).items, []);
     const supplier = report.suppliers.find(s => s.supplierId === b.supplier.id);
-    assert.equal(supplier.defects, null);
-    assert.match(supplier.defectsUnavailable, /not recorded/);
     assert.equal(supplier.items.length, 2);
     for (const row of supplier.items) {
       const orders = source.purchaseOrders.filter(p => p.supplierId === supplier.supplierId && p.status === 'committed');
@@ -81,6 +79,13 @@ test('BUY-004: supplier fill and on-time quantities reconcile to exported PO/rec
       assert.equal(parse(row.unknownTimingQuantity), total - timed);
       assert.equal(parse(row.outstandingQuantity), ordered > total ? ordered - total : 0n);
       assert.equal(parse(row.excessQuantity), total > ordered ? total - ordered : 0n);
+      // Defects reproduce from the exported inspections of unreversed receipts only.
+      const inspections = receipts.flatMap(r => r.inspections ?? []).filter(i => i.itemId === row.itemId);
+      const inspected = inspections.reduce((sum, i) => sum + parse(i.inspectedQuantity), 0n), defective = inspections.reduce((sum, i) => sum + parse(i.defectiveQuantity), 0n);
+      assert.equal(parse(row.inspectedQuantity), inspected);
+      assert.equal(parse(row.defectiveQuantity), defective);
+      assert.equal(parse(row.uninspectedQuantity), total - inspected);
+      assert.equal(row.defectPercent === null ? null : parse(row.defectPercent), inspected ? defective * 100000000n / inspected : null);
       assert.equal(parse(row.fillPercent), total * 100000000n / ordered);
       assert.equal(row.onTimePercent === null ? null : parse(row.onTimePercent), timed ? timely * 100000000n / timed : null);
       for (const evidence of row.receipts) {
@@ -101,11 +106,28 @@ test('BUY-004: supplier fill and on-time quantities reconcile to exported PO/rec
   assert.equal(row.receipts.find(r => r.receiptId === first.id).timing, 'on-time');
   assert.equal(row.receipts.find(r => r.receiptId === late.id).timing, 'late');
   assert.match(row.receipts.find(r => r.timing === 'unknown').exclusion, /No supplier confirmation/);
+  // Defects come from recorded inspections, never from returns or stock corrections.
+  assert.deepEqual([row.inspectedQuantity, row.defectiveQuantity, row.uninspectedQuantity, row.defectPercent], ['0', '0', '4.25', null]);
+  const lateLine = late.lines[0], firstLine = first.lines[0];
+  await h.command('receipt.inspect', { receiptId: first.id, lines: [{ receiptLineId: firstLine.id, inspected: '1', defective: '0.25' }] }, { error: 'INPUT' });
+  await h.command('receipt.inspect', { receiptId: first.id, lines: [{ receiptLineId: firstLine.id, inspected: '1', defective: '2', defect: 'Cracked' }] }, { error: 'INSPECTION' });
+  await h.command('receipt.inspect', { receiptId: first.id, lines: [{ receiptLineId: firstLine.id, inspected: '1.5', defective: '0' }] }, { error: 'INSPECTION_LIMIT' });
+  const stockBefore = (await h.state()).movements.length;
+  await h.command('receipt.inspect', { receiptId: first.id, lines: [{ receiptLineId: firstLine.id, inspected: '1', defective: '0.25', defect: 'Cracked housing' }] });
+  await h.command('receipt.inspect', { receiptId: late.id, lines: [{ receiptLineId: lateLine.id, inspected: '2', defective: '1', defect: 'Wrong finish' }] });
+  assert.equal((await h.state()).movements.length, stockBefore, 'an inspection moves no stock');
+  row = await reconcile();
+  assert.deepEqual([row.inspectedQuantity, row.defectiveQuantity, row.uninspectedQuantity, row.defectPercent], ['3', '1.25', '1.25', '41.666666']);
+  assert.equal(row.receipts.find(r => r.receiptId === first.id).inspections[0].defect, 'Cracked housing');
+  await h.command('receipt.inspect', { receiptId: first.id, lines: [{ receiptLineId: firstLine.id, inspected: '0.5', defective: '0' }] }, { error: 'INSPECTION_LIMIT' });
   // Reversing a receipt removes its contribution but keeps its cited exclusion.
   await h.command('receipt.reverse', { receiptId: late.id, reason: 'Duplicate warehouse tally' });
   row = await reconcile();
   assert.equal(row.receivedQuantity, '2.25');
   assert.equal(row.onTimePercent, '100');
+  assert.deepEqual([row.inspectedQuantity, row.defectiveQuantity, row.defectPercent], ['1', '0.25', '25']);
+  assert.equal(row.receipts.find(r => r.receiptId === late.id).inspections.length, 1, 'a reversed receipt keeps its cited inspection but is excluded from the rate');
+  await h.command('receipt.inspect', { receiptId: late.id, lines: [{ receiptLineId: lateLine.id, inspected: '0.5', defective: '0' }] }, { error: 'REVERSED' });
   assert.equal(row.receipts.find(r => r.receiptId === late.id).timing, 'excluded');
   assert.match(row.receipts.find(r => r.receiptId === late.id).exclusion, /reversed/);
   // Scan over-receipts remain visible rather than creating negative outstanding quantities.

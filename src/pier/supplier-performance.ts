@@ -23,7 +23,7 @@ export function supplierPerformance(s: State) {
         const timing = receipt.status !== 'posted' ? 'excluded' : !confirmation ? 'unknown' : receivedDate <= confirmation.promiseDate ? 'on-time' : 'late';
         return { receiptId: receipt.id, receiptLineId: line.id, supplierReference: receipt.supplierReference, poId: po.id, poLineId: line.poLineId, status: receipt.status, receivedAt: receipt.createdAt, receivedDate, confirmation, quantity: line.quantity, unitPrice: line.cost, poUnitPrice: purchaseLine.price, priceDifference: format(decimal(line.cost) - decimal(purchaseLine.price)), timing,
           exclusion: receipt.status !== 'posted' ? 'Receipt reversed; retained for traceability, excluded from all quantities.' : !confirmation ? 'No supplier confirmation retained at receipt; excluded from on-time denominator.' : null,
-          corrections: receipt.corrections ?? [] };
+          corrections: receipt.corrections ?? [], inspections: (receipt.inspections ?? []).filter((inspection: any) => inspection.receiptLineId === line.id) };
       })));
       const posted = receipts.filter(receipt => receipt.status === 'posted');
       const ordered = sum(purchaseLines.map(line => line.quantity));
@@ -31,9 +31,12 @@ export function supplierPerformance(s: State) {
       const onTime = sum(posted.filter(receipt => receipt.timing === 'on-time').map(receipt => receipt.quantity));
       const late = sum(posted.filter(receipt => receipt.timing === 'late').map(receipt => receipt.quantity));
       const unknown = received - onTime - late;
-      return { itemId, sku: item.sku, unit: item.unit, orderedQuantity: format(ordered), receivedQuantity: format(received), outstandingQuantity: format(ordered > received ? ordered - received : 0n), excessQuantity: format(received > ordered ? received - ordered : 0n), fillPercent: percent(received, ordered), onTimeQuantity: format(onTime), lateQuantity: format(late), unknownTimingQuantity: format(unknown), onTimePercent: percent(onTime, onTime + late), purchaseLines, receipts };
+      // Defects come only from recorded inspections of posted receipts; uninspected goods are not assumed good.
+      const inspections = posted.flatMap(receipt => receipt.inspections);
+      const inspected = sum(inspections.map((i: any) => i.inspectedQuantity)), defective = sum(inspections.map((i: any) => i.defectiveQuantity));
+      return { itemId, sku: item.sku, unit: item.unit, orderedQuantity: format(ordered), receivedQuantity: format(received), outstandingQuantity: format(ordered > received ? ordered - received : 0n), excessQuantity: format(received > ordered ? received - ordered : 0n), fillPercent: percent(received, ordered), onTimeQuantity: format(onTime), lateQuantity: format(late), unknownTimingQuantity: format(unknown), onTimePercent: percent(onTime, onTime + late), inspectedQuantity: format(inspected), defectiveQuantity: format(defective), uninspectedQuantity: format(received - inspected), defectPercent: percent(defective, inspected), purchaseLines, receipts };
     });
-    return { supplierId: supplier.id, name: supplier.name, items, defects: null, defectsUnavailable: 'Supplier defect inspections are not recorded; no defect rate is inferred from returns or stock corrections.' };
+    return { supplierId: supplier.id, name: supplier.name, items };
   });
-  return { basis: 'Current committed purchase lines and unreversed posted receipts, grouped by supplier and SKU in base units.', timezone: 'UTC', percentageRounding: 'Truncated to six decimal places; null when the denominator is zero.', suppliers };
+  return { basis: 'Current committed purchase lines and unreversed posted receipts, grouped by supplier and SKU in base units.', timezone: 'UTC', percentageRounding: 'Truncated to six decimal places; null when the denominator is zero.', defectBasis: 'Defective quantity divided by inspected quantity from recorded inspections of unreversed posted receipts; uninspected quantity is reported, not assumed good. Stock corrections and customer returns are never counted as supplier defects.', suppliers };
 }

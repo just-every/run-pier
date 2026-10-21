@@ -256,7 +256,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "8c78772a891c9b72e2eaea9aba5edf73b1a81035dbbf6bade885032a00c7a4a2",
+      "sha256": "a4c1448c919ef79893849e7ab3f3f30ab07200a3062fcd6372cd8017475e7c16",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -268,7 +268,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "ca3c47eddb60b64385d8cb1ad85625eda1346b95648da2213c4e6ddc4916e217",
+      "sha256": "abfb3313f22265424c4ed7ae50cc5f650c74ac4c3c72132340f989ac05f6ab2e",
       "executable": false
     },
     "base-copies.json": {
@@ -284,7 +284,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "8ce4d767dcc4e48db180d94ffe5b046af0894d57ce1b8759f9b66b5430d3d13b",
+      "sha256": "1f9f8778f1e0b67dd1fe317c3e48ff51d4cc3048cb1f9938ee25839ca9cdefd1",
       "executable": false
     },
     "DEMO.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "9ea4680797db9452616957ba954f2fcfd5066571d1588232bf4febc08d98efb7",
+      "sha256": "e60795fef648d5ec689dfe9ac27a520668746e141292a4c33a5f7f4a1d9c451a",
       "executable": false
     },
     "docs/edi-bridge.md": {
@@ -2628,7 +2628,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "db1447be9869e0dfcae5aec5a37981fa7fb9abdbc6f48f20156ca0f97844d9cf",
+      "sha256": "76909262516fc8d05fd5b4137b0233c54c74d70f30cd4a24d23262588d1f10eb",
       "executable": false
     },
     "src/pier/backorders.ts": {
@@ -2660,7 +2660,7 @@
       "executable": false
     },
     "src/pier/books/commands.ts": {
-      "sha256": "fb17f803a3b21d992e6d7b0efde58538d8f08f9368dec03c37face3d823297bf",
+      "sha256": "9f1951ef465ed2dc4db0b2d0df4e2390d9e2322c4894e9b6c48adf82fc95d8db",
       "executable": false
     },
     "src/pier/books/connection-state.ts": {
@@ -2696,11 +2696,11 @@
       "executable": false
     },
     "src/pier/books/supplier-bill-documents.ts": {
-      "sha256": "dfadff5e344526e68436d893f4441dd559554e7271bbc0eff9b04bd5bdd71668",
+      "sha256": "7f17ead1db6bfa6d2a1a9dd55de063b4330809dad5b0c4fcbc47684f622c4ad4",
       "executable": false
     },
     "src/pier/books/supplier-bills.ts": {
-      "sha256": "4975708e067e8c11a07828c7480be68e767b7b61cb20b7cc3356f7428a9688bc",
+      "sha256": "c37ef995b9c0d51bf6958561d8088954c1a5cafea24132c8bda0199553116413",
       "executable": false
     },
     "src/pier/books/sync.ts": {
@@ -3004,7 +3004,7 @@
       "executable": false
     },
     "src/pier/purchasing.ts": {
-      "sha256": "8a45960262b596b7611632b380e7d7b3d604797dea940415ed23a99eacb14688",
+      "sha256": "bd4bc8b1e6a4e6d372ca917666fb930d421afb4c47f39c14c0ff23787b12cb59",
       "executable": false
     },
     "src/pier/replenishment-demand.ts": {
@@ -3076,7 +3076,7 @@
       "executable": false
     },
     "src/pier/supplier-performance.ts": {
-      "sha256": "21f64ec12a6f54f8f83cf1ed5a2628c0754ed649cbc4944c305983f701e40739",
+      "sha256": "923ce522fec7d2ccef9e711d576001c25f7083aa3f7ffd3ac53a19557c411f65",
       "executable": false
     },
     "src/pier/valuation-ledger.ts": {
@@ -3312,7 +3312,7 @@
       "executable": false
     },
     "src/ui/books/connection.tsx": {
-      "sha256": "31f197c8c8fdcc3b1627920d28442c97b58943fe0866da6a4bcfeae5a70e4668",
+      "sha256": "8b7c5c3065425818aa4559a3593bbbe8f10cb6edd45b372bd1157c1fa2cb903f",
       "executable": false
     },
     "src/ui/books/documents.tsx": {
@@ -3324,7 +3324,7 @@
       "executable": false
     },
     "src/ui/books/model.ts": {
-      "sha256": "45cf594c4686a5597e08858c9abb495461deb9492133a96bef9b006406960905",
+      "sha256": "dc8ab0dcbf3e0f8053f9df62ca01a9dc2de9666af75eb6b99fb73f067a198849",
       "executable": false
     },
     "src/ui/books/pantry-lookup.ts": {
@@ -3344,11 +3344,11 @@
       "executable": false
     },
     "src/ui/books/supplier-bill-documents.tsx": {
-      "sha256": "11fdeb3bf4eaa291a183fc7b15f25a55835885197b4787f0457cb439a1f330bf",
+      "sha256": "7ff8be179f33f781135311a59e8b7fa4844373f1e9b056f9ef2f93c6f9cb2edc",
       "executable": false
     },
     "src/ui/books/supplier-bills.tsx": {
-      "sha256": "cb4f8d3f1ec7eff2300ca9b521c76f4b6278d4aef8ec72cde3359dd473ff67c5",
+      "sha256": "0d37b55006abb04ec3b20c7ca85d9fe2a529d4a23d1d34be719196ebbb92ff69",
       "executable": false
     },
     "src/ui/business.tsx": {
@@ -3628,7 +3628,7 @@
       "executable": false
     },
     "src/ui/purchasing.tsx": {
-      "sha256": "cec0185c52bf97c22ae35ec6b9b1f846205d4be2960cf903f99675b48d82f88e",
+      "sha256": "fae22e05bd1e14f8803b6bf27a72cfb7c8c492d7dcaff8700d4877ad9ddfff63",
       "executable": false
     },
     "src/ui/quantity.ts": {
@@ -3748,7 +3748,7 @@
       "executable": false
     },
     "tests/api/books-landed.test.mjs": {
-      "sha256": "523b9cdeb52cc1be691dfdaf9e736fed988ee849547493f208ff1797585e9592",
+      "sha256": "cb75e1775d5e449bf3f9dba53cf58dc2700be1bdc81ee51762e40a7d4f8eb0b1",
       "executable": false
     },
     "tests/api/books-shop.test.mjs": {
@@ -3864,11 +3864,11 @@
       "executable": false
     },
     "tests/api/supplier-bill-documents.test.mjs": {
-      "sha256": "c18da41f6c25667bafc62719797a49ca78029c72e64b8aae97363ca4bbbc2bac",
+      "sha256": "7a438dd3a1ab713fad51d5f730b3a86fe3ce534308302e5c27354ebb2ca16ec8",
       "executable": false
     },
     "tests/api/supplier-performance.test.mjs": {
-      "sha256": "c3735b6683eb15cb919e8157784668844abd66540a8e7a547bdb03d655c087a5",
+      "sha256": "6d622a1ee13bbf4bdfb4c03697f6e8b9bc6a4146229b34c3a91e3dd158ee478c",
       "executable": false
     },
     "tests/api/worker.ts": {
@@ -3912,7 +3912,7 @@
       "executable": false
     },
     "tests/browser/supplier-bills.spec.ts": {
-      "sha256": "3dfd1e216dfbccc9d51619036ef0725f3822e7e4e86f7190f5a8a3a6e5c9043a",
+      "sha256": "29612cbb93debda269329264eeada84b9f6e2e6fb5fe8a477112c5a33433edca",
       "executable": false
     },
     "tests/email-link.mjs": {

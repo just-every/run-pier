@@ -13,6 +13,7 @@ test('freight and duty split by value post cost of goods, the return credit reac
     const inventory = await pantry.command('account.save', { code: '1300', name: 'Inventory Asset', type: 'asset', subtype: 'other' });
     const cogs = await pantry.command('account.save', { code: '5000', name: 'Cost of Goods Sold', type: 'expense', subtype: 'other' });
     const freightIn = await pantry.command('account.save', { code: '5200', name: 'Freight and duty in', type: 'expense', subtype: 'other' });
+    const purchaseTax = await pantry.command('account.save', { code: '5300', name: 'Purchase tax', type: 'expense', subtype: 'other' });
     const revenue = (await pantry.view('state')).accounts.find(a => a.code === '4000');
     pier = await installation({ async outboundService(request) {
       const body = request.method === 'GET' ? undefined : await request.arrayBuffer();
@@ -24,7 +25,7 @@ test('freight and duty split by value post cost of goods, the return credit reac
     const b = await basics(pier);
     const bowl = await pier.command('item.save', { sku: 'BOWL', name: 'Serving bowl', unit: 'each', packSize: '1' });
     const lines = [{ itemId: b.item.id, quantity: '7', price: '3.17' }, { itemId: bowl.id, quantity: '13', price: '1.09' }];
-    const po = await pier.command('po.draft', { supplierId: b.supplier.id, promiseDate: '2026-11-01', reason: 'Landed stock', lines });
+    const po = await pier.command('po.draft', { supplierId: b.supplier.id, promiseDate: '2026-11-01', reason: 'Landed stock', freight: '40', tax: '2.50', lines });
     await pier.command('po.approve', { poId: po.id, version: po.version });
     await pier.command('po.commit', { poId: po.id, version: po.version });
     await pier.command('receipt.create', { poId: po.id, supplierReference: 'Freight', landedCost: { freight: '40.005', duty: '0', allocation: 'value' }, lines: po.lines.map(l => ({ poLineId: l.id, locationId: b.source.id, quantity: l.quantity, cost: lines.find(x => x.itemId === l.itemId).price })) }, { error: 'LANDED_COST' });
@@ -38,10 +39,21 @@ test('freight and duty split by value post cost of goods, the return credit reac
     const shipment = await pier.command('dispatch.create', { orderId: order.id, shipmentReference: 'LANDED-1', lines: order.lines.map(l => ({ orderLineId: l.id, quantity: l.quantity })) });
     const credential = await pantry.command('integration.create', { name: 'Pier', scopes: ['contacts:write', 'invoices:write', 'bills:write', 'journals:write', 'documents:write', 'payments:read', 'reports:read', 'post'] });
     await pier.command('book.connect', { baseUrl: pantry.origin, integrationToken: credential.token, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, landedCostAccountId: freightIn.id, taxCode: 'exempt' });
-    const bill = await pier.command('supplierBill.save', { poId: po.id, reference: 'LANDED-INVOICE', date: new Date().toISOString().slice(0, 10), quantityTolerancePercent: '0', priceTolerancePercent: '0', lines: po.lines.map(l => ({ poLineId: l.id, quantity: l.quantity, unitPrice: lines.find(x => x.itemId === l.itemId).price })) });
+    const bill = await pier.command('supplierBill.save', { poId: po.id, reference: 'LANDED-INVOICE', date: new Date().toISOString().slice(0, 10), quantityTolerancePercent: '0', priceTolerancePercent: '0', freight: '40', tax: '2.50', lines: po.lines.map(l => ({ poLineId: l.id, quantity: l.quantity, unitPrice: lines.find(x => x.itemId === l.itemId).price })) });
     await pier.command('supplierBill.approve', { id: bill.id, version: bill.version, receiptEvidence: bill.match.receiptEvidence });
     await pier.command('book.sync', {});
+    // The approved invoice carries tax but no purchase tax account is chosen yet: it waits for review, never posts a partial bill.
     let state = await pier.state();
+    const waiting = state.bookJobs.find(j => j.sourceKind === 'supplierBill');
+    assert.equal(waiting.status, 'review');
+    assert.match(waiting.reason, /Purchase tax account/);
+    assert.equal((await pantry.view('sales')).bills.length, 0);
+    await pier.command('book.connect', { baseUrl: pantry.origin, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, landedCostAccountId: freightIn.id, purchaseTaxAccountId: purchaseTax.id, taxCode: 'exempt' });
+    await pier.command('book.sync', {});
+    state = await pier.state();
+    assert.equal(state.bookJobs.find(j => j.sourceKind === 'supplierBill').status, 'posted');
+    const payable = (await pantry.view('sales')).bills.find(x => x.reference === state.bookJobs.find(j => j.sourceKind === 'supplierBill').reference);
+    assert.equal(payable.open_cents, 3636 + 4000 + 250, 'goods, freight and tax are one payable');
     const cogsJob = state.bookJobs.find(j => j.key === `cogs:${shipment.id}`);
     assert.equal(cogsJob.status, 'posted', JSON.stringify(cogsJob));
 
@@ -74,6 +86,7 @@ test('freight and duty split by value post cost of goods, the return credit reac
     const report = await (await pier.request('/api/pier/reports')).json();
     const tb = await pantry.view('reports/trial-balance');
     assert.equal(tb.rows.find(r => r.id === inventory.id).net, cents(report.valuation.total));
+    assert.equal(tb.rows.find(r => r.id === purchaseTax.id).net, 250, 'supplier tax posts to the chosen account, never into inventory');
     assert.equal(state.bookJobs.find(j => j.key === 'inventory-reconciliation').status, 'reconciled');
   } finally { await pier?.close(); await pantry.close(); }
 });
