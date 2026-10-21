@@ -14,15 +14,35 @@ function openingValue(q: bigint, opening: any, batch: any): bigint | null {
   const rate = usdRate(batch, opening.currency);
   return rate === null ? null : toCents(q * decimal(opening.cost) * rate / SCALE);
 }
+function revalueLayer(layer: Layer, value: bigint | null) {
+  const prior = layer.value;
+  layer.value = value;
+  if (!layer.parts) return;
+  const weights = layer.parts.map(part=>prior && part.value!==null ? part.value : part.quantity);
+  const values = value===null ? weights.map(()=>null) : allocate(value,weights);
+  layer.parts.forEach((part,i)=>revalueLayer(part,values[i]));
+}
+
 export function takeLayers(layers: Layer[], quantity: bigint, sourceId?: string): Layer[] {
   const taken: Layer[] = [];
   for (const layer of layers) {
     if (quantity === 0n || (sourceId && layer.sourceId !== sourceId)) continue;
     const q = quantity < layer.quantity ? quantity : layer.quantity;
     if (!q) continue;
-    const value = layer.value === null ? null : share(layer.value, q, layer.quantity);
-    const parts = layer.parts?.map(part => ({ ...part, quantity: part.quantity * q / layer.quantity, value: part.value === null ? null : share(part.value, q, layer.quantity) }));
-    if (parts) layer.parts!.forEach((part, i) => { part.quantity -= parts[i].quantity; if (part.value !== null) part.value -= parts[i].value!; });
+    let value = layer.value === null ? null : share(layer.value, q, layer.quantity);
+    let parts: (Layer & { itemId: string })[] | undefined;
+    if (layer.parts) {
+      parts = [];
+      for (const itemId of new Set(layer.parts.map(part=>part.itemId))) {
+        const source = layer.parts.filter(part=>part.itemId===itemId);
+        const product = source.reduce((n,part)=>n+part.quantity,0n) * q;
+        if (product % layer.quantity) throw new Error('Kit component quantity exceeds supported precision.');
+        parts.push(...takeLayers(source, product/layer.quantity).map(part=>({...part,itemId})));
+      }
+      // Split the actual retained component layers, rather than rounding each
+      // component and the rolled-up kit separately. Their values always agree.
+      value = parts.some(part=>part.value===null) ? null : sumValue(parts);
+    }
     taken.push({ ...layer, quantity: q, value, ...(parts ? { parts } : {}) });
     layer.quantity -= q;
     if (value !== null && layer.value !== null) layer.value -= value;
@@ -73,9 +93,9 @@ export function valuationLedger(s: State, end: string) {
   const average = (itemId: string) => {
     const layers = [...positions.values()].filter(p => p.itemId === itemId).flatMap(p => p.layers).filter(l => l.quantity > 0n);
     // Unknown source currency/cost cannot become a guessed USD average.
-    if (layers.some(l => l.value === null)) { for (const layer of layers) layer.value = null; return; }
+    if (layers.some(l => l.value === null)) { for (const layer of layers) revalueLayer(layer,null); return; }
     const values = allocate(sumValue(layers), layers.map(l => l.quantity));
-    layers.forEach((layer, i) => { layer.value = values[i]; });
+    layers.forEach((layer, i) => { revalueLayer(layer,values[i]); });
   };
   const applyMethods = (frontier: number) => {
     while (methodIndex < history.length && history[methodIndex].frontier <= frontier) {
@@ -104,7 +124,7 @@ export function valuationLedger(s: State, end: string) {
           const remaining = [...positions.values()].filter(p => p.itemId === m.itemId).flatMap(p => p.layers).filter(l => l.quantity > 0n);
           if (remaining.every(l => l.value !== null)) {
             const values = allocate(sumValue(remaining) + sumValue(layers) - originalValue, remaining.map(l => l.quantity));
-            remaining.forEach((layer, i) => { layer.value = values[i]; });
+            remaining.forEach((layer, i) => { revalueLayer(layer,values[i]); });
           }
           totals.receipts -= originalValue;
         } else record('receipts', layers, -1n);

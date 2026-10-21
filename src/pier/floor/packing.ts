@@ -47,7 +47,7 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
     const hit = itemScan(c.s, p.code, "pack it");
     const lines = w.lines.filter((l: any) => l.orderId === pack.orderId && l.itemId === hit.item.id);
     if (!lines.length) fail("NOT_ON_ORDER", `${hit.item.name} (${hit.item.sku}) was not picked for this order. Nothing was packed.`);
-    const orderLineId = lines[0].orderLineId, picked = pickedFor(w, orderLineId, hit.item.id), packed = packedFor(pack, orderLineId, hit.item.id);
+    const orderLineId = (lines.find((line: any) => pickedFor(w, line.orderLineId, hit.item.id) > packedFor(pack, line.orderLineId, hit.item.id)) ?? lines[0]).orderLineId, picked = pickedFor(w, orderLineId, hit.item.id), packed = packedFor(pack, orderLineId, hit.item.id);
     if (packed + hit.units > picked)
       fail("OVER_PACK", `${format(picked)} ${hit.item.unit} of ${hit.item.sku} were picked and ${format(packed)} are packed; this ${hit.kind === "case" ? "case " : ""}scan would pack ${format(hit.units)}. Nothing was packed.`);
     // Units already in another unshipped carton for this line (an earlier
