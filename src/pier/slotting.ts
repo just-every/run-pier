@@ -1,3 +1,4 @@
+import { plannedTraceParts, policyFor } from './trace-core';
 import { available, balance, decimal, fail, format, fresh, get, min, move, requireRole, row, text, type Context, type Row, type State } from './model';
 import { binMatches, itemScan } from './floor/codes';
 import { capacityRemaining } from './location-capacity';
@@ -30,7 +31,9 @@ export function slottingPlan(s: State, warehouse: string, now: string, sourceLoc
   const propose = (itemId: string, from: Row, to: Row, desired: bigint, kind: string, priority: number) => {
     const quantity = min(min(desired, available(staged, itemId, from.id)), capacityRemaining(staged, itemId, to.id));
     if (quantity <= 0n) return;
-    tasks.push({ itemId, fromLocationId: from.id, toLocationId: to.id, quantity: format(quantity), kind, priority, distanceMetres: distance(from, to), fromVersion: from.version, toVersion: to.version, itemVersion: get(s, 'items', itemId).version, status: 'proposed', reason: kind === 'replenish' ? 'Pick face at or below its minimum; replenish up to maximum from unreserved reserve stock.' : 'Move from the receiving bin to a fitting, permitted destination in travel sequence.' });
+    const parts=plannedTraceParts(staged,itemId,from.id,quantity,now.slice(0,10));
+    for(const chunk of parts.length?parts:[{quantity:quantity.toString(),identityId:null}])tasks.push({ itemId, fromLocationId: from.id, toLocationId: to.id, quantity: format(BigInt(chunk.quantity)), ...(chunk.identityId?{trace:[{identityId:chunk.identityId,quantity:format(BigInt(chunk.quantity))}]}:{}), kind, priority, distanceMetres: distance(from, to), fromVersion: from.version, toVersion: to.version, itemVersion: get(s, 'items', itemId).version, status: 'proposed', reason: kind === 'replenish' ? 'Pick face at or below its minimum; replenish up to maximum from unreserved reserve stock.' : 'Move from the receiving bin to a fitting, permitted destination in travel sequence.' });
+    for(const part of parts)for(const [locationId,sign]of [[from.id,-1n],[to.id,1n]] as const)staged.traceEvents.push({id:'planned-'+tasks.length+'-'+locationId,version:1,itemId,identityId:part.identityId,locationId,status:'sellable',quantity:(BigInt(part.quantity)*sign).toString()});
     // Account for earlier recommendations so a plan never overcommits space/stock.
     staged.movements.push({ itemId, locationId: from.id, status: 'sellable', quantity: (-quantity).toString() } as any, { itemId, locationId: to.id, status: 'sellable', quantity: quantity.toString() } as any);
   };
@@ -96,7 +99,9 @@ export function slotting(c: Context, type: string, p: any): Row | undefined {
   const from = get(c.s, 'locations', task.fromLocationId), to = get(c.s, 'locations', task.toLocationId), item = get(c.s, 'items', task.itemId);
   if (from.version !== task.fromVersion || to.version !== task.toVersion || item.version !== task.itemVersion) fail('STALE', 'Bin policy or item changed; prepare and approve a new plan.');
   if (!binMatches(from, p.fromCode) || !binMatches(to, p.toCode)) fail('WRONG_BIN', 'Scan the task source and destination bin labels.');
-  if (itemScan(c.s, p.itemCode, 'confirm movement').item.id !== task.itemId) fail('WRONG_ITEM', 'Scan the task item.');
+  const hit=itemScan(c.s,p.itemCode,'confirm movement');
+  if(hit.item.id!==task.itemId)fail('WRONG_ITEM','Scan the task item.');
+  if(task.trace){const identity=get(c.s,'traceIdentities',task.trace[0].identityId);if(!hit.trace || (hit.trace.identityId!==identity.id && !(hit.trace.serial&&hit.trace.serial===identity.serial) && !(hit.trace.lot&&hit.trace.lot===identity.lot&&!identity.serial)))fail('TRACE_SCAN','Scan the lot/serial identity approved on this movement task.');}
   if (decimal(p.quantity, true) !== decimal(task.quantity)) fail('SLOTTING_QUANTITY', 'Confirm the exact approved base-unit quantity.');
   const quantity = decimal(task.quantity);
   if (available(c.s, task.itemId, from.id) < quantity) fail('AVAILABLE', 'Source stock was reserved or moved; prepare a new plan.');

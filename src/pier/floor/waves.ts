@@ -1,3 +1,4 @@
+import { tracePick } from '../trace';
 import {
   available,
   decimal,
@@ -119,8 +120,9 @@ export function waves(c: Context, type: string, p: any): Row | undefined {
       fail("ALREADY_PICKED", `${get(c.s, "orders", line.orderId).reference} has ${format(pickable > 0n ? pickable : 0n)} ${itemRow.unit} of ${itemRow.sku} left to pick; the rest were already picked on another wave or shipped. Nothing was picked.`);
     if (units > open(line))
       fail("OVER_PICK", `That scan picks ${format(units)} ${itemRow.unit}; only ${format(open(line))} ${itemRow.unit} are left on this line. Nothing was picked.`);
+    const trace=tracePick(c,line,hit.trace??p.trace,units);
     line.picked = format(decimal(line.picked) + units);
-    line.scans.push({ actorId: c.actor.id, at: c.now, kind: hit.kind, quantity: format(units) });
+    line.scans.push({ actorId: c.actor.id, at: c.now, kind: hit.kind, quantity: format(units), ...(trace?{trace}: {}) });
     if (open(line) === 0n) {
       line.status = "picked";
       line.pickedAt = c.now;

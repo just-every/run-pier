@@ -1,3 +1,5 @@
+import { reserveTracked } from './trace';
+import { policyFor, shippableLayer, sortTraceReservations } from './trace-core';
 import { matchesKit, valuationLedger } from './valuation-ledger';
 import { available, decimal, fail, format, fresh, get, id, item, min, move, requireRole, row, SCALE, text, type Context, type Row, type State } from './model';
 
@@ -19,7 +21,7 @@ export function buildable(s: State, definition: Row, warehouse: string, buffer =
 }
 export function physicalKitAvailable(s: State, definition: Row, binId: string) {
   const layers=valuationLedger(s,'9999').positions.find(p=>p.itemId===definition.itemId && p.locationId===binId && p.status==='sellable')?.layers ?? [];
-  const compatible=layers.filter(layer=>matchesKit(layer,definition)).reduce((n,layer)=>n+layer.quantity,0n);
+  const compatible=layers.filter(layer=>matchesKit(layer,definition)&&shippableLayer(s,layer)).reduce((n,layer)=>n+layer.quantity,0n);
   const reserved=s.reservations.filter(r=>r.itemId===definition.itemId && r.locationId===binId).reduce((n,r)=>{
     const line=s.orders.find(o=>o.id===r.orderId)?.lines.find((l:any)=>l.id===r.orderLineId);
     const same=line?.kit && JSON.stringify([...line.kit.components].sort((a:any,b:any)=>a.itemId.localeCompare(b.itemId)))===JSON.stringify([...definition.components].sort((a:any,b:any)=>a.itemId.localeCompare(b.itemId)));
@@ -40,6 +42,7 @@ export function reservedKits(s: State, line: any) {
   return assembled + components.reduce((a: bigint,b: bigint) => min(a,b));
 }
 function allocate(c: Context, order: Row, line: any, itemId: string, quantity: bigint) {
+  if(policyFor(c.s,itemId)){if(reserveTracked(c,order.id,line.id,itemId,order.warehouse,quantity,itemId===line.itemId?line.kit:undefined)!==quantity)fail('KIT_STOCK','The complete tracked component set is unavailable.');return;}
   for (const bin of kitBins(c.s, order.warehouse)) {
     const take = min(quantity, itemId===line.itemId ? physicalKitAvailable(c.s,line.kit,bin.id) : available(c.s, itemId, bin.id));
     if (take > 0n) { c.s.reservations.push({ id: id(), orderId: order.id, orderLineId: line.id, itemId, locationId: bin.id, quantity: take.toString() }); quantity -= take; }
@@ -61,7 +64,7 @@ export function reserveKit(c: Context, order: Row, line: any) {
 }
 export function dispatchKit(c: Context, order: Row, line: any, shipment: Row, quantity: bigint) {
   if (reservedKits(c.s, line) < quantity) fail('RESERVATION', 'Dispatch requires this order’s complete kit reservation.');
-  const own = c.s.reservations.filter(r => r.orderLineId === line.id), links: any[] = [], components: any[] = [];
+  const own = sortTraceReservations(c.s,c.s.reservations.filter(r => r.orderLineId === line.id)), links: any[] = [], components: any[] = [];
   const physical = min(quantity, own.filter(r => r.itemId === line.itemId).reduce((n,r) => n + BigInt(r.quantity), 0n));
   const required = [{ itemId: line.itemId, quantity: physical }, ...line.kit.components.map((component: any) => ({ itemId: component.itemId, quantity: componentQuantity(quantity - physical, component.quantity) }))];
   for (const part of required.filter(part => part.quantity > 0n)) {
@@ -113,7 +116,7 @@ export function kits(c: Context, type: string, p: any): Row | undefined {
       if (bin.kind !== 'bin' || bin.warehouse !== location.warehouse) fail('KIT_WAREHOUSE', 'Every component bin must be in the kit’s warehouse.');
       return { ...x, locationId: bin.id, quantity: format(componentQuantity(quantity, x.quantity)) };
     });
-    return row(c, 'kittingTasks', { definition: structuredClone(definition), itemId: p.itemId, quantity: format(quantity), locationId: location.id, components, direction: p.direction, status: 'review', reason: text(p.reason), plannedBy: c.actor.id });
+    return row(c, 'kittingTasks', { definition: structuredClone(definition), itemId: p.itemId, quantity: format(quantity), locationId: location.id, components, direction: p.direction, outputTrace: p.trace ? structuredClone(p.trace) : null, status: 'review', reason: text(p.reason), plannedBy: c.actor.id });
   }
   const task = get(c.s, 'kittingTasks', p.taskId); fresh(task, p.version);
   if (task.status !== 'review') fail('KIT_TASK', 'This task already posted.');
@@ -125,6 +128,7 @@ export function kits(c: Context, type: string, p: any): Row | undefined {
   requireRole(c, ['warehouse']);
   if (!task.approval || task.approval.version !== task.version) fail('APPROVAL', 'An owner must review this exact task.');
   const assembly = task.direction === 'assemble';
+  if(assembly && task.components.some((part:any)=>get(c.s,'items',part.itemId).tracePolicy) && !get(c.s,'items',task.itemId).tracePolicy)fail('TRACE_KIT','Configure lot/serial tracking on the kit SKU before assembling tracked components.');
   const issue = (itemId: string, locationId: string, quantity: string) => {
     const q = decimal(quantity);
     if (available(c.s, itemId, locationId) < q) fail('KIT_STOCK', 'Kitting cannot consume reserved, held, quarantined or unavailable stock.');

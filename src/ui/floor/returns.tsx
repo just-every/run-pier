@@ -15,7 +15,7 @@ export function Returns({ state, run, busy, error }: { state: PierState; run: Ru
   const [candidates, setCandidates] = useState<ReturnCandidate[]>([]), [selected, setSelected] = useState(''), [localError, setLocalError] = useState(''), [notice, setNotice] = useState(''), [pending, setPending] = useState<{ code: string; isItem: boolean; count: string } | null>(null)
   const bins = records(state, 'locations').filter(b => b.kind === 'bin'), returned = records(state, 'returns').slice().reverse()
   const inspect = ['owner', 'warehouse'].includes(state.actor.role)
-  const source = { items: records(state, 'items'), orders: records(state, 'orders'), shipments: records(state, 'shipments'), returns: returned.slice().reverse(), parties: records(state, 'parties') }
+  const source = { items: records(state, 'items'), orders: records(state, 'orders'), shipments: records(state, 'shipments'), returns: returned.slice().reverse(), parties: records(state, 'parties'), traceIdentities:records(state,'traceIdentities'), traceEvents:records(state,'traceEvents') }
   async function chooseBin(code: string) {
     const found = bins.filter(bin => same(code, bin.barcode) || same(code, bin.name))
     if (found.length !== 1) { setLocalError(found.length ? 'This bin name exists in several warehouses. Scan its unique bin barcode.' : 'Scan a bin label from this installation.'); return false }

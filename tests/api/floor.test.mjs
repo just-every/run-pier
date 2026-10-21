@@ -223,3 +223,106 @@ test('KIT-001: splitting and disassembling cent-valued kits conserves every cost
   assert.equal(Number(report.valuation.total),0.9);assert.equal(Number(report.valuation.reconciliation.difference),0);
   assert.equal(Number(report.margin.bySku.find(row=>row.key===b.display.id).cost),0.03);
 });
+
+test('TRACE-001: dated lots and serials survive receiving, transfer, exact picks, split dispatch, quarantine and return tracing', async t=>{
+  const {traceStock,gs1Lot}=await import('./trace-fixture.mjs');
+  const h=await installation();t.after(()=>h.close());const b=await traceStock(h);
+  let receiving=await h.command('receiving.start',{poId:b.po.id,locationId:b.source.id});
+  receiving=await h.command('receiving.scan',{receivingId:receiving.id,code:gs1Lot('synthetic-pier-305','281231'),count:3});
+  receiving=await h.command('receiving.scan',{receivingId:receiving.id,code:b.lot.barcode,count:3,trace:{lot:'synthetic-pier-306',expiry:'2027-06-30'}});
+  receiving=await h.command('receiving.scan',{receivingId:receiving.id,code:b.serial.barcode,trace:{serial:'synthetic-pier-307'}});
+  receiving=await h.command('receiving.scan',{receivingId:receiving.id,code:'(01)12345678901248(11)260101(21)synthetic-pier-308'});
+  await h.command('receiving.scan',{receivingId:receiving.id,code:b.serial.barcode,trace:{serial:'synthetic-pier-307'}},{error:'DUPLICATE_SERIAL'});
+  await h.command('receiving.scan',{receivingId:receiving.id,code:gs1Lot('synthetic-pier-309','200101')},{error:'TRACE_EXPIRED'});
+  const receipt=await h.command('receiving.post',{receivingId:receiving.id,version:receiving.version,supplierReference:'synthetic-pier-310'});
+  let duplicatePo=await h.command('po.draft',{supplierId:b.supplier.id,promiseDate:'2026-11-01',reason:'Duplicate identity refusal',lines:[{itemId:b.serial.id,quantity:'1',price:'3'}]});
+  await h.command('po.approve',{poId:duplicatePo.id,version:duplicatePo.version});duplicatePo=await h.command('po.commit',{poId:duplicatePo.id,version:duplicatePo.version});
+  const duplicateBefore=(await h.state()).version;
+  await h.command('receipt.create',{poId:duplicatePo.id,supplierReference:'synthetic-pier-323',lines:[{poLineId:duplicatePo.lines[0].id,locationId:b.source.id,quantity:'1',cost:'3',trace:{serial:'synthetic-pier-307'}}]},{error:'DUPLICATE_SERIAL'});
+  assert.equal((await h.state()).version,duplicateBefore,'A duplicate serial cannot leave a second receipt or successful command result');
+  let s=await h.state();const near=s.traceIdentities.find(i=>i.lot==='synthetic-pier-306'),far=s.traceIdentities.find(i=>i.lot==='synthetic-pier-305'),unit=s.traceIdentities.find(i=>i.serial==='synthetic-pier-307');
+  assert.equal(far.expiry,'2028-12-31');assert.equal(near.expiry,'2027-06-30');
+  const transfer=await h.command('transfer.send',{itemId:b.lot.id,fromLocationId:b.source.id,toLocationId:b.destination.id,transitLocationId:b.transit.id,quantity:'2',reason:'Identity-preserving bin move',trace:[{identityId:near.id,quantity:'2'}]});
+  await h.command('transfer.receive',{transferId:transfer.id});
+  s=await h.state();assert.equal(s.tracePositions.find(p=>p.identityId===near.id&&p.locationId===b.destination.id&&p.status==='sellable').quantity,'2');
+  const serialTransfer=await h.command('transfer.send',{itemId:b.serial.id,fromLocationId:b.source.id,toLocationId:b.destination.id,transitLocationId:b.transit.id,quantity:'1',reason:'Move exact serialized unit',trace:{identityId:unit.id}});
+  await h.command('transfer.receive',{transferId:serialTransfer.id});
+  const order=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:b.lot.id,quantity:'2',price:'5'},{itemId:b.serial.id,quantity:'1',price:'7'}]});
+  s=await h.state();
+  const lotReservations=s.reservations.filter(r=>r.orderLineId===order.lines[0].id);
+  assert.ok(lotReservations.flatMap(r=>s.traceReservations.find(a=>a.reservationId===r.id).parts).every(part=>part.identityId===near.id),'FEFO allocates the later-received, earlier-expiring lot');
+  const carrier=await h.command('carrier.save',{name:'Trace pickup',warehouse:'Trace North',dock:'Trace dock',cutoff:'23:59',timeZone:'America/Chicago'});
+  let wave=await h.command('wave.release',{carrierId:carrier.id,orderIds:[order.id]});
+  const lotPick=wave.lines.find(line=>line.itemId===b.lot.id);
+  await h.command('pick.scan',{waveId:wave.id,lineId:lotPick.id,binCode:lotPick.locationId===b.source.id?b.source.barcode:b.destination.barcode,itemCode:gs1Lot(far.lot,'281231')},{error:'TRACE_STOCK'});
+  for(const line of wave.lines){const location=line.locationId===b.source.id?b.source:b.destination;const code=line.itemId===b.lot.id?gs1Lot(near.lot,'270630'):unit.code;wave=await h.command('pick.scan',{waveId:wave.id,lineId:line.id,binCode:location.barcode,itemCode:code,quantity:line.quantity});}
+  await h.command('pack.scan',{waveId:wave.id,orderId:order.id,code:gs1Lot(far.lot,'281231')},{error:'TRACE_STOCK'});
+  // The direct public dispatch door also preserves each selected identity on split shipments.
+  const first=await h.command('dispatch.create',{orderId:order.id,shipmentReference:'synthetic-pier-311',lines:[{orderLineId:order.lines[0].id,quantity:'1'}],trace:[{identityId:near.id,quantity:'1'}]});
+  const second=await h.command('dispatch.create',{orderId:order.id,shipmentReference:'synthetic-pier-312',lines:[{orderLineId:order.lines[0].id,quantity:'1'},{orderLineId:order.lines[1].id,quantity:'1'}],trace:[{identityId:near.id,quantity:'1'},{identityId:unit.id,quantity:'1'}]});
+  const returned=await h.command('return.create',{shipmentId:second.id,shipmentLineId:second.lines.find(line=>line.itemId===b.serial.id).id,locationId:b.source.id,quantity:'1',reason:'Inspect returned serial',trace:{identityId:unit.id}});
+  assert.equal(returned.costTotal,'3.000000000000');
+  await h.command('return.approve',{returnId:returned.id,version:returned.version});await h.command('return.restock',{returnId:returned.id,version:returned.version});
+  const heldOrder=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:b.lot.id,quantity:'2',price:'5'}]});
+  await h.command('trace.quarantine',{identityId:far.id,reason:'Supplier lot hold'});
+  const heldAfter=(await h.state()).orders.find(order=>order.id===heldOrder.id);
+  assert.deepEqual([heldAfter.lines[0].reserved,heldAfter.lines[0].backorder],['0','2']);
+  s=await h.state();assert.equal(s.tracePositions.find(p=>p.identityId===far.id&&p.status==='quarantine').quantity,'3');
+  const unavailable=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:b.lot.id,quantity:'100',price:'5'}]});
+  assert.equal(unavailable.lines[0].reserved,'1','Quarantined lot never satisfies an order');
+  const trace=await (await h.request(`/api/pier/trace?identityId=${near.id}`)).json();
+  assert.deepEqual(trace.receipts.map(r=>r.id),[receipt.id]);assert.deepEqual(trace.customers.map(p=>p.id),[b.customer.id]);assert.deepEqual(trace.shipments.map(sh=>sh.id).sort(),[first.id,second.id].sort());assert.deepEqual(trace.suppliers.map(p=>p.id),[b.supplier.id]);
+  const serialTrace=await (await h.request(`/api/pier/trace?identityId=${unit.id}`)).json();assert.deepEqual(serialTrace.returns.map(r=>r.id),[returned.id]);
+  await h.command('location.policy',{locationId:b.destination.id,version:(await h.state()).locations.find(l=>l.id===b.destination.id).version,capacityCm3:'20',lengthCm:'10',widthCm:'10',heightCm:'10',aisleMetres:'1',bayMetres:'1',pickSequence:'1',allowedItemIds:[b.serial.id]});
+  let plan=await h.command('slotting.plan',{warehouse:'Trace North',sourceLocationId:b.source.id});
+  assert.equal(plan.tasks.length,2);assert.ok(plan.tasks.every(task=>task.trace?.length===1&&task.quantity==='1'));
+  plan=await h.command('slotting.approve',{planId:plan.id,version:plan.version});
+  await h.command('slotting.scan',{planId:plan.id,version:plan.version,taskIndex:0,fromCode:b.source.barcode,toCode:b.destination.barcode,itemCode:b.serial.barcode,quantity:'1',device:'Synthetic warehouse scanner'},{error:'TRACE_SCAN'});
+  for(let index=0;index<plan.tasks.length;index++){const identity=(await h.state()).traceIdentities.find(i=>i.id===plan.tasks[index].trace[0].identityId);plan=await h.command('slotting.scan',{planId:plan.id,version:plan.version,taskIndex:index,fromCode:b.source.barcode,toCode:b.destination.barcode,itemCode:identity.code,quantity:'1',device:'Synthetic warehouse scanner'});}
+  assert.equal(plan.status,'completed');
+  const exportResponse=await h.request('/api/pier/export');assert.equal(exportResponse.status,200);const exported=await exportResponse.json();assert.ok(exported.traceEvents.every(event=>exported.movements.some(m=>m.id===event.movementId)));
+  const reportResponse=await h.request('/api/pier/reports');assert.equal(reportResponse.status,200);const report=await reportResponse.json();assert.equal(Number(report.valuation.reconciliation.difference),0);
+});
+
+test('TRACE-001: an already-reserved lot becomes unavailable for pick and dispatch after its expiry day', async t=>{
+  const {traceStock}=await import('./trace-fixture.mjs');const h=await installation();t.after(()=>h.close());const b=await traceStock(h);
+  const yesterday=new Date(Date.now()-86400000).toISOString(),expiry=yesterday.slice(0,10),at={headers:{'x-pier-test-now':yesterday}};
+  const receipt=await h.command('receipt.create',{poId:b.po.id,supplierReference:'synthetic-pier-320',lines:[{poLineId:b.po.lines[0].id,locationId:b.source.id,quantity:'1',cost:'2',trace:{lot:'synthetic-pier-321',expiry}}]},at);
+  const order=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:b.lot.id,quantity:'1',price:'5'}]},at);
+  const carrier=await h.command('carrier.save',{name:'Expiry pickup',warehouse:'Trace North',dock:'Trace dock',cutoff:'23:59',timeZone:'America/Chicago'},at);
+  const wave=await h.command('wave.release',{carrierId:carrier.id,orderIds:[order.id]},at);
+  const identity=(await h.state()).traceIdentities.find(i=>i.lot==='synthetic-pier-321');
+  const before=await h.state();
+  await h.command('pick.scan',{waveId:wave.id,lineId:wave.lines[0].id,binCode:b.source.barcode,itemCode:b.lot.barcode,trace:{identityId:identity.id}},{error:'TRACE_BLOCKED'});
+  await h.command('dispatch.create',{orderId:order.id,shipmentReference:'synthetic-pier-322',lines:[{orderLineId:order.lines[0].id,quantity:'1'}]},{error:'TRACE_BLOCKED'});
+  const after=await h.state();assert.equal(after.version,before.version);assert.equal(after.shipments.length,0);assert.equal(after.tracePositions.find(p=>p.identityId===identity.id).expired,true);assert.equal(after.positions.find(p=>p.itemId===b.lot.id).available,'0');
+  await h.command('order.cancel',{orderId:order.id,reason:'Review expired stock'});const unreserved=await h.state();assert.equal(unreserved.warehouseStocks.find(p=>p.itemId===b.lot.id).available,'0');assert.equal(unreserved.stockPositions.find(p=>p.itemId===b.lot.id).expiredOrBlocked,'1');
+  const report=await(await h.request(`/api/pier/trace?identityId=${identity.id}`)).json();assert.deepEqual(report.receipts.map(r=>r.id),[receipt.id]);
+});
+
+test('TRACE-001: assembled and virtual kit returns retain component lineage and a component lot hold blocks its kits', async t=>{
+  const {traceStock}=await import('./trace-fixture.mjs');const h=await installation();t.after(()=>h.close());const b=await traceStock(h);
+  await h.command('receipt.create',{poId:b.po.id,supplierReference:'synthetic-pier-330',lines:[{poLineId:b.po.lines[0].id,locationId:b.source.id,quantity:'4',cost:'2',trace:{lot:'synthetic-pier-331',expiry:'2027-06-30'}}]});
+  const kit=await h.command('item.save',{sku:'synthetic-pier-332',name:'Traced assortment',unit:'kit',barcode:'synthetic-pier-333',packSize:'1'});
+  await h.command('trace.configure',{itemId:kit.id,version:kit.version,mode:'lot',allocation:'fefo',expiryRequired:true,reason:'Track assembled and returned kit lots'});
+  const definition=await h.command('kit.define',{itemId:kit.id,components:[{itemId:b.lot.id,quantity:'1',unit:'each'}],shortagePolicy:'backorder',reason:'Stocked component kit'});
+  let task=await h.command('kitting.plan',{itemId:kit.id,quantity:'2',locationId:b.source.id,bins:{[b.lot.id]:b.source.id},direction:'assemble',reason:'Prepare traceable kit batch',trace:{lot:'synthetic-pier-334',expiry:'2027-06-30',quantity:'2'}});
+  await h.command('kitting.approve',{taskId:task.id,version:task.version});await h.command('kitting.post',{taskId:task.id,version:task.version});
+  let current=await h.state();const component=current.traceIdentities.find(i=>i.lot==='synthetic-pier-331'),assembled=current.traceIdentities.find(i=>i.lot==='synthetic-pier-334');assert.deepEqual(assembled.parentIdentityIds,[component.id]);
+  const order=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:kit.id,quantity:'2',price:'5'}]});
+  const shipped=await h.command('dispatch.create',{orderId:order.id,shipmentReference:'synthetic-pier-335',lines:[{orderLineId:order.lines[0].id,quantity:'2'}]});
+  const inspection=[{itemId:b.lot.id,condition:'sellable',reason:'Component intact'}];
+  const returned=await h.command('return.create',{shipmentId:shipped.id,shipmentLineId:shipped.lines[0].id,locationId:b.source.id,quantity:'1',reason:'Inspect assembled kit',inspection,trace:{identityId:assembled.id}});
+  await h.command('return.approve',{returnId:returned.id,version:returned.version});await h.command('return.restock',{returnId:returned.id,version:returned.version});
+  task=await h.command('kitting.plan',{itemId:kit.id,definitionId:definition.id,quantity:'1',locationId:b.source.id,bins:{[b.lot.id]:b.source.id},direction:'disassemble',reason:'Recover original component identity'});
+  await h.command('kitting.approve',{taskId:task.id,version:task.version});await h.command('kitting.post',{taskId:task.id,version:task.version});
+  const virtual=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:kit.id,quantity:'1',price:'5'}]});
+  const virtualShipment=await h.command('dispatch.create',{orderId:virtual.id,shipmentReference:'synthetic-pier-336',lines:[{orderLineId:virtual.lines[0].id,quantity:'1'}]});
+  const virtualReturn=await h.command('return.create',{shipmentId:virtualShipment.id,shipmentLineId:virtualShipment.lines[0].id,locationId:b.source.id,quantity:'1',reason:'Inspect virtual kit components',inspection,trace:{lot:'synthetic-pier-337',expiry:'2027-06-30'}});
+  assert.equal(virtualReturn.traceNewKit,true);await h.command('return.approve',{returnId:virtualReturn.id,version:virtualReturn.version});await h.command('return.restock',{returnId:virtualReturn.id,version:virtualReturn.version});
+  const held=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:kit.id,quantity:'1',price:'5'}]});
+  await h.command('trace.quarantine',{identityId:component.id,reason:'Hold supplier lot and its assembled descendants'});
+  current=await h.state();assert.equal(current.traceIdentities.find(i=>i.lot==='synthetic-pier-337').blocked,true);assert.equal(current.kitAvailability.find(k=>k.itemId===kit.id&&k.warehouse==='Trace North').available,'0');assert.equal(current.orders.find(o=>o.id===held.id).lines[0].reserved,'0');
+  const traceResponse=await h.request(`/api/pier/trace?identityId=${component.id}`);assert.equal(traceResponse.status,200);const traced=await traceResponse.json();assert.deepEqual(traced.shipments.map(sh=>sh.id).sort(),[shipped.id,virtualShipment.id].sort());
+  const reportResponse=await h.request('/api/pier/reports');assert.equal(reportResponse.status,200);const report=await reportResponse.json();assert.equal(Number(report.valuation.reconciliation.difference),0);
+});

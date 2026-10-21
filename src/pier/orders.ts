@@ -1,3 +1,5 @@
+import { reserveTracked } from './trace';
+import { policyFor, sortTraceReservations } from './trace-core';
 import { kitDefinition, reserveKit, reservedKits, dispatchKit } from './kits';
 import {
   decimal,
@@ -31,6 +33,7 @@ export function reserve(c: Context, o: Row) {
       c.s.reservations
         .filter((r) => r.orderLineId === l.id)
         .reduce((n, r) => n + BigInt(r.quantity), 0n);
+    if(policyFor(c.s,l.itemId)){reserveTracked(c,o.id,l.id,l.itemId,o.warehouse,need);continue;}
     for (const loc of c.s.locations.filter((l) => l.kind === "bin" && (!o.warehouse || l.warehouse === o.warehouse))) {
       const q = min(need, available(c.s, l.itemId, loc.id));
       if (q > 0n) {
@@ -195,7 +198,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
         l.dispatched = format(decimal(l.dispatched) + q);
         continue;
       }
-      const own = c.s.reservations.filter((r) => r.orderLineId === l.id);
+      const own = sortTraceReservations(c.s,c.s.reservations.filter((r) => r.orderLineId === l.id));
       if (own.reduce((n, r) => n + BigInt(r.quantity), 0n) < q)
         fail(
           "RESERVATION",
@@ -206,7 +209,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
         const take = min(q, BigInt(r.quantity));
         if (take === 0n) continue;
         r.quantity = (BigInt(r.quantity) - take).toString();
-        move(c, {
+        const movement=move(c, {
           itemId: l.itemId,
           locationId: r.locationId,
           status: "sellable",
@@ -215,6 +218,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
           documentId: shipment.id,
         });
         links.push({
+          movementId: movement.id,
           reservationId: r.id,
           locationId: r.locationId,
           quantity: format(take),
@@ -289,6 +293,7 @@ export function createReturn(c: Context, p: any): Row {
     }
     const r = row(c, "returns", {
       shipmentId: sh.id,
+      ...(p.trace ? { trace: structuredClone(p.trace) } : {}),
       ...(line.kit ? { kit: structuredClone(line.kit), inspection: structuredClone(p.inspection) } : {}),
       shipmentLineId: line.id,
       itemId: line.itemId,

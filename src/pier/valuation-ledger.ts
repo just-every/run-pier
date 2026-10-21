@@ -2,7 +2,7 @@ import { decimal, SCALE, type Movement, type State } from './model';
 import { usdRate } from './import-currency';
 import { allocate, amount, extended, share, toCents } from './money';
 
-export type Layer = { quantity: bigint; value: bigint | null; sourceId: string; receivedAt: string; parts?: (Layer & { itemId: string })[] };
+export type Layer = { quantity: bigint; value: bigint | null; sourceId: string; receivedAt: string; traceId?: string; parts?: (Layer & { itemId: string })[] };
 export type Position = { itemId: string; locationId: string; status: string; layers: Layer[] };
 const sumValue = (layers: Layer[]) => layers.reduce((n, layer) => n + (layer.value ?? 0n), 0n);
 // Cost layers carry whole cents, so every COGS, return and valuation amount is postable.
@@ -64,8 +64,9 @@ export function shipmentLayers(consumed: Map<string, Layer[]>, shipment: any, li
     const parts: (Layer & { itemId: string })[] = (previous.components ?? [{ itemId: previous.itemId, quantity: previous.quantity }]).flatMap((part: any) => takeLayers(stock.get(`${shipment.id}:${part.itemId}`) ?? [], decimal(part.quantity)).map(layer => ({ ...layer, itemId: part.itemId })));
     if (previous.id !== line.id) continue;
     if (!line.kit) return parts;
-    const components = parts.flatMap(part => part.itemId === line.itemId ? part.parts ?? [] : [part]);
-    return [{ quantity: decimal(line.quantity), value: parts.some(part => part.value === null) ? null : sumValue(parts), sourceId: line.id, receivedAt: shipment.createdAt, parts: components }];
+    const physical=parts.filter(part=>part.itemId===line.itemId),components=parts.filter(part=>part.itemId!==line.itemId);
+    const virtual=decimal(line.quantity)-physical.reduce((n,part)=>n+part.quantity,0n);
+    return [...physical,...(virtual>0n?[{quantity:virtual,value:components.some(part=>part.value===null)?null:sumValue(components),sourceId:line.id,receivedAt:shipment.createdAt,parts:components}]:[])];
   }
   return [];
 }
@@ -77,6 +78,8 @@ export function valuationLedger(s: State, end: string) {
   const kitting = new Map((s.kittingTasks ?? []).map(task => [task.id, task]));
   const kitIssues = new Map<string, (Layer & { itemId: string })[]>();
   const returnedQuantities = new Map<string, bigint>();
+  const returnedIdentities = new Map<string,bigint>();
+  const returnedLayers = new Map<string,Layer[]>();
   const shipments = new Map(s.shipments.map(row => [row.id, row]));
   const transfers = new Set(s.transfers.map(row => row.id));
   const returns = new Map(s.returns.map(row => [row.id, row]));
@@ -111,13 +114,15 @@ export function valuationLedger(s: State, end: string) {
   for (const m of s.movements.filter(m => m.createdAt <= end)) {
     applyMethods(m.sequence - 1);
     const p = position(m), q = BigInt(m.quantity), key = `${m.documentId}:${m.itemId}`;
-    const isInternal = (s.slottingPlans ?? []).some(p => p.id === m.documentId) || transfers.has(m.documentId) || (s.supplierReturns.some(r => r.id === m.documentId) && m.reason === 'Supplier return quarantine') || (returns.has(m.documentId) && m.reason === 'Reviewed restock');
+    const isInternal = (s.traceQuarantines??[]).some(record=>record.id===m.documentId) || (s.slottingPlans ?? []).some(p => p.id === m.documentId) || transfers.has(m.documentId) || (s.supplierReturns.some(r => r.id === m.documentId) && m.reason === 'Supplier return quarantine') || (returns.has(m.documentId) && m.reason === 'Reviewed restock');
     if (q < 0n) {
       const returnSource = returns.has(m.documentId) ? s.movements.find(source => source.documentId === m.documentId && source.status === 'quarantine' && BigInt(source.quantity) > 0n)?.id : undefined;
       const shipmentLine = shipments.get(m.documentId)?.lines.find((line:any)=>line.kit && line.itemId===m.itemId && line.reservations.some((link:any)=>link.movementId===m.id));
       const task = kitting.get(m.documentId);
       const definition = shipmentLine?.kit ?? (task?.direction==='disassemble' && task.itemId===m.itemId ? task.definition : null);
-      const layers = takeLayers(p.layers, -q, returnSource ?? (receiptLines.has(m.reversalId ?? '') && !s.counts.some(c => c.id === m.documentId) ? m.reversalId! : undefined), definition ? layer=>matchesKit(layer,definition) : undefined);
+      const sourceId=returnSource ?? (receiptLines.has(m.reversalId??'')&&!s.counts.some(c=>c.id===m.documentId)?m.reversalId!:undefined);
+      const identities=(s.traceEvents??[]).filter(e=>e.movementId===m.id&&BigInt(e.quantity)<0n);
+      const layers = identities.length ? identities.flatMap(e=>takeLayers(p.layers,-BigInt(e.quantity),sourceId,layer=>layer.traceId===e.identityId&&(!definition||matchesKit(layer,definition)))) : takeLayers(p.layers,-q,sourceId,definition?layer=>matchesKit(layer,definition):undefined);
       if (kitting.has(m.documentId)) kitIssues.set(m.documentId, [...(kitIssues.get(m.documentId) ?? []), ...layers.map(layer => ({ ...layer, itemId: m.itemId }))]);
       else if (isInternal) moved.set(key, layers);
       else if (shipments.has(m.documentId)) {
@@ -151,7 +156,9 @@ export function valuationLedger(s: State, end: string) {
       if (task) {
         const issued = kitIssues.get(task.id) ?? [];
         if (task.direction === 'assemble') {
-          layers = [{ quantity: q, value: issued.some(l => l.value === null) ? null : sumValue(issued), sourceId: m.id, receivedAt: m.createdAt, parts: structuredClone(issued) }];
+          const base:Layer[] = [{ quantity: q, value: issued.some(l => l.value === null) ? null : sumValue(issued), sourceId: m.id, receivedAt: m.createdAt, parts: structuredClone(issued) }];
+          const traces=(s.traceEvents??[]).filter(e=>e.movementId===m.id&&BigInt(e.quantity)>0n);
+          layers=traces.length?traces.flatMap(e=>takeLayers(base,BigInt(e.quantity)).map(layer=>({...layer,traceId:e.identityId}))):base;
         } else {
           const parts = issued.flatMap(l => l.parts ?? [] ).filter(l => l.itemId === m.itemId);
           if (parts.reduce((n,l) => n + l.quantity, 0n) !== q) throw new Error('Disassembly must use the assembled definition and component quantities.');
@@ -159,17 +166,27 @@ export function valuationLedger(s: State, end: string) {
         }
       } else if (receiptLine) {
         const value = receiptValue(receiptLine);
-        layers = [{ quantity: q, value, sourceId: m.id, receivedAt: m.createdAt }];
+        const traces=(s.traceEvents??[]).filter(e=>e.movementId===m.id&&BigInt(e.quantity)>0n);
+        const values=value===null?traces.map(()=>null):allocate(value,traces.map(e=>BigInt(e.quantity)));
+        layers = traces.length ? traces.map((e,index)=>({quantity:BigInt(e.quantity),value:values[index],sourceId:m.id,receivedAt:m.createdAt,traceId:e.identityId})) : [{ quantity: q, value, sourceId: m.id, receivedAt: m.createdAt }];
         record('receipts', layers);
       } else if (returned) {
         const shipment = shipments.get(returned.shipmentId);
         const line = shipment?.lines.find((l: any) => l.id === returned.shipmentLineId);
         const lineLayers = line ? shipmentLayers(consumed, shipment, line) : [];
         const priorReturned = returnedQuantities.get(returned.shipmentLineId) ?? 0n;
-        if (priorReturned) takeLayers(lineLayers, priorReturned);
-        layers = line ? takeLayers(lineLayers, q).map(layer => ({ ...layer, sourceId: m.id, receivedAt: m.createdAt })) : [{ quantity:q, value:null, sourceId:m.id, receivedAt:m.createdAt }];
+        const traces=(s.traceEvents??[]).filter(e=>e.movementId===m.id&&BigInt(e.quantity)>0n);
+        if(traces.length){
+          const virtualReturn=returned.traceNewKit===true;
+          if(virtualReturn&&priorReturned)takeLayers(lineLayers,priorReturned);
+          layers=traces.flatMap(e=>{const key=returned.shipmentLineId+':'+e.identityId,prior=returnedIdentities.get(key)??0n;if(prior&&!virtualReturn)takeLayers(lineLayers,prior,undefined,layer=>layer.traceId===e.identityId);const taken=takeLayers(lineLayers,BigInt(e.quantity),undefined,virtualReturn?undefined:layer=>layer.traceId===e.identityId).map(layer=>({...layer,traceId:e.identityId,sourceId:m.id,receivedAt:m.createdAt}));returnedIdentities.set(key,prior+BigInt(e.quantity));return taken;});
+        }else{
+          if (priorReturned) takeLayers(lineLayers, priorReturned);
+          layers = line ? takeLayers(lineLayers, q).map(layer => ({ ...layer, sourceId: m.id, receivedAt: m.createdAt })) : [{ quantity:q, value:null, sourceId:m.id, receivedAt:m.createdAt }];
+        }
         returnedQuantities.set(returned.shipmentLineId, priorReturned + q);
         record('returns', layers);
+        returnedLayers.set(returned.id,[...(returnedLayers.get(returned.id)??[]),...structuredClone(layers)]);
       } else {
         const batch = s.imports.find(b => b.id === m.importId);
         const sourceKey = batch?.postedRows?.find((entry: any) => entry.id === m.id)?.key;
@@ -186,5 +203,5 @@ export function valuationLedger(s: State, end: string) {
     }
   }
   applyMethods(Number.MAX_SAFE_INTEGER);
-  return { positions: [...positions.values()], consumed, totals, incomplete, method, history };
+  return { positions: [...positions.values()], consumed, totals, incomplete, method, history, kittingIssues: kitIssues, returnedLayers };
 }

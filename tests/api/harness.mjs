@@ -70,7 +70,7 @@ export async function installation(edge = {}) {
       await db.batch(unstable_splitSqlQuery(sql).map((q) => db.prepare(q)));
     }
     let cookie = "";
-    const request = (path, { method = "GET", body, as = cookie } = {}) =>
+    const request = (path, { method = "GET", body, as = cookie, headers: extraHeaders = {} } = {}) =>
       (edge.production ? localHttps : fetch)(origin + path, {
         method,
         redirect: "manual",
@@ -78,6 +78,7 @@ export async function installation(edge = {}) {
           origin,
           "content-type": "application/json",
           ...(as ? { cookie: as } : {}),
+          ...extraHeaders,
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       });

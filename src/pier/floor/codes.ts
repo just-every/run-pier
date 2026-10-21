@@ -1,3 +1,4 @@
+import { gs1 } from '../gs1';
 import { SCALE, decimal, fail, type Row, type State } from "../model";
 
 // What a scanned or typed code means on the warehouse floor. A camera, a USB or
@@ -29,21 +30,24 @@ export function barcodesOf(item: Row): { code: string; quantity: string }[] {
   ];
 }
 
-export type ItemScan = { item: Row; units: bigint; kind: "unit" | "case" | "sku" };
+export type ItemScan = { item: Row; units: bigint; kind: "unit" | "case" | "sku"; trace?: {identityId?:string;lot?:string;serial?:string;expiry?:string;productionDate?:string} };
 export type Scan = { item: ItemScan } | { bin: Row } | { unknown: string };
 
 /** One code to an item (and how many base units it stands for) or a bin. Bin
  * names repeat across warehouses, so a name resolves in the working warehouse. */
 export function resolve(s: State, raw: unknown, warehouse?: string): Scan {
-  const code = clean(raw);
+  const parsed=gs1(raw);
+  const code = clean(parsed?.code ?? raw);
   for (const item of s.items) {
     if (item.archived) continue;
     const barcode = barcodesOf(item).find(b => same(code, b.code));
     if (barcode) {
       const units = decimal(barcode.quantity, true);
-      return { item: { item, units, kind: units === SCALE ? "unit" : "case" } };
+      return { item: { item, units, kind: units === SCALE ? "unit" : "case", ...(parsed?.trace ? {trace:parsed.trace} : {}) } };
     }
   }
+  const identity = (s.traceIdentities??[]).find(i=>same(code,i.code)||same(code,i.serial));
+  if(identity){const item=s.items.find(i=>i.id===identity.itemId&&!i.archived);if(item)return {item:{item,units:SCALE,kind:'unit',trace:{identityId:identity.id,lot:identity.lot??undefined,serial:identity.serial??undefined,expiry:identity.expiry??undefined}}};}
   const bins = s.locations.filter(
     (l) => l.kind === "bin" && (same(code, l.barcode) || same(code, l.name)),
   );

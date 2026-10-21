@@ -1,3 +1,4 @@
+import { policyFor } from '../trace-core';
 import { receiptConfirmation } from '../supplier-performance';
 import {
   decimal,
@@ -66,6 +67,12 @@ export function receiving(c: Context, type: string, p: any): Row | undefined {
     const times = p.count === undefined || p.count === "" ? 1 : Number(p.count);
     if (!Number.isSafeInteger(times) || times < 1 || times > 100000) fail("COUNT", "Use a whole number of scans from 1 to 100000.");
     const count = BigInt(times);
+    const trace = {...(hit.trace??{}),...Object.fromEntries(Object.entries(p.trace??{}).filter(([,value])=>value!==''&&value!==undefined))};
+    if(policyFor(c.s,hit.item.id)) {
+      if(trace.expiry && trace.expiry<c.now.slice(0,10))fail('TRACE_EXPIRED','Expired lot/serial goods cannot be received as sellable stock.');
+      if(policyFor(c.s,hit.item.id).mode==='serial' && (!trace.serial || hit.units*count!==1000000n))fail('TRACE_SERIAL','Scan or enter one unique serial for each received unit.');
+      if(trace.serial && (c.s.traceIdentities.some(i=>i.serial?.toLowerCase()===trace.serial!.toLowerCase()) || r.scans.some((scan:any)=>scan.trace?.serial?.toLowerCase()===trace.serial!.toLowerCase())))fail('DUPLICATE_SERIAL','This serial is already recorded or on the receiving tally.');
+    }
     r.scans.push({
       id: id(),
       code: String(p.code).trim(),
@@ -74,6 +81,7 @@ export function receiving(c: Context, type: string, p: any): Row | undefined {
       itemId: hit.item.id,
       locationId: r.locationId,
       quantity: format(hit.units * count),
+      ...(Object.keys(trace).length ? {trace} : {}),
       actorId: c.actor.id,
       at: c.now,
     });
@@ -132,6 +140,7 @@ export function receiving(c: Context, type: string, p: any): Row | undefined {
         costTotal: ((q * cost) / 1000000000000n).toString() + "." + ((q * cost) % 1000000000000n).toString().padStart(12, "0"),
         costTotalScale: 12,
         movementId: m.id,
+        trace: r.scans.filter((scan:any)=>scan.poLineId===poLineId&&scan.locationId===locationId&&scan.trace).map((scan:any)=>({...scan.trace,quantity:scan.quantity})),
       });
     }
     for (const l of po.lines) l.received = format(decimal(l.received) + tallyOf(r, l.id));

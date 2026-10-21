@@ -1,3 +1,4 @@
+import { tracePack } from '../trace';
 import { componentQuantity } from '../kits';
 import { SCALE, min } from '../model';
 import {
@@ -55,10 +56,11 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
     const elsewhere = sum(c.s.packs.filter(x => x.id !== pack.id && x.status !== 'shipped').flatMap(x => x.cartons.flatMap((carton: any) => carton.lines.filter((l: any) => l.orderLineId === orderLineId && l.itemId === hit.item.id))));
     if (elsewhere + packed + hit.units > reservedFor(c.s, orderLineId, hit.item.id))
       fail("ALREADY_PACKED", `${get(c.s, "orders", pack.orderId).reference}'s ${hit.item.sku} units are already packed on another wave or have shipped. Nothing was packed.`);
+    const trace=tracePack(c,w,pack,orderLineId,hit.item.id,hit.trace??p.trace,hit.units);
     const carton = pack.cartons.at(-1);
     const line = carton.lines.find((l: any) => l.orderLineId === orderLineId && l.itemId === hit.item.id);
-    if (line) line.quantity = format(decimal(line.quantity) + hit.units);
-    else carton.lines.push({ orderLineId, itemId: hit.item.id, quantity: format(hit.units) });
+    if (line) { line.quantity = format(decimal(line.quantity) + hit.units); if(trace)line.trace=[...(line.trace??[]),...trace]; }
+    else carton.lines.push({ orderLineId, itemId: hit.item.id, quantity: format(hit.units), ...(trace?{trace}:{}) });
   } else if (type === "pack.carton") {
     if (!pack.cartons.at(-1).lines.length) fail("CARTON_EMPTY", "Scan items into the open carton before starting another.");
     pack.cartons.push({ number: pack.cartons.length + 1, lines: [], weight: null, length: null, width: null, height: null });

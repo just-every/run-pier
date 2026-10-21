@@ -1,3 +1,4 @@
+import { trace, traceState, reconcileTrace, traceReport } from './trace';
 import { kitDocument } from './kit-documents';
 import { kits, kitState, validateKitReservations } from './kits';
 import { slotting } from './slotting';
@@ -169,6 +170,7 @@ export async function execute(
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
+      trace,
       kits,
       slotting,
       catalogue,
@@ -194,6 +196,7 @@ export async function execute(
       if (result !== undefined) break;
     }
     if (result === undefined) fail("COMMAND", "Unknown command type.");
+    reconcileTrace(c, before, payload);
     validateKitReservations(s);
     validatePlacements(s, before);
     if (type === "import.commit" || type === "import.undo") {
@@ -305,6 +308,7 @@ export async function pierResponse(
       }
       if (url.pathname === "/api/pier/native-export")
         return json(nativeExport(s));
+      if (url.pathname === '/api/pier/trace') return json(traceReport(s, url.searchParams.get('identityId') ?? ''));
       if (url.pathname === "/api/pier/returns/lookup")
         return json(returnLookup(s, url.searchParams.get("code")));
       if (url.pathname === "/api/pier/supplier-performance") return json(supplierPerformance(s));
@@ -390,6 +394,7 @@ export async function pierResponse(
         counts: s.counts.map((count) => countView(c, count)),
         ...floorState(c),
         ...kitState(s),
+        ...traceState(s),
         ...channelState(s),
         shippingUnavailable: shippingUnavailable(env),
         ...ediState(s, c.now),

@@ -1,3 +1,4 @@
+import { policyFor, traceAvailable, unavailableTraceQuantity } from './trace-core';
 export class Problem extends Error {
   constructor(
     public code: string,
@@ -105,6 +106,10 @@ export const collections = [
   "slottingPlans",
   "kitDefinitions",
   "kittingTasks",
+  "traceIdentities",
+  "traceEvents",
+  "traceReservations",
+  "traceQuarantines",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {
@@ -217,7 +222,9 @@ export function available(
   itemId: string,
   locationId: string,
 ): bigint {
-  return balance(s, itemId, locationId) - reserved(s, itemId, locationId) - held(s, itemId, locationId);
+  const free=balance(s, itemId, locationId) - reserved(s, itemId, locationId) - held(s, itemId, locationId);
+  const tracked=policyFor(s,itemId)?traceAvailable(s,itemId,locationId)-held(s,itemId,locationId):free;
+  return min(free,tracked>0n?tracked:0n);
 }
 export function move(
   c: Context,
@@ -282,6 +289,8 @@ export function positions(s: State) {
       reserved: format(r),
       held: format(status === "sellable" ? held(s, itemId, locationId) : 0n),
       available: format(status === "sellable" ? available(s, itemId, locationId) : 0n),
+      expiredOrBlocked: format(status === "sellable" ? unavailableTraceQuantity(s,itemId,locationId) : 0n),
+      traceUnavailable: format(status === "sellable" ? q-r-held(s,itemId,locationId)-available(s,itemId,locationId) : 0n),
     };
   });
 }

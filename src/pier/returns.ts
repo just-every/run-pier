@@ -65,7 +65,7 @@ export function returns(c: Context, type: string, p: any): Row | undefined {
   if (get(c.s, 'locations', locationId).kind !== 'bin') fail('BIN', 'Returns require a named warehouse bin.');
   const quantity = 'item' in scanned ? scanned.item.units * BigInt(p.count || '1') : decimal(p.quantity, true);
   if (!quantity) fail('DECIMAL', 'A scan must return a positive quantity.');
-  const r = createReturn(c, { ...source, locationId, quantity: format(quantity), reason: review.reason });
+  const r = createReturn(c, { ...source, locationId, quantity: format(quantity), reason: review.reason, ...('item' in scanned && scanned.item.trace ? {trace:scanned.item.trace} : p.trace?{trace:p.trace}:{}) });
   Object.assign(r, { orderId: source.orderId, condition: review.condition, requestedDisposition: review.disposition, scannedCode: text(p.code), receivedBy: c.actor.id });
   r.costTotal = returnCost(c.s, r, c.now);
   return ['owner', 'warehouse'].includes(c.actor.role) ? dispose(c, r, p) : r;

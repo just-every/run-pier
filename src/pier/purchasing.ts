@@ -173,6 +173,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
           ((q * cost) % 1000000000000n).toString().padStart(12, "0"),
         costTotalScale: 12,
         movementId: m.id,
+        ...(x.trace ? { trace: structuredClone(x.trace) } : {}),
       });
       l.received = format(decimal(l.received) + q);
     }

@@ -8,7 +8,9 @@ export function returnCost(s: State, returned: Row, end: string): string | null 
   const shipment = s.shipments.find(sh => sh.id === returned.shipmentId);
   const line = shipment?.lines.find((l: any) => l.id === returned.shipmentLineId);
   if (!line) return null;
-  const layers = shipmentLayers(valuationLedger(s, end).consumed, shipment, line);
+  const ledger=valuationLedger(s,end), actual=ledger.returnedLayers.get(returned.id);
+  if(actual?.length)return actual.some(layer=>layer.value===null)?null:money(actual.reduce((n,layer)=>n+layer.value!,0n));
+  const layers = shipmentLayers(ledger.consumed, shipment, line);
   if (!layers.length) return null;
   const cost = takeLayers(layers, decimal(line.quantity));
   if (cost.some(l => l.value === null)) return null;
