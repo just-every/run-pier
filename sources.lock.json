@@ -3768,7 +3768,7 @@
       "executable": false
     },
     "src/ui/warehouse-slotting.tsx": {
-      "sha256": "bc088182e9c12f0308da82fc97087908c9a00b0810f2e353ca01ce5fee11b373",
+      "sha256": "b8b42ac161d329bd0a76c10a969d3d98ef122184bcfe68eb49a5ab7be6c3a8a3",
       "executable": false
     },
     "src/ui/warehouse.tsx": {
@@ -3957,6 +3957,10 @@
     },
     "tests/browser/session.ts": {
       "sha256": "435f99b849362b91c0b88cec269f21dbc71baead8f0675aba7fab6bb68b251c1",
+      "executable": false
+    },
+    "tests/browser/slotting.spec.ts": {
+      "sha256": "025cfe8a6d322fcbbe40186378f78a676ccf24603805bb84b4db7d24a61ab60c",
       "executable": false
     },
     "tests/browser/stock.spec.ts": {
