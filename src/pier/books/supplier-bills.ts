@@ -18,7 +18,7 @@ const legacyReceiptIds = (s: State) => new Set(s.bookJobs.filter(j => j.sourceKi
 /** Allocations are recomputed in approval order: a later receipt first completes earlier bills. */
 function receiptPool(s: State, poId: string) {
   const legacy = legacyReceiptIds(s);
-  return s.receipts.filter(r => r.poId === poId && r.status === 'posted' && r.currency === 'USD' && !legacy.has(r.id)).flatMap(receipt =>
+  return s.receipts.filter(r => r.poId === poId && r.status === 'posted' && r.currency === 'USD' && !r.replacementFor && !legacy.has(r.id)).flatMap(receipt =>
     receipt.lines.map((line: any) => ({ receipt, line, remaining: decimal(line.quantity) })));
 }
 function take(pool: ReturnType<typeof receiptPool>, line: any): Allocation[] {
@@ -51,7 +51,7 @@ export function supplierBillMatch(s: State, bill: Row) {
     const legacy = legacyReceiptIds(s);
     const legacyBilled = s.receipts.filter(r => r.poId === po.id && legacy.has(r.id)).flatMap(r => r.lines).filter((l: any) => l.poLineId === line.poLineId).reduce((sum: bigint, l: any) => sum + decimal(l.quantity), 0n);
     const prior = legacyBilled + earlier.reduce((sum, b) => sum + b.lines.filter((l: any) => l.poLineId === line.poLineId).reduce((n: bigint, l: any) => n + decimal(l.quantity), 0n), 0n);
-    const received = s.receipts.filter(r => r.poId === po.id && r.status === 'posted').flatMap(r => r.lines).filter((l: any) => l.poLineId === line.poLineId).reduce((sum: bigint, l: any) => sum + decimal(l.quantity), 0n);
+    const received = s.receipts.filter(r => r.poId === po.id && r.status === 'posted' && !r.replacementFor).flatMap(r => r.lines).filter((l: any) => l.poLineId === line.poLineId).reduce((sum: bigint, l: any) => sum + decimal(l.quantity), 0n);
     const allocated = allocations.reduce((sum, a) => sum + decimal(a.quantity), 0n);
     const shortfall = billed - allocated, excess = positive(prior + billed - ordered);
     const priceDifference = decimal(line.unitPrice) - decimal(committed.price);

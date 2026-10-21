@@ -65,6 +65,7 @@ export const collections = [
   "orders",
   "purchaseOrders",
   "receipts",
+  "supplierReturns",
   "transfers",
   "shipments",
   "returns",

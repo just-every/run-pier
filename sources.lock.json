@@ -256,7 +256,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "a4c1448c919ef79893849e7ab3f3f30ab07200a3062fcd6372cd8017475e7c16",
+      "sha256": "31c99436abcbff960c87a9b80360443dde4a05526d0d5474854dea3099174b1f",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -284,7 +284,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "1f9f8778f1e0b67dd1fe317c3e48ff51d4cc3048cb1f9938ee25839ca9cdefd1",
+      "sha256": "44e2e15aa7d78fcdcccce114c2da2645a57f2d0e97762241e4c3efe7f7c2d4e8",
       "executable": false
     },
     "DEMO.md": {
@@ -2628,7 +2628,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "76909262516fc8d05fd5b4137b0233c54c74d70f30cd4a24d23262588d1f10eb",
+      "sha256": "58226c79400d72d365bfd6a736fb246b1a71933e47797e17b0265cbd37a7db2e",
       "executable": false
     },
     "src/pier/backorders.ts": {
@@ -2700,7 +2700,11 @@
       "executable": false
     },
     "src/pier/books/supplier-bills.ts": {
-      "sha256": "c37ef995b9c0d51bf6958561d8088954c1a5cafea24132c8bda0199553116413",
+      "sha256": "fa6f6a25e7f20cd9768d1cb148a22324173c0d4d49e7b23e39b57afe319765ae",
+      "executable": false
+    },
+    "src/pier/books/supplier-charges.ts": {
+      "sha256": "e86408c1066957d858890c0d969c78085e2fa409b1cf2eaceb2111672b929eb5",
       "executable": false
     },
     "src/pier/books/sync.ts": {
@@ -2952,7 +2956,7 @@
       "executable": false
     },
     "src/pier/model.ts": {
-      "sha256": "b3372b428eddea65ea02ea2f28ed7022b0b929797b0dcef68a3a91c72fbe8ccc",
+      "sha256": "b417d104b35ea807e403dcfddb42807e60339b546435d51de84903cdc40beb68",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -3004,7 +3008,7 @@
       "executable": false
     },
     "src/pier/purchasing.ts": {
-      "sha256": "bd4bc8b1e6a4e6d372ca917666fb930d421afb4c47f39c14c0ff23787b12cb59",
+      "sha256": "0ced84ea8d4ba0f632ba91c5b5308961d7d35731f85d28f21f5085ec9729dd21",
       "executable": false
     },
     "src/pier/replenishment-demand.ts": {
@@ -3075,12 +3079,16 @@
       "sha256": "668448cc6008054c558317f436bda34e2eb6e8b0054ceb177939a4fafadcc4e6",
       "executable": false
     },
+    "src/pier/supplier-inspections.ts": {
+      "sha256": "a22c85c12a70c6e6c03f1248b5106fbb6f1d075c8b3a59e6eec0735c6c37088a",
+      "executable": false
+    },
     "src/pier/supplier-performance.ts": {
       "sha256": "923ce522fec7d2ccef9e711d576001c25f7083aa3f7ffd3ac53a19557c411f65",
       "executable": false
     },
     "src/pier/valuation-ledger.ts": {
-      "sha256": "75a9d42865880c69551f002ddc4a74bcde19f95cbbd4dd329359d894c30e7d5c",
+      "sha256": "072e5efbc54e1b618cbcac4c79b0cab012dd0cec0e2acbf191edc608ee7b1db9",
       "executable": false
     },
     "src/pier/warehouse.ts": {
@@ -3628,7 +3636,7 @@
       "executable": false
     },
     "src/ui/purchasing.tsx": {
-      "sha256": "fae22e05bd1e14f8803b6bf27a72cfb7c8c492d7dcaff8700d4877ad9ddfff63",
+      "sha256": "81b7a393ceb781e7feee2d97fdcccc9ed80623d694f9576aa9444056d43def94",
       "executable": false
     },
     "src/ui/quantity.ts": {
@@ -3912,7 +3920,7 @@
       "executable": false
     },
     "tests/browser/supplier-bills.spec.ts": {
-      "sha256": "29612cbb93debda269329264eeada84b9f6e2e6fb5fe8a477112c5a33433edca",
+      "sha256": "6229945ada8fd7303c0ed5898a09aa41e9d8b61a26710f9c45410e0503deb4a9",
       "executable": false
     },
     "tests/email-link.mjs": {

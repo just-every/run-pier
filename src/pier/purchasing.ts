@@ -204,6 +204,8 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
   }
   if (receipt.status !== "posted")
     fail("REVERSED", "Receipt is already reversed.");
+  if (receipt.replacementFor || c.s.supplierReturns.some(r => r.receiptId === receipt.id))
+    fail("DEPENDENCY", "Receipt has supplier-return history. Use a physical-count correction; do not reverse return or replacement history.");
   const dependencies = c.s.movements.filter(
     (m) =>
       receipt.lines.some(
