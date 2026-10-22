@@ -91,7 +91,14 @@ for (const width of [1440, 390]) test(`warehouse zone merge, ten order totes and
   await expect(page.getByRole('button', { name: 'Mark order packed', exact: true })).toBeDisabled()
   await expect(page.getByRole('status').filter({ hasText: 'Waiting for zone contributions' })).toContainText('West')
   const popupEvent = page.waitForEvent('popup'); await page.getByRole('link', { name: 'Print packing slip', exact: true }).click()
-  const slip = await popupEvent; await slip.waitForLoadState(); await expect(slip.locator('body')).toContainText(zonedOrder.reference); if (process.env.PIER_SCREENSHOTS) await slip.screenshot({ path: join(process.env.PIER_SCREENSHOTS, `${width}-warehouse-packing-slip.png`), fullPage: true }); await slip.close()
+  const slip = await popupEvent; await slip.waitForLoadState(); await expect(slip.locator('body')).toContainText(zonedOrder.reference)
+  await expect(slip.locator('body')).toContainText('Packed: 1 each')
+  await slip.getByRole('button', { name: 'Print packing slip', exact: true }).click()
+  if (process.env.PIER_SCREENSHOTS) {
+    await slip.screenshot({ path: join(process.env.PIER_SCREENSHOTS, `${width}-warehouse-packing-slip.png`), fullPage: true })
+    await slip.pdf({ path: join(process.env.PIER_SCREENSHOTS, `${width}-warehouse-packing-slip.pdf`), format: 'Letter' })
+  }
+  await slip.close()
   await shot('zone-merge-waiting')
   await page.goto(`${origin}/app#floor/pick`)
   await page.locator('tr').filter({ hasText: `Wave ${zonedWave.number} · Dock A` }).getByRole('button', { name: 'Open pick list', exact: true }).click()
