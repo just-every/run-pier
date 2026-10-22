@@ -367,6 +367,13 @@ export async function pierResponse(
           "SELECT id,actor_id AS actorId,created_at AS createdAt FROM pier_commands ORDER BY created_at DESC LIMIT 100",
         ).all()
       ).results;
+      const commandId = url.searchParams.get("commandId");
+      if (commandId && !commands.some(command => command.id === commandId)) {
+        const ownCommand = await env.DB.prepare(
+          "SELECT id,actor_id AS actorId,created_at AS createdAt FROM pier_commands WHERE id=? AND actor_id=?",
+        ).bind(commandId, actor.id).first();
+        if (ownCommand) commands.push(ownCommand);
+      }
       const operators =
         actor.role === "owner"
           ? (
