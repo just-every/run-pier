@@ -57,9 +57,10 @@ for (const width of [1440, 390]) test(`warehouse zone merge, ten order totes and
     await page.locator('tr').filter({ hasText: order.reference }).getByRole('button', { name: 'Pack this order', exact: true }).click()
     await expect(page.getByRole('heading', { name: `Pack ${order.reference}`, exact: true })).toBeVisible()
   }
-  const measure = async () => {
-    for (const [label, value] of [['Weight (lb)', '1'], ['Length (in)', '8'], ['Width (in)', '6'], ['Height (in)', '4']]) await page.getByLabel(label, { exact: true }).fill(value)
-    const saved = commandResult(page, 'pack.measure'); await page.getByRole('button', { name: 'Save weight and size', exact: true }).click(); await settledResult(page, saved)
+  const measure = async (carton = 1) => {
+    const form = page.getByRole('heading', { name: `Weigh and measure carton ${carton}`, exact: true }).locator('..')
+    for (const [label, value] of [['Weight (lb)', '1'], ['Length (in)', '8'], ['Width (in)', '6'], ['Height (in)', '4']]) await form.getByLabel(label, { exact: true }).fill(value)
+    const saved = commandResult(page, 'pack.measure'); await form.getByRole('button', { name: 'Save weight and size', exact: true }).click(); await settledResult(page, saved)
   }
   const closeAndDispatch = async (reference: string) => {
     let saved = commandResult(page, 'pack.close'); await page.getByRole('button', { name: 'Mark order packed', exact: true }).click(); await settledResult(page, saved)
@@ -67,8 +68,9 @@ for (const width of [1440, 390]) test(`warehouse zone merge, ten order totes and
     saved = commandResult(page, 'pack.dispatch'); await page.getByRole('button', { name: 'Dispatch packed cartons', exact: true }).click(); await settledResult(page, saved)
   }
   const shot = async (name: string) => {
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     if (process.env.PIER_SCREENSHOTS) { await mkdir(process.env.PIER_SCREENSHOTS, { recursive: true }); await page.screenshot({ path: join(process.env.PIER_SCREENSHOTS, `${width}-warehouse-${name}.png`), fullPage: true }) }
+    const layout = await page.evaluate(() => ({ fits: document.documentElement.scrollWidth <= innerWidth + 1, overflow: [...document.querySelectorAll('main *')].map(el => ({ tag: el.tagName, class: el.className, width: el.getBoundingClientRect().width, right: el.getBoundingClientRect().right, text: (el.textContent || '').slice(0,80) })).filter(el => el.right > innerWidth + 1).slice(0,8) }))
+    expect(layout.fits, JSON.stringify(layout.overflow)).toBe(true)
   }
 
   const zone = await prepare('zones', ['A-01', 'C-01'], [1, 1], ['East', 'West']), zonedOrder = await newOrder(zone)
@@ -97,7 +99,7 @@ for (const width of [1440, 390]) test(`warehouse zone merge, ten order totes and
   await scan(page, 'Scan bin label', 'C-01'); await scan(page, 'Scan item', zone.item.barcode, 'pick.scan')
   await openPack(zonedOrder)
   let newCarton = commandResult(page, 'pack.carton'); await page.getByRole('button', { name: 'Start carton 2', exact: true }).click(); await settledResult(page, newCarton)
-  await scan(page, 'Scan item into carton 2', zone.item.barcode, 'pack.scan'); await measure()
+  await scan(page, 'Scan item into carton 2', zone.item.barcode, 'pack.scan'); await measure(2)
   await expect(page.getByRole('cell', { name: 'Ready to merge', exact: true })).toHaveCount(2)
   await shot('zone-merge-complete'); await closeAndDispatch(`${seed}-merged`)
 

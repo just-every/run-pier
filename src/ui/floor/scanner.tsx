@@ -32,6 +32,7 @@ export function ScanBox({ label, hint, onScan, busy, count = false, focus = true
     const update = (event: Event) => {
       if ((event as CustomEvent).detail !== taskKey) return
       queue.current = stored(); setWaiting(queue.current.length)
+      if (!queue.current.length) setPaused(false)
     }
     window.addEventListener('pier.floor.scans', update)
     return () => { live.current = false; window.removeEventListener('pier.floor.scans', update) }
