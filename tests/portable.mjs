@@ -207,6 +207,7 @@ try {
   });
   const order = await running.cmd("order.create", {
     customerId: customer.id,
+    warehouse: "Main",
     promiseDate: "2026-11-01",
     lines: [{ itemId: item.id, quantity: "0.2" }],
   });
