@@ -15,7 +15,7 @@ const open = (line: any) => { const value = difference(line.quantity, line.recei
 
 function ReceivingScan({receiving,run,busy}:{receiving:RecordData;run:RunCommand;busy:boolean}) {
   const [trace,setTrace]=useState(emptyTrace)
-  return <><TraceFields value={trace} onChange={setTrace}/><ScanBox label="Scan item or bin" hint="A case barcode receives the whole case. Times repeats one code." count busy={busy} onScan={async(code,count)=>{const saved=await run('receiving.scan',{receivingId:receiving.id,code,...(count?{count}:{}),trace});if(saved)setTrace(value=>({...value,serial:''}));return saved}}/></>
+  return <><TraceFields value={trace} onChange={setTrace}/><ScanBox taskKey={`receiving:${receiving.id}`} label="Scan item or bin" hint="A case barcode receives the whole case. Times repeats one code." count busy={busy} onScan={async(code,count)=>{const saved=await run('receiving.scan',{receivingId:receiving.id,code,...(count?{count}:{}),trace});if(saved)setTrace(value=>({...value,serial:''}));return saved}}/></>
 }
 
 export function Receive({ state, run, busy, error }: { state: PierState; run: RunCommand; busy: boolean; error: string }) {
