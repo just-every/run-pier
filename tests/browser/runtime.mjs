@@ -29,13 +29,13 @@ export async function freePort() {
   return port
 }
 
-export function child(command, args, cwd, env = {}) {
+export function child(command, args, cwd, env = {}, detached = false) {
   const environment = { ...globalThis.process.env, CI: 'true', RER_SERVER_JOURNEY: '1', WRANGLER_SEND_METRICS: 'false', ...env }
   // Operation ownership is checkout-specific; never carry the source checkout's
   // live lease into this independently owned fresh installation.
   delete environment.RER_LOCAL_OPERATION
   delete environment.RER_ONBOARDING_PROCESS_OWNER
-  const process = spawn(command, args, { cwd, env: environment, stdio: ['ignore', 'pipe', 'pipe'] })
+  const process = spawn(command, args, { cwd, env: environment, detached, stdio: ['ignore', 'pipe', 'pipe'] })
   let output = ''
   for (const pipe of [process.stdout, process.stderr]) pipe.on('data', chunk => { output += chunk; if (output.length > 4 * 1024 * 1024) output = output.slice(-4 * 1024 * 1024) })
   const done = new Promise((resolve, reject) => { process.once('error', () => reject(new Error('Could not start the owned test command.'))); process.once('close', code => resolve(code)) })
@@ -51,7 +51,7 @@ export async function command(executable, args, cwd, env) {
 
 export async function startDev(root, port) {
   const executable = join(root, 'node_modules/.bin/rer')
-  const runtime = child(executable, ['dev', '--port', String(port)], root)
+  const runtime = child(executable, ['dev', '--port', String(port)], root, {}, true)
   const deadline = Date.now() + 10 * 60 * 1000
   try {
     while (Date.now() < deadline) {
@@ -69,12 +69,15 @@ export async function startDev(root, port) {
 }
 
 export async function stopDev(root, runtime) {
-  let problem
-  try { await command(join(root, 'node_modules/.bin/rer'), ['dev', '--stop'], root) } catch (error) { problem = error }
-  if (runtime?.process.exitCode === null) runtime.process.kill('SIGTERM')
-  if (runtime) {
-    const settled = await Promise.race([runtime.done.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), 5000))])
-    if (!settled && runtime.process.exitCode === null) { runtime.process.kill('SIGKILL'); await runtime.done }
+  if (!runtime?.process.pid) return
+  // The dev command and its children belong to this detached process group.
+  // Never invoke a shared CLI stop door that could find another installation.
+  const signal = value => {
+    try { process.kill(-runtime.process.pid, value) }
+    catch (error) { if (error.code !== 'ESRCH') throw error }
   }
-  if (problem) throw new Error(`Owned runtime stop failed: ${redact(problem.message)}`)
+  signal('SIGTERM')
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  signal('SIGKILL')
+  await runtime.done
 }
