@@ -162,7 +162,8 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     const q=get(c.s,'orders',p.orderId);fresh(q,p.version);
     if(q.documentType!=='quote'||q.lines.some((l:any)=>decimal(l.dispatched)>0n)||c.s.waves.some(w=>w.lines.some((l:any)=>l.orderId===q.id&&decimal(l.picked)>0n)))fail('QUOTE_STATE','Only unpicked, unshipped quote-derived demand can be revised.');
     const reason=text(p.reason,'Quote revision reason');
-    q.quoteHistory=[...(q.quoteHistory??[]),{version:q.version,lines:structuredClone(q.lines),total:q.total,tax:q.tax,approval:q.quoteApproval,acceptedAt:q.acceptedAt,acceptedBy:q.acceptedBy??null,reason,at:c.now}];
+    const {quoteHistory:priorHistory,...priorVersion}=structuredClone(q);
+    q.quoteHistory=[...(priorHistory??[]),{...priorVersion,approval:priorVersion.quoteApproval,reason,at:c.now}];
     q.lines=quoteLines(c,{...p,customerId:q.customerId});Object.assign(q,quoteTerms(c,{...p,customerId:q.customerId},q.lines));
     c.s.reservations=c.s.reservations.filter(r=>r.orderId!==q.id);c.s.traceReservations=c.s.traceReservations.filter(t=>c.s.reservations.some(r=>r.id===t.reservationId));
     for(const wave of c.s.waves.filter(w=>w.lines.some((l:any)=>l.orderId===q.id))){for(const line of wave.lines.filter((l:any)=>l.orderId===q.id&&l.status==='open')){line.status='revised';line.revisedAt=c.now;}if(wave.lines.every((l:any)=>l.status!=='open'))wave.status=wave.lines.some((l:any)=>l.status==='picked')?'picked':'cancelled';wave.version++;}

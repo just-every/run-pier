@@ -125,7 +125,7 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   const pdfResponse=await h.request(`/api/pier/sales-documents/${doc.id}.pdf`);assert.equal(pdfResponse.status,200);assert.equal(pdfResponse.headers.get('content-type'),'application/pdf');assert.deepEqual(Buffer.from(await pdfResponse.arrayBuffer()),pdf);
   assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:''})).status,401);
   const old=quote;quote=await h.command('quote.revise',{...params,orderId:quote.id,version:quote.version,lines:[{itemId:b.item.id,quantity:'10',price:'9'}],reason:'Buyer revised draft quantity and price'});
-  assert.equal(quote.quoteApproval,null);await h.command('quote.accept',{orderId:quote.id,version:old.version},{error:'STALE'});
+  assert.equal(quote.quoteApproval,null);assert.deepEqual([quote.quoteHistory.at(-1).validUntil,quote.quoteHistory.at(-1).shipTo,quote.quoteHistory.at(-1).discountPercent,quote.quoteHistory.at(-1).routing],[old.validUntil,old.shipTo,old.discountPercent,old.routing]);await h.command('quote.accept',{orderId:quote.id,version:old.version},{error:'STALE'});
   assert.deepEqual(Buffer.from(await (await h.request(`/api/pier/sales-documents/${doc.id}.pdf`)).arrayBuffer()),pdf);
   quote=await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Reviewed revised price and quantity'});
   const accepted=await h.command('quote.accept',{orderId:quote.id,version:quote.version});const count=(await h.state()).orders.length;

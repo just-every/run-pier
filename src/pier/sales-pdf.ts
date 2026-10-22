@@ -29,9 +29,21 @@ export function salesPDF(s: State, o: Row, kind: string): string {
       "DOCUMENT_TEXT",
       "PDF currently supports printable ASCII text. Review unsupported document characters; no document was generated.",
     );
+  // Fifty printable characters fit the page even for wide Helvetica glyphs.
+  // Long customer names and item codes continue on the next line, never clip.
+  const rendered = lines.flatMap((value) => {
+    const wrapped: string[] = [];
+    while (value.length > 50) {
+      const space = value.lastIndexOf(" ", 50), end = space > 0 ? space : 50;
+      wrapped.push(value.slice(0, end));
+      value = value.slice(end);
+      if (value.startsWith(" ")) value = value.slice(1);
+    }
+    return [...wrapped, value];
+  });
   const escape = (s: string) => s.replace(/[\\()]/g, "\\$&");
-  const pages = Array.from({ length: Math.ceil(lines.length / 45) }, (_, i) =>
-    lines.slice(i * 45, (i + 1) * 45),
+  const pages = Array.from({ length: Math.ceil(rendered.length / 45) }, (_, i) =>
+    rendered.slice(i * 45, (i + 1) * 45),
   );
   const objects = [
     "",
