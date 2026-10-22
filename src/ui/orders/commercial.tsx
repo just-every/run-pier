@@ -6,6 +6,7 @@ import {
   type RunCommand,
 } from "../api";
 import { Field, Form, Select, Table, text, Amount } from "../controls";
+import { approvalPolicy, QuoteApprovalSettings } from './quote-approval';
 export function Commercial({
   state,
   order,
@@ -21,6 +22,7 @@ export function Commercial({
     (d) => d.recordId === order.id,
   );
   const quote = order.documentType === "quote" && !order.acceptedAt;
+  const approverRole = approvalPolicy(state)?.role ?? 'owner';
   return (
     <>
       {quote && (
@@ -30,8 +32,8 @@ export function Commercial({
             title="Review quote prices and margin"
             submit="Approve exact quote"
             busy={busy}
-            disabled={state.actor.role !== "owner"}
-            note={`Version ${order.version} · discount ${order.discountPercent}% · tax ${order.tax?.source ?? "Pending"} · valid through ${order.validUntil}. Owner approval binds these prices and the observed costs.`}
+            disabled={!['owner', approverRole].includes(state.actor.role)}
+            note={`Version ${order.version} · discount ${order.discountPercent}% · tax ${order.tax?.source ?? "Pending"} · valid through ${order.validUntil}. Approver role: ${approverRole}. Approval binds these prices and the observed costs.`}
             onSubmit={(d) =>
               run("quote.approve", {
                 orderId: order.id,
@@ -179,6 +181,7 @@ export function SalesIntake({
     [fileError, setFileError] = useState("");
   return (
     <>
+      <QuoteApprovalSettings state={state} run={run} busy={busy} />
       <Form
         title="Owner tax estimate table"
         submit="Save jurisdiction estimate"

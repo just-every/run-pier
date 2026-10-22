@@ -10,6 +10,7 @@ import {
 } from "./model";
 import { currentQuote } from "./sales-quotes";
 import { salesPDF } from "./sales-pdf";
+import { requireQuoteApproval } from './quote-approval';
 export function salesDocuments(
   c: Context,
   type: string,
@@ -23,8 +24,7 @@ export function salesDocuments(
     if (order.documentType !== "quote" || order.acceptedAt)
       fail("QUOTE_STATE", "Choose an open quote.");
     currentQuote(c, order);
-    if (order.quoteApproval?.version !== order.version)
-      fail("QUOTE_APPROVAL", "Approve this quote before sending.");
+    requireQuoteApproval(c, order);
   } else if (order.documentType === "quote" && !order.acceptedAt)
     fail("QUOTE_STATE", "Accept the quote before confirming an order.");
   const recipient = text(p.recipient, "Approved recipient");

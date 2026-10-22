@@ -1,5 +1,6 @@
 import { route, sourceKey, routingFrontier } from './routing';
 import { quoteLines, quoteTerms, currentQuote } from './sales-quotes';
+import { requireQuoteApproval } from './quote-approval';
 import { reserveTracked } from './trace';
 import { policyFor, sortTraceReservations } from './trace-core';
 import { kitDefinition, reserveKit, reservedKits, dispatchKit } from './kits';
@@ -183,9 +184,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     if(quote.acceptedAt) return orderView(c,quote);
     fresh(quote, p.version);currentQuote(c,quote);
     // Acceptance binds the exact human-reviewed commercial version.
-    if(!quote.quoteApproval || quote.quoteApproval.version!==quote.version) fail('QUOTE_APPROVAL','Obtain owner approval of the exact quote version.');
-    if(quote.quoteApproval && c.automationActors?.[quote.quoteApproval.actorId]!=='owner') fail('APPROVER_REVOKED','Quote approval authority was revoked.');
-    if(quote.quoteApproval) c.approver={id:quote.quoteApproval.actorId,role:'owner'};
+    requireQuoteApproval(c, quote);
     if (quote.documentType !== 'quote' || quote.acceptedAt) fail('QUOTE_STATE', 'Choose an open quote.');
     quote.acceptedAt = c.now; quote.acceptedBy = c.actor.id;quote.acceptanceHistory=[...(quote.acceptanceHistory??[]),{actorId:c.actor.id,at:c.now,version:quote.version,total:quote.total}]; quote.version++;
     return orderView(c, quote);

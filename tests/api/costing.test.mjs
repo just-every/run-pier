@@ -101,8 +101,8 @@ test('landed receipts, priced shipments and dated FIFO/average reports reconcile
 
 
 test('versioned case quotes retain discounted tax PDFs, exact approval and once-only acceptance', async t => {
-  const mail=[];let reject=false;
-  const h=await installation({bindings:{MAIL_PROVIDER:'resend',MAIL_FROM:'sales@example.test',MAIL_API_KEY:'synthetic-pier-1'},outboundService:async request=>{mail.push(await request.json());return reject?new Response('Declined',{status:422}):Response.json({id:`synthetic-pier-${mail.length}`});}});t.after(()=>h.close());
+  const mail=[];let reject=false,uncertain=false;
+  const h=await installation({bindings:{MAIL_PROVIDER:'resend',MAIL_FROM:'sales@example.test',MAIL_API_KEY:'synthetic-pier-1'},outboundService:async request=>{mail.push(await request.json());if(uncertain)return new Response('No confirmed acceptance',{status:503});return reject?new Response('Declined',{status:422}):Response.json({id:`synthetic-pier-${mail.length}`});}});t.after(()=>h.close());
   const b=await basics(h);
   const po=await h.command('po.draft',{supplierId:b.supplier.id,promiseDate:'2026-11-01',reason:'Quote stock',lines:[{itemId:b.item.id,quantity:'20',price:'1'}]});
   await h.command('po.approve',{poId:po.id,version:po.version});await h.command('po.commit',{poId:po.id,version:po.version});await h.command('receipt.create',{poId:po.id,supplierReference:'synthetic-pier-1',lines:[{poLineId:po.lines[0].id,locationId:b.source.id,quantity:'20',cost:'1'}]});
@@ -133,11 +133,25 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   const confirmation=await h.command('order.confirm',{orderId:accepted.id,version:accepted.version,recipient:'buyer@example.test'});assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===confirmation.id).phase,'sent');
   reject=true;const failed=await h.command('order.confirm',{orderId:accepted.id,version:accepted.version,recipient:'buyer@example.test'});assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===failed.id).phase,'failed');
   await h.command('mail.process',{});assert.equal(mail.length,3);
+  reject=false;uncertain=true;const pendingPayload={orderId:accepted.id,version:accepted.version,recipient:'buyer@example.test'},pendingId=randomUUID();
+  const pending=await h.command('order.confirm',pendingPayload,{commandId:pendingId});assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===pending.id).phase,'uncertain');await h.command('order.confirm',pendingPayload,{commandId:pendingId});await h.command('mail.process',{});assert.equal(mail.length,4,'uncertain submission is never blindly replayed');uncertain=false;
   let expiring=await h.command('quote.create',{...params,validUntil:new Date().toISOString().slice(0,10)});expiring=await h.command('quote.approve',{orderId:expiring.id,version:expiring.version,reason:'Exact expiring quote'});
   await h.command('quote.accept',{orderId:expiring.id,version:expiring.version},{headers:{'x-pier-test-now':new Date(Date.now()+86400000).toISOString()},error:'QUOTE_EXPIRED'});
   assert.equal((await h.request('/api/pier/export',{as:cookie})).status,403);assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:cookie})).status,403);
-  let revisedAcceptance=await h.command('quote.revise',{...params,orderId:accepted.id,version:accepted.version,lines:[{itemId:b.item.id,quantity:'9',price:'9'}],reason:'Buyer changed an accepted unpicked quantity'});assert.equal(revisedAcceptance.acceptedAt,null);assert.equal(revisedAcceptance.quoteApproval,null);assert.ok(revisedAcceptance.quoteHistory.at(-1).acceptedAt);
+  let revisedAcceptance=await h.command('quote.revise',{...params,orderId:accepted.id,version:accepted.version,lines:[{itemId:b.item.id,quantity:'9',price:'9'}],reason:'Buyer changed an accepted unpicked quantity'});assert.equal(revisedAcceptance.acceptedAt,null);assert.equal(revisedAcceptance.quoteApproval,null);assert.ok(revisedAcceptance.quoteHistory.at(-1).acceptedAt);assert.deepEqual(revisedAcceptance.quoteHistory.at(-1).lines,accepted.lines.map(({reserved,backorder,...line})=>line));
   await h.command('quote.accept',{orderId:accepted.id,version:accepted.version},{error:'STALE'});revisedAcceptance=await h.command('quote.approve',{orderId:accepted.id,version:revisedAcceptance.version,reason:'Approved the buyer revision'});await h.command('quote.accept',{orderId:accepted.id,version:revisedAcceptance.version});assert.equal((await h.state()).orders.filter(o=>o.id===accepted.id).length,1);
+
+  const alternateCustomer=await h.command('party.save',{kind:'customer',name:'synthetic-pier-2'});
+  const tier=await h.command('priceList.save',{customerId:alternateCustomer.id,itemId:b.item.id,minimumQuantity:'0',price:'12',validTo:new Date().toISOString().slice(0,10)});
+  let tierQuote=await h.command('quote.create',{...params,customerId:alternateCustomer.id,discountPercent:'0',lines:[{itemId:b.item.id,quantity:'1'}]});
+  assert.equal(tierQuote.lines[0].price,'12','a different customer tier is used');
+  tierQuote=await h.command('quote.approve',{orderId:tierQuote.id,version:tierQuote.version,reason:'Reviewed this customer price tier'});
+  await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{headers:{'x-pier-test-now':new Date(Date.now()+86400000).toISOString()},error:'QUOTE_PRICING'});
+  await h.command('priceList.save',{...tier,price:'13'});
+  await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{error:'QUOTE_PRICING'});
+  await h.command('quote.send',{orderId:tierQuote.id,version:tierQuote.version,recipient:'buyer@example.test'},{error:'QUOTE_PRICING'});
+  tierQuote=await h.command('quote.revise',{...params,customerId:alternateCustomer.id,orderId:tierQuote.id,version:tierQuote.version,discountPercent:'0',lines:[{itemId:b.item.id,quantity:'1'}],reason:'New price requires renewed acceptance'});
+  assert.equal(tierQuote.lines[0].price,'13');assert.equal(tierQuote.quoteApproval,null);await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{error:'QUOTE_APPROVAL'});
   const customer=(await h.state()).parties.find(p=>p.id===b.customer.id),certificateExpiry=new Date(Date.now()+3*86400000).toISOString().slice(0,10);
   await h.command('customer.resaleCertificate',{customerId:customer.id,version:customer.version,state:'CA',number:'synthetic-pier-1',document:'Owner-retained synthetic certificate',reason:'Resale exemption',expires:certificateExpiry});
   let exempt=await h.command('quote.create',params);assert.equal(exempt.tax.amount,'0.000000000000');assert.equal(exempt.tax.certificate.number,'synthetic-pier-1');exempt=await h.command('quote.approve',{orderId:exempt.id,version:exempt.version,reason:'Reviewed resale exemption and price'});
@@ -201,4 +215,35 @@ test('direct dropship demand retains supplier PO, confirmation, tracking, cost a
   const credit={dropshipId:drop.id,version:drop.version,shipmentId:drop.shipments[0].id,orderLineId:drop.lines[0].orderLineId,quantity:'2',reference:'synthetic-pier-4',reason:'Customer credit for supplier damage'};drop=await h.command('dropship.credit',credit);assert.equal(drop.credits[0].amount,'20.000000000000');assert.equal(drop.credits[0].posting,'not-posted');
   await h.command('dropship.credit',{...credit,version:drop.version,quantity:'2',reference:'synthetic-pier-5'},{error:'CREDIT_LIMIT'});assert.deepEqual(await stable(),before);
   s=await h.state();assert.equal(s.orders.find(o=>o.id===drop.orderId).lines[0].dispatched,'3');assert.equal(s.receipts.length,0);assert.equal(s.customerCredits.length,1);const nativeExit=await h.request('/api/pier/native-export');assert.equal(nativeExit.status,409);assert.equal((await nativeExit.json()).error.code,'NATIVE_DROPSHIP');assert.equal((await (await h.request('/api/pier/export')).json()).dropships[0].shipments[0].tracking,'synthetic-pier-3');
+});
+
+
+test('quote approver role defaults to Owner and policy or live role changes revoke open approvals', async t => {
+  const h=await installation();t.after(()=>h.close());const b=await basics(h);
+  await h.command('sales.taxTable',{state:'CA',rate:'0',reason:'Owner tax estimate'});
+  const entered=await fetch(`${h.origin}/auth/dev/enter?as=member`,{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}}),cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+  const member=await (await h.request('/api/pier/state',{as:cookie})).json();await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
+  const params={customerId:b.customer.id,warehouse:'North',shipTo:{state:'CA',country:'US'},discountPercent:'10',lines:[{itemId:b.item.id,quantity:'1',price:'2'}]};
+  let quote=await h.command('quote.create',params);
+  const approve=()=>({orderId:quote.id,version:quote.version,reason:'Reviewed exact price, discount and cost'});
+  await h.command('quote.approve',approve(),{as:cookie,error:'FORBIDDEN'});
+  await h.command('sales.quoteApprovalPolicy',{version:0,role:'operator',reason:'Unapproved delegation'},{as:cookie,error:'FORBIDDEN'});
+  await h.command('sales.quoteApprovalPolicy',{version:0,role:'agent',reason:'Agents cannot approve themselves'},{error:'APPROVER_ROLE'});
+  quote=await h.command('quote.approve',approve());
+  let policy=await h.command('sales.quoteApprovalPolicy',{version:0,role:'operator',reason:'Owner delegates commercial approval to sales operators'});
+  await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
+  quote=await h.command('quote.approve',approve(),{as:cookie});assert.equal(quote.quoteApproval.actorId,member.actor.id);assert.equal(quote.quoteApproval.policyVersion,policy.version);
+  await h.command('quote.send',{orderId:quote.id,version:quote.version,recipient:'buyer@example.test'},{as:cookie,error:'FORBIDDEN'});
+  await h.command('role.set',{operatorId:member.actor.id,role:'viewer'});
+  const before=(await h.state()).version;
+  await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'APPROVER_REVOKED'});
+  await h.command('quote.send',{orderId:quote.id,version:quote.version,recipient:'buyer@example.test'},{error:'APPROVER_REVOKED'});
+  assert.equal((await h.state()).version,before,'refused acceptance and send leave state unchanged');
+  await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
+  policy=await h.command('sales.quoteApprovalPolicy',{version:policy.version,role:'owner',reason:'Return approval to Owner'});
+  assert.equal(policy.history.at(-1).role,'operator');assert.equal(policy.approvedBy,(await h.state()).actor.id);
+  await h.command('quote.approve',approve(),{as:cookie,error:'FORBIDDEN'});
+  await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
+  quote=await h.command('quote.approve',approve());
+  const accepted=await h.command('quote.accept',{orderId:quote.id,version:quote.version});assert.ok(accepted.acceptedAt);await h.invariant();
 });

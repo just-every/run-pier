@@ -16,6 +16,7 @@ import { orderPrice } from "./pricing";
 import { money, toCents } from "./money";
 import { valuationLedger } from "./valuation-ledger";
 import { kitDefinition } from "./kits";
+import { quoteApprovalPolicy, saveQuoteApprovalPolicy } from './quote-approval';
 
 export function isoDay(value: unknown, name: string): string {
   const day = text(value, name);
@@ -181,6 +182,7 @@ export function currentQuote(c: Context, quote: Row) {
   }
 }
 export function salesQuotes(c: Context, type: string, p: any): Row | undefined {
+  if (type === 'sales.quoteApprovalPolicy') return saveQuoteApprovalPolicy(c, p);
   if (type === "sales.taxTable") {
     requireRole(c, []);
     const state = text(p.state, "State").toUpperCase(),
@@ -232,7 +234,8 @@ export function salesQuotes(c: Context, type: string, p: any): Row | undefined {
     return customer;
   }
   if (type !== "quote.approve") return;
-  requireRole(c, []);
+  const policy = quoteApprovalPolicy(c.s);
+  requireRole(c, [policy.role]);
   const q = get(c.s, "orders", p.orderId);
   fresh(q, p.version);
   if (q.documentType !== "quote" || q.acceptedAt)
@@ -263,6 +266,7 @@ export function salesQuotes(c: Context, type: string, p: any): Row | undefined {
     version: q.version + 1,
     actorId: c.actor.id,
     role: c.actor.role,
+    policyVersion: policy.version,
     at: c.now,
     reason: text(p.reason, "Discount and margin approval reason"),
     discountPercent: q.discountPercent,
