@@ -77,8 +77,10 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
     assert.equal(state.positions.find(p => p.locationId === b.destination.id && p.status === 'sellable').quantity, '1');
     assert.equal(state.positions.find(p => p.locationId === b.destination.id && p.status === 'quarantine').quantity, '1');
     await pier.command('return.inspect', { returnId: waiting.id, version: waiting.version, ...destination });
-    const quarantined = await pier.command('return.scan', { ...fromLabel, code: shipment.reference, disposition: 'quarantine', reason: 'Damaged packaging pending review' });
+    const quarantined = await pier.command('return.scan', { ...fromLabel, code: shipment.reference, disposition: 'writeoff', reason: 'Damaged packaging pending review' }, { as: cookie });
     assert.equal(quarantined.status, 'quarantine');
+    assert.equal(quarantined.inspectedBy, undefined);
+    assert.equal(quarantined.writeOffAccountId, undefined, 'An unauthorized damaged scan cannot post a write-off');
     await pier.command('book.sync', {}); await pier.command('book.sync', {});
     state = await pier.invariant(); sales = await pantry.view('sales');
     assert.equal(state.positions.find(p => p.locationId === b.destination.id && p.status === 'sellable').quantity, '2');

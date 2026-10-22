@@ -86,6 +86,7 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       warehouse: text(p.warehouse),
       kind: p.kind,
       barcode: p.barcode ? text(p.barcode) : null,
+      zone: p.zone === undefined ? old?.zone ?? null : p.zone ? text(p.zone, "Picking zone") : null,
     };
     for (const code of [data.barcode, data.name].filter(Boolean)) {
       const owners = codeOwners(c.s, code, undefined, old?.id).filter(o => code === data.barcode || o.kind !== 'bin');
