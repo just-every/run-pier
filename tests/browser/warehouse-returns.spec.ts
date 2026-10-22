@@ -76,7 +76,7 @@ test('warehouse partial receiving, transfers, counts and authorized or quarantin
       await page.goto(`${origin}/app#counts`); await page.reload()
       const startCount = page.getByRole('heading', { name: 'Capture bin count frontier', exact: true }).locator('..')
       await startCount.getByLabel('Bin', { exact: true }).selectOption(destination.id)
-      await action(page, 'count.start', () => startCount.getByRole('button', { name: 'Begin count', exact: true }).click())
+      await action(page, 'count.capture', () => startCount.getByRole('button', { name: 'Begin count', exact: true }).click())
       const physical = page.getByRole('heading', { name: 'Record physical quantities', exact: true }).locator('..')
       await physical.getByLabel(`${item.name} · ${item.sku} · sellable (each)`, { exact: true }).fill('1')
       await physical.getByLabel('Count evidence / reason', { exact: true }).fill('Physical receiving handoff agrees with shelf')

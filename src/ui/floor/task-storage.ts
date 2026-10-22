@@ -20,8 +20,8 @@ export function bindFloorActor(actorId: string) {
   sessionStorage.setItem(prefix + 'actor', actorId)
 }
 
-export function useFloorTask<T>(key: string, initial: T): [T, Dispatch<SetStateAction<T>>] {
-  const [value, setValue] = useState<T>(() => readTask('task:' + key, initial))
+export function useFloorTask<T>(key: string, initial: T | (() => T)): [T, Dispatch<SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(() => readTask('task:' + key, typeof initial === 'function' ? (initial as () => T)() : initial))
   const save: Dispatch<SetStateAction<T>> = next => setValue(previous => {
     const value = typeof next === 'function' ? (next as (value: T) => T)(previous) : next
     writeTask('task:' + key, value)
@@ -43,7 +43,7 @@ export function settleScan(scan: ScanLink | undefined, success: boolean) {
 }
 
 export const floorCommand = (type: string) => /^(receiving|wave|pick|pack)\./.test(type)
-export const durableCommand = (type: string) => /^(item|location|party|supplierItem|po|receipt|order|dispatch|return|count|transfer|receiving|wave|pick|pack|carrier|proposal|reservation|import)\./.test(type)
+export const durableCommand = (type: string) => !['channel.save', 'book.connect', 'ai.save', 'shipping.save'].includes(type)
 
 /** Conservative frontier: any warehouse inventory/document change requires a new physical review. */
 export async function floorFrontier(state: PierState) {
