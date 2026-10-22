@@ -1,5 +1,6 @@
 import { trace, traceState, reconcileTrace, traceReport } from './trace';
 import { kitDocument } from './kit-documents';
+import { packDocument } from './floor/pack-documents';
 import { kits, kitState, validateKitReservations } from './kits';
 import { slotting } from './slotting';
 import { validatePlacements } from './location-capacity';
@@ -298,6 +299,8 @@ export async function pierResponse(
         if (!response.ok) fail('LABEL', 'The carrier label could not be downloaded. Check EasyPost.');
         return new Response(response.body, { headers: { 'content-type': labelMatch[2] === 'pdf' ? 'application/pdf' : 'application/octet-stream', 'content-disposition': `inline; filename="pier-label-${job!.carton}.${labelMatch[2]}"`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
       }
+      const packSlip = /^\/api\/pier\/packs\/([^/]+)\/packing-slip$/.exec(url.pathname);
+      if (packSlip) return packDocument(s, packSlip[1]);
       const packingSlip = /^\/api\/pier\/orders\/([^/]+)\/packing-slip$/.exec(url.pathname);
       if (packingSlip) return kitDocument(s, packingSlip[1]);
       const ediDownload = ediFile(s, url.pathname);
