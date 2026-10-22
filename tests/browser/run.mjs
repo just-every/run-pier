@@ -24,7 +24,7 @@ try {
   console.log(`Real setup/dev and desktop/mobile UI journeys passed. Screenshots: ${screenshots}`)
 } catch (error) { failure = error } finally {
   try { if (prepared) await stopDev(root, runtime) } catch (error) { stopped = false; failure ||= error }
-  if (stopped) await rm(parent, { recursive: true, force: true })
+  if (stopped) await rm(parent, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
   else console.error(`Owned installation retained for stop recovery: ${root}`)
 }
 if (failure) { console.error(redact(failure.message)); process.exitCode = 1 }

@@ -129,6 +129,7 @@ for (const width of [1440, 390]) test(`warehouse zone merge, ten order totes and
   expect(shipments).toHaveLength(10)
   for (const shipment of shipments) for (const line of shipment.lines) expect(orders.find(o => o.id === shipment.orderId).lines.some((own: any) => own.id === line.orderLineId)).toBe(true)
   await shot('ten-shipped-short-order-open')
+  await command('order.reserve', { orderId: orders[9].id })
   const resumed = await release('batch', 1)
   await scan(page, 'Scan bin label', 'B-03'); await scan(page, 'Scan item', batch.item.barcode, 'pick.scan')
   await openPack(orders[9]); await scan(page, 'Scan item into carton 1', batch.item.barcode, 'pack.scan'); await measure(); await closeAndDispatch(`${seed}-short-remainder`)

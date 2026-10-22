@@ -31,7 +31,8 @@ test('warehouse interruptions retain exact task, reconcile stale allocations and
     const mode = interrupted; interrupted = null
     if (mode.loseResponse) {
       const response = await route.fetch()
-      expect(response.ok()).toBe(true); expect((await response.json()).ok).toBe(true)
+      const body = await response.json()
+      expect(body.ok, JSON.stringify(body)).toBe(true); expect(response.ok()).toBe(true)
     }
     await route.abort('internetdisconnected')
   })
@@ -90,7 +91,7 @@ test('warehouse interruptions retain exact task, reconcile stale allocations and
     await command('pack.measure', { ...payload, carton: 1, weight: '2', length: '4', width: '4', height: '4' }); await command('pack.close', payload)
     await page.goto(`${origin}/app#floor/pack`); await page.reload()
     await page.getByRole('row').filter({ hasText: order.reference }).first().getByRole('button', { name: 'Pack this order' }).click()
-    await page.getByLabel('Shipment reference', { exact: true }).fill(suffix)
+    await page.getByLabel('Shipment reference', { exact: true }).fill(`${suffix}-shipment`)
     interrupted = { type: 'pack.dispatch', loseResponse: true }
     const dispatched = await recover('pack.dispatch', () => page.getByRole('button', { name: 'Dispatch packed cartons', exact: true }).click())
     current = await state()
