@@ -6,6 +6,7 @@ const csv = (columns: string[], rows: Record<string, unknown>[]) =>
     )
     .join("\r\n") + "\r\n";
 export function nativeExport(s: State) {
+  if(s.dropships?.some(drop=>drop.status!=='cancelled'))fail('NATIVE_DROPSHIP','Native CSV cannot preserve direct supplier commitments, shipments and credits without turning them into warehouse stock. Use the complete archive and owner business JSON export.');
   if(s.items.some(item=>item.tracePolicy&&s.movements.filter(m=>m.itemId===item.id).reduce((n,m)=>n+BigInt(m.quantity),0n)>0n))fail('NATIVE_TRACE','The native CSV shape cannot retain stocked lot/serial identities. Use the complete archive and business JSON export rather than losing traceability.');
   if (s.orders.some(o=>o.lines.some((l:any)=>l.kit && decimal(l.quantity)>decimal(l.dispatched)+decimal(l.cancelled)))) fail('NATIVE_KITS', 'The native CSV shape cannot preserve open kit definitions and component allocations. Use the complete installation archive and business export; do not cut over these orders as single-SKU demand.');
   const files = [

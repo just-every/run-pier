@@ -36,7 +36,7 @@ function zone(value: unknown) {
 
 const open = (l: any) => decimal(l.quantity) - decimal(l.picked);
 const openWave = (c: Context, orderId: string) =>
-  c.s.waves.find((w) => w.status !== "picked" && w.orders.some((o: any) => o.orderId === orderId));
+  c.s.waves.find((w) => !["picked","cancelled"].includes(w.status) && w.orders.some((o: any) => o.orderId === orderId));
 
 // A task can outlive a reviewed reservation reallocation. Check the original
 // bin as well as the order total before accepting any more physical picks.
@@ -54,7 +54,7 @@ function remainingAtBin(c: Context, line: any) {
 /** A wave as the floor reads it: per-line state and the overall picked tally. */
 export function waveView(c: Context, w: Row) {
   const picked = w.orders.filter((o: any) =>
-    w.lines.filter((l: any) => l.orderId === o.orderId).every((l: any) => l.status !== "open"),
+    w.lines.filter((l: any) => l.orderId === o.orderId).every((l: any) => !["open","revised","rerouted"].includes(l.status)),
   );
   return { ...w, zones: zoneGroups(w as any), ordersPicked: picked.length, linesOpen: w.lines.filter((l: any) => l.status === "open").length };
 }
@@ -98,6 +98,7 @@ export function waves(c: Context, type: string, p: any): Row | undefined {
     const lines: any[] = [], orders: any[] = [];
     for (const orderId of p.orderIds) {
       const o = get(c.s, "orders", orderId);
+      if(o.documentType==='quote'&&!o.acceptedAt)fail('QUOTE_STATE','Accept this quote before releasing physical picks.');
       if (orders.some((x) => x.orderId === o.id)) fail("ORDERS", "Each order joins a wave once.");
       if (openWave(c, o.id)) fail("IN_WAVE", `${o.reference} is already in a wave being picked.`);
       if (!c.s.reservations.some((r) => r.orderId === o.id && sequence.includes(r.locationId)))
@@ -123,7 +124,7 @@ export function waves(c: Context, type: string, p: any): Row | undefined {
   if (w.status === "picked") fail("WAVE_STATE", `Wave ${w.number} is already picked.`);
   const line = w.lines.find((l: any) => l.id === p.lineId);
   if (!line) fail("LINE", "That pick line is not on this wave.");
-  if (line.status !== "open") fail("LINE_STATE", "That pick line is already done.");
+  if (line.status !== "open") fail("LINE_STATE", "That pick line is no longer open.");
   if (w.pickMode === 'zone' && p.zone !== line.zone) fail('PICK_ZONE', `Select zone ${line.zone} for this pick line.`);
   const binRow = get(c.s, "locations", line.locationId), itemRow = get(c.s, "items", line.itemId);
   if (type === "pick.scan") {

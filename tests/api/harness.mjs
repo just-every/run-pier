@@ -15,6 +15,7 @@ export async function installation(edge = {}) {
     write: false,
     format: "esm",
     platform: "neutral",
+    mainFields: ["module", "main"],
     target: "es2022",
     external: ["node:*", "cloudflare:*"],
     loader: { ".css": "text", ".svg": "text" },
@@ -145,6 +146,12 @@ export async function installation(edge = {}) {
       command,
       state,
       invariant,
+      async restartWithFreshSigningKey() {
+        await mf.setOptions(options(Number(address.port)));
+        const response=await fetch(origin+'/auth/dev/enter?as=owner',{redirect:'manual',headers:{'x-rer-dev-key':devKey}});
+        assert.equal(response.status,303);
+        cookie=response.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+      },
       async close() {
         await mf.dispose();
         await rm(root, { recursive: true, force: true });
@@ -191,11 +198,11 @@ export async function basics(h) {
       name: "Workshop",
       kind: "customer",
     });
-  await h.command('customer.splitPolicy',{customerId:customer.id,version:customer.version,allowSplit:true,reason:'Fixture permits split warehouse fulfilment'});
+  const customerPolicy=await h.command('customer.splitPolicy',{customerId:customer.id,version:customer.version,allowSplit:true,reason:'Fixture permits split warehouse fulfilment'});
   let rule=await h.command('routing.save',{source:'manual',mode:'rules',shortage:'split',zones:[],defaultEligible:['North','South']});
   rule=await h.command('routing.preview',{ruleId:rule.id,version:rule.version});
   await h.command('routing.activate',{ruleId:rule.id,version:rule.version});
-  return { item, source, destination, transit, supplier, customer:(await h.state()).parties.find(p=>p.id===customer.id) };
+  return { item, source, destination, transit, supplier, customer:customerPolicy };
 }
 export async function buy(h, b, quantity = "10") {
   const po = await h.command("po.draft", {

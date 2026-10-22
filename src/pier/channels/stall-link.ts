@@ -40,7 +40,7 @@ export async function stallLink(request: Request, env: Bindings): Promise<Respon
     return Response.json({
       items: s.items, locations: s.locations.filter(l=>eligible.includes(l.warehouse)), positions: visible,
       parties: s.parties.filter(p => p.id === customerId).map(({creditClearance,resaleCertificates,...p})=>p),
-      orders: own.map(o => orderView(c, o)), shipments: s.shipments.filter(sh => own.some(o => o.id === sh.orderId)),
+      orders: own.map(o => orderView(c, o, false)), shipments: s.shipments.filter(sh => own.some(o => o.id === sh.orderId)),
     }, { headers: { 'cache-control': 'no-store' } });
   }
   if (request.method !== 'POST' || url.pathname !== '/api/pier/commands') return refuse('A Stall key reads stock and reserves shop orders only.', 403);
@@ -52,7 +52,8 @@ export async function stallLink(request: Request, env: Bindings): Promise<Respon
     return refuse('A Stall key reserves and dispatches shop orders only.', 403);
   if (type === 'order.create' && payload.customerId !== customerId) return refuse('Stall orders belong to the shop customer chosen in Pier.', 403);
   if (['dispatch.create','order.channelPayment'].includes(type) && s.orders.find(o => o.id === payload.orderId)?.customerId !== customerId) return refuse('Stall dispatches only its own shop orders.', 403);
-  const admitted=type==='order.create'?{...payload,fulfilment:undefined,channelId:channel.id,warehouse:channel.warehouse,routingSource:`channel:${channel.id}`} : payload;
+  const admitted={...payload};
+  if(type==='order.create'){delete admitted.fulfilment;delete admitted.nativeCutover;Object.assign(admitted,{channelId:channel.id,warehouse:channel.warehouse,routingSource:`channel:${channel.id}`});}
   const outcome = await execute(env, actor, commandId, type, admitted, undefined, { collection: 'channels', id: channel.id, version: channel.version });
   if (!outcome) return Response.json({ ok: false, error: { code: 'BUSY', message: 'Retry the same command identity.' } }, { status: 409 });
   // Stall records the reservation after this reply; Pier's channel sync links the paid order then.

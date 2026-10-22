@@ -14,6 +14,7 @@ import { orderStatus } from './model'
 // what has not shipped. `prefill` fills each line's dispatch with its reservation.
 export function Fulfil({ state, order, run, busy, prefill }: { state: PierState; order: RecordData; run: RunCommand; busy: boolean; prefill: boolean }) {
   const locations = records(state, 'locations').filter(location => location.kind === 'bin'), open = orderStatus(order) !== 'Closed'
+  if(order.fulfilment==='dropship')return <div className="fulfil"><section className="panel"><h2>Supplier direct fulfilment</h2><p>This order ships directly from its supplier. Review Direct supplier dropships below for confirmation, tracking, cost and customer credit. No Pier warehouse receipt, pick or stock movement is created.</p></section><Commercial state={state} order={order} run={run} busy={busy}/></div>
   return <div className="fulfil"><p><a href={`/api/pier/orders/${order.id}/packing-slip`} target="_blank" rel="noreferrer">Open printable quote / packing slip</a></p>{order.documentType === 'quote' && !order.acceptedAt && <section className="panel"><h3>Reserved quote</h3><p>This quote retains its kit definition and reservations. Accept it before dispatch.</p><button disabled={busy} onClick={()=>run('quote.accept',{orderId:order.id,version:order.version})}>Accept quote</button></section>}
     {open && <div className="actions"><button disabled={busy} onClick={() => run('order.reserve', { orderId: order.id })}>Reserve newly available stock</button></div>}
     <OrderRouting state={state} order={order} run={run} busy={busy} />

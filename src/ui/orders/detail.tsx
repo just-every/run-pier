@@ -48,7 +48,7 @@ export function OrderCard({ state, order, run, busy, costs, resolve }: { state: 
     </div>
     <div className="order-customer"><h3>{customer?.name ?? 'Removed customer'}</h3><p>{customer?.email ? <><span>{customer.email}</span><i aria-hidden="true">|</i></> : null}<span>Created {when(order.createdAt)}</span></p></div>
     <div className="order-ship">
-      <div className="ship-from"><Icon name="pin" /><div><small>Ships from</small><strong>{orderWarehouses(state, order).join(', ') || 'No reserved bin yet'}</strong></div></div>
+      <div className="ship-from"><Icon name="pin" /><div><small>Ships from</small><strong>{order.fulfilment==='dropship'?'Direct from supplier':orderWarehouses(state, order).join(', ') || 'No reserved bin yet'}</strong></div></div>
       <div className="ship-by"><Icon name="calendar" /><div><small>Ship by</small><strong>{order.promiseDate ? shipDay(order.promiseDate, true) : 'No promise date'}</strong></div></div>
       <div className="ship-carrier"><Icon name="truck" /><div><small>Carrier pickup</small><strong>{carrier ? `${carrier.name} · ${carrier.dock}` : 'Not assigned'}</strong></div>{!carrier && <a className="button small" href="#floor">Choose on Floor</a>}</div>
     </div>

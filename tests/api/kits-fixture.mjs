@@ -13,6 +13,7 @@ export async function kitStock(h, {prices}={}) {
   await h.command('receipt.create', { poId:po.id, supplierReference:'synthetic-pier-receipt-1', lines:po.lines.map((part,n) => ({ poLineId:part.id, locationId:bin.id, quantity:'30', cost:prices?.[n] ?? String(n+1) })) });
   const definition = await h.command('kit.define', { itemId:assortment.id, components:components.slice(0,2).map((part,n) => ({ itemId:part.id, quantity:n ? '1':'2', unit:'each' })), shortagePolicy:'backorder', reason:'Two-component assortment' });
   const displayDefinition = await h.command('kit.define', { itemId:display.id, components:components.map(part => ({ itemId:part.id, quantity:'1', unit:'each' })), shortagePolicy:'backorder', reason:'Three-component display' });
+  let routing=await h.command('routing.save',{source:'manual',mode:'fixed',shortage:'hold',eligible:['North']});routing=await h.command('routing.preview',{ruleId:routing.id,version:routing.version});await h.command('routing.activate',{ruleId:routing.id,version:routing.version});
   return { components, assortment, display, definition, displayDefinition, bin, supplier, customer };
 }
 export async function kitFloor(h, b, order) {

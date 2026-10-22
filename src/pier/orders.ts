@@ -79,9 +79,10 @@ export function reserve(c: Context, o: Row) {
   o.version++;
   return o;
 }
-export function orderView(c: Context, o: Row) {
+export function orderView(c: Context, o: Row, privateCommercial=c.actor.role==='owner') {
   return {
     ...o,
+    ...(privateCommercial?{}:{creditClearance:undefined,quoteApproval:undefined,quoteHistory:undefined,tax:o.tax?{...o.tax,certificate:o.tax.certificate?{state:o.tax.certificate.state,expires:o.tax.certificate.expires}:null}:undefined}),
     lines: o.lines.map((l: any) => {
       const q = l.kit ? reservedKits(c.s, l) : c.s.reservations
         .filter((r) => r.orderLineId === l.id)
@@ -138,11 +139,16 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     const o=get(c.s,'orders',p.orderId);fresh(o,p.version);
     if(o.lines.some((l:any)=>decimal(l.dispatched)>0n)||c.s.waves.some(w=>w.lines.some((l:any)=>l.orderId===o.id&&decimal(l.picked)>0n)))fail('ORDER_PICKED','Only an unpicked, unshipped order can be rerouted.');
     const before={warehouse:o.warehouse,routing:structuredClone(o.routing??null),shipTo:o.shipTo??null};
+    if(type==='order.shipTo'&&o.documentType==='quote'){
+      const revised=orders(c,'quote.revise',{orderId:o.id,version:o.version,reason:text(p.reason),shipTo:p.shipTo,validUntil:o.validUntil,discountPercent:o.discountPercent,lines:o.lines.map((l:any)=>({itemId:l.itemId,quantity:l.quantity,...(l.priceSnapshot?.source==='priceList'?{}:{price:l.listPrice??l.price})}))})!;
+      o.routingHistory=[...(o.routingHistory??[]),{before,after:{warehouse:o.warehouse,shipTo:o.shipTo,routing:structuredClone(o.routing)},reason:text(p.reason),actorId:c.actor.id,at:c.now}];return revised;
+    }
+
     c.s.reservations=c.s.reservations.filter(r=>r.orderId!==o.id);c.s.traceReservations=c.s.traceReservations.filter(t=>c.s.reservations.some(r=>r.id===t.reservationId));
     // Retain invalidated tasks as history; they cannot accept a stale scan.
     for(const wave of c.s.waves.filter(w=>w.lines.some((l:any)=>l.orderId===o.id))){
       for(const line of wave.lines.filter((l:any)=>l.orderId===o.id&&l.status==='open')){line.status='rerouted';line.reroutedAt=c.now;}
-      if(wave.lines.every((l:any)=>l.status!=='open'))wave.status='picked';wave.version++;
+      if(wave.lines.every((l:any)=>l.status!=='open'))wave.status=wave.lines.some((l:any)=>l.status==='picked')?'picked':'cancelled';wave.version++;
     }
     if(type==='order.shipTo'||type==='order.route')routeOrder(c,o,{routingSource:o.routing?.source??'manual',shipTo:type==='order.shipTo'?p.shipTo:o.shipTo,channelLocation:o.channelLocation,warehouse:o.routing?.ruleId?undefined:o.warehouse});
     else{
@@ -154,10 +160,14 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   }
   if (type === 'quote.revise') {
     const q=get(c.s,'orders',p.orderId);fresh(q,p.version);
-    if(q.documentType!=='quote'||q.acceptedAt) fail('QUOTE_STATE','Only an open quote can be revised.');
-    q.quoteHistory=[...(q.quoteHistory??[]),{version:q.version,lines:structuredClone(q.lines),total:q.total,tax:q.tax,approval:q.quoteApproval,at:c.now}];
+    if(q.documentType!=='quote'||q.lines.some((l:any)=>decimal(l.dispatched)>0n)||c.s.waves.some(w=>w.lines.some((l:any)=>l.orderId===q.id&&decimal(l.picked)>0n)))fail('QUOTE_STATE','Only unpicked, unshipped quote-derived demand can be revised.');
+    const reason=text(p.reason,'Quote revision reason');
+    q.quoteHistory=[...(q.quoteHistory??[]),{version:q.version,lines:structuredClone(q.lines),total:q.total,tax:q.tax,approval:q.quoteApproval,acceptedAt:q.acceptedAt,acceptedBy:q.acceptedBy??null,reason,at:c.now}];
     q.lines=quoteLines(c,{...p,customerId:q.customerId});Object.assign(q,quoteTerms(c,{...p,customerId:q.customerId},q.lines));
-    c.s.reservations=c.s.reservations.filter(r=>r.orderId!==q.id);reserve(c,q);return orderView(c,q);
+    c.s.reservations=c.s.reservations.filter(r=>r.orderId!==q.id);c.s.traceReservations=c.s.traceReservations.filter(t=>c.s.reservations.some(r=>r.id===t.reservationId));
+    for(const wave of c.s.waves.filter(w=>w.lines.some((l:any)=>l.orderId===q.id))){for(const line of wave.lines.filter((l:any)=>l.orderId===q.id&&l.status==='open')){line.status='revised';line.revisedAt=c.now;}if(wave.lines.every((l:any)=>l.status!=='open'))wave.status=wave.lines.some((l:any)=>l.status==='picked')?'picked':'cancelled';wave.version++;}
+    routeOrder(c,q,{routingSource:q.routing?.source??'manual',shipTo:q.shipTo,channelLocation:q.channelLocation,warehouse:q.routing?.ruleId?undefined:q.warehouse});
+    reserve(c,q);return orderView(c,q);
   }
   if (type === 'quote.create') {
     if(p.currency && p.currency!=='USD') fail('CURRENCY','Quotes currently use USD.');
@@ -176,7 +186,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     if(quote.quoteApproval && c.automationActors?.[quote.quoteApproval.actorId]!=='owner') fail('APPROVER_REVOKED','Quote approval authority was revoked.');
     if(quote.quoteApproval) c.approver={id:quote.quoteApproval.actorId,role:'owner'};
     if (quote.documentType !== 'quote' || quote.acceptedAt) fail('QUOTE_STATE', 'Choose an open quote.');
-    quote.acceptedAt = c.now; quote.acceptedBy = c.actor.id; quote.version++;
+    quote.acceptedAt = c.now; quote.acceptedBy = c.actor.id;quote.acceptanceHistory=[...(quote.acceptanceHistory??[]),{actorId:c.actor.id,at:c.now,version:quote.version,total:quote.total}]; quote.version++;
     return orderView(c, quote);
   }
   if (type === "order.channelPayment") {
@@ -229,6 +239,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     });
     recordChannelPayment(c, o, p.channelPayment);
     if(p.fulfilment==='dropship'){o.fulfilment='dropship';o.routing={source:'dropship',mode:'supplier-direct',status:'direct',eligible:[],reserveWarehouses:[]};}
+    else if(p.nativeCutover===true)o.allocationOrigin='reviewed-native-cutover';
     else routeOrder(c,o,p);
     reserve(c, o);
     return orderView(c, o);

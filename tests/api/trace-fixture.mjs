@@ -9,6 +9,7 @@ export async function traceStock(h) {
   const supplier=await h.command('party.save',{kind:'supplier',name:'Trace supplier'}),customer=await h.command('party.save',{kind:'customer',name:'Trace customer'});
   let po=await h.command('po.draft',{supplierId:supplier.id,destinationWarehouse:'Trace North',promiseDate:'2026-11-01',reason:'Trace receipt',lines:[{itemId:lot.id,quantity:'10',price:'2'},{itemId:serial.id,quantity:'2',price:'3'}]});
   await h.command('po.approve',{poId:po.id,version:po.version});po=await h.command('po.commit',{poId:po.id,version:po.version});
+  let routing=await h.command('routing.save',{source:'manual',mode:'fixed',shortage:'hold',eligible:['Trace North']});routing=await h.command('routing.preview',{ruleId:routing.id,version:routing.version});await h.command('routing.activate',{ruleId:routing.id,version:routing.version});
   return {lot,serial,source,destination,transit,supplier,customer,po};
 }
 export const gs1Lot=(lot,expiry)=>`(01)12345678901231(10)${lot}(17)${expiry}`;

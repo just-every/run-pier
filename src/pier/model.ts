@@ -162,6 +162,7 @@ export type Context = {
   backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "recurringOrders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies"; id: string; version: number };
   channelSecrets?: { channelId: string; secret: string }[];
   automationActors?: Record<string, string>;
+  installationScope?: string;
   purchaseSendAuthority?: { poId: string; policyVersion: number; actorId: string; role: string };
   delegates?: { actorId: string; role: string; orderId: string; policyVersion: number }[];
   approver?: {

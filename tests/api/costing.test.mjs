@@ -1,3 +1,5 @@
+import { salesWorkbook } from './sales-workbook.mjs';
+import { zipSync, strToU8 } from 'fflate';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -121,7 +123,7 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   const pdf=Buffer.from(mail[0].attachments[0].content,'base64');assert.match(pdf.toString(),/^%PDF-1.4/);assert.match(pdf.toString(),/12 case.*6 each/s);assert.match(pdf.toString(),/46.660000000000/);
   const pdfResponse=await h.request(`/api/pier/sales-documents/${doc.id}.pdf`);assert.equal(pdfResponse.status,200);assert.equal(pdfResponse.headers.get('content-type'),'application/pdf');assert.deepEqual(Buffer.from(await pdfResponse.arrayBuffer()),pdf);
   assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:''})).status,401);
-  const old=quote;quote=await h.command('quote.revise',{...params,orderId:quote.id,version:quote.version,lines:[{itemId:b.item.id,quantity:'10',price:'9'}]});
+  const old=quote;quote=await h.command('quote.revise',{...params,orderId:quote.id,version:quote.version,lines:[{itemId:b.item.id,quantity:'10',price:'9'}],reason:'Buyer revised draft quantity and price'});
   assert.equal(quote.quoteApproval,null);await h.command('quote.accept',{orderId:quote.id,version:old.version},{error:'STALE'});
   assert.deepEqual(Buffer.from(await (await h.request(`/api/pier/sales-documents/${doc.id}.pdf`)).arrayBuffer()),pdf);
   quote=await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Reviewed revised price and quantity'});
@@ -133,26 +135,41 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   let expiring=await h.command('quote.create',{...params,validUntil:new Date().toISOString().slice(0,10)});expiring=await h.command('quote.approve',{orderId:expiring.id,version:expiring.version,reason:'Exact expiring quote'});
   await h.command('quote.accept',{orderId:expiring.id,version:expiring.version},{headers:{'x-pier-test-now':new Date(Date.now()+86400000).toISOString()},error:'QUOTE_EXPIRED'});
   assert.equal((await h.request('/api/pier/export',{as:cookie})).status,403);assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:cookie})).status,403);
+  let revisedAcceptance=await h.command('quote.revise',{...params,orderId:accepted.id,version:accepted.version,lines:[{itemId:b.item.id,quantity:'9',price:'9'}],reason:'Buyer changed an accepted unpicked quantity'});assert.equal(revisedAcceptance.acceptedAt,null);assert.equal(revisedAcceptance.quoteApproval,null);assert.ok(revisedAcceptance.quoteHistory.at(-1).acceptedAt);
+  await h.command('quote.accept',{orderId:accepted.id,version:accepted.version},{error:'STALE'});revisedAcceptance=await h.command('quote.approve',{orderId:accepted.id,version:revisedAcceptance.version,reason:'Approved the buyer revision'});await h.command('quote.accept',{orderId:accepted.id,version:revisedAcceptance.version});assert.equal((await h.state()).orders.filter(o=>o.id===accepted.id).length,1);
+  const customer=(await h.state()).parties.find(p=>p.id===b.customer.id),certificateExpiry=new Date(Date.now()+3*86400000).toISOString().slice(0,10);
+  await h.command('customer.resaleCertificate',{customerId:customer.id,version:customer.version,state:'CA',number:'synthetic-pier-1',document:'Owner-retained synthetic certificate',reason:'Resale exemption',expires:certificateExpiry});
+  let exempt=await h.command('quote.create',params);assert.equal(exempt.tax.amount,'0.000000000000');assert.equal(exempt.tax.certificate.number,'synthetic-pier-1');exempt=await h.command('quote.approve',{orderId:exempt.id,version:exempt.version,reason:'Reviewed resale exemption and price'});
+  const expiredClock={headers:{'x-pier-test-now':new Date(Date.now()+4*86400000).toISOString()}};
+  await h.command('quote.accept',{orderId:exempt.id,version:exempt.version},{...expiredClock,error:'QUOTE_TAX'});
+  const flagged=await h.command('quote.create',params,expiredClock);assert.equal(flagged.tax.status,'review');assert.equal(flagged.total,null);
+  await h.command('quote.approve',{orderId:flagged.id,version:flagged.version,reason:'Cannot waive expired certificate'},{...expiredClock,error:'QUOTE_TAX'});
   await h.invariant();
 });
 
-test('customer CSV intake resolves 40 lines, names unknown rows and prices three customer POs once', async t=>{
+test('customer CSV and XLSX intake resolves 40 lines, names unknown rows and prices three customer POs once', async t=>{
   const h=await installation();t.after(()=>h.close());const b=await basics(h);
   const customers=[b.customer,await h.command('party.save',{kind:'customer',name:'synthetic-pier-2'}),await h.command('party.save',{kind:'customer',name:'synthetic-pier-3'})];
   const item=await h.command('item.save',{...b.item,references:customers.map((c,i)=>({partyId:c.id,code:`synthetic-pier-${i+1}`}))});
   for(const [i,c] of customers.entries())await h.command('priceList.save',{customerId:c.id,itemId:item.id,minimumQuantity:'0',price:String(i+2)});
+  let fileRoute=await h.command('routing.save',{source:'file',mode:'fixed',shortage:'hold',eligible:['South']});fileRoute=await h.command('routing.preview',{ruleId:fileRoute.id,version:fileRoute.version});await h.command('routing.activate',{ruleId:fileRoute.id,version:fileRoute.version});
   const header='customer,poReference,item,quantity,unit,price,shipTo,state,postalCode,country,requestedDate,warehouse';
   const lines=Array.from({length:40},(_,i)=>{const n=i%3;return [customers[n].id,`synthetic-pier-${n+1}`,`synthetic-pier-${n+1}`,'1','each',i%2?'':'7','40 Pier Road','CA','94107','US','2026-11-01','North'].join(',')});
   const bad=[...lines];bad[19]=bad[19].replace('synthetic-pier-2,1,each','unknown-pier-code,1,each');
   let batch=await h.command('salesImport.stage',{name:'synthetic-pier-1.csv',csv:[header,...bad].join('\n')});
-  assert.equal(batch.preview.length,40);assert.equal(batch.preview[19].row,21);assert.match(batch.preview[19].errors[0].message,/unknown-pier-code/);assert.equal(batch.preview[19].source.warehouse,'North');
+  assert.equal(batch.preview.length,40);assert.equal(batch.preview[19].row,21);assert.match(batch.preview[19].errors[0].message,/unknown-pier-code/);assert.equal(batch.preview[19].source.warehouse,'North');assert.equal(batch.preview[19].warehouse,'South');
   await h.command('salesImport.apply',{importId:batch.id,version:batch.version},{error:'IMPORT_ERRORS'});assert.equal((await h.state()).orders.length,0);
-  const csv=[header,...lines].join('\n');batch=await h.command('salesImport.stage',{name:'synthetic-pier-2.csv',csv});assert.equal(batch.preview.flatMap(r=>r.errors).length,0);
+  const csv=[header,...lines].join('\n');
+  const xlsx=salesWorkbook([header.split(','),...lines.map(line=>line.split(','))]);
+  const xlsxBase64=Buffer.from(xlsx).toString('base64');
+  const hostile=zipSync({'[Content_Types].xml':strToU8('<!DOCTYPE Types [<!ENTITY injected "unsafe">]><Types>&injected;</Types>')});
+  await h.command('salesImport.stage',{name:'synthetic-pier-hostile.xlsx',xlsxBase64:Buffer.from(hostile).toString('base64')},{error:'SPREADSHEET'});assert.equal((await h.state()).orders.length,0);
+  batch=await h.command('salesImport.stage',{name:'synthetic-pier-2.xlsx',xlsxBase64});assert.equal(batch.preview.flatMap(r=>r.errors).length,0);
   for(const row of batch.preview)assert.equal(row.line.price,row.source.price||String(customers.findIndex(c=>c.id===row.customerId)+2));
-  batch=await h.command('salesImport.apply',{importId:batch.id,version:batch.version});assert.equal(batch.orderIds.length,3);assert.equal((await h.state()).orders.length,3);
-  await h.command('salesImport.apply',{importId:batch.id,version:1});const again=await h.command('salesImport.stage',{name:'renamed.csv',csv});assert.equal(again.id,batch.id);assert.equal((await h.state()).orders.length,3);
+  batch=await h.command('salesImport.apply',{importId:batch.id,version:batch.version});assert.equal(batch.orderIds.length,3);assert.equal((await h.state()).orders.length,3);assert.ok((await h.state()).orders.every(o=>o.warehouse==='South'));
+  await h.command('salesImport.apply',{importId:batch.id,version:1});const again=await h.command('salesImport.stage',{name:'renamed.xlsx',xlsxBase64});assert.equal(again.id,batch.id);assert.equal((await h.state()).orders.length,3);
   const duplicate=await h.command('salesImport.stage',{name:'changed.csv',csv:csv.replace('40 Pier Road','41 Pier Road')});assert.ok(duplicate.preview.every(r=>r.errors.some(e=>e.code==='DUPLICATE')));
-  const exported=await (await h.request('/api/pier/export')).json();assert.equal(exported.salesImports.find(r=>r.id===batch.id).csv,csv);assert.equal(exported.orders.reduce((n,o)=>n+o.lines.length,0),40);
+  const exported=await (await h.request('/api/pier/export')).json();assert.equal(exported.salesImports.find(r=>r.id===batch.id).csv,csv);assert.equal(exported.salesImports.find(r=>r.id===batch.id).original.base64,xlsxBase64);assert.equal(exported.orders.reduce((n,o)=>n+o.lines.length,0),40);
 });
 
 
@@ -163,10 +180,11 @@ test('recurring orders apply price, stock and credit policy once per due day and
   const policy={name:'Weekly case order',customerId:b.customer.id,warehouse:'North',cadenceDays:1,nextDue:today,pricePolicy:'hold-on-change',stockPolicy:'full-stock',ceiling:'10',lines:[{itemId:b.item.id,quantity:'2'}],enabled:true,reason:'Explicit recurring order approval'};
   let schedule=await h.command('recurring.save',policy);schedule=await h.command('recurring.run',{scheduleId:schedule.id,version:schedule.version});assert.match(schedule.lastOutcome.reason,/credit clearance/);assert.equal((await h.state()).orders.length,0);
   const clearance=async(status)=>{const c=(await h.state()).parties.find(p=>p.id===b.customer.id);return h.command('customer.creditClearance',{customerId:c.id,version:c.version,status,allowance:'20',validThrough:future,reason:'Reviewed customer credit allowance'});};await clearance('clear');
-  const worker=await h.mf.getWorker();await Promise.all([1,2].map(()=>worker.scheduled({scheduledTime:new Date(),cron:'* * * * *'})));let s=await h.state();schedule=s.recurringOrders[0];assert.equal(schedule.occurrences.length,1);assert.equal(s.orders.length,1);assert.equal(s.orders[0].lines[0].reserved,'2');assert.equal(s.parties.find(p=>p.id===b.customer.id).creditClearance.used,'4.000000000000');
+  let worker=await h.mf.getWorker();await Promise.all([1,2].map(()=>worker.scheduled({scheduledTime:new Date(),cron:'* * * * *'})));let s=await h.state();schedule=s.recurringOrders[0];assert.equal(schedule.occurrences.length,1);assert.equal(s.orders.length,1);assert.equal(s.orders[0].lines[0].reserved,'2');assert.equal(s.parties.find(p=>p.id===b.customer.id).creditClearance.used,'4.000000000000');
   tier=await h.command('priceList.save',{...tier,price:'3'});await worker.scheduled({scheduledTime:new Date(`${tomorrow}T12:00:00Z`),cron:'* * * * *'});s=await h.state();schedule=s.recurringOrders[0];assert.match(schedule.lastOutcome.reason,/price changed/);assert.equal(s.orders.length,1);
   schedule=await h.command('recurring.save',{...policy,id:schedule.id,version:schedule.version,nextDue:tomorrow});await clearance('hold');await worker.scheduled({scheduledTime:new Date(`${tomorrow}T12:00:00Z`),cron:'* * * * *'});s=await h.state();schedule=s.recurringOrders[0];assert.match(schedule.lastOutcome.reason,/credit clearance/);assert.equal(s.orders.length,1);
   await clearance('clear');await worker.scheduled({scheduledTime:new Date(`${tomorrow}T12:01:00Z`),cron:'* * * * *'});s=await h.state();schedule=s.recurringOrders[0];assert.equal(s.orders.length,2);assert.equal(s.orders.find(o=>o.id===schedule.occurrences[1].orderId).lines[0].price,'3');
+  await h.restartWithFreshSigningKey();worker=await h.mf.getWorker();await worker.scheduled({scheduledTime:new Date(Date.now()+2*86400000),cron:'* * * * *'});s=await h.state();schedule=s.recurringOrders[0];assert.match(schedule.lastOutcome.reason,/Re-authorize/);assert.equal(s.orders.length,2);
   schedule=await h.command('recurring.pause',{scheduleId:schedule.id,version:schedule.version,reason:'Customer paused'});await worker.scheduled({scheduledTime:new Date(Date.now()+3*86400000),cron:'* * * * *'});assert.equal((await h.state()).orders.length,2);
   schedule=await h.command('recurring.cancel',{scheduleId:schedule.id,version:schedule.version,reason:'Customer cancelled'});await h.command('recurring.save',{...policy,id:schedule.id,version:schedule.version},{error:'RECURRING_CANCELLED'});assert.equal((await h.state()).orders.length,2);
 });
@@ -178,8 +196,8 @@ test('direct dropship demand retains supplier PO, confirmation, tracking, cost a
   await h.command('po.approve',{poId:po.id,version:po.version});po=await h.command('po.commit',{poId:po.id,version:po.version});assert.deepEqual(await stable(),before);
   await h.command('receipt.create',{poId:po.id,supplierReference:'Never warehouse stock',lines:[{poLineId:po.lines[0].id,locationId:b.source.id,quantity:'3',cost:'4'}]},{error:'DROPSHIP'});await h.command('receiving.start',{poId:po.id,locationId:b.source.id},{error:'DROPSHIP'});
   drop=await h.command('dropship.confirm',{dropshipId:drop.id,version:drop.version,supplierReference:'synthetic-pier-1',shipDate:'2026-11-01'});
-  const payload={dropshipId:drop.id,version:drop.version,supplierReference:'synthetic-pier-2',carrier:'Supplier carrier',tracking:'synthetic-pier-3',shipDate:'2026-11-01',lines:[{orderLineId:drop.lines[0].orderLineId,quantity:'3'}]},commandId=randomUUID();drop=await h.command('dropship.ship',payload,{commandId});assert.deepEqual(await h.command('dropship.ship',payload,{commandId}),drop);assert.equal(drop.shipments[0].lines[0].costTotal,'12.000000000000');
+  const payload={dropshipId:drop.id,version:drop.version,supplierReference:'synthetic-pier-2',carrier:'Supplier carrier',tracking:'synthetic-pier-3',shipDate:new Date().toISOString().slice(0,10),lines:[{orderLineId:drop.lines[0].orderLineId,quantity:'3'}]},commandId=randomUUID();await h.command('dropship.ship',{...payload,shipDate:new Date(Date.now()+86400000).toISOString().slice(0,10)},{error:'DATE'});await h.command('dropship.ship',{...payload,supplierReference:b.item.sku},{error:'DUPLICATE'});drop=await h.command('dropship.ship',payload,{commandId});assert.deepEqual(await h.command('dropship.ship',payload,{commandId}),drop);assert.equal(drop.shipments[0].lines[0].costTotal,'12.000000000000');
   const credit={dropshipId:drop.id,version:drop.version,shipmentId:drop.shipments[0].id,orderLineId:drop.lines[0].orderLineId,quantity:'2',reference:'synthetic-pier-4',reason:'Customer credit for supplier damage'};drop=await h.command('dropship.credit',credit);assert.equal(drop.credits[0].amount,'20.000000000000');assert.equal(drop.credits[0].posting,'not-posted');
   await h.command('dropship.credit',{...credit,version:drop.version,quantity:'2',reference:'synthetic-pier-5'},{error:'CREDIT_LIMIT'});assert.deepEqual(await stable(),before);
-  s=await h.state();assert.equal(s.orders.find(o=>o.id===drop.orderId).lines[0].dispatched,'3');assert.equal(s.receipts.length,0);assert.equal(s.customerCredits.length,1);assert.equal((await (await h.request('/api/pier/export')).json()).dropships[0].shipments[0].tracking,'synthetic-pier-3');
+  s=await h.state();assert.equal(s.orders.find(o=>o.id===drop.orderId).lines[0].dispatched,'3');assert.equal(s.receipts.length,0);assert.equal(s.customerCredits.length,1);const nativeExit=await h.request('/api/pier/native-export');assert.equal(nativeExit.status,409);assert.equal((await nativeExit.json()).error.code,'NATIVE_DROPSHIP');assert.equal((await (await h.request('/api/pier/export')).json()).dropships[0].shipments[0].tracking,'synthetic-pier-3');
 });

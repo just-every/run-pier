@@ -167,7 +167,7 @@ export async function execute(
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB),
       s = structuredClone(before),
-      c: Context = { s, actor, commandId, now: now(), backgroundPolicy, automationActors: await activeAutomationActors(env.DB) };
+      c: Context = { s, actor, commandId, now: now(), backgroundPolicy, installationScope:sha256('pier-recurring-authority\0'+env.SESSION_SECRET), automationActors: await activeAutomationActors(env.DB) };
     await approver(env, c, type, payload);
     let result: any = supplierBills(c, type, payload);
     if (result === undefined) result = await shipping(c, type, payload, env);
@@ -421,7 +421,7 @@ export async function pierResponse(
         purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
         forecasts: forecast(c),
         replenishmentProblem: planningScope(c).valid ? null : 'Planning warehouses changed. Save the current planning scope before drafting.',
-        deliveries: await correspondenceDeliveries(env.DB),
+        deliveries: (await correspondenceDeliveries(env.DB)).filter(d=>actor.role==='owner'||!s.salesDocuments.some(doc=>doc.id===d.correspondenceId)),
         counts: s.counts.map((count) => countView(c, count)),
         ...floorState(c),
         ...kitState(s),
@@ -540,7 +540,7 @@ export async function pierResponse(
       if (!['owner','buyer','operator'].includes(actor.role)) throw new Problem('FORBIDDEN','Your current role cannot send approved correspondence.',null,403);
       return json({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
     }
-    if(type==='order.create'&&(payload.fulfilment||payload.channelId||payload.ediPartnerId||payload.routingSource&&payload.routingSource!=='manual'))fail('ROUTING_SOURCE','Public manual orders use the manual source; connector and file sources are assigned by their own intake doors.');
+    if(type==='order.create'&&(Object.hasOwn(payload,'nativeCutover')||payload.fulfilment||payload.channelId||payload.ediPartnerId||payload.routingSource&&payload.routingSource!=='manual'))fail('ROUTING_SOURCE','Public manual orders use the manual source; connector and file sources are assigned by their own intake doors.');
     const outcome = await execute(env, actor, commandId, type, payload);
     if(outcome && ['quote.send','order.confirm'].includes(type)) await deliverSalesDocument(env,actor,outcome.result.id);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {

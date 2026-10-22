@@ -304,6 +304,7 @@ export function applyImport(c: Context, b: Row) {
       }));
       if (group.kind === "orders")
         result = orders(c, "order.create", {
+          nativeCutover:true,
           customerId: group.partyId,
           promiseDate: group.promiseDate,
           lines,

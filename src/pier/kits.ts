@@ -153,10 +153,17 @@ export function kitState(s: State) {
 
 /** Every existing write door must preserve whole component sets and one route. */
 export function validateKitReservations(s: State) {
-  for (const order of s.orders) for (const line of order.lines.filter((l: any) => l.kit)) {
-    const own = s.reservations.filter(r => r.orderLineId === line.id);
-    const physical = own.filter(r=>r.itemId===line.itemId).reduce((n,r)=>n+BigInt(r.quantity),0n);
-    const kits = reservedKits(s,line), virtual = kits - physical;
-    if (own.some(r=>!kitBins(s,order.warehouse).some(bin=>bin.id===r.locationId) || (r.itemId!==line.itemId && !line.kit.components.some((part:any)=>part.itemId===r.itemId))) || line.kit.components.some((part:any)=>own.filter(r=>r.itemId===part.itemId).reduce((n,r)=>n+BigInt(r.quantity),0n)!==componentQuantity(virtual,part.quantity)) || kits > decimal(line.quantity)-decimal(line.dispatched)-decimal(line.cancelled)) fail('KIT_RESERVATION', 'The command would split a kit’s component set or warehouse. Cancel its remaining demand and reserve complete kits again.');
+  for(const order of s.orders)for(const line of order.lines.filter((l:any)=>l.kit)){
+    const own=s.reservations.filter(r=>r.orderLineId===line.id),warehouses=[...new Set(own.map(r=>get(s,'locations',r.locationId).warehouse))];
+    const eligible=order.routing?.reserveWarehouses??[order.warehouse];let total=0n;
+    for(const warehouse of warehouses){
+      if(!eligible.includes(warehouse))fail('KIT_RESERVATION','A kit reservation entered an ineligible warehouse.');
+      const rows=own.filter(r=>get(s,'locations',r.locationId).warehouse===warehouse),physical=rows.filter(r=>r.itemId===line.itemId).reduce((n,r)=>n+BigInt(r.quantity),0n);
+      const quantities=line.kit.components.map((part:any)=>rows.filter(r=>r.itemId===part.itemId).reduce((n:bigint,r:any)=>n+BigInt(r.quantity),0n));
+      const virtual=quantities.map((q:bigint,i:number)=>q*SCALE/decimal(line.kit.components[i].quantity)).reduce((a:bigint,b:bigint)=>min(a,b));
+      if(physical%SCALE||virtual%SCALE||rows.some(r=>!kitBins(s,warehouse).some(bin=>bin.id===r.locationId)||(r.itemId!==line.itemId&&!line.kit.components.some((part:any)=>part.itemId===r.itemId)))||line.kit.components.some((part:any,i:number)=>quantities[i]!==componentQuantity(virtual,part.quantity)))fail('KIT_RESERVATION','Each warehouse must retain a whole kit component set.');
+      total+=physical+virtual;
+    }
+    if(total>decimal(line.quantity)-decimal(line.dispatched)-decimal(line.cancelled))fail('KIT_RESERVATION','Kit reservations exceed the remaining whole-kit demand.');
   }
 }
