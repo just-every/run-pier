@@ -53,7 +53,7 @@ Command names are the `type` strings Pier's command door accepts (`POST /api/pie
 |---|---|---|---|
 | 15 | "Scan the bin, scan the carton" (put away: A-14 212 → 452, A-15 overflow 0 → 240; 480 put away) on a rugged handheld | backed | A bin label moves put-away; a receipt names each line's bin; a handheld's built-in scanner types into the scan box: `src/pier/floor/receiving.ts`, `src/ui/floor/scanner.tsx`, `src/ui/purchasing.tsx` |
 | 16 | "A count that disagrees gets a recount" (Cycle count CC-0412 · expected 452 · counted 432; Recount · 452 · adjustment none) | backed | Counts capture the bin's movement frontier, show the difference and ask for a recount: `count.capture/count.record/count.recount`, `src/pier/warehouse.ts` |
-| 17 | "… before anything moves" ("Nothing moves from A-14 until a second count") | partly | No adjustment posts until a count is recorded and reviewed (`src/pier/warehouse.ts`); holding the bin against picks during the recount is COUNT-001/WMS-001 work. |
+| 17 | "… before anything moves" ("Nothing moves from A-14 until a second count") | partly | No adjustment posts until a count is recorded and reviewed (`src/pier/warehouse.ts`); holding the bin against picks during the recount is COUNT-001 work. |
 
 ## 05 Nov 4 · Orders, "Every channel, one count."
 
@@ -69,8 +69,8 @@ Command names are the `type` strings Pier's command door accepts (`POST /api/pie
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 23 | "Pick by wave" (6:40 am · Wave 14 picked · 38 orders) | backed | Pick waves with a scan per line, "Picked N orders · time": `wave.release`, `pick.scan`, `src/pier/floor/waves.ts`, `src/ui/floor/pick.tsx` |
-| 24 | "pack" (9:15 am · Packed · 61 cartons) | backed | Cartons packed, weighed and measured: `pack.scan/carton/measure/close`, `src/pier/floor/packing.ts` |
+| 23 | "Pick by wave" (6:40 am · Wave 14 picked · 38 orders) | backed | Pick waves with a scan per line, "Picked N orders · time": `wave.release`, `pick.scan`, `src/pier/floor/waves.ts`, `src/ui/floor/pick.tsx`; `tests/api/warehouse-waves.test.mjs` and `tests/browser/warehouse-waves.spec.ts` prove ten-order tote isolation, overflow and zone merge at desktop/phone widths. |
+| 24 | "pack" (9:15 am · Packed · 61 cartons) | backed | Cartons packed, weighed and measured: `pack.scan/carton/measure/close`, `src/pier/floor/packing.ts`; exact current-pack slips: `src/pier/floor/pack-documents.ts`, `tests/api/packing-documents.test.mjs` and the desktop/phone print journeys in `tests/browser/warehouse-waves.spec.ts`. |
 | 25 | "send the ship notice" (11:20 am · EDI 856 sent) | partly | As row 21. |
 | 26 | "rate-shop" (Rate shop · SO-2291 · UPS $38.12, FedEx $36.40 chosen, USPS $44.90) | partly | EasyPost rates from measured cartons with cheapest and fastest markers: `src/pier/shipping/`, `tests/api/shipping.test.mjs`. Synthetic recordings until an owner EasyPost account; ShipStation is SHIP-001 work. |
 | 27 | 1:05 pm · Address corrected · 1420 E Main St | partly | SHIP-001 names address verification (the critic's gap predates that clause text). Code shows the standardized address beside the original for accept or keep: `src/pier/shipping/commands.ts`, on synthetic provider recordings. |
