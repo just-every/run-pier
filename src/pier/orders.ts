@@ -1,3 +1,5 @@
+import { route, sourceKey, routingFrontier } from './routing';
+import { quoteLines, quoteTerms, currentQuote } from './sales-quotes';
 import { reserveTracked } from './trace';
 import { policyFor, sortTraceReservations } from './trace-core';
 import { kitDefinition, reserveKit, reservedKits, dispatchKit } from './kits';
@@ -23,7 +25,32 @@ import { orderPrice, priceUnpricedLines } from "./pricing";
 import { codeOwners } from "./catalogue-fields";
 import { money } from "./money";
 import { recordChannelPayment } from "./channel-payment";
+export function routeOrder(c:Context,o:Row,p:any,override?:Row) {
+  const decision:any=route(c.s,sourceKey(p),p.shipTo,p.channelLocation,p.warehouse,override);
+  o.shipTo=p.shipTo??null;o.channelLocation=p.channelLocation??null;o.routing=decision;
+  o.warehouse=decision.eligible[0]??null;
+  const split=decision.shortage==='split'&&get(c.s,'parties',o.customerId).allowSplit===true;
+  if(decision.shortage==='next'||decision.shortage==='split'&&!split){
+    const full=decision.eligible.find((w:string)=>{
+      const trial:Context={...c,s:structuredClone(c.s)};
+      trial.s.reservations=trial.s.reservations.filter(r=>r.orderId!==o.id);
+      trial.s.traceReservations=trial.s.traceReservations.filter(t=>trial.s.reservations.some(r=>r.id===t.reservationId));
+      const copy:Row={...structuredClone(o),warehouse:w,routing:undefined};
+      try{reserve(trial,copy);}catch(error){if((error as any).code==='KIT_SHORTAGE')return false;throw error;}
+      return copy.lines.every((l:any)=>(l.kit?reservedKits(trial.s,l):trial.s.reservations.filter(r=>r.orderLineId===l.id).reduce((n,r)=>n+BigInt(r.quantity),0n))>=decimal(l.quantity)-decimal(l.dispatched)-decimal(l.cancelled));
+    });
+    o.warehouse=full??o.warehouse;
+  }
+  decision.reserveWarehouses=split?decision.eligible:o.warehouse?[o.warehouse]:[];
+  decision.selectedWarehouse=o.warehouse;decision.split=split;
+}
 export function reserve(c: Context, o: Row) {
+  if(o.fulfilment==='dropship'){o.version++;return o;}
+  if(o.routing){
+    if(o.routing.status==='waiting'){o.version++;return o;}
+    for(const warehouse of o.routing.reserveWarehouses){reserve(c,{...o,warehouse,routing:undefined});}
+    o.version++;return o;
+  }
   for (const l of o.lines) {
     if (l.kit) { reserveKit(c, o, l); continue; }
     let need =
@@ -75,9 +102,14 @@ export function orderView(c: Context, o: Row) {
 export function orders(c: Context, type: string, p: any): Row | undefined {
   if (
     ![
+      "routing.preview",
+      "order.reroute",
+      "order.route",
+      "order.shipTo",
       "order.create",
       "quote.create",
       "quote.accept",
+      "quote.revise",
       "order.channelPayment",
       "order.reserve",
       "order.price",
@@ -89,15 +121,59 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     ].includes(type)
   )
     return;
-  requireRole(c, (type.startsWith("order.") || type.startsWith("quote.")) ? ["operator"] : ["warehouse"]);
+  requireRole(c, (type.startsWith("order.") || type.startsWith("quote.") || type.startsWith("routing.")) ? ["operator"] : ["warehouse"]);
+  if(type==='routing.preview'){
+    requireRole(c,[]);const rule=get(c.s,'routingRules',p.ruleId);fresh(rule,p.version);
+    if(rule.activeAt)fail('ROUTING_STATE','Prepare a new rule revision to dry-run.');
+    const cutoff=new Date(Date.parse(c.now)-30*86400000).toISOString();
+    const orders=c.s.orders.filter(o=>o.createdAt>=cutoff&&(o.routing?.source??(o.channelId?`channel:${o.channelId}`:o.ediPartnerId?`edi:${o.ediPartnerId}`:'manual'))===rule.source).map(o=>{
+      const trial:Context={...c,s:structuredClone(c.s)};trial.s.reservations=trial.s.reservations.filter(r=>r.orderId!==o.id);
+      const copy=structuredClone(o);routeOrder(trial,copy,{routingSource:rule.source,shipTo:o.shipTo,channelLocation:o.channelLocation},rule);
+      return {orderId:o.id,reference:o.reference,before:o.warehouse,after:copy.warehouse,eligible:copy.routing.eligible,changed:o.warehouse!==copy.warehouse};
+    });
+    rule.dryRun={from:cutoff,to:c.now,orders,frontier:routingFrontier(c.s),actorId:c.actor.id};rule.version++;return rule;
+  }
+  if(type==='order.reroute'||type==='order.shipTo'||type==='order.route'){
+    const o=get(c.s,'orders',p.orderId);fresh(o,p.version);
+    if(o.lines.some((l:any)=>decimal(l.dispatched)>0n)||c.s.waves.some(w=>w.lines.some((l:any)=>l.orderId===o.id&&decimal(l.picked)>0n)))fail('ORDER_PICKED','Only an unpicked, unshipped order can be rerouted.');
+    const before={warehouse:o.warehouse,routing:structuredClone(o.routing??null),shipTo:o.shipTo??null};
+    c.s.reservations=c.s.reservations.filter(r=>r.orderId!==o.id);c.s.traceReservations=c.s.traceReservations.filter(t=>c.s.reservations.some(r=>r.id===t.reservationId));
+    // Retain invalidated tasks as history; they cannot accept a stale scan.
+    for(const wave of c.s.waves.filter(w=>w.lines.some((l:any)=>l.orderId===o.id))){
+      for(const line of wave.lines.filter((l:any)=>l.orderId===o.id&&l.status==='open')){line.status='rerouted';line.reroutedAt=c.now;}
+      if(wave.lines.every((l:any)=>l.status!=='open'))wave.status='picked';wave.version++;
+    }
+    if(type==='order.shipTo'||type==='order.route')routeOrder(c,o,{routingSource:o.routing?.source??'manual',shipTo:type==='order.shipTo'?p.shipTo:o.shipTo,channelLocation:o.channelLocation});
+    else{
+      const eligible=o.routing?.eligible??[o.warehouse];if(!eligible.includes(p.warehouse))fail('ROUTING_INELIGIBLE','Choose a warehouse on this order’s retained eligibility list.');
+      o.warehouse=p.warehouse;o.routing={...o.routing,eligible,status:'routed',selectedWarehouse:p.warehouse,reserveWarehouses:[p.warehouse],manualOverride:true};
+    }
+    o.routingHistory=[...(o.routingHistory??[]),{before,after:{warehouse:o.warehouse,shipTo:o.shipTo,routing:structuredClone(o.routing)},reason:text(p.reason),actorId:c.actor.id,at:c.now}];
+    reserve(c,o);for(const incoming of c.s.channelOrders.filter(row=>row.orderId===o.id))incoming.problem=o.routing.status==='waiting'?o.routing.reason:null;return orderView(c,o);
+  }
+  if (type === 'quote.revise') {
+    const q=get(c.s,'orders',p.orderId);fresh(q,p.version);
+    if(q.documentType!=='quote'||q.acceptedAt) fail('QUOTE_STATE','Only an open quote can be revised.');
+    q.quoteHistory=[...(q.quoteHistory??[]),{version:q.version,lines:structuredClone(q.lines),total:q.total,tax:q.tax,approval:q.quoteApproval,at:c.now}];
+    q.lines=quoteLines(c,{...p,customerId:q.customerId});Object.assign(q,quoteTerms(c,{...p,customerId:q.customerId},q.lines));
+    c.s.reservations=c.s.reservations.filter(r=>r.orderId!==q.id);reserve(c,q);return orderView(c,q);
+  }
   if (type === 'quote.create') {
-    const view = orders(c, 'order.create', p)!;
-    const quote = get(c.s, 'orders', view.id);
-    quote.documentType = 'quote'; quote.acceptedAt = null;
-    return orderView(c, quote);
+    if(p.currency && p.currency!=='USD') fail('CURRENCY','Quotes currently use USD.');
+    if(p.warehouse && !c.s.locations.some(l=>l.kind==='bin'&&l.warehouse===p.warehouse)) fail('WAREHOUSE','Choose an existing warehouse.');
+    const lines=quoteLines(c,p);
+    const quote=row(c,'orders',{reference:nextReference(c.s.orders,'SO'),customerId:p.customerId,warehouse:p.warehouse||null,promiseDate:p.promiseDate||null,channel:'manual',currency:'USD',documentType:'quote',lines,...quoteTerms(c,p,lines)});
+    routeOrder(c,quote,{...p,routingSource:p.routingSource??'manual'});reserve(c,quote);
+    return orderView(c,quote);
   }
   if (type === 'quote.accept') {
-    const quote = get(c.s, 'orders', p.orderId); fresh(quote, p.version);
+    const quote = get(c.s, 'orders', p.orderId);
+    if(quote.acceptedAt) return orderView(c,quote);
+    fresh(quote, p.version);currentQuote(c,quote);
+    // Acceptance binds the exact human-reviewed commercial version.
+    if(!quote.quoteApproval || quote.quoteApproval.version!==quote.version) fail('QUOTE_APPROVAL','Obtain owner approval of the exact quote version.');
+    if(quote.quoteApproval && c.automationActors?.[quote.quoteApproval.actorId]!=='owner') fail('APPROVER_REVOKED','Quote approval authority was revoked.');
+    if(quote.quoteApproval) c.approver={id:quote.quoteApproval.actorId,role:'owner'};
     if (quote.documentType !== 'quote' || quote.acceptedAt) fail('QUOTE_STATE', 'Choose an open quote.');
     quote.acceptedAt = c.now; quote.acceptedBy = c.actor.id; quote.version++;
     return orderView(c, quote);
@@ -121,6 +197,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
       return {
         id: id(),
         itemId: i.id,
+        ...(l.commercialQuantity ? {commercialQuantity:l.commercialQuantity,commercialUnit:l.commercialUnit,packSize:l.packSize,unit:l.unit} : {}),
         quantity: format(quantity),
         dispatched: "0",
         cancelled: "0",
@@ -150,6 +227,8 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
       lines,
     });
     recordChannelPayment(c, o, p.channelPayment);
+    if(p.fulfilment==='dropship'){o.fulfilment='dropship';o.routing={source:'dropship',mode:'supplier-direct',status:'direct',eligible:[],reserveWarehouses:[]};}
+    else routeOrder(c,o,p);
     reserve(c, o);
     return orderView(c, o);
   }
@@ -170,6 +249,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   }
   if (type === "order.cancel") {
     const o = get(c.s, "orders", p.orderId);
+    if(o.fulfilment==='dropship')fail('DROPSHIP','Cancel through the linked dropship with supplier confirmation.');
     o.cancelReason = text(p.reason);
     for (const l of o.lines)
       l.cancelled = format(decimal(l.quantity) - decimal(l.dispatched));
@@ -179,11 +259,17 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   }
   if (type === "dispatch.create") {
     const o = get(c.s, "orders", p.orderId);
+    if(o.fulfilment==='dropship')fail('DROPSHIP','Record a direct supplier shipment on the linked dropship.');
     if (o.documentType === 'quote' && !o.acceptedAt) fail('QUOTE_STATE', 'Accept this quote before dispatching it.');
+    const reservationWarehouses=[...new Set(c.s.reservations.filter(r=>r.orderId===o.id).map(r=>get(c.s,'locations',r.locationId).warehouse))];
+    if(o.routing && reservationWarehouses.length>1 && !p.warehouse) fail('SHIPMENT_WAREHOUSE','Choose one reserved warehouse per shipment.');
+    const shipmentWarehouse=p.warehouse??(reservationWarehouses.length===1?reservationWarehouses[0]:null);
+    if(p.warehouse && !reservationWarehouses.includes(p.warehouse))fail('SHIPMENT_WAREHOUSE','This warehouse has no reservation for the order.');
     const shipmentCode = text(p.shipmentReference);
     const owners = codeOwners(c.s, shipmentCode);
     const shipment = row(c, "shipments", {
       orderId: o.id,
+      warehouse:shipmentWarehouse,
       reference: text(p.shipmentReference),
       lines: [],
     });
@@ -194,11 +280,11 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
       if (!l) fail("LINE", "Dispatch line must belong to this order.");
       let q = decimal(x.quantity, true);
       if (l.kit) {
-        shipment.lines.push(dispatchKit(c, o, l, shipment, q));
+        shipment.lines.push(dispatchKit(c, o, l, shipment, q,shipmentWarehouse??undefined));
         l.dispatched = format(decimal(l.dispatched) + q);
         continue;
       }
-      const own = sortTraceReservations(c.s,c.s.reservations.filter((r) => r.orderLineId === l.id));
+      const own = sortTraceReservations(c.s,c.s.reservations.filter((r) => r.orderLineId === l.id && (!shipmentWarehouse || get(c.s,'locations',r.locationId).warehouse===shipmentWarehouse)));
       if (own.reduce((n, r) => n + BigInt(r.quantity), 0n) < q)
         fail(
           "RESERVATION",

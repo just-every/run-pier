@@ -191,7 +191,11 @@ export async function basics(h) {
       name: "Workshop",
       kind: "customer",
     });
-  return { item, source, destination, transit, supplier, customer };
+  await h.command('customer.splitPolicy',{customerId:customer.id,version:customer.version,allowSplit:true,reason:'Fixture permits split warehouse fulfilment'});
+  let rule=await h.command('routing.save',{source:'manual',mode:'rules',shortage:'split',zones:[],defaultEligible:['North','South']});
+  rule=await h.command('routing.preview',{ruleId:rule.id,version:rule.version});
+  await h.command('routing.activate',{ruleId:rule.id,version:rule.version});
+  return { item, source, destination, transit, supplier, customer:(await h.state()).parties.find(p=>p.id===customer.id) };
 }
 export async function buy(h, b, quantity = "10") {
   const po = await h.command("po.draft", {

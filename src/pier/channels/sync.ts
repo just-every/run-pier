@@ -49,7 +49,7 @@ export async function syncChannels(env: Bindings) {
         if (Date.now() - now > 20000) break;
         const state = await load(env.DB), current = state.channels.find(c => c.id === ch.id);
         if (!current?.enabled || current.version !== ch.version) break;
-        const quantity = channelAvailability(state, ch, listing.itemId);
+        const quantity = channelAvailability(state, ch, listing.itemId,listing);
         if (listing.publishedQuantity === quantity && !listing.problem) continue;
         const start = Date.now();
         try {

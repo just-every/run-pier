@@ -59,6 +59,13 @@ export type Row = {
   [key: string]: any;
 };
 export const collections = [
+  "customerCredits",
+  "recurringOrders",
+  "dropships",
+  "salesPolicies",
+  "salesDocuments",
+  "salesImports",
+  "routingRules",
   "items",
   "locations",
   "parties",
@@ -152,7 +159,7 @@ export type Context = {
   actor: Actor;
   commandId: string;
   now: string;
-  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies"; id: string; version: number };
+  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "recurringOrders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies"; id: string; version: number };
   channelSecrets?: { channelId: string; secret: string }[];
   automationActors?: Record<string, string>;
   purchaseSendAuthority?: { poId: string; policyVersion: number; actorId: string; role: string };

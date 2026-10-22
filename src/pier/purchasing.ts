@@ -102,6 +102,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       });
     const po = get(c.s, "purchaseOrders", p.poId);
     fresh(po, p.version);
+    if(po.dropshipId)fail('DROPSHIP','Cancel and recreate the linked dropship to revise its exact demand and cost.');
     if (po.status === "committed")
       fail(
         "COMMITTED",
@@ -132,6 +133,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
   if (type === "receipt.create") {
     if (p.currency !== undefined && p.currency !== 'USD') fail('CURRENCY', 'Receipts require reviewed USD costs. Foreign-currency conversion is not available yet.');
     const po = get(c.s, "purchaseOrders", p.poId);
+    if(po.dropshipId)fail('DROPSHIP','Direct-to-customer goods are confirmed on the dropship and cannot be received into Pier.');
     if (po.status !== "committed")
       fail("PO_STATE", "Receipts require a committed purchase order.");
     if (!Array.isArray(p.lines) || !p.lines.length)

@@ -46,8 +46,8 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
   let wave, so1, so2, ups;
   await t.test("a wave refuses wrong scans and sends a short pick to overflow", async () => {
     ups = await h.command("carrier.save", { name: "UPS Ground", warehouse: "Dallas", dock: "Dock A", cutoff: "23:59", timeZone: zone });
-    so1 = await h.command("order.create", { customerId: north.id, promiseDate: today, lines: [{ itemId: mug.id, quantity: "5" }] });
-    so2 = await h.command("order.create", { customerId: south.id, promiseDate: today, lines: [{ itemId: mug.id, quantity: "3" }, { itemId: towel.id, quantity: "2" }] });
+    so1 = await h.command("order.create", { customerId: north.id, warehouse:"Dallas", promiseDate: today, lines: [{ itemId: mug.id, quantity: "5" }] });
+    so2 = await h.command("order.create", { customerId: south.id, warehouse:"Dallas", promiseDate: today, lines: [{ itemId: mug.id, quantity: "3" }, { itemId: towel.id, quantity: "2" }] });
     for (const o of [so1, so2]) await h.command("order.carrier", { orderId: o.id, carrierId: ups.id });
     wave = await h.command("wave.release", { carrierId: ups.id, orderIds: [so1.id, so2.id] });
     assert.equal(wave.dock, "Dock A");
@@ -162,12 +162,14 @@ test('KIT-001: concurrent channel kits, whole shortages, versioned picks, assemb
   assert.equal((await h.state()).reservations.filter(r=>r.orderId===short.id).length,0);
   // Cancel only the drain: existing manual/channel reservations survive.
   await h.command('order.cancel',{orderId:drain.id,reason:'End shortage probe'});
-  const quote=await h.command('quote.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.assortment.id,quantity:'1',price:'10'}]});
+  await h.command('sales.taxTable',{state:'IL',rate:'0',reason:'Owner reviewed synthetic kit quote tax'});
+  let quote=await h.command('quote.create',{customerId:b.customer.id,warehouse:'North',shipTo:{state:'IL',country:'US'},lines:[{itemId:b.assortment.id,quantity:'1',price:'10'}]});
   assert.equal(quote.lines[0].kit.revision,3);
   assert.equal(quote.lines[0].reserved,'1');
   await h.command('dispatch.create',{orderId:quote.id,shipmentReference:'synthetic-pier-quote-1',lines:[{orderLineId:quote.lines[0].id,quantity:'1'}]},{error:'QUOTE_STATE'});
   const quoteDocument=await h.request(`/api/pier/orders/${quote.id}/packing-slip`);
   assert.equal(quoteDocument.status,200); assert.match(await quoteDocument.text(),/Quote.*Kit definition 3/s);
+  quote=await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Reviewed exact kit quote price and margin'});
   await h.command('quote.accept',{orderId:quote.id,version:quote.version});
   await h.command('order.cancel',{orderId:quote.id,reason:'Quote lifecycle proof'});
   const packingSlip=await h.request(`/api/pier/orders/${manual.id}/packing-slip`);

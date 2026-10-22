@@ -23,7 +23,7 @@ export function stockPosition(s: State) {
     else if (p.status === 'transit') q.transit += decimal(p.quantity);
   }
   for (const po of s.purchaseOrders) {
-    if (po.status !== 'committed') continue;
+    if (po.status !== 'committed'||po.dropshipId) continue;
     for (const line of po.lines) {
       const remaining = decimal(line.quantity) - decimal(line.received);
       if (remaining <= 0n) continue;

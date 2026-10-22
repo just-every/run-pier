@@ -103,6 +103,7 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
       quantities.set(line.id, physical + virtual);
     }
     const shipment = orders(c, "dispatch.create", {
+      warehouse:w.warehouse,
       orderId: pack.orderId,
       shipmentReference: text(p.shipmentReference, "Shipment reference"),
       lines: [...quantities].map(([orderLineId, q]) => ({ orderLineId, quantity: format(q) })),

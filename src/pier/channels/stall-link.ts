@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server';
 import { sha256 } from '../import-kit';
-import { positions, type Actor } from '../model';
+import { publishedWarehouses } from '../routing';
+import { decimal, format, positions, type Actor } from '../model';
 import { orderView } from '../orders';
 import { activeAutomationActors, load } from '../storage';
 import { execute } from '../api';
@@ -32,9 +33,13 @@ export async function stallLink(request: Request, env: Bindings): Promise<Respon
   if (request.method === 'GET' && url.pathname === '/api/pier/state') {
     const c = { s, actor, commandId: '', now: new Date().toISOString() };
     const own = s.orders.filter(o => o.customerId === customerId);
+    const eligible=publishedWarehouses(s,channel),visible=positions(s).filter(p=>eligible.includes(s.locations.find(l=>l.id===p.locationId)?.warehouse));
+    const buffers=new Map<string,bigint>();
+    for(const position of visible){const left=buffers.get(position.itemId)??decimal(channel.buffer??'0'),free=decimal(position.available),take=left<free?left:free;position.available=format(free-take);buffers.set(position.itemId,left-take);}
+
     return Response.json({
-      items: s.items, locations: s.locations, positions: positions(s),
-      parties: s.parties.filter(p => p.id === customerId),
+      items: s.items, locations: s.locations.filter(l=>eligible.includes(l.warehouse)), positions: visible,
+      parties: s.parties.filter(p => p.id === customerId).map(({creditClearance,resaleCertificates,...p})=>p),
       orders: own.map(o => orderView(c, o)), shipments: s.shipments.filter(sh => own.some(o => o.id === sh.orderId)),
     }, { headers: { 'cache-control': 'no-store' } });
   }
@@ -47,7 +52,8 @@ export async function stallLink(request: Request, env: Bindings): Promise<Respon
     return refuse('A Stall key reserves and dispatches shop orders only.', 403);
   if (type === 'order.create' && payload.customerId !== customerId) return refuse('Stall orders belong to the shop customer chosen in Pier.', 403);
   if (['dispatch.create','order.channelPayment'].includes(type) && s.orders.find(o => o.id === payload.orderId)?.customerId !== customerId) return refuse('Stall dispatches only its own shop orders.', 403);
-  const outcome = await execute(env, actor, commandId, type, payload, undefined, { collection: 'channels', id: channel.id, version: channel.version });
+  const admitted=type==='order.create'?{...payload,fulfilment:undefined,channelId:channel.id,warehouse:channel.warehouse,routingSource:`channel:${channel.id}`} : payload;
+  const outcome = await execute(env, actor, commandId, type, admitted, undefined, { collection: 'channels', id: channel.id, version: channel.version });
   if (!outcome) return Response.json({ ok: false, error: { code: 'BUSY', message: 'Retry the same command identity.' } }, { status: 409 });
   // Stall records the reservation after this reply; Pier's channel sync links the paid order then.
   return Response.json(outcome);

@@ -8,13 +8,13 @@ const latest = (a: string | null, b: string | null) => a && b ? (a > b ? a : b) 
  * A forecast is never an on-hand reservation or a supplier confirmation. */
 export function backorderDates(c: Context) {
   const today = c.now.slice(0, 10);
-  const supply = c.s.purchaseOrders.filter(po => po.status === 'committed').flatMap(po => po.lines.map((line: any) => ({
+  const supply = c.s.purchaseOrders.filter(po => po.status === 'committed'&&!po.dropshipId).flatMap(po => po.lines.map((line: any) => ({
     poId: po.id, itemId: line.itemId, warehouse: po.destinationWarehouse || null,
     remaining: decimal(line.quantity) - decimal(line.received),
     date: po.confirmation?.promiseDate || afterDays(c.now, line.terms?.leadDays ?? 0),
     confirmed: !!po.confirmation,
   }))).filter(l => l.remaining > 0n).sort((a, b) => a.date.localeCompare(b.date) || a.poId.localeCompare(b.poId));
-  const orders = [...c.s.orders].sort((a, b) => String(a.promiseDate || '9999').localeCompare(String(b.promiseDate || '9999')) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  const orders = c.s.orders.filter(o=>o.fulfilment!=='dropship').sort((a, b) => String(a.promiseDate || '9999').localeCompare(String(b.promiseDate || '9999')) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
   return orders.map(order => {
     const warehouse = order.warehouse || null;
     const lines = order.lines.map((line: any) => {

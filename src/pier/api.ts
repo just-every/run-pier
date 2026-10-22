@@ -1,3 +1,10 @@
+import { recurringOrders } from './recurring-orders';
+import { dropships } from './dropships';
+import { routing } from './routing';
+import { salesDocuments } from './sales-documents';
+import { deliverSalesDocument } from './sales-mail';
+import { salesImports } from './sales-imports';
+import { salesQuotes } from './sales-quotes';
 import { trace, traceState, reconcileTrace, traceReport } from './trace';
 import { kitDocument } from './kit-documents';
 import { packDocument } from './floor/pack-documents';
@@ -176,6 +183,12 @@ export async function execute(
       slotting,
       catalogue,
       catalogueBulk,
+      recurringOrders,
+      dropships,
+      routing,
+      salesDocuments,
+      salesImports,
+      salesQuotes,
       pricing,
       costing,
       orders,
@@ -299,6 +312,12 @@ export async function pierResponse(
         if (!response.ok) fail('LABEL', 'The carrier label could not be downloaded. Check EasyPost.');
         return new Response(response.body, { headers: { 'content-type': labelMatch[2] === 'pdf' ? 'application/pdf' : 'application/octet-stream', 'content-disposition': `inline; filename="pier-label-${job!.carton}.${labelMatch[2]}"`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
       }
+      const salesPdf=/^\/api\/pier\/sales-documents\/([^/]+)\.pdf$/.exec(url.pathname);
+      if(salesPdf){
+        if(actor.role!=='owner')throw new Problem('FORBIDDEN','Only an owner can read retained commercial PDFs.',null,403);
+        const doc=s.salesDocuments.find(d=>d.id===salesPdf[1]) ?? fail('NOT_FOUND','Document not found.');
+        return new Response(Uint8Array.from(atob(doc.pdf),ch=>ch.charCodeAt(0)),{headers:{'content-type':'application/pdf','cache-control':'no-store','content-disposition':`inline; filename="${doc.filename}"`,'x-content-type-options':'nosniff'}});
+      }
       const packSlip = /^\/api\/pier\/packs\/([^/]+)\/packing-slip$/.exec(url.pathname);
       if (packSlip) return packDocument(s, packSlip[1]);
       const packingSlip = /^\/api\/pier\/orders\/([^/]+)\/packing-slip$/.exec(url.pathname);
@@ -327,6 +346,7 @@ export async function pierResponse(
           ),
         );
       if (url.pathname === "/api/pier/export") {
+        if(actor.role!=='owner')throw new Problem('FORBIDDEN','Only an owner can export the complete business record and commercial source artifacts.',null,403);
         const audit = await env.DB.batch([
           env.DB.prepare(
             "SELECT id,actor_id AS actorId,digest,result,created_at AS createdAt FROM pier_commands ORDER BY created_at,id",
@@ -391,11 +411,12 @@ export async function pierResponse(
       const bookConnections = await bookConnectionViews(env, s);
       return json({
         ...s,
+        ...(actor.role==='owner'?{}:{salesDocuments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,...party})=>party)}),
         actor,
         people,
         bookConnections,
         receiptClosures: receiptBookViews(s, bookConnections.some(row => row.enabled && row.credentialPresent && !row.problem)),
-        orders: s.orders.map((o) => ({ ...orderView(c, o), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
+        orders: s.orders.map((o) => ({ ...orderView(c, o),...(actor.role==='owner'?{}:{creditClearance:undefined}), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),
         purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
         forecasts: forecast(c),
@@ -519,7 +540,9 @@ export async function pierResponse(
       if (!['owner','buyer','operator'].includes(actor.role)) throw new Problem('FORBIDDEN','Your current role cannot send approved correspondence.',null,403);
       return json({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
     }
+    if(type==='order.create'&&(payload.fulfilment||payload.channelId||payload.ediPartnerId||payload.routingSource&&payload.routingSource!=='manual'))fail('ROUTING_SOURCE','Public manual orders use the manual source; connector and file sources are assigned by their own intake doors.');
     const outcome = await execute(env, actor, commandId, type, payload);
+    if(outcome && ['quote.send','order.confirm'].includes(type)) await deliverSalesDocument(env,actor,outcome.result.id);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
       const doc = (await load(env.DB)).ediDocuments.find(d => d.id === outcome.result.acknowledgmentDocumentId);
       if (doc) await deliverEdi(env, actor, `${commandId}-997`, {documentId:doc.id,version:doc.version}, execute);

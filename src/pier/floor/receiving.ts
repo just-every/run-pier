@@ -36,6 +36,7 @@ function bin(c: Context, locationId: string) {
 export function receiving(c: Context, type: string, p: any): Row | undefined {
   if (type === "receiving.start") {
     const po = get(c.s, "purchaseOrders", p.poId);
+    if(po.dropshipId)fail('DROPSHIP','Direct supplier shipments cannot be received into a Pier warehouse.');
     if (po.status !== "committed")
       fail("PO_STATE", "Scan-to-receive needs a committed purchase order.");
     const open = c.s.receivings.find((r) => r.poId === po.id && r.status === "open");

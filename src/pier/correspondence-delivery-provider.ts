@@ -6,7 +6,7 @@ import type { Bindings } from "../auth.server";
 import type { Correspondence } from "./correspondence-delivery-eligibility";
 import type { MailSender } from "../modules/operator-auth/index.mjs";
 
-type BusinessMessage = { deliveryId: string; from: string; to: string[]; subject: string; text: string };
+type BusinessMessage = { deliveryId: string; from: string; to: string[]; subject: string; text: string; attachments?: {filename:string;contentType:string;content:Uint8Array}[] };
 type BusinessMailSender = { send(message: BusinessMessage): ReturnType<MailSender["send"]> };
 
 export const emailUnavailable = "Email is not available yet.";

@@ -1,3 +1,4 @@
+import { runRecurringSchedule } from './recurring-schedule';
 import type { Bindings } from '../auth.server';
 import { syncBooks } from './books/sync';
 import { syncChannels } from './channels/sync';
@@ -30,5 +31,6 @@ export async function runReplenishmentSchedule(env: Bindings, scheduledTime = Da
     if (!operator) continue;
     await execute(env, { id: policy.approvedBy, role, name: operator.display_name, sessionId: 'scheduled-policy', operatorVersion: operator.version }, `schedule-${policy.id}-${policy.version}-${slot}`, 'automation.tick', {}, () => now, policy);
   }
+  await runRecurringSchedule(env,scheduledTime);
   return deliverCorrespondence(env, now);
 }

@@ -30,11 +30,11 @@ export function resolveOrder(c: Context, incoming: Row): Row {
   const accepted = incoming.lines.filter((l: any) => l.decision !== 'reject');
   if (!accepted.length) { incoming.status = 'rejected'; return incoming; }
   const created = orders(c, 'order.create', {
-    customerId: partner.customerId, warehouse: partner.warehouse, currency: 'USD', channel: 'edi', promiseDate: incoming.arrivalDate ?? null,
+    customerId: partner.customerId, warehouse: partner.warehouse, ediPartnerId:partner.id,shipTo:incoming.shipTo,currency: 'USD', channel: 'edi', promiseDate: incoming.arrivalDate ?? null,
     lines: accepted.map((l: any) => ({ itemId: l.itemId, quantity: l.baseQuantity, price: l.basePrice })),
   })!;
   const native = get(c.s, 'orders', created.id);
-  Object.assign(native, { ediOrderId: incoming.id, ediPartnerId: partner.id, channelReference: incoming.poNumber, shipTo: incoming.shipTo ?? null, routing: { mode: 'fixed', warehouse: partner.warehouse, partnerId: partner.id } });
+  Object.assign(native, { ediOrderId: incoming.id, ediPartnerId: partner.id, channelReference: incoming.poNumber, shipTo: incoming.shipTo ?? null });
   accepted.forEach((l: any, n: number) => { l.orderLineId = native.lines[n].id; });
   incoming.orderId = native.id; incoming.nativeOrderVersion = native.version; incoming.status = 'imported'; incoming.importedAt = c.now;
   return incoming;

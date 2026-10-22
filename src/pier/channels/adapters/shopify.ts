@@ -31,7 +31,7 @@ export function createShopifyAdapter(config: ChannelConfig): Adapter {
     async orders() {
       const rows = await connectionPages(async after => (await graphql(`query PierOrders($after: String) {
         orders(first: 50, after: $after, sortKey: ID, query: "status:open (fulfillment_status:unfulfilled OR fulfillment_status:partial) (financial_status:paid OR financial_status:authorized OR financial_status:partially_paid OR financial_status:partially_refunded)") {
-          nodes { id name closed cancelledAt displayFinancialStatus displayFulfillmentStatus currencyCode customer { displayName }
+          nodes { id name closed cancelledAt displayFinancialStatus displayFulfillmentStatus currencyCode customer { displayName } shippingAddress { address1 provinceCode zip countryCodeV2 } fulfillmentOrders(first: 100) { nodes { assignedLocation { location { id } } } pageInfo { hasNextPage endCursor } }
             lineItems(first: 100) { nodes { ${LINE_FIELDS} } ${PAGE_INFO} }
           } ${PAGE_INFO}
         }
@@ -63,7 +63,11 @@ export function createShopifyAdapter(config: ChannelConfig): Adapter {
         })
         unique(lines, line => line.externalId)
         if (!lines.length) continue
-        orders.push({ externalId, reference: string(order.name), currency, customer: order.customer === null ? '' : string(object(order.customer).displayName, 'Shopify customer', true), lines })
+        const address=order.shippingAddress?object(order.shippingAddress):null;
+        const fulfilment=order.fulfillmentOrders?object(order.fulfillmentOrders):null;
+        const assigned=fulfilment&&object(fulfilment.pageInfo).hasNextPage===false?[...new Set(array(fulfilment.nodes).map(node=>object(object(object(node).assignedLocation).location).id))]:[];
+        const channelLocation=assigned.length===1?string(assigned[0],'Shopify assigned location'):undefined;
+        orders.push({ externalId,...(address?{shipTo:{address1:address.address1 == null ? '' : string(address.address1,'Shopify shipping address',true),state:address.provinceCode == null ? '' : string(address.provinceCode,'Shopify shipping address',true),postalCode:address.zip == null ? '' : string(address.zip,'Shopify shipping address',true),country:address.countryCodeV2 == null ? '' : string(address.countryCodeV2,'Shopify shipping address',true)}}:{}),...(channelLocation?{channelLocation}:{}), reference: string(order.name), currency, customer: order.customer === null ? '' : string(object(order.customer).displayName, 'Shopify customer', true), lines })
       }
       unique(orders, order => order.externalId)
       return orders

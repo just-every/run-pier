@@ -152,3 +152,46 @@ test('an owner chooses Shopify locations read from the platform without saving c
   const savedExport = await (await h.request('/api/pier/export')).text();
   for (const secret of [app.clientId, app.clientSecret, expectedToken]) assert.ok(!savedExport.includes(secret));
 });
+
+
+test('owner routing versions choose zones, shortage policy, reroute and net channel publication without FBA stock', async t=>{
+  const remote=[],publications=[];
+  const page=nodes=>({nodes,pageInfo:{hasNextPage:false,endCursor:null}});
+  const h=await installation({outboundService:async request=>{
+    const body=await request.json(),q=body.query;
+    if(q.includes('query PierListings'))return Response.json({data:{productVariants:page([{id:'gid://shopify/ProductVariant/1',sku:'BOLT',title:'Default',product:{title:'Bolt'},inventoryItem:{id:'gid://shopify/InventoryItem/1'}}])}});
+    if(q.includes('query PierOrders'))return Response.json({data:{orders:page(remote)}});
+    if(q.includes('query PierInventory'))return Response.json({data:{inventoryItem:{inventoryLevel:{quantities:[{name:'available',quantity:0}]}}}});
+    if(q.includes('mutation PierStock')){const quantity=body.variables.input.quantities[0].quantity;publications.push(quantity);return Response.json({data:{inventorySetQuantities:{inventoryAdjustmentGroup:{changes:[{name:'available',quantityAfterChange:quantity}]},userErrors:[]}}});}
+    throw new Error('Unexpected synthetic-pier Shopify request');
+  }});t.after(()=>h.close());const b=await basics(h);
+  const east=await h.command('location.save',{name:'synthetic-pier-East',warehouse:'East',kind:'bin'}),west=await h.command('location.save',{name:'synthetic-pier-West',warehouse:'West',kind:'bin'}),fba=await h.command('location.save',{name:'synthetic-pier-FBA',warehouse:'FBA',kind:'bin'});
+  const po=await buy(h,b,'100');for(const [bin,quantity]of[[east,'20'],[west,'12'],[fba,'50']])await h.command('receipt.create',{poId:po.id,supplierReference:'synthetic-pier-1',lines:[{poLineId:po.lines[0].id,locationId:bin.id,quantity,cost:'1'}]});
+  const channel=await h.command('channel.save',{name:'Shopify routing',provider:'shopify',baseUrl:'https://shop.example.test',warehouse:'East',buffer:'1',credentials:{accessToken:'synthetic-pier-1',locationId:'gid://shopify/Location/1'}});
+  const zones=[{name:'West coast',zipPrefixes:Array.from({length:62},(_,i)=>String(i+900)),states:['WA','OR','NV','AZ'],countries:[],eligible:['West','East']}];
+  const activate=async(source,shortage='hold',changes={})=>{let rule=await h.command('routing.save',{source,mode:'rules',shortage,zones,defaultEligible:['East','West'],...changes});await h.command('routing.activate',{ruleId:rule.id,version:rule.version},{error:'ROUTING_REVIEW'});rule=await h.command('routing.preview',{ruleId:rule.id,version:rule.version});return h.command('routing.activate',{ruleId:rule.id,version:rule.version});};
+  await activate(`channel:${channel.id}`);
+  const add=(id,zip,state,quantity=1)=>remote.push({id:`gid://shopify/Order/${id}`,name:`synthetic-pier-${id}`,closed:false,cancelledAt:null,displayFinancialStatus:'PAID',displayFulfillmentStatus:'UNFULFILLED',currencyCode:'USD',customer:{displayName:'Routing customer'},shippingAddress:{address1:'40 Pier Road',provinceCode:state,zip,countryCodeV2:'US'},fulfillmentOrders:page([{assignedLocation:{location:{id:'gid://shopify/Location/1'}}}]),lineItems:page([{id:`gid://shopify/LineItem/${id}`,sku:'BOLT',requiresShipping:true,unfulfilledQuantity:quantity,originalUnitPriceSet:{shopMoney:{amount:'2',currencyCode:'USD'}}}])});
+  add(1,'94107','CA');add(2,'10001','NY');await h.command('channel.sync',{});
+  let s=await h.state(),shop=s.orders.filter(o=>o.channelId===channel.id);assert.deepEqual(['synthetic-pier-1','synthetic-pier-2'].map(reference=>shop.find(o=>o.channelReference===reference).warehouse),['West','East']);assert.equal(shop.find(o=>o.channelReference==='synthetic-pier-1').routing.zone,'West coast');assert.equal(shop[0].channelLocation,'gid://shopify/Location/1');
+  assert.equal(s.channelListings.find(l=>l.channelId===channel.id).available,'29');assert.equal(publications.at(-1),29);
+  await h.command('routing.save',{source:'manual',mode:'rules',shortage:'hold',zones:[...zones,{...zones[0],name:'Overlapping zone'}],defaultEligible:[]},{error:'ROUTING_OVERLAP'});
+  // Drain West to exactly two, while East retains at least ten.
+  await activate('manual');const drain=await h.command('order.create',{customerId:b.customer.id,shipTo:{postalCode:'94107',country:'US'},lines:[{itemId:b.item.id,quantity:'9'}]});
+  const order=async()=>h.command('order.create',{customerId:b.customer.id,shipTo:{postalCode:'94107',state:'CA',country:'US'},lines:[{itemId:b.item.id,quantity:'5',price:'2'}]});
+  let held=await order();assert.deepEqual([held.warehouse,held.lines[0].reserved,held.lines[0].backorder],['West','2','3']);await h.command('order.cancel',{orderId:held.id,reason:'End hold policy proof'});
+  await activate('manual','next');let next=await order();assert.deepEqual([next.warehouse,next.lines[0].reserved],['East','5']);await h.command('order.cancel',{orderId:next.id,reason:'End next policy proof'});
+  await activate('manual','split');let split=await order();s=await h.state();let own=s.reservations.filter(r=>r.orderId===split.id);assert.deepEqual(own.map(r=>[s.locations.find(l=>l.id===r.locationId).warehouse,r.quantity]).sort(),[['East','3000000'],['West','2000000']]);
+  await h.command('dispatch.create',{orderId:split.id,shipmentReference:'synthetic-pier-split-1',lines:[{orderLineId:split.lines[0].id,quantity:'5'}]},{error:'SHIPMENT_WAREHOUSE'});
+  const a=await h.command('dispatch.create',{orderId:split.id,warehouse:'West',shipmentReference:'synthetic-pier-split-1',lines:[{orderLineId:split.lines[0].id,quantity:'2'}]}),z=await h.command('dispatch.create',{orderId:split.id,warehouse:'East',shipmentReference:'synthetic-pier-split-2',lines:[{orderLineId:split.lines[0].id,quantity:'3'}]});assert.deepEqual([a.warehouse,z.warehouse],['West','East']);
+  const customer=(await h.state()).parties.find(p=>p.id===b.customer.id);await h.command('customer.splitPolicy',{customerId:customer.id,version:customer.version,allowSplit:false,reason:'Whole shipments only'});
+  next=await order();assert.equal(next.warehouse,'East');await h.command('order.cancel',{orderId:next.id,reason:'End no-split proof'});
+  await activate('manual','hold');const rerouted=await h.command('order.create',{customerId:b.customer.id,shipTo:{state:'OR',country:'US'},lines:[{itemId:b.item.id,quantity:'1'}]});
+  await h.command('order.reroute',{orderId:rerouted.id,version:rerouted.version,warehouse:'FBA',reason:'Forbidden destination'},{error:'ROUTING_INELIGIBLE'});
+  const changed=await h.command('order.reroute',{orderId:rerouted.id,version:rerouted.version,warehouse:'East',reason:'Reviewed delivery change'});assert.equal(changed.routingHistory[0].before.warehouse,'West');assert.equal(changed.warehouse,'East');
+  let draft=await h.command('routing.save',{source:'manual',mode:'fixed',shortage:'hold',eligible:['East']});draft=await h.command('routing.preview',{ruleId:draft.id,version:draft.version});assert.ok(draft.dryRun.orders.find(o=>o.orderId===drain.id).changed);assert.ok(draft.dryRun.orders.find(o=>o.orderId===rerouted.id));
+  await activate('manual','hold',{defaultEligible:[]});const waiting=await h.command('order.create',{customerId:b.customer.id,shipTo:{state:'NY',postalCode:'10001',country:'US'},lines:[{itemId:b.item.id,quantity:'1'}]});assert.equal(waiting.routing.status,'waiting');assert.equal(waiting.lines[0].reserved,'0');
+  await activate('manual','hold',{mode:'channel-location',locations:{'synthetic-pier-1':['East']}});const missing=await h.command('order.create',{customerId:b.customer.id,channelLocation:'unmapped',lines:[{itemId:b.item.id,quantity:'1'}]});assert.equal(missing.routing.status,'waiting');
+  const located=await h.command('order.create',{customerId:b.customer.id,channelLocation:'synthetic-pier-1',lines:[{itemId:b.item.id,quantity:'1'}]});assert.equal(located.warehouse,'East');
+  s=await h.invariant();assert.ok(s.reservations.every(r=>r.locationId!==fba.id));assert.equal(s.positions.find(p=>p.locationId===fba.id).quantity,'50');
+});

@@ -28,7 +28,7 @@ export function supplyPosition(c: Context, itemId: string, warehouse: string) {
   const reserved = c.s.reservations.filter(r => r.itemId === itemId && locationIds.has(r.locationId))
     .reduce((n, r) => n + BigInt(r.quantity), 0n);
   let backorders = 0n;
-  for (const order of c.s.orders) for (const line of order.lines) {
+  for (const order of c.s.orders.filter(o=>o.fulfilment!=='dropship')) for (const line of order.lines) {
     if (demandWarehouse(c, order, line) !== warehouse) continue;
     if (line.kit) {
       const component = line.kit.components.find((part: any) => part.itemId === itemId);
@@ -43,7 +43,7 @@ export function supplyPosition(c: Context, itemId: string, warehouse: string) {
   const receipts: { poId: string; quantity: string; promiseDate: string; confirmed: boolean }[] = [];
   const drafts: { poId: string; reference: string; quantity: string; supplierId: string }[] = [];
   let onOrder = 0n, draftQuantity = 0n;
-  for (const po of c.s.purchaseOrders) for (const line of po.lines) {
+  for (const po of c.s.purchaseOrders.filter(po=>!po.dropshipId)) for (const line of po.lines) {
     if (line.itemId !== itemId || purchaseWarehouse(c, po, line) !== warehouse) continue;
     const q = positive(decimal(line.quantity) - decimal(line.received));
     if (po.status === 'committed') {

@@ -62,9 +62,9 @@ export function reserveKit(c: Context, order: Row, line: any) {
   allocate(c, order, line, line.itemId, physical);
   for (const component of line.kit.components) allocate(c, order, line, component.itemId, componentQuantity(fill - physical, component.quantity));
 }
-export function dispatchKit(c: Context, order: Row, line: any, shipment: Row, quantity: bigint) {
+export function dispatchKit(c: Context, order: Row, line: any, shipment: Row, quantity: bigint,warehouse?:string) {
   if (reservedKits(c.s, line) < quantity) fail('RESERVATION', 'Dispatch requires this order’s complete kit reservation.');
-  const own = sortTraceReservations(c.s,c.s.reservations.filter(r => r.orderLineId === line.id)), links: any[] = [], components: any[] = [];
+  const own = sortTraceReservations(c.s,c.s.reservations.filter(r => r.orderLineId === line.id&&(!warehouse||get(c.s,'locations',r.locationId).warehouse===warehouse))), links: any[] = [], components: any[] = [];
   const physical = min(quantity, own.filter(r => r.itemId === line.itemId).reduce((n,r) => n + BigInt(r.quantity), 0n));
   const required = [{ itemId: line.itemId, quantity: physical }, ...line.kit.components.map((component: any) => ({ itemId: component.itemId, quantity: componentQuantity(quantity - physical, component.quantity) }))];
   for (const part of required.filter(part => part.quantity > 0n)) {

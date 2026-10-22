@@ -1,3 +1,4 @@
+import { Commercial } from './commercial'
 import { itemLabel, label, records, unit, type PierState, type RecordData, type RunCommand } from '../api'
 import { ItemName } from '../display'
 import { fromMillionths } from '../quantity'
@@ -14,6 +15,7 @@ export function Fulfil({ state, order, run, busy, prefill }: { state: PierState;
   const locations = records(state, 'locations').filter(location => location.kind === 'bin'), open = orderStatus(order) !== 'Closed'
   return <div className="fulfil"><p><a href={`/api/pier/orders/${order.id}/packing-slip`} target="_blank" rel="noreferrer">Open printable quote / packing slip</a></p>{order.documentType === 'quote' && !order.acceptedAt && <section className="panel"><h3>Reserved quote</h3><p>This quote retains its kit definition and reservations. Accept it before dispatch.</p><button disabled={busy} onClick={()=>run('quote.accept',{orderId:order.id,version:order.version})}>Accept quote</button></section>}
     {open && <div className="actions"><button disabled={busy} onClick={() => run('order.reserve', { orderId: order.id })}>Reserve newly available stock</button></div>}
+    <Commercial state={state} order={order} run={run} busy={busy} />
     <OrderPricing state={state} order={order} run={run} busy={busy} />
     <SourceBooks state={state} sourceId={order.id} sourceKind="order" />
     <div id={`promise-${order.id}`}><BackorderPromises state={state} order={order} run={run} busy={busy} /></div>

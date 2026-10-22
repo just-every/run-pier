@@ -16,6 +16,8 @@ export interface ChannelOrder {
   externalId: string
   payment?: { provider: 'stripe'; reference: string; amount: string; currency: string; paidAt: string; orderReference: string }
   reservationId?: string
+  shipTo?: {address1?:string;state?:string;postalCode?:string;country?:string}
+  channelLocation?: string
   reference: string
   customer: string
   currency: string

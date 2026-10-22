@@ -33,10 +33,10 @@ function importOrders(c: Context, channel: Row) {
     if (incoming.problem) continue;
     let customer = c.s.parties.find(p => p.channelId === channel.id && p.channelCustomer === source.customer);
     if (!customer) customer = row(c, 'parties', { name: source.customer || channel.name, kind: 'customer', channelId: channel.id, channelCustomer: source.customer });
-    const order = orders(c, 'order.create', { customerId: customer.id, warehouse: channel.warehouse, currency: 'USD', channel: channel.provider, lines: lines.map(l => ({ itemId: l.listing!.itemId, quantity: l.quantity, ...(l.price !== undefined ? { price: l.price } : {}) })) })!;
+    const order = orders(c, 'order.create', { customerId: customer.id, warehouse: channel.warehouse, channelId:channel.id,shipTo:source.shipTo,channelLocation:source.channelLocation, currency: 'USD', channel: channel.provider, lines: lines.map(l => ({ itemId: l.listing!.itemId, quantity: l.quantity, ...(l.price !== undefined ? { price: l.price } : {}) })) })!;
     const saved = get(c.s, 'orders', order.id);
     Object.assign(saved, { channelId: channel.id, channelOrderId: source.externalId, channelReference: source.reference });
-    incoming.orderId = order.id; incoming.reservedAt = c.now; incoming.version++;
+    incoming.orderId = order.id;incoming.problem=saved.routing?.status==='waiting'?saved.routing.reason:null; incoming.reservedAt = c.now; incoming.version++;
   }
 }
 export async function channels(c: Context, type: string, p: any, env: Bindings): Promise<Row | undefined> {
