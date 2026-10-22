@@ -153,7 +153,7 @@ test('TRACE-001: receive dated lots and serials, transfer, split ship, trace, qu
   const b=await traceStock(h),shots=process.env.PIER_SCREENSHOTS
   if(shots)await mkdir(shots,{recursive:true})
   const state=async()=> (await context.request.get(`${origin}/api/pier/state`)).json()
-  const action=async(type:string,click:()=>Promise<unknown>,error?:string)=>{const reply=page.waitForResponse(response=>response.url().endsWith('/api/pier/commands')&&response.request().postDataJSON()?.type===type);await click();const body=await(await reply).json();if(error)expect(body.error?.code,JSON.stringify(body)).toBe(error);else expect(body.ok,JSON.stringify(body)).toBe(true);return body.result}
+  const action=async(type:string,click:()=>Promise<unknown>,error?:string)=>{const reply=page.waitForResponse(response=>response.url().endsWith('/api/pier/commands')&&response.request().postDataJSON()?.type===type);await click();const body=await(await reply).json();if(error)expect(body.error?.code,JSON.stringify(body)).toBe(error);else expect(body.ok,JSON.stringify(body)).toBe(true);await expect(page.getByRole('button',{name:'Saving…',exact:true})).toHaveCount(0);return body.result}
   for(const width of [1440,390]){
     const farLot=`synthetic-pier-${width+400}`,nearLot=`synthetic-pier-${width+401}`,serial=`synthetic-pier-${width+402}`
     await page.setViewportSize({width,height:1000})
