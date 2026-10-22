@@ -100,7 +100,7 @@ for (const width of [1440, 390]) test(`warehouse zone merge, ten order totes and
   await openPack(zonedOrder)
   let newCarton = commandResult(page, 'pack.carton'); await page.getByRole('button', { name: 'Start carton 2', exact: true }).click(); await settledResult(page, newCarton)
   await scan(page, 'Scan item into carton 2', zone.item.barcode, 'pack.scan'); await measure(2)
-  await expect(page.getByRole('cell', { name: 'Ready to merge', exact: true })).toHaveCount(2)
+  await expect(page.getByRole('cell').filter({ hasText: /^Ready to merge$/ })).toHaveCount(2)
   await shot('zone-merge-complete'); await closeAndDispatch(`${seed}-merged`)
 
   const batch = await prepare('batch', ['B-03', 'B-09'], [20, 2]), orders = []
