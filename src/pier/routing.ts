@@ -50,14 +50,15 @@ export function routing(c:Context,type:string,p:any):Row|undefined {
     get(c.s,kind==='channel'?'channels':kind==='edi'?'ediPartners':'recurringOrders',id);
   }
   if(!['fixed','channel-location','rules'].includes(p.mode)||!['hold','next','split'].includes(p.shortage))fail('ROUTING_MODE','Choose fixed, channel-location or rules and hold, next or split shortage handling.');
+  if(p.mode==='fixed'&&(!Array.isArray(p.eligible)||p.eligible.length!==1))fail('ROUTING_WAREHOUSE','Fixed routing names exactly one warehouse.');
   const locations:Record<string,string[]>={};
   if(p.mode==='channel-location'){
     if(!p.locations||Object.keys(p.locations).length>100||!Object.keys(p.locations).length)fail('ROUTING_LOCATION','Map at least one channel location.');
-    for(const [key,value]of Object.entries(p.locations))locations[text(key,'Channel location')]=eligible(c.s,value);
+    for(const [key,value]of Object.entries(p.locations)){const list=eligible(c.s,value);if(list.length!==1)fail('ROUTING_LOCATION','Map each channel location to exactly one warehouse.');locations[text(key,'Channel location')]=list;}
   }
   const seen=new Set<string>();
   const zones=p.mode==='rules'?(p.zones??[]).map((z:any)=>{
-    const value={name:text(z.name,'Zone name'),zipPrefixes:z.zipPrefixes??[],states:z.states??[],countries:z.countries??[],eligible:eligible(c.s,z.eligible)};
+    const value={name:text(z.name,'Zone name'),zipPrefixes:(z.zipPrefixes??[]).flatMap((value:unknown)=>{if(typeof value!=='string')fail('ROUTING_ZONE','Use ZIP prefix text.');const range=/^(\d{3}|\d{5})-(\d{3}|\d{5})$/.exec(value as string);if(!range)return [value];const low=Number(range[1]),high=Number(range[2]);if(range[1].length!==range[2].length||high<low||high-low>1000)fail('ROUTING_ZONE','Use an ascending ZIP prefix range of at most 1,001 prefixes.');return Array.from({length:high-low+1},(_,i)=>String(low+i).padStart(range[1].length,'0'));}),states:z.states??[],countries:z.countries??[],eligible:eligible(c.s,z.eligible)};
     if(![value.zipPrefixes,value.states,value.countries].every(Array.isArray)||!value.zipPrefixes.length&&!value.states.length&&!value.countries.length)fail('ROUTING_ZONE','Give each zone a ZIP prefix, state or country.');
     for(const [kind,values]of [['zip',value.zipPrefixes],['state',value.states],['country',value.countries]] as const)for(const code of values){
       if(typeof code!=='string'||!(kind==='zip'?/^(\d{3}|\d{5})$/:/^[A-Z]{2}$/).test(code))fail('ROUTING_ZONE','Use three/five-digit ZIP prefixes and uppercase two-letter states/countries.');

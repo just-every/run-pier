@@ -9,7 +9,7 @@ const frontier=(c:Context)=>sha256(canonicalJson([routingFrontier(c.s),c.s.items
 const headers=['customer','poReference','item','quantity','unit','price','shipTo','state','postalCode','country','requestedDate','warehouse'];
 export function salesImports(c: Context,type: string,p: any): Row | undefined {
   if(!['salesImport.stage','salesImport.apply'].includes(type)) return;
-  requireRole(c,['operator']);
+  requireRole(c,[]);
   if(type==='salesImport.stage') {
     if(typeof p.csv!=='string'||new TextEncoder().encode(p.csv).length>1024*1024) fail('IMPORT_SIZE','Use a CSV file up to 1 MiB.');
     const digest=sha256(p.csv),prior=c.s.salesImports.find(r=>r.digest===digest&&r.status==='applied');

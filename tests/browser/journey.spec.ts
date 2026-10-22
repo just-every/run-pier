@@ -1,3 +1,4 @@
+import { ownerEntry } from './session'
 import { test, expect, type Page, type Locator } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -120,6 +121,7 @@ test(`owner completes real UI journeys at ${width}px`, async ({ page, context })
   await page.getByRole('link', { name: 'Sales orders', exact: true }).click()
   form = section(page, 'New sales order')
   await form.getByLabel('Customer', { exact: true }).selectOption({ label: customer })
+  await form.getByLabel('Order warehouse', { exact: true }).selectOption(tag)
   await form.getByLabel('Promise date', { exact: true }).fill('2026-11-02')
   await form.getByLabel('Item 1', { exact: true }).selectOption({ label: itemOption })
   await form.getByLabel('Quantity (base units)', { exact: true }).fill('2.25')
@@ -264,3 +266,79 @@ test(`owner completes real UI journeys at ${width}px`, async ({ page, context })
 })
 
 }
+
+
+async function salesHarness(page:any,context:any){
+  const base=await ownerEntry(page)
+  const state=async()=>{const response=await context.request.get(`${base}/api/pier/state`);expect(response.ok()).toBe(true);return response.json()}
+  const command=async(type:string,payload:any)=>{const response=await context.request.post(`${base}/api/pier/commands`,{headers:{origin:base},data:{commandId:crypto.randomUUID(),type,payload}});const body=await response.json();expect(body.ok,JSON.stringify(body)).toBe(true);return body.result}
+  const panel=(title:string)=>page.locator('section.panel').filter({has:page.getByRole('heading',{name:title,exact:true})}).last()
+  const shot=async(width:number,name:string)=>{if(shots)await page.screenshot({path:join(shots,`${width}-${name}.png`),fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true)}
+  const fixture=async(width:number)=>{
+    const suffix=crypto.randomUUID().slice(0,6),name=`synthetic-pier-${width}-${suffix}`
+    const item=await command('item.save',{sku:name,name:`Case ${name}`,unit:'each',packSize:'12',barcode:`item-${name}`}),bin=await command('location.save',{name:`Bin ${name}`,warehouse:name,kind:'bin'}),customer=await command('party.save',{name:`Buyer ${name}`,kind:'customer'}),supplier=await command('party.save',{name:`Supplier ${name}`,kind:'supplier'})
+    let po=await command('po.draft',{supplierId:supplier.id,promiseDate:'2026-11-01',reason:'Browser stock',lines:[{itemId:item.id,quantity:'100',price:'1'}]});await command('po.approve',{poId:po.id,version:po.version});po=await command('po.commit',{poId:po.id,version:po.version});await command('receipt.create',{poId:po.id,supplierReference:name,lines:[{poLineId:po.lines[0].id,locationId:bin.id,quantity:'100',cost:'1'}]})
+    return {item,bin,customer,supplier,name}
+  }
+  const sales=async()=>{await page.goto(`${base}/app#sales`);await page.reload();await expect(page.getByRole('heading',{name:'Sales orders',exact:true})).toBeVisible()}
+  const saved=async(form:any,button:string)=>{await form.getByRole('button',{name:button,exact:true}).click();await expect(page.locator('main')).toHaveAttribute('aria-busy','false');await expect(page.getByRole('status').filter({hasText:'Saved.'})).toBeVisible()}
+  return {base,state,command,panel,shot,fixture,sales,saved}
+}
+
+test('commercial quotes are reviewed, revised, accepted and retain unavailable-email PDFs at 1440 and 390',async({page,context})=>{
+  const h=await salesHarness(page,context)
+  for(const width of[1440,390]){
+    await page.setViewportSize({width,height:1000});const b=await h.fixture(width)
+    await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'0',price:'10'});await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'12',price:'8'})
+    await h.sales();let form=h.panel('Owner tax estimate table');await form.getByLabel('Tax state (two letters)',{exact:true}).fill('CA');await form.getByLabel('Estimated tax percent',{exact:true}).fill('8');await form.getByLabel('Tax table review reason',{exact:true}).fill('Owner state estimate');await h.saved(form,'Save jurisdiction estimate')
+    form=h.panel('New sales order');await form.getByLabel('Document type',{exact:true}).selectOption('quote');await form.getByLabel('Customer',{exact:true}).selectOption(b.customer.id);await form.getByLabel('Order warehouse',{exact:true}).selectOption(b.name);await form.getByLabel('Quote destination state',{exact:true}).fill('CA');await form.getByLabel('Quote destination ZIP',{exact:true}).fill('94107');await form.getByLabel('Quote discount percent',{exact:true}).fill('10');await form.getByLabel('Quote quantity unit',{exact:true}).selectOption('case');await form.getByLabel('Item 1',{exact:true}).selectOption(b.item.id);await form.getByLabel('Quantity (base units)',{exact:true}).fill('2');await h.shot(width,'quote-entry');await h.saved(form,'Create and reserve available stock')
+    let quote=(await h.state()).orders.find((o:any)=>o.customerId===b.customer.id);expect(quote.lines[0].quantity).toBe('24');expect(quote.lines[0].price).toBe('7.2')
+    await page.goto(`${h.base}/app#sales/${quote.id}`);await page.reload();form=h.panel('Review quote prices and margin');await form.getByLabel('Price, discount and margin review reason',{exact:true}).fill('Owner checked case quantity, exact discount and cost');await h.saved(form,'Approve exact quote')
+    form=h.panel('Email approved quote');await form.getByLabel('Approved document recipient',{exact:true}).fill('buyer@example.test');await h.saved(form,'Approve recipient and submit PDF');await expect(h.panel('Retained sales documents').getByText('unavailable',{exact:true})).toBeVisible();await h.shot(width,'quote-retained-pdf')
+    const before=(await h.state()).salesDocuments.find((d:any)=>d.recordId===quote.id),pdf=await context.request.get(`${h.base}/api/pier/sales-documents/${before.id}.pdf`);expect(pdf.ok()).toBe(true);const original=await pdf.body();expect(original.toString()).toContain('24 each')
+    form=h.panel('Revise quote');await form.getByLabel('Revised base quantity 1',{exact:true}).fill('12');await h.saved(form,'Save new quote version');quote=(await h.state()).orders.find((o:any)=>o.id===quote.id);expect(quote.quoteApproval).toBeNull();expect(await(await context.request.get(`${h.base}/api/pier/sales-documents/${before.id}.pdf`)).body()).toEqual(original)
+    form=h.panel('Review quote prices and margin');await form.getByLabel('Price, discount and margin review reason',{exact:true}).fill('Reviewed revised order quantity');await h.saved(form,'Approve exact quote');await page.getByRole('button',{name:'Accept quote',exact:true}).click();await expect(page.getByRole('button',{name:'Accept quote',exact:true})).toHaveCount(0)
+    form=h.panel('Email order confirmation');await form.getByLabel('Approved document recipient',{exact:true}).fill('buyer@example.test');await h.saved(form,'Approve recipient and submit PDF');await h.shot(width,'quote-accepted-confirmation')
+  }
+})
+
+test('customer sales CSV previews prices and errors before creating orders at 1440 and 390',async({page,context})=>{
+  const h=await salesHarness(page,context)
+  for(const width of[1440,390]){
+    await page.setViewportSize({width,height:1000});const b=await h.fixture(width);await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'0',price:'2'});await h.sales()
+    const header='customer,poReference,item,quantity,unit,price,shipTo,state,postalCode,country,requestedDate,warehouse',line=[b.customer.id,b.name,b.item.sku,'3','each','','40 Pier Road','CA','94107','US','2026-11-01',b.name].join(',')
+    const form=h.panel('Review a customer order file');await form.getByLabel('Customer order CSV',{exact:true}).fill([header,line.replace(b.item.sku,'unknown-pier-code')].join('\n'));await h.saved(form,'Preview customer orders');let batch=(await h.state()).salesImports.at(-1);await expect(page.getByText(/unknown-pier-code must resolve/)).toBeVisible();expect((await h.state()).orders.filter((o:any)=>o.customerId===b.customer.id)).toHaveLength(0);await h.shot(width,'sales-file-errors')
+    await form.getByLabel('Customer order CSV',{exact:true}).fill([header,line].join('\n'));await h.saved(form,'Preview customer orders');batch=(await h.state()).salesImports.find((r:any)=>r.groups.some((g:any)=>g.customerId===b.customer.id)&&r.preview.every((p:any)=>!p.errors.length));const preview=page.locator('section.panel').filter({has:page.getByRole('heading',{name:`Customer file · ${batch.name}`,exact:true})}).filter({has:page.getByRole('button',{name:'Approve exact customer orders',exact:true}).and(page.locator('button:not(:disabled)'))}).last();await h.shot(width,'sales-file-review');await preview.getByRole('button',{name:'Approve exact customer orders',exact:true}).click();await expect.poll(async()=>((await h.state()).orders.filter((o:any)=>o.customerId===b.customer.id)).length).toBe(1);await h.shot(width,'sales-file-created')
+  }
+})
+
+test('owners dry-run and activate routing and review an audited reroute at 1440 and 390',async({page,context})=>{
+  const h=await salesHarness(page,context)
+  for(const width of[1440,390]){
+    await page.setViewportSize({width,height:1000});const b=await h.fixture(width),other=await h.command('location.save',{name:`Other ${b.name}`,warehouse:`West ${b.name}`,kind:'bin'});await h.sales();await page.getByText('Warehouse routing rules',{exact:true}).click()
+    const form=h.panel('Prepare a warehouse routing rule');await form.getByLabel('Routing order source',{exact:true}).selectOption('manual');await form.getByLabel('Routing mode',{exact:true}).selectOption('rules');await form.getByLabel(`Default warehouse priority · ${b.name}`,{exact:true}).check();await form.getByLabel('Zone name 1',{exact:true}).fill('Western destinations');await form.getByLabel('ZIP prefixes, comma separated (900-961 allowed) 1',{exact:true}).fill('900-961');await form.getByLabel('US states, comma separated 1',{exact:true}).fill('OR,WA');await form.getByLabel(`Zone 1 warehouse priority · ${other.warehouse}`,{exact:true}).check();await form.getByLabel(`Zone 1 warehouse priority · ${b.name}`,{exact:true}).check();await h.shot(width,'routing-draft');await h.saved(form,'Save routing draft')
+    let rule=(await h.state()).routingRules.filter((r:any)=>r.source==='manual').sort((a:any,b:any)=>b.revision-a.revision)[0];let review=h.panel(`Manual orders · routing revision ${rule.revision}`);await review.getByRole('button',{name:'Dry-run last 30 days',exact:true}).click();await expect(review.getByRole('table')).toBeVisible();await review.getByRole('button',{name:'Activate reviewed rule',exact:true}).click();await expect(review.getByText(/Activated/)).toBeVisible();await h.shot(width,'routing-reviewed')
+    let order=await h.command('order.create',{customerId:b.customer.id,shipTo:{state:'OR',postalCode:'94107',country:'US'},lines:[{itemId:b.item.id,quantity:'2',price:'3'}]});expect(order.warehouse).toBe(other.warehouse);await page.goto(`${h.base}/app#sales/${order.id}`);await page.reload();const reroute=h.panel('Reroute an unpicked order');await reroute.getByLabel('New eligible warehouse',{exact:true}).selectOption(b.name);await reroute.getByLabel('Warehouse reroute reason',{exact:true}).fill('Owner reviewed warehouse change');await h.saved(reroute,'Review and reroute');order=(await h.state()).orders.find((o:any)=>o.id===order.id);expect(order.warehouse).toBe(b.name);expect(order.lines[0].reserved).toBe('2');expect(order.routingHistory.at(-1).reason).toBe('Owner reviewed warehouse change');await h.shot(width,'routing-order')
+  }
+})
+
+test('an owner authorizes, runs and pauses recurring demand at 1440 and 390',async({page,context})=>{
+  const h=await salesHarness(page,context)
+  for(const width of[1440,390]){
+    await page.setViewportSize({width,height:1000});const b=await h.fixture(width);await h.sales();await page.getByText('Recurring wholesale orders',{exact:true}).click();let form=h.panel('Review customer credit clearance');await form.getByLabel('Credit customer',{exact:true}).selectOption(b.customer.id);await form.getByLabel('Credit decision',{exact:true}).selectOption('clear');await form.getByLabel('Reviewed credit allowance USD',{exact:true}).fill('30');await form.getByLabel('Credit clearance valid through',{exact:true}).fill(new Date(Date.now()+86400000*10).toISOString().slice(0,10));await form.getByLabel('Credit clearance reason',{exact:true}).fill('Owner reviewed recurring credit');await h.saved(form,'Save owner credit decision')
+    form=h.panel('Authorize a recurring order');await form.getByLabel('Recurring order name',{exact:true}).fill(b.name);await form.getByLabel('Recurring customer',{exact:true}).selectOption(b.customer.id);await form.getByLabel('Recurring warehouse',{exact:true}).selectOption(b.name);await form.getByLabel('Recurring item',{exact:true}).selectOption(b.item.id);await form.getByLabel('Recurring base quantity',{exact:true}).fill('2');await form.getByLabel('Recurring unit price USD (blank uses current tier)',{exact:true}).fill('3');await form.getByLabel('Next recurrence day',{exact:true}).fill(new Date().toISOString().slice(0,10));await form.getByLabel('Maximum order total USD',{exact:true}).fill('10');await form.getByLabel('Recurring approval reason',{exact:true}).fill('Explicit bounded recurrence');await form.getByLabel('Enable approved recurrence',{exact:true}).check();await h.shot(width,'recurring-policy');await h.saved(form,'Save recurring order policy')
+    const schedulePanel=h.panel(`Recurring · ${b.name}`);await schedulePanel.getByRole('button',{name:'Run due occurrence',exact:true}).click();await expect(schedulePanel.getByRole('link',{name:'Open generated order',exact:true})).toBeVisible();let schedule=(await h.state()).recurringOrders.find((r:any)=>r.name===b.name);expect(schedule.occurrences).toHaveLength(1);await h.shot(width,'recurring-created')
+    form=h.panel(`Pause or cancel ${b.name}`);await form.getByLabel('Recurring control reason',{exact:true}).fill('Owner paused customer demand');await h.saved(form,'Apply recurring control');await expect(schedulePanel.getByText(/Paused · next due/)).toBeVisible();schedule=(await h.state()).recurringOrders.find((r:any)=>r.id===schedule.id);expect(schedule.enabled).toBe(false);await h.shot(width,'recurring-paused')
+  }
+})
+
+test('a direct supplier shipment records tracking and explicit unposted credit with unchanged stock at 1440 and 390',async({page,context})=>{
+  const h=await salesHarness(page,context)
+  for(const width of[1440,390]){
+    await page.setViewportSize({width,height:1000});const b=await h.fixture(width),before=(await h.state()).movements;await h.sales();await page.getByText('Direct supplier dropships',{exact:true}).click();let form=h.panel('Link a direct supplier order');await form.getByLabel('Dropship customer',{exact:true}).selectOption(b.customer.id);await form.getByLabel('Dropship supplier',{exact:true}).selectOption(b.supplier.id);await form.getByLabel('Dropship item',{exact:true}).selectOption(b.item.id);for(const [label,value]of[['Dropship base quantity','2'],['Dropship customer unit price USD','10'],['Dropship supplier unit cost USD','4'],['Direct customer shipping address','40 Pier Road, Portland OR 97210'],['Requested supplier date','2026-11-01'],['Dropship reason','Customer requires direct supplier shipment']])await form.getByLabel(label,{exact:true}).fill(value);await h.shot(width,'dropship-entry');await h.saved(form,'Create linked sales demand and supplier PO')
+    let drop:any;const s=await h.state();const order=s.orders.find((o:any)=>o.customerId===b.customer.id);drop=s.dropships.find((d:any)=>d.orderId===order.id);let po=s.purchaseOrders.find((p:any)=>p.id===drop.poId);await h.command('po.approve',{poId:po.id,version:po.version});po=await h.command('po.commit',{poId:po.id,version:po.version});await page.reload();await page.getByText('Direct supplier dropships',{exact:true}).click()
+    form=h.panel('Record supplier confirmation');await form.getByLabel('Supplier confirmation reference',{exact:true}).fill(`${b.name}-confirm`);await form.getByLabel('Confirmed supplier ship date',{exact:true}).fill('2026-11-01');await h.saved(form,'Confirm direct supplier commitment');await h.shot(width,'dropship-confirmed')
+    form=h.panel('Record direct supplier tracking');await form.getByLabel('Supplier shipment reference',{exact:true}).fill(`${b.name}-ship`);await form.getByLabel('Supplier carrier',{exact:true}).fill('Supplier carrier');await form.getByLabel('Supplier tracking',{exact:true}).fill(`${b.name}-tracking`);await form.getByLabel('Actual supplier ship day',{exact:true}).fill('2026-11-01');await form.getByLabel('Direct shipped quantity 1',{exact:true}).fill('2');await h.saved(form,'Record direct shipment')
+    form=h.panel(`Authorize customer credit · ${b.name}-ship`);await form.getByLabel('Direct shipment credit line',{exact:true}).selectOption(order.lines[0].id);await form.getByLabel('Direct customer credit quantity',{exact:true}).fill('1');await form.getByLabel('Direct customer credit reference',{exact:true}).fill(`${b.name}-credit`);await form.getByLabel('Direct customer credit reason',{exact:true}).fill('Supplier damage credited');await h.saved(form,'Authorize retained customer credit');await expect(page.getByText(/authorized customer credit.*not posted to books/).last()).toBeVisible();expect((await h.state()).movements).toEqual(before);await h.shot(width,'dropship-tracking-credit')
+  }
+})

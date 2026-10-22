@@ -36,14 +36,16 @@ test('retailer 850 through line decisions, packed SSCC ASN and shipped invoice o
   t.after(() => h.close());
   const mug = await h.command('item.save', { sku:'MUG-BLUE', name:'Blue mug', unit:'each', barcode:'036000291452', packSize:'1' });
   const towel = await h.command('item.save', { sku:'TOWEL', name:'Tea towel', unit:'each', barcode:'4006381333931', packSize:'1' });
-  const bin = await h.command('location.save', { name:'A-14', warehouse:'Dallas', kind:'bin', barcode:'BIN-A14' });
+  const bin = await h.command('location.save', { name:'A-14', warehouse:'West', kind:'bin', barcode:'BIN-A14' });
   const customer = await h.command('party.save', { name:'Synthetic retailer DC 0593', kind:'customer' });
   const supplier = await h.command('party.save', { name:'Synthetic ceramics supplier', kind:'supplier' });
   let po = await h.command('po.draft', {supplierId:supplier.id,promiseDate:'2026-11-01',reason:'EDI stock',lines:[{itemId:mug.id,quantity:'20',price:'1'},{itemId:towel.id,quantity:'20',price:'0.5'}]});
   await h.command('po.approve',{poId:po.id,version:po.version});
   po = await h.command('po.commit',{poId:po.id,version:po.version});
   await h.command('receipt.create',{poId:po.id,supplierReference:'EDI-RECEIPT',lines:po.lines.map(l=>({poLineId:l.id,locationId:bin.id,quantity:'20',cost:'1'}))});
-  const partner = await h.command('edi.partner.save',{name:'Synthetic retailer',customerId:customer.id,warehouse:'Dallas',senderId:'PIER',receiverId:'RETAILER',gs1Prefix:'0614141',ackMinutes:1440,asnBeforeArrivalMinutes:120,invoiceMinutes:1440,transport:'pending'});
+  await h.command('location.save',{name:'synthetic-pier-East',warehouse:'East',kind:'bin'});
+  const partner = await h.command('edi.partner.save',{name:'Synthetic retailer',customerId:customer.id,warehouse:'East',senderId:'PIER',receiverId:'RETAILER',gs1Prefix:'0614141',ackMinutes:1440,asnBeforeArrivalMinutes:120,invoiceMinutes:1440,transport:'pending'});
+  let route=await h.command('routing.save',{source:`edi:${partner.id}`,mode:'rules',shortage:'hold',zones:[{name:'Oregon DC',zipPrefixes:[],states:['OR'],countries:[],eligible:['West','East']}],defaultEligible:['East','West']});route=await h.command('routing.preview',{ruleId:route.id,version:route.version});await h.command('routing.activate',{ruleId:route.id,version:route.version});
   await h.command('edi.mapping.save',{partnerId:partner.id,buyerCode:'MUG-BLUE',upc:'036000291452',itemId:mug.id,unit:'EA',packQuantity:'1'});
   const x12 = await readFile('tests/fixtures/edi/850-synthetic.x12','utf8');
   await h.command('edi.receive',{partnerId:partner.id,x12:x12.replace('SE*','SE*999')},{error:'EDI_850'});
@@ -63,13 +65,13 @@ test('retailer 850 through line decisions, packed SSCC ASN and shipped invoice o
   await h.command('edi.send',{documentId:incoming.id,version:incoming.version});
   let state=await h.state(), ediOrder=state.ediOrders[0], order=state.orders[0];
   assert.equal(order.channel,'edi');assert.equal(order.channelReference,ediOrder.poNumber);
-  assert.equal(order.warehouse,'Dallas');assert.equal(order.lines.length,2);
+  assert.equal(order.warehouse,'West');assert.equal(order.routing.zone,'Oregon DC');assert.equal(order.routing.source,`edi:${partner.id}`);assert.equal(order.lines.length,2);
   assert.equal(order.lines[1].cancelled,'1');
   await h.command('edi.receive',{partnerId:partner.id,x12});
   assert.equal((await h.state()).orders.length,1);
   assert.equal(traffic.filter(d=>d.kind==='997').length,1);
   await h.command('edi.invoice.prepare',{ediOrderId:ediOrder.id,shipmentId:'absent'},{error:'NOT_FOUND'});
-  const carrier=await h.command('carrier.save',{name:'Retailer routing',warehouse:'Dallas',dock:'Dock A',cutoff:'23:59',timeZone:'America/Chicago'});
+  const carrier=await h.command('carrier.save',{name:'Retailer routing',warehouse:'West',dock:'Dock A',cutoff:'23:59',timeZone:'America/Chicago'});
   await h.command('order.carrier',{orderId:order.id,carrierId:carrier.id});
   let wave=await h.command('wave.release',{carrierId:carrier.id,orderIds:[order.id]});
   for(const line of wave.lines) wave=await h.command('pick.scan',{waveId:wave.id,lineId:line.id,binCode:'BIN-A14',itemCode:line.itemId===mug.id?'036000291452':'4006381333931',quantity:line.quantity});
@@ -121,8 +123,8 @@ test('retailer 850 through line decisions, packed SSCC ASN and shipped invoice o
   const managed=await installation({bindings:{RER_MANAGEMENT_ORIGIN:'https://runeditrun.com',EDI_BRIDGE_URL:'https://edi-edge.example.test/documents',EDI_BRIDGE_TOKEN:'synthetic-token'},outboundService:()=>{throw new Error('Managed must never make provider egress');}});
   try {
     const cust=await managed.command('party.save',{name:'Managed synthetic retailer',kind:'customer'});
-    await managed.command('location.save',{name:'D-01',warehouse:'Dallas',kind:'bin'});
-    const retail=await managed.command('edi.partner.save',{name:'Managed retailer',customerId:cust.id,warehouse:'Dallas',senderId:'PIER',receiverId:'RETAILER',gs1Prefix:'0614141',ackMinutes:1440,asnBeforeArrivalMinutes:120,invoiceMinutes:1440,transport:'pending'});
+    await managed.command('location.save',{name:'D-01',warehouse:'West',kind:'bin'});
+    const retail=await managed.command('edi.partner.save',{name:'Managed retailer',customerId:cust.id,warehouse:'West',senderId:'PIER',receiverId:'RETAILER',gs1Prefix:'0614141',ackMinutes:1440,asnBeforeArrivalMinutes:120,invoiceMinutes:1440,transport:'pending'});
     await managed.command('edi.receive',{partnerId:retail.id,x12});
     const queued=(await managed.state()).ediDocuments.find(d=>d.kind==='997');
     assert.equal(queued.status,'unavailable');assert.equal(queued.attempted,undefined);assert.match(queued.problem,/not available yet/);

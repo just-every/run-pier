@@ -8,12 +8,11 @@ export function dropships(c:Context,type:string,p:any):Row|undefined {
   requireRole(c,[]);
   if(type==='dropship.create'){
     if(!Array.isArray(p.lines)||!p.lines.length)fail('LINES','Add dropship lines.');
-    if(p.lines.some((l:any)=>c.s.kitDefinitions.some(k=>k.itemId===l.itemId)))fail('DROPSHIP_KIT','A component kit needs a separately reviewed supplier fulfilment mapping.');
     const shipTo=text(p.shipTo,'Direct customer shipping address'),date=isoDay(p.promiseDate,'Requested supplier date');
     const order=orders(c,'order.create',{customerId:p.customerId,channel:'dropship',fulfilment:'dropship',promiseDate:date,lines:p.lines})!;
     if(order.lines.some((l:any)=>l.price===null))fail('PRICE','Price every dropship sales line.');
     const po=purchasing(c,'po.draft',{supplierId:p.supplierId,promiseDate:date,reason:text(p.reason),lines:p.lines.map((l:any)=>({itemId:l.itemId,quantity:l.quantity,price:l.cost}))})!;
-    const drop=row(c,'dropships',{orderId:order.id,poId:po.id,shipTo,lines:order.lines.map((l:any,i:number)=>({itemId:l.itemId,orderLineId:l.id,poLineId:po.lines[i].id,quantity:l.quantity,price:l.price,cost:po.lines[i].price})),status:'awaiting-supplier',confirmation:null,shipments:[],credits:[],createdBy:c.actor.id});
+    const drop=row(c,'dropships',{orderId:order.id,poId:po.id,shipTo,lines:order.lines.map((l:any,i:number)=>({itemId:l.itemId,orderLineId:l.id,kit:l.kit??null,poLineId:po.lines[i].id,quantity:l.quantity,price:l.price,cost:po.lines[i].price})),status:'awaiting-supplier',confirmation:null,shipments:[],credits:[],createdBy:c.actor.id});
     Object.assign(get(c.s,'orders',order.id),{dropshipId:drop.id,shipTo:{address1:shipTo}});Object.assign(get(c.s,'purchaseOrders',po.id),{dropshipId:drop.id,directToCustomer:shipTo});
     return drop;
   }

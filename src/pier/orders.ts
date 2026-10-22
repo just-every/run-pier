@@ -134,6 +134,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     rule.dryRun={from:cutoff,to:c.now,orders,frontier:routingFrontier(c.s),actorId:c.actor.id};rule.version++;return rule;
   }
   if(type==='order.reroute'||type==='order.shipTo'||type==='order.route'){
+    requireRole(c,[]);
     const o=get(c.s,'orders',p.orderId);fresh(o,p.version);
     if(o.lines.some((l:any)=>decimal(l.dispatched)>0n)||c.s.waves.some(w=>w.lines.some((l:any)=>l.orderId===o.id&&decimal(l.picked)>0n)))fail('ORDER_PICKED','Only an unpicked, unshipped order can be rerouted.');
     const before={warehouse:o.warehouse,routing:structuredClone(o.routing??null),shipTo:o.shipTo??null};
@@ -143,7 +144,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
       for(const line of wave.lines.filter((l:any)=>l.orderId===o.id&&l.status==='open')){line.status='rerouted';line.reroutedAt=c.now;}
       if(wave.lines.every((l:any)=>l.status!=='open'))wave.status='picked';wave.version++;
     }
-    if(type==='order.shipTo'||type==='order.route')routeOrder(c,o,{routingSource:o.routing?.source??'manual',shipTo:type==='order.shipTo'?p.shipTo:o.shipTo,channelLocation:o.channelLocation});
+    if(type==='order.shipTo'||type==='order.route')routeOrder(c,o,{routingSource:o.routing?.source??'manual',shipTo:type==='order.shipTo'?p.shipTo:o.shipTo,channelLocation:o.channelLocation,warehouse:o.routing?.ruleId?undefined:o.warehouse});
     else{
       const eligible=o.routing?.eligible??[o.warehouse];if(!eligible.includes(p.warehouse))fail('ROUTING_INELIGIBLE','Choose a warehouse on this order’s retained eligibility list.');
       o.warehouse=p.warehouse;o.routing={...o.routing,eligible,status:'routed',selectedWarehouse:p.warehouse,reserveWarehouses:[p.warehouse],manualOverride:true};

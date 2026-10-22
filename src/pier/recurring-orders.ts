@@ -46,7 +46,7 @@ export function recurringOrders(c:Context,type:string,p:any):Row|undefined {
   c.approver={id:credit.approvedBy,role:'owner'};
   const due=schedule.nextDue;
   if(schedule.occurrences.some((o:any)=>o.due===due))fail('RECURRING_DUPLICATE','This occurrence already created its order.');
-  const source=activeRule(c.s,`recurring:${schedule.id}`)?`recurring:${schedule.id}`:'manual';
+  const source=`recurring:${schedule.id}`;
   const input={customerId:schedule.customerId,warehouse:schedule.warehouse,shipTo:schedule.shipTo,routingSource:source,channel:'recurring',lines};
   // Trial the same reservation door before any real record is made. No orphan
   // order or reservation may survive a full-stock hold.

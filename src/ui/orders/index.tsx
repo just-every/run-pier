@@ -1,3 +1,5 @@
+import { WarehouseRouting } from './routing'
+import { ScheduledSales } from './schedules'
 import { SalesIntake } from './commercial'
 import { useEffect, useState } from 'react'
 import { records, type PierState, type RunCommand } from '../api'
@@ -42,6 +44,8 @@ export function Sales({ state, run, busy, documentId = '', warehouse = '', order
     </div>
     <div id="new-order"><Form title="New sales order" submit="Create and reserve available stock" busy={busy} note="Available stock reserves atomically. Unmet demand becomes backorder." onSubmit={data => run(text(data,'documentType') === 'quote' ? 'quote.create' : 'order.create', { customerId: text(data, 'customerId'), promiseDate: text(data, 'promiseDate'), channel: text(data, 'channel'), warehouse: text(data, 'warehouse'), ...(documentType==='quote'?{shipTo:{state:text(data,'state').toUpperCase(),country:'US',postalCode:text(data,'postalCode')},validUntil:text(data,'validUntil'),discountPercent:text(data,'discountPercent')} : {}),lines: lines.map(({ price, ...line }) => ({ ...line, ...(price?.trim() ? { price } : {}),...(documentType==='quote'?{unit:text(data,'quoteUnit')||undefined}:{}) })) })}><label className="field"><span>Document type</span><select name="documentType" aria-label="Document type" value={documentType} onChange={e=>setDocumentType(e.target.value)}><option value="order">Sales order</option><option value="quote">Versioned quote</option></select></label><Select label="Customer" name="customerId" rows={parties.filter(party => party.kind === 'customer')} /><Field label="Promise date" name="promiseDate" type="date" required={false} /><Select label="Order warehouse" name="warehouse" rows={[...new Set(locations.map(l => l.warehouse))].map(w => ({ id: w, version: 1, label: w }))} required={false} defaultValue={orderWarehouse || undefined} /><Field label="Channel" name="channel" defaultValue="manual" />{documentType==='quote'&&<><Field label="Quote valid through" name="validUntil" type="date" defaultValue={new Date(Date.now()+30*86400000).toISOString().slice(0,10)}/><Field label="Quote discount percent" name="discountPercent" defaultValue="0"/><Field label="Quote destination state" name="state"/><Field label="Quote destination ZIP" name="postalCode"/><label className="field"><span>Quote quantity unit</span><select name="quoteUnit" aria-label="Quote quantity unit"><option value="">Item base units</option><option value="case">Cases</option></select></label></>}<Lines items={items} price optionalPrice onChange={setLines} /></Form></div>
     <div className="split sales-records"><Shipments state={state} run={run} busy={busy} orderId={selected} /><Quarantine state={state} run={run} busy={busy} /></div>
+    <WarehouseRouting state={state} run={run} busy={busy} />
+    <ScheduledSales state={state} run={run} busy={busy} />
     <SalesIntake state={state} run={run} busy={busy} />
     <Pricing state={state} run={run} busy={busy} />
   </>
