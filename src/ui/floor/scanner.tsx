@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { readTask, writeTask, withScan, type ScanIntent } from './task-storage'
+import { pendingScan, readTask, settleScan, writeTask, withScan, type ScanIntent } from './task-storage'
 
 // One scan box for every floor step. A USB or Bluetooth scanner (and a rugged
 // handheld's built-in scanner) types the code and presses Enter into the
@@ -53,7 +53,13 @@ export function ScanBox({ label, hint, onScan, busy, count = false, focus = true
         else {
           // The command layer marks definitive refusal. An uncertain send
           // remains sending and can only be resolved by its exact command ID.
-          if (taskKey) queue.current = stored()
+          if (taskKey) {
+            const scan = { key: taskKey, id: entry.id }
+            // Local bin validation has a definite outcome without issuing a
+            // command. Only a linked interrupted command is an uncertain send.
+            if (!pendingScan(scan)) settleScan(scan, false)
+            queue.current = stored()
+          }
           else entry.status = 'refused'
           setPaused(true); save(); return
         }

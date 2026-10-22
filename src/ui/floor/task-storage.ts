@@ -31,6 +31,12 @@ export function useFloorTask<T>(key: string, initial: T | (() => T)): [T, Dispat
 }
 
 export function scanLink() { return activeScan }
+export function pendingScan(scan: ScanLink) {
+  try {
+    const pending = JSON.parse(sessionStorage.getItem('pier.pending-command') || 'null')
+    return pending?.scan?.key === scan.key && pending?.scan?.id === scan.id
+  } catch { return false }
+}
 export async function withScan<T>(scan: ScanLink | undefined, send: () => Promise<T>) {
   activeScan = scan
   try { return await send() } finally { if (activeScan === scan) activeScan = undefined }
