@@ -60,9 +60,9 @@ test('warehouse interruptions retain exact task, reconcile stale allocations and
   if (shots) await mkdir(shots, { recursive: true })
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
-    const suffix = `synthetic-offline-${width}-${crypto.randomUUID().slice(0, 8)}`
+    const suffix = `synthetic-pier-501-${width}-${crypto.randomUUID().slice(0, 8)}`
     const item = await command('item.save', { sku: suffix, name: suffix, unit: 'each', barcode: suffix, packSize: '1' })
-    const bin = await command('location.save', { name: suffix, warehouse: suffix, kind: 'bin' })
+    const bin = await command('location.save', { name: `${suffix}-bin`, warehouse: suffix, kind: 'bin' })
     const supplier = await command('party.save', { name: suffix, kind: 'supplier' })
     const customer = await command('party.save', { name: suffix, kind: 'customer' })
     const po = await command('po.draft', { supplierId: supplier.id, promiseDate: '2026-11-01', reason: 'Synthetic warehouse recovery proof', lines: [{ itemId: item.id, quantity: '4', price: '1' }] })
