@@ -38,6 +38,6 @@ export function ConnectionSetup({ state, run, busy, edit, connect }: Props) {
     })}
     {owner && <button className="link" disabled={busy} onClick={() => connect('stall')}>Add another connection</button>}
     <p className="channel-boundary">Shopify and Amazon connect once owner accounts exist. Their documented API adapters have been exercised with recorded fixtures only; live account acceptance is still required.</p>
-    <p className="channel-boundary">Stall reads Pier stock live with the key Pier gives it and links existing reservations. Stall currently reads one company-wide pool: use one warehouse and a zero buffer.</p>
+    <p className="channel-boundary">Stall reads Pier stock live with the key Pier gives it and links existing reservations. Stall reads its eligible warehouses net of reservations, holds and this connection’s buffer. Review source routing in Sales orders.</p>
   </section>
 }

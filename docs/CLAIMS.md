@@ -59,7 +59,7 @@ Command names are the `type` strings Pier's command door accepts (`POST /api/pie
 
 | # | Claim | Status | Code path / note |
 |---|---|---|---|
-| 18 | "Orders from your stores, marketplaces and EDI land in one queue" (Shopify, Amazon, Target EDI 850, Stall, Wholesale SO-2318) | partly | Stall and WooCommerce live, Shopify and Amazon on recorded API fixtures (`src/pier/channels/adapters/`, `tests/api/channels.test.mjs`); EDI 850 intake makes sales orders (`src/pier/edi/intake.ts`); native wholesale sales orders (`src/pier/orders.ts`). |
+| 18 | "Orders from your stores, marketplaces and EDI land in one queue" (Shopify, Amazon, Target EDI 850, Stall, Wholesale SO-2318) | partly | Stall and WooCommerce live, Shopify and Amazon on recorded API fixtures (`src/pier/channels/adapters/`, `tests/api/channels.test.mjs`); EDI 850 intake makes sales orders (`src/pier/edi/intake.ts`); native wholesale sales orders (`src/pier/orders.ts`). Reviewed customer CSV/XLSX intake and source routing are in `src/pier/sales-imports.ts` and `src/pier/routing.ts`; Faire remains row 19. |
 | 19 | Faire 7KQ2M9 · 24 among the orders, and Faire among the channels stock goes out to | contract, not yet in code | CHANNEL-001 names Faire; no Faire adapter exists yet. |
 | 20 | One count: 571 available, 692 on hand, 121 reserved for these 6 orders | backed | Hard reservations against on-hand stock give one available count: `src/pier/model.ts`; `tests/api/stock.test.mjs` |
 | 21 | "855 acknowledged to Target · 9:41 am" (and the hero's and ship day's "EDI 856 sent · Target DC 0593") | partly | Reviewed 855 and 856 from closed packs: `src/pier/edi/`, `tests/api/edi.test.mjs`. Sends proven at the synthetic bridge edge; no Target certification or live transport. |

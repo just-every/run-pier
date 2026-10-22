@@ -12,7 +12,7 @@ The same manual route accepts a retailer's original **X12 997** response at **Re
 
 ## Set up a retailer
 
-The owner adds the retailer as a customer and creates its warehouse bins first. Under **Retailer settings and item mappings**, enter the agreed sender/receiver IDs, fixed fulfilment warehouse, licensed GS1 company prefix and the retailer’s 855, 856 and 810 windows. New connections use test mode; production mode requires the approved retailer connection. Map each buyer item code (BP) or UPC (UP) to a Pier item, X12 unit and exact base units per EDI unit. Conflicting BP/UPC matches and mismatched units block intake.
+The owner adds the retailer as a customer and creates its warehouse bins first. Under **Retailer settings and item mappings**, enter the agreed sender/receiver IDs, default fulfilment warehouse (an activated source routing rule takes precedence), licensed GS1 company prefix and the retailer’s 855, 856 and 810 windows. New connections use test mode; production mode requires the approved retailer connection. Map each buyer item code (BP) or UPC (UP) to a Pier item, X12 unit and exact base units per EDI unit. Conflicting BP/UPC matches and mismatched units block intake.
 
 The owner needs the retailer’s current implementation and label guides, its agreed identifiers and deadlines, a GS1 prefix assigned to the business, and an authorized network account. AS2, SFTP or VAN selection is pending. A network operator must connect your chosen transport and complete certification against the actual retailer guide. General X12 support does not establish retailer acceptance.
 

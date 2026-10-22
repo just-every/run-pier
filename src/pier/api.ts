@@ -540,7 +540,7 @@ export async function pierResponse(
       if (!['owner','buyer','operator'].includes(actor.role)) throw new Problem('FORBIDDEN','Your current role cannot send approved correspondence.',null,403);
       return json({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
     }
-    if(type==='order.create'&&(Object.hasOwn(payload,'nativeCutover')||payload.fulfilment||payload.channelId||payload.ediPartnerId||payload.routingSource&&payload.routingSource!=='manual'))fail('ROUTING_SOURCE','Public manual orders use the manual source; connector and file sources are assigned by their own intake doors.');
+    if(['order.create','quote.create'].includes(type)&&(Object.hasOwn(payload,'nativeCutover')||payload.fulfilment||payload.channelId||payload.ediPartnerId||payload.routingSource&&payload.routingSource!=='manual'))fail('ROUTING_SOURCE','Public manual orders use the manual source; connector and file sources are assigned by their own intake doors.');
     const outcome = await execute(env, actor, commandId, type, payload);
     if(outcome && ['quote.send','order.confirm'].includes(type)) await deliverSalesDocument(env,actor,outcome.result.id);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {

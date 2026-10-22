@@ -19,3 +19,43 @@ To stop the rest of an order, **Cancel remaining demand** releases only its unsh
 A return points to the shipment line it came back from. **Return dispatched goods into quarantine** records it into a quarantine bin, where it is not available. In **Quarantine review**, **Approve exact return for restocking** and then **Restock approved return** make it sellable again.
 
 To see where any of these numbers came from, see [Activity and proposals](activity.md).
+
+## Review quotes and customer files
+
+Choose **Quote** when entering a new sales order. Case quantities convert exactly to the SKU’s fixed base-unit pack size. Blank prices use the customer’s current quantity tier. A quote retains its price-list version, USD discount and tax estimate. The owner sets a state estimate table first; a missing table or unresolved exemption stops approval instead of inventing tax. Certificate references and expiry are retained, without claiming that Pier validated a certificate or contacted a tax provider.
+
+The owner uses **Review quote prices and margin** to approve the exact version and observed cost basis with a reason. **Email approved quote** approves one recipient and retains the exact PDF bytes before submitting to the configured installation mail provider. Open that PDF from the record. “Sent” means provider acceptance; failed, unavailable and uncertain submissions remain visible. An uncertain submission is not blindly sent again. The current PDF renderer accepts printable ASCII; unsupported characters are refused explicitly.
+
+**Accept quote** converts the same reserved quote record once. Replaying acceptance creates no second order. **Revise quote** preserves prior versions and PDFs, clears acceptance and approval, recalculates tax and reservations and requires renewed review. Picked or shipped work cannot be revised. **Email order confirmation** retains its own recipient, version, PDF and outcome.
+
+Under **Review a customer order file**, paste UTF-8 CSV or select CSV/XLSX. Use these exact columns in order, with one row per line:
+
+```csv
+customer,poReference,item,quantity,unit,price,shipTo,state,postalCode,country,requestedDate,warehouse
+```
+
+Use a customer ID or exact name, SKU/barcode/customer item alias, `case` or the SKU’s base unit, decimal quantities and prices, ISO `YYYY-MM-DD` requested dates and a real warehouse. Blank prices use the current customer tier. The preview shows each row error, resolved price and actual routed warehouse; it creates no orders. Correct all errors, then approve the exact preview. Changes to relevant stock, prices, routing or the UTC day require a fresh preview. Reimporting the same content returns its retained batch; an existing customer PO reference cannot create another order.
+
+Files are bounded to 1 MiB and 1,000 data rows. XLSX supports one worksheet containing plain text and numeric cells, with dates supplied as ISO text. Formulas, macros, external relationships, unsupported cell types, extra columns and malformed or oversized archive parts are refused. The original file bytes, digest and source rows stay with the reviewed batch. A batch whose retained preview exceeds the record limit must be split at customer PO boundaries.
+
+## Choose warehouses before reservation
+
+**Warehouse routing rules** selects a source: manual orders, customer files, a connected channel, retailer partner or recurring policy. A draft has no stock effect. Dry-run its last 30 days of orders, review the changed destinations, then activate that exact revision. Fixed mode chooses one warehouse. Channel-location mode follows an actual assigned provider location. Rule mode matches ZIP5, then ZIP3, state, country and default; equal-level overlaps are refused. Warehouse priority follows the owner’s list, never an invented nearest-warehouse rule.
+
+A shortage either holds partial stock at the routed warehouse, tries the first eligible warehouse with the whole order, or splits by line. Splits require explicit owner-recorded customer permission; otherwise the whole-order fallback applies. Each warehouse dispatches its own reserved quantities separately. A destination with no matching zone/default waits unreserved. FBA and other warehouses outside the source’s list remain ineligible.
+
+On an unpicked order, **Reroute an unpicked order** requires an owner reason and atomically replaces its reservations. **Change ship-to before picking** applies the current routing rule again. Historical unpicked waves are invalidated rather than retaining obsolete picks. An ineligible destination or picked/shipped order is refused. Publication follows eligible warehouses net of reservations, protected holds and buffers; separate writes to every mapped provider location remain pending. Faire is not yet connected.
+
+## Authorize recurring demand
+
+The owner first records an expiring **customer credit clearance**, allowance and reason. This is a reviewed budget, not a connected ledger balance. A hold, expired clearance or exhausted allowance stops new occurrences. The owner then explicitly enables a policy with customer, item lines, warehouse, UTC due day, cadence, price ceiling and stock policy. Choose **hold-on-change** to review a changed price; **current-with-ceiling** accepts current customer tiers only within the approved ceiling. **full-stock** holds an incomplete order; **backorder** permits the normal shortage outcome.
+
+The scheduler admits at most one due occurrence per policy per pass and retains its generated order identity. Concurrent or repeated runs cannot duplicate a due date. Pausing prevents new occurrences; cancellation is terminal. Changing installation signing settings, including a fresh restore, requires renewed owner approval. A policy authorizes order creation only: it sends no mail and dispatches no stock.
+
+## Record direct supplier dropships
+
+**Direct supplier dropships** creates linked customer demand and a supplier PO carrying actual supplier cost and the direct customer address. Approve and commit the PO through Purchasing, then record the supplier’s confirmation. Record each actual partial shipment with its reference, date, carrier, tracking and exact quantities. Pier does not receive, reserve or dispatch those units through its own bins, and they do not become expected warehouse stock.
+
+A customer credit is explicitly authorized against a shipped line with quantity, reference and reason. Its retained amount cannot exceed that shipment’s uncredited quantity. It is labeled **not posted to books**; this is not a refund, applied invoice credit or reconciled ledger posting. Supplier cancellation requires an explicit cancellation reference and cannot erase shipped history. Native CSV exit refuses active direct commitments; the complete business archive retains them.
+
+These owner-only approval, send, routing and recurring authority defaults are conservative pending contract-policy review. Staff retain the existing operational doors; new private originals and approval records are owner-only.

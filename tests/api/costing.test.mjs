@@ -110,6 +110,7 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'0',price:'10'});
   await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'5',price:'8'});
   const params={customerId:b.customer.id,warehouse:'North',shipTo:{state:'CA',country:'US',postalCode:'94107'},discountPercent:'10',lines:[{itemId:b.item.id,quantity:'12',unit:'case'}]};
+  await h.command('quote.create',{...params,routingSource:'channel:synthetic-pier-1'},{error:'ROUTING_SOURCE'});
   let quote=await h.command('quote.create',params);
   assert.deepEqual([quote.lines[0].quantity,quote.lines[0].price,quote.subtotal,quote.tax.amount,quote.total],['6','7.2','43.200000000000','3.460000000000','46.660000000000']);
   const small=await h.command('quote.create',{...params,lines:[{itemId:b.item.id,quantity:'1'}]});assert.equal(small.lines[0].price,'9');
