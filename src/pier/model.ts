@@ -59,6 +59,18 @@ export type Row = {
   [key: string]: any;
 };
 export const collections = [
+  "businessTemplates",
+  "printMailEvents",
+  "invoices",
+  "invoiceCredits",
+  "paymentConnections",
+  "invoicePayLinks",
+  "invoicePaymentSessions",
+  "invoicePayments",
+  "evidenceDocuments",
+  "documentSettings",
+  "documentExtractions",
+  "documentInbox",
   "customerCredits",
   "recurringOrders",
   "dropships",
@@ -159,7 +171,7 @@ export type Context = {
   actor: Actor;
   commandId: string;
   now: string;
-  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "recurringOrders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies"; id: string; version: number };
+  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "recurringOrders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies" | "paymentConnections"; id: string; version: number };
   channelSecrets?: { channelId: string; secret: string }[];
   automationActors?: Record<string, string>;
   installationScope?: string;

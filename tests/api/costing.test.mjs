@@ -1,8 +1,9 @@
 import { salesWorkbook } from './sales-workbook.mjs';
+import { pdfText } from './pdf-text.mjs';
 import { zipSync, strToU8 } from 'fflate';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHmac } from 'node:crypto';
 import { installation, basics } from './harness.mjs';
 
 test('landed receipts, priced shipments and dated FIFO/average reports reconcile', async t => {
@@ -104,6 +105,7 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   const mail=[];let reject=false,uncertain=false;
   const h=await installation({bindings:{MAIL_PROVIDER:'resend',MAIL_FROM:'sales@example.test',MAIL_API_KEY:'synthetic-pier-1'},outboundService:async request=>{mail.push(await request.json());if(uncertain)return new Response('No confirmed acceptance',{status:503});return reject?new Response('Declined',{status:422}):Response.json({id:`synthetic-pier-${mail.length}`});}});t.after(()=>h.close());
   const b=await basics(h);
+  await h.command('business.save',{name:'Harbor Wholesale Supply',address:'30 Dock Road, San Francisco CA 94107',shipTo:{}});
   const po=await h.command('po.draft',{supplierId:b.supplier.id,promiseDate:'2026-11-01',reason:'Quote stock',lines:[{itemId:b.item.id,quantity:'20',price:'1'}]});
   await h.command('po.approve',{poId:po.id,version:po.version});await h.command('po.commit',{poId:po.id,version:po.version});await h.command('receipt.create',{poId:po.id,supplierReference:'synthetic-pier-1',lines:[{poLineId:po.lines[0].id,locationId:b.source.id,quantity:'20',cost:'1'}]});
   await h.command('sales.taxTable',{state:'CA',rate:'8',reason:'Owner reviewed jurisdiction estimate'});
@@ -121,12 +123,13 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   quote=await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Reviewed discount and retained stock costs'});
   const send={orderId:quote.id,version:quote.version,recipient:'buyer@example.test'},commandId=randomUUID();
   const doc=await h.command('quote.send',send,{commandId});await h.command('quote.send',send,{commandId});assert.equal(mail.length,1);assert.equal(mail[0].to[0],'buyer@example.test');
-  const pdf=Buffer.from(mail[0].attachments[0].content,'base64');assert.match(pdf.toString(),/^%PDF-1.4/);assert.match(pdf.toString(),/12 case.*6 each/s);assert.match(pdf.toString(),/46.660000000000/);
+  const pdf=Buffer.from(mail[0].attachments[0].content,'base64');assert.match(pdf.toString(),/^%PDF-/);const rendered=await pdfText(pdf);assert.match(rendered,/12 case.*6 each/s);assert.match(rendered,/46\.66(?:0000000000)?/);
   const pdfResponse=await h.request(`/api/pier/sales-documents/${doc.id}.pdf`);assert.equal(pdfResponse.status,200);assert.equal(pdfResponse.headers.get('content-type'),'application/pdf');assert.deepEqual(Buffer.from(await pdfResponse.arrayBuffer()),pdf);
   assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:''})).status,401);
   const old=quote;quote=await h.command('quote.revise',{...params,orderId:quote.id,version:quote.version,lines:[{itemId:b.item.id,quantity:'10',price:'9'}],reason:'Buyer revised draft quantity and price'});
   assert.equal(quote.quoteApproval,null);assert.deepEqual([quote.quoteHistory.at(-1).validUntil,quote.quoteHistory.at(-1).shipTo,quote.quoteHistory.at(-1).discountPercent,quote.quoteHistory.at(-1).routing],[old.validUntil,old.shipTo,old.discountPercent,old.routing]);await h.command('quote.accept',{orderId:quote.id,version:old.version},{error:'STALE'});
   assert.deepEqual(Buffer.from(await (await h.request(`/api/pier/sales-documents/${doc.id}.pdf`)).arrayBuffer()),pdf);
+  await h.command('print.send',{documentId:doc.id,version:doc.version,recipient:'buyer@example.test'},{error:'QUOTE_STATE'});
   quote=await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Reviewed revised price and quantity'});
   const accepted=await h.command('quote.accept',{orderId:quote.id,version:quote.version});const count=(await h.state()).orders.length;
   await h.command('quote.accept',{orderId:quote.id,version:quote.version});assert.equal((await h.state()).orders.length,count);assert.equal(accepted.lines[0].reserved,'10');
@@ -233,11 +236,13 @@ test('quote approver role defaults to Owner and policy or live role changes revo
   let policy=await h.command('sales.quoteApprovalPolicy',{version:0,role:'operator',reason:'Owner delegates commercial approval to sales operators'});
   await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
   quote=await h.command('quote.approve',approve(),{as:cookie});assert.equal(quote.quoteApproval.actorId,member.actor.id);assert.equal(quote.quoteApproval.policyVersion,policy.version);
+  await h.command('business.save',{name:'Harbor Wholesale',address:'30 Dock Road',shipTo:{}});const retained=await h.command('print.generate',{kind:'quote',sourceId:quote.id});
   await h.command('quote.send',{orderId:quote.id,version:quote.version,recipient:'buyer@example.test'},{as:cookie,error:'FORBIDDEN'});
   await h.command('role.set',{operatorId:member.actor.id,role:'viewer'});
   const before=(await h.state()).version;
   await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'APPROVER_REVOKED'});
   await h.command('quote.send',{orderId:quote.id,version:quote.version,recipient:'buyer@example.test'},{error:'APPROVER_REVOKED'});
+  await h.command('print.send',{documentId:retained.id,version:retained.version,recipient:'buyer@example.test'},{error:'APPROVER_REVOKED'});
   assert.equal((await h.state()).version,before,'refused acceptance and send leave state unchanged');
   await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
   policy=await h.command('sales.quoteApprovalPolicy',{version:policy.version,role:'owner',reason:'Return approval to Owner'});
@@ -246,4 +251,135 @@ test('quote approver role defaults to Owner and policy or live role changes revo
   await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
   quote=await h.command('quote.approve',approve());
   const accepted=await h.command('quote.accept',{orderId:quote.id,version:quote.version});assert.ok(accepted.acceptedAt);await h.invariant();
+});
+
+// Native invoices are operational originals. Provider posting remains an explicit
+// external obligation rather than being represented by an invented ledger result.
+test('native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids', async t => {
+  const h = await installation(); t.after(() => h.close()); const b = await basics(h);
+  const po = await h.command('po.draft', { supplierId: b.supplier.id, promiseDate: '2026-11-01', reason: 'Invoice stock', lines: [{ itemId: b.item.id, quantity: '10', price: '1' }] });
+  await h.command('po.approve', { poId: po.id, version: po.version }); await h.command('po.commit', { poId: po.id, version: po.version });
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-1', lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '10', cost: '1' }] });
+  await h.command('sales.taxTable', { state: 'CA', rate: '8', reason: 'Owner jurisdiction estimate' });
+  const order = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '4', price: '10' }] });
+  await h.command('invoice.policy', { orderId: order.id, mode: 'shipment', terms: { kind: 'net30' }, reason: 'Invoice each shipment' });
+  const ship = async quantity => h.command('dispatch.create', { orderId: order.id, shipmentReference: `synthetic-pier-${quantity}`, lines: [{ orderLineId: order.lines[0].id, quantity }] });
+  const first = await ship('2');
+  const authorize = async invoice => {
+    invoice = await h.command('invoice.review', { invoiceId: invoice.id, version: invoice.version });
+    return h.command('invoice.authorize', { invoiceId: invoice.id, version: invoice.version });
+  };
+  let invoice = await h.command('invoice.draft', { orderId: order.id, shipmentId: first.id, invoiceDate: '2026-10-01', charges: [{ kind: 'freight', amount: '3', taxable: true }, { kind: 'handling', amount: '1', taxable: false }, { kind: 'surcharge', amount: '1', taxable: false }, { kind: 'discount', amount: '1', taxable: true }] });
+  assert.equal(invoice.lines[0].quantity, '2'); assert.equal(invoice.subtotal, '24.000000000000'); assert.equal(invoice.tax.amount, '1.760000000000'); assert.equal(invoice.total, '25.760000000000'); assert.equal(invoice.dueDate, '2026-10-31');
+  invoice = await authorize(invoice);
+  assert.deepEqual(invoice.original.lines, invoice.lines);
+  await h.command('invoice.draft', { orderId: order.id, shipmentId: first.id }, { error: 'INVOICE_EXISTS' });
+  await h.command('invoice.revise', { invoiceId: invoice.id, version: invoice.version, total: '1' }, { error: 'INVOICE_IMMUTABLE' });
+  const second = await ship('1'); let other = await authorize(await h.command('invoice.draft', { orderId: order.id, shipmentId: second.id, invoiceDate: '2026-10-02', charges:[{kind:'freight',amount:'2.00',taxable:false}] }));
+  assert.equal(other.total, '12.800000000000');assert.equal(other.charges[0].kind,'freight'); assert.equal(other.dueDate, '2026-11-01');
+  const returned = await h.command('return.create', { shipmentId: first.id, shipmentLineId: first.lines[0].id, locationId: b.source.id, quantity: '1', reason: 'Customer returned one' });
+  let credit = await h.command('invoice.credit.draft', { invoiceId: invoice.id, kind: 'return', returnId: returned.id, reason: 'Return one invoiced item', lines: [{ invoiceLineId: invoice.lines[0].id, quantity: '1' }] });
+  credit = await h.command('invoice.credit.review', { creditId: credit.id, version: credit.version });
+  const creditId = randomUUID(); credit = await h.command('invoice.credit.authorize', { creditId: credit.id, version: credit.version }, { commandId: creditId });
+  assert.equal(credit.total, '10.800000000000'); assert.equal((await h.state()).invoiceCredits.filter(r => r.status === 'authorized').length, 1);
+  await h.command('invoice.credit.draft', { invoiceId: invoice.id, kind: 'return', returnId: returned.id, reason: 'Duplicate return credit', lines: [{ invoiceLineId: invoice.lines[0].id, quantity: '1' }] }, { error: 'INVOICE_CREDIT' });
+  other = await h.command('invoice.void', { invoiceId: other.id, version: other.version, reason: 'Duplicate commercial source was reviewed' });
+  assert.equal(other.status, 'voided'); assert.equal(other.ledger.status, 'void-pending-external-reversal'); assert.deepEqual(other.original.lines, other.lines);
+  const replacement = await h.command('invoice.draft', { orderId: order.id, shipmentId: second.id }); assert.equal(replacement.lines[0].quantity, '1');
+  const prepay = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '1', price: '10' }] });
+  await h.command('invoice.policy', { orderId: prepay.id, mode: 'prepay', reason: 'Payment before shipment' });
+  const prepayInvoice = await authorize(await h.command('invoice.draft', { orderId: prepay.id, terms: { kind: 'earlyDiscount', discountPercent: '2', withinDays: 10, netDays: 30 } }));
+  assert.equal(prepayInvoice.terms.earlyDiscount.amount, '0.200000000000');
+  const prepayShipment = await h.command('dispatch.create', { orderId: prepay.id, shipmentReference: 'synthetic-pier-9', lines: [{ orderLineId: prepay.lines[0].id, quantity: '1' }] });
+  await h.command('invoice.draft', { orderId: prepay.id, shipmentId: prepayShipment.id }, { error: 'INVOICE_PREPAY' });
+  const cadOrder = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '1', price: '10' }] });
+  await h.command('invoice.policy', { orderId: cadOrder.id, mode: 'prepay', reason: 'Reviewed CAD prepayment' });
+  const cad = await authorize(await h.command('invoice.draft', { orderId: cadOrder.id, currency: 'CAD', usdRate: '0.75', unitPrices: [{ orderLineId: cadOrder.lines[0].id, price: '12' }], priceReason: 'Customer CAD price reviewed' }));
+  assert.equal(cad.total, '12.960000000000'); assert.equal(cad.usdTotal, '9.720000000000');
+  const state = await h.state(); assert.equal(state.invoicePayments.length, 0); assert.equal(state.invoices.filter(r => r.orderId === prepay.id).length, 1);
+  assert.equal(state.customerBalances[b.customer.id].USD,'25.760000000000');assert.equal(state.customerBalances[b.customer.id].CAD,'12.960000000000');
+  const exact = value => BigInt(value.replace('.', ''));
+  assert.equal(state.invoices.filter(r => r.status === 'authorized' && r.currency === 'USD').reduce((n, r) => n + exact(r.total), 0n) - state.invoiceCredits.filter(r => r.status === 'authorized' && r.currency === 'USD').reduce((n, r) => n + exact(r.total), 0n), exact('25.760000000000'));
+});
+
+test('invoice-specific Stripe checkout verifies ACH success once and expires paid or changed links', async t => {
+  const remote = new Map(), sentMail=[]; let creates = 0, expires = 0, loseCreate = false;
+  const h = await installation({bindings:{MAIL_PROVIDER:'sendgrid',MAIL_FROM:'sales@example.test',MAIL_API_KEY:'synthetic-pier-3'}, outboundService: async request => {
+    const url = new URL(request.url);
+    if(url.hostname==='api.sendgrid.com'){sentMail.push(await request.json());return new Response(null,{status:202,headers:{'x-message-id':'synthetic-pier-4'}});}
+    assert.equal(url.hostname, 'api.stripe.com');
+    if (request.method === 'POST' && url.pathname === '/v1/checkout/sessions') {
+      creates++; assert.ok(request.headers.get('idempotency-key'));
+      const form = new URLSearchParams(await request.text()); assert.equal(form.get('allowed_payment_method_types[1]'), 'us_bank_account');
+      const metadata = Object.fromEntries(['pier_invoice_id', 'pier_session_id', 'pier_connection_id'].map(key => [key, form.get(`metadata[${key}]`)]));
+      for (const [key, value] of Object.entries(metadata)) assert.equal(form.get(`payment_intent_data[metadata][${key}]`), value);
+      const id = `synthetic-pier-${creates}`, value = { id, object: 'checkout.session', mode: 'payment', client_reference_id: form.get('client_reference_id'), metadata, livemode: false, currency: form.get('line_items[0][price_data][currency]'), amount_total: Number(form.get('line_items[0][price_data][unit_amount]')), status: 'open', payment_status: 'unpaid', payment_intent: null, expires_at: Math.floor(Date.now() / 1000) + 1800, url: `https://checkout.stripe.com/c/pay/${id}` };
+      remote.set(id, value); return loseCreate ? new Response('Unconfirmed', { status: 503 }) : Response.json(value);
+    }
+    const id = decodeURIComponent(url.pathname.split('/')[4]), value = remote.get(id);
+    assert.ok(value, 'readback must name an existing checkout');
+    if (request.method === 'POST' && url.pathname.endsWith('/expire')) { expires++; value.status = 'expired'; value.url = null; }
+    return Response.json(value);
+  } }); t.after(() => h.close()); const b = await basics(h);
+  await h.command('business.save',{name:'Harbor Wholesale',address:'30 Dock Road',shipTo:{}});
+  await h.command('payment.configure', { consent: false, mode: 'test', secretKey: 'synthetic-pier-1', webhookSecret: 'synthetic-pier-2' }, { error: 'PAYMENT_CONSENT' });
+  const connection = await h.command('payment.configure', { consent: true, mode: 'test', secretKey: 'synthetic-pier-1', webhookSecret: 'synthetic-pier-2' });
+  assert.equal(JSON.stringify(connection).includes('synthetic-pier-1'), false);
+  await h.command('sales.taxTable', { state: 'CA', rate: '8', reason: 'Reviewed owner estimate' });
+  const makeInvoice = async () => {
+    const order = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '2', price: '10' }] });
+    await h.command('invoice.policy', { orderId: order.id, mode: 'prepay', reason: 'Prepay before warehouse dispatch' });
+    let invoice = await h.command('invoice.draft', { orderId: order.id }); invoice = await h.command('invoice.review', { invoiceId: invoice.id, version: invoice.version }); invoice = await h.command('invoice.authorize', { invoiceId: invoice.id, version: invoice.version });
+    const link = await h.command('invoice.payLink', { invoiceId: invoice.id, version: invoice.version });
+    const document=await h.command('print.generate',{kind:'invoice',sourceId:invoice.id}),sent=await h.command('print.send',{documentId:document.id,version:document.version,recipient:'buyer@example.test'});assert.equal(sent.pdf,document.pdf);assert.ok(sent.body.includes(link.url));assert.equal(sentMail.at(-1).attachments[0].content,document.pdf);assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===sent.id).phase,'sent');
+    return { invoice, link, path: new URL(link.url).pathname };
+  };
+  const { invoice, path } = await makeInvoice();
+  assert.equal((await h.request(path, { as: '' })).status, 200);
+  assert.equal((await h.request(`${path.slice(0, -1)}0`, { as: '' })).status, 404);
+  const payload = { invoiceId: invoice.id, version: invoice.version, amount: '5.40' }, commandId = randomUUID();
+  let session = await h.command('payment.checkout', payload, { commandId });
+  assert.equal(session.status, 'open'); await h.command('payment.checkout', payload, { commandId }); assert.equal(creates, 1);
+  await h.command('payment.record', { sessionId: session.id, version: session.version, change: { status: 'succeeded' } }, { error: 'PAYMENT_INTERNAL' });
+  const provider = remote.get(session.providerSessionId);
+  const settle = (value, status) => { value.status = 'complete'; value.payment_status = status === 'succeeded' ? 'paid' : 'unpaid'; value.payment_intent = { id: `synthetic-pier-payment-${value.id}`, object: 'payment_intent', metadata: value.metadata, livemode: false, amount: value.amount_total, amount_received: status === 'succeeded' ? value.amount_total : 0, currency: value.currency, latest_charge: { payment_method_details: { type: 'us_bank_account' } }, status }; };
+  settle(provider,'requires_action');provider.payment_intent.next_action={type:'verify_with_microdeposits',verify_with_microdeposits:{hosted_verification_url:'https://payments.stripe.com/microdeposit/verify/synthetic-pier-1'}};
+  const verifying=await(await h.request(path,{as:''})).text();assert.match(verifying,/Verify bank account with Stripe/);assert.doesNotMatch(verifying,/<form/);assert.equal((await h.state()).invoicePayments.length,0);
+  settle(provider, 'processing');
+  assert.match(await (await h.request(path, { as: '' })).text(), /processing/); assert.equal((await h.state()).invoicePayments.length, 0);
+  const event = { id: 'synthetic-pier-event-1', livemode: false, type: 'checkout.session.async_payment_succeeded', data: { object: { id: provider.id, object: 'checkout.session' } } };
+  const sendEvent = async (body = event, stamp = Math.floor(Date.now() / 1000), valid = true) => {
+    const signature = createHmac('sha256', 'synthetic-pier-2').update(`${stamp}.${JSON.stringify(body)}`).digest('hex');
+    return h.request('/api/pier/payments/stripe/webhook', { method: 'POST', body, as: '', headers: { 'stripe-signature': `t=${stamp},v1=${valid ? signature : '0'.repeat(64)}` } });
+  };
+  assert.equal((await sendEvent(event, Math.floor(Date.now() / 1000), false)).status, 401);
+  assert.equal((await sendEvent(event, Math.floor(Date.now() / 1000) - 600)).status, 401);
+  settle(provider, 'succeeded'); provider.payment_intent.amount_received++;
+  assert.equal((await sendEvent()).status, 409); assert.equal((await h.state()).invoicePayments.length, 0);
+  provider.payment_intent.amount_received--;
+  assert.equal((await sendEvent()).status, 200); assert.equal((await sendEvent()).status, 200);
+  assert.equal((await h.state()).invoicePayments.length, 1); assert.equal((await h.state()).invoicePayments[0].paymentMethod, 'us_bank_account');
+  assert.match(await (await h.request(path, { as: '' })).text(), /16.20/);
+  const redirected = await h.request(path, { method: 'POST', as: '' }); assert.equal(redirected.status, 303); assert.equal(creates, 2);
+  const provider2 = [...remote.values()].at(-1); settle(provider2, 'succeeded');
+  const finalEvent = { ...event, id: 'synthetic-pier-event-2', data: { object: { id: provider2.id, object: 'checkout.session' } } };
+  assert.equal((await sendEvent(finalEvent)).status, 200); assert.equal((await sendEvent(finalEvent)).status, 200);
+  let state = await h.state(); assert.equal(state.invoicePayments.length, 2); assert.equal(state.invoicePayLinks.find(r => r.invoiceId === invoice.id).status, 'paid');
+  assert.equal(state.invoices.find(i=>i.id===invoice.id).balance,'0.000000000000');assert.equal(state.customerBalances[b.customer.id].USD,'0.000000000000');
+  const paid = await (await h.request(path, { as: '' })).text(); assert.match(paid, /Paid/); assert.doesNotMatch(paid, /<form/);
+  assert.equal((await h.request(path, { method: 'POST', as: '' })).status, 409); assert.equal(creates, 2);
+  await h.command('invoice.void', { invoiceId: invoice.id, version: state.invoices.find(r => r.id === invoice.id).version, reason: 'Cannot void a paid original' }, { error: 'INVOICE_PAID' });
+  const uncertain = await makeInvoice(); loseCreate = true;
+  const unknownPayload = { invoiceId: uncertain.invoice.id, version: uncertain.invoice.version }, unknownId = randomUUID();
+  const unknown = await h.command('payment.checkout', unknownPayload, { commandId: unknownId }); assert.equal(unknown.status, 'uncertain');
+  await h.command('payment.checkout', unknownPayload, { commandId: unknownId }); await h.command('payment.checkout', unknownPayload); assert.equal(creates, 3, 'response loss cannot submit another checkout');
+  await h.command('invoice.void', { ...unknownPayload, reason: 'Must expire checkout first' }, { error: 'PAYMENT_ACTIVE' });
+  let credit = await h.command('invoice.credit.draft', { invoiceId: uncertain.invoice.id, kind: 'price', reason: 'Reviewed price adjustment', lines: [{ invoiceLineId: uncertain.invoice.lines[0].id, amount: '1.00' }] });
+  credit = await h.command('invoice.credit.review', { creditId: credit.id, version: credit.version });
+  await h.command('invoice.credit.authorize', { creditId: credit.id, version: credit.version }, { error: 'PAYMENT_ACTIVE' });
+  loseCreate = false; let reconciled = await h.command('payment.reconcile', { sessionId: unknown.id, version: unknown.version, providerSessionId: [...remote.keys()].at(-1) });
+  assert.equal(reconciled.status, 'open'); reconciled = await h.command('payment.expire', { sessionId: reconciled.id, version: reconciled.version }); assert.equal(reconciled.status, 'expired'); assert.equal(expires, 1);
+  credit = await h.command('invoice.credit.authorize', { creditId: credit.id, version: credit.version }); assert.equal(credit.status, 'authorized');
+  assert.equal((await h.request(uncertain.path, { method: 'POST', as: '' })).status, 409);
+  state = await h.state(); assert.equal(state.invoicePayLinks.find(r => r.invoiceId === uncertain.invoice.id).status, 'credited'); assert.equal(state.invoicePayments.length, 2);
 });

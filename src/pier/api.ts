@@ -1,8 +1,19 @@
 import { recurringOrders } from './recurring-orders';
+import { documents } from './documents/commands';
+import { extractDocument } from './documents/provider';
+import { documentInbound } from './documents/inbound';
+import { documentRead } from './documents/routes';
+import { documentViews } from './documents/records';
+import { commandText } from './documents/body';
 import { dropships } from './dropships';
 import { routing } from './routing';
 import { salesDocuments } from './sales-documents';
-import { deliverSalesDocument } from './sales-mail';
+import { deliverDocument } from './print/mail';
+import { printedDocuments } from './print/commands';
+import { printRead } from './print/routes';
+import { deliveryWebhook } from './print/delivery-events';
+import { invoices, nativeBalance, customerBalance } from './invoices/index';
+import { paymentResponse, performPayment } from './payments/index';
 import { salesImports } from './sales-imports';
 import { salesQuotes } from './sales-quotes';
 import { trace, traceState, reconcileTrace, traceReport } from './trace';
@@ -175,6 +186,10 @@ export async function execute(
     if (result === undefined) result = await edi(c, type, payload, env);
     if (result === undefined) result = await books(c, type, payload, env);
     if (result === undefined) result = await itemAgent(c, type, payload, env);
+    if (result === undefined) result = await documents(c, type, payload, env);
+    if (result === undefined) result = await printedDocuments(c, type, payload, env);
+    if (result === undefined) result = await salesDocuments(c, type, payload);
+    if (result === undefined) result = await invoices(c, type, payload, env);
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
@@ -186,7 +201,6 @@ export async function execute(
       recurringOrders,
       dropships,
       routing,
-      salesDocuments,
       salesImports,
       salesQuotes,
       pricing,
@@ -231,6 +245,8 @@ export async function execute(
         );
       return outcome;
     }
+    // Retaining and reviewing untrusted evidence never triggers unrelated plans.
+    if (!type.startsWith('document.') || type === 'document.approve') {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -240,6 +256,7 @@ export async function execute(
     invalidatePurchaseSends(c);
     refreshSlowStock(c, backgroundPolicy?.collection === "slowStockPolicies");
     markChannelPending(c, before);
+    }
     try {
       return await commit(env, c, before, digest, result);
     } catch (error) {
@@ -275,6 +292,10 @@ export async function pierResponse(
   if (!url.pathname.startsWith("/api/pier")) return null;
   try {
     const env = runtimeBindings(original);
+    const payment = await paymentResponse(request, env, execute);if(payment)return payment;
+    const eventDelivery = await deliveryWebhook(request,env);if(eventDelivery)return eventDelivery;
+    const inboundDocument = await documentInbound(request, env);
+    if (inboundDocument) return inboundDocument;
     const carrierWebhook = await shippingWebhook(request, env);
     if (carrierWebhook) return carrierWebhook;
     const webhook = await channelWebhook(request, env);
@@ -301,6 +322,9 @@ export async function pierResponse(
           null,
           401,
         );
+      const printDocument=printRead(url.pathname,actor,s);if(printDocument)return printDocument;
+      const originalDocument = documentRead(url.pathname, actor, s);
+      if (originalDocument) return originalDocument;
       const labelMatch = /^\/api\/pier\/shipping\/labels\/([^/]+)\.(pdf|zpl)$/.exec(url.pathname);
       if (labelMatch) {
         const blocked = shippingUnavailable(env);
@@ -411,7 +435,13 @@ export async function pierResponse(
       const bookConnections = await bookConnectionViews(env, s);
       return json({
         ...s,
-        ...(actor.role==='owner'?{}:{salesDocuments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,...party})=>party)}),
+        invoices: actor.role==='owner'?s.invoices.map(i=>({...i,balance:nativeBalance(s,i.id)})):[],
+        customerBalances: actor.role==='owner'?Object.fromEntries(s.parties.filter(p=>p.kind==='customer').map(p=>[p.id,customerBalance(s,p.id)])):{},
+        evidenceDocuments: actor.role === 'owner' ? documentViews(s).documents : [],
+        documentExtractions: actor.role === 'owner' ? s.documentExtractions : [],
+        documentSettings: actor.role === 'owner' ? s.documentSettings : [],
+        documentInbox: actor.role === 'owner' ? documentViews(s).inbox : [],
+        ...(actor.role==='owner'?{}:{salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,...party})=>party)}),
         actor,
         people,
         bookConnections,
@@ -456,9 +486,7 @@ export async function pierResponse(
       );
     if (!request.headers.get("content-type")?.includes("application/json"))
       throw new Problem("CONTENT_TYPE", "Use application/json.", null, 400);
-    const raw = await request.text();
-    if (raw.length > 2 * 1024 * 1024)
-      throw new Problem("SIZE", "Command exceeds 2 MiB.", null, 400);
+    const raw = await commandText(request);
     let body: any;
     try {
       body = JSON.parse(raw);
@@ -504,6 +532,11 @@ export async function pierResponse(
     if (["edi.send.begin", "edi.send.result", "edi.send.unavailable"].includes(type)) fail("EDI_INTERNAL", "Pier records EDI traffic itself.");
     if (type === "edi.send") return json(await deliverEdi(env, actor, commandId, payload, execute));
     if (["itemAgent.begin", "itemAgent.complete", "itemAgent.failed"].includes(type)) fail("AI_INTERNAL", "Pier records AI request outcomes itself.");
+    if (['document.begin', 'document.complete', 'document.failed'].includes(type)) fail('DOCUMENT_INTERNAL', 'Pier records paid document request outcomes itself.');
+    if (type.startsWith('document.') && actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only an owner can access retained originals and document processing.', null, 403);
+    if (['payment.record','payment.begin','payment.complete','payment.apply'].includes(type))fail('PAYMENT_INTERNAL','Pier records verified payment outcomes itself.');
+    if(['payment.checkout','payment.reconcile','payment.expire'].includes(type))return json(await performPayment(env,actor,commandId,type,payload,execute));
+    if (type === 'document.extract') return json(await extractDocument(env, actor, commandId, payload, execute));
     if (type === "itemAgent.explain") return json(await explainItem(env, actor, commandId, payload, execute));
     if (["book.plan","book.begin","book.record","book.checked","book.reconcile"].includes(type)) fail("BOOK_INTERNAL","Pier records books traffic itself.");
     if (type === "channel.stallLink") fail("CHANNEL_INTERNAL", "Pier creates Stall keys itself.");
@@ -542,7 +575,8 @@ export async function pierResponse(
     }
     if(['order.create','quote.create'].includes(type)&&(Object.hasOwn(payload,'nativeCutover')||payload.fulfilment||payload.channelId||payload.ediPartnerId||payload.routingSource&&payload.routingSource!=='manual'))fail('ROUTING_SOURCE','Public manual orders use the manual source; connector and file sources are assigned by their own intake doors.');
     const outcome = await execute(env, actor, commandId, type, payload);
-    if(outcome && ['quote.send','order.confirm'].includes(type)) await deliverSalesDocument(env,actor,outcome.result.id);
+    if (outcome && type.startsWith('document.')) return json(outcome);
+    if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
       const doc = (await load(env.DB)).ediDocuments.find(d => d.id === outcome.result.acknowledgmentDocumentId);
       if (doc) await deliverEdi(env, actor, `${commandId}-997`, {documentId:doc.id,version:doc.version}, execute);

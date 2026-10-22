@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { PrintWorkbench } from "./print-workbench";
+import { InvoiceWorkbench } from "./invoice-workbench";
+import { DocumentIntake } from "./document-intake";
 import {
   records,
   type PierState,
@@ -147,7 +150,7 @@ export function Commercial({
                 <td>
                   {records(state, "deliveries").find(
                     (r) => r.correspondenceId === d.id,
-                  )?.phase ?? "Awaiting submission"}
+                  )?.phase ?? (d.recipient ? "Awaiting submission" : "Retained · not emailed")}
                 </td>
                 <td>
                   <a
@@ -181,6 +184,9 @@ export function SalesIntake({
     [fileError, setFileError] = useState("");
   return (
     <>
+      <InvoiceWorkbench state={state} run={run} busy={busy} />
+      <PrintWorkbench state={state} run={run} busy={busy} />
+      <DocumentIntake state={state} run={run} busy={busy} />
       <QuoteApprovalSettings state={state} run={run} busy={busy} />
       <Form
         title="Owner tax estimate table"

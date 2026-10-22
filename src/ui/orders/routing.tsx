@@ -93,6 +93,7 @@ export function WarehouseRouting({
   const sources = [
     { id: "manual", version: 1, label: "Manual orders" },
     { id: "file", version: 1, label: "Customer order files" },
+    { id: "document", version: 1, label: "Reviewed document orders" },
     ...records(state, "channels").map((c) => ({
       id: `channel:${c.id}`,
       version: 1,

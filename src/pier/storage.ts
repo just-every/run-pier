@@ -28,7 +28,7 @@ function policyAuthority(c: Context) {
   const p = c.backgroundPolicy!;
   const path = p.collection === 'purchaseOrders' ? '$.sendPolicy.version' : p.collection === 'orders' ? '$.promisePolicy.version' : '$.version';
   const approver = p.collection === 'purchaseOrders' ? '$.sendPolicy.approvedBy' : p.collection === 'orders' ? '$.promisePolicy.approvedBy' : '$.approvedBy';
-  const enabled = p.collection === 'purchaseOrders' ? '$.sendPolicy.enabled' : p.collection === 'orders' ? '$.promisePolicy.enabled' : ['channels','bookConnections','shippingSettings','slowStockPolicies','recurringOrders'].includes(p.collection) ? '$.enabled' : '$.autoDraft';
+  const enabled = p.collection === 'purchaseOrders' ? '$.sendPolicy.enabled' : p.collection === 'orders' ? '$.promisePolicy.enabled' : ['channels','bookConnections','shippingSettings','slowStockPolicies','recurringOrders','paymentConnections'].includes(p.collection) ? '$.enabled' : '$.autoDraft';
   return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer','operator')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind=? AND id=? AND json_extract(data,?)=? AND json_extract(data,?)=? AND json_extract(data,?)=1)`,
     params: [c.actor.id, c.actor.role, p.collection, p.id, path, p.version, approver, c.actor.id, enabled] };
 }

@@ -53,11 +53,13 @@ export function planBooks(c: Context) {
       return {key:`landed:${receipt.id}`,kind:'journal',date:receipt.createdAt.slice(0,10),reference:ref('LAND',receipt.id),total,lines:[{description:`Freight and duty on receipt ${receipt.supplierReference}`,quantity:'1',amount:total,account:connection.inventoryAccountId,debit:total},{description:'Freight and duty moved into inventory',quantity:'1',amount:total,account:connection.landedCostAccountId,credit:total}]};
     });
   }
+  const nativeInvoiceOrder = (order:Row) => c.s.invoices.some(i=>i.orderId===order.id) || c.s.salesPolicies.some(p=>p.kind==='invoicing'&&(p.orderId===order.id||!p.orderId&&p.customerId===order.customerId));
+  c.s.bookJobs=c.s.bookJobs.filter(job=>!(job.kind==='invoice'&&!job.attempted&&!job.remoteId&&c.s.orders.some(order=>order.id===job.sourceId&&nativeInvoiceOrder(order))));
   const ledger = valuationLedger(c.s,c.now);
   for (const shipment of c.s.shipments) {
     const order = c.s.orders.find(o => o.id === shipment.orderId)!;
     const customer = c.s.parties.find(p => p.id === order.customerId)!;
-    add(`invoice:${shipment.id}`,'invoice',shipment,'order',ref('INV',shipment.id),() => {
+    if(!nativeInvoiceOrder(order)) add(`invoice:${shipment.id}`,'invoice',shipment,'order',ref('INV',shipment.id),() => {
       const lines = shipment.lines.map((l:any) => {
         const ol = order.lines.find((line:any)=>line.id===l.orderLineId);
         if (typeof ol?.price !== 'string') throw new Error('This shipped order has no sales price. Open the sales order and choose Price this order; the invoice posts on the next sync.');
