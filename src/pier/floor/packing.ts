@@ -14,6 +14,7 @@ import {
 import { orders } from "../orders";
 import { itemScan } from "./codes";
 import { reservedFor } from "./wave-coverage";
+import { zoneGroups } from './zone-picks';
 
 // The pack step: units picked in a wave are scanned into numbered cartons, each
 // carton is weighed and measured by hand, and the order is marked packed. Only
@@ -36,7 +37,7 @@ function packOf(c: Context, p: any, create: boolean) {
   let pack = c.s.packs.find((x) => x.waveId === w.id && x.orderId === p.orderId);
   if (!pack) {
     if (!create) fail("PACK", "Scan an item into a carton first.");
-    pack = row(c, "packs", { waveId: w.id, orderId: p.orderId, cartons: [{ number: 1, lines: [], weight: null, length: null, width: null, height: null }], status: "packing", packedAt: null, shipmentId: null });
+    pack = row(c, "packs", { waveId: w.id, orderId: p.orderId, tote: w.orders.find((o: any) => o.orderId === p.orderId).tote, cartons: [{ number: 1, lines: [], weight: null, length: null, width: null, height: null }], status: "packing", packedAt: null, shipmentId: null });
   }
   return { w, pack: pack as Row };
 }
@@ -73,6 +74,9 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
       carton[key] = value;
     }
   } else if (type === "pack.close") {
+    const contributions = zoneGroups(w as any, pack.orderId);
+    const unfinished = contributions.filter(zone => zone.linesOpen);
+    if (unfinished.length) fail('ZONE_INCOMPLETE', `Finish zone picks for this order before merging tote ${pack.tote}: ${unfinished.map(zone => zone.name).join(', ')}.`);
     for (const l of w.lines.filter((l: any) => l.orderId === pack.orderId)) {
       const picked = pickedFor(w, l.orderLineId, l.itemId), packed = packedFor(pack, l.orderLineId, l.itemId);
       if (packed !== picked) fail("UNPACKED", `${format(picked - packed)} picked ${get(c.s, "items", l.itemId).sku} are not in a carton yet.`);
@@ -84,6 +88,7 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
     pack.status = "packed";
     pack.packedAt = c.now;
     pack.packedBy = c.actor.id;
+    if (contributions.length) pack.mergedZones = contributions.map(zone => zone.name);
   } else if (type === "pack.dispatch") {
     if (pack.status !== "packed") fail("PACK_STATE", pack.status === "shipped" ? "This pack already shipped." : "Mark the order packed first.");
     const quantities = new Map<string, bigint>();
