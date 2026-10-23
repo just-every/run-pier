@@ -12,7 +12,7 @@ export function pantryClient(config: BooksAdapterConfig) {
   const request=async(path:string,body?:unknown,idempotencyKey?:string) => {
     const response=await (config.fetch ?? fetch)(origin+'/api/pantry/integration/v1/'+path,{method:body===undefined?'GET':'POST',redirect:'manual',headers:{authorization:`Bearer ${config.credentials.integrationToken}`,origin,'content-type':'application/json',...(idempotencyKey?{'idempotency-key':idempotencyKey}:{})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(10000)});
     const value:any=await response.json().catch(()=>({}));
-    if(!response.ok) throw new PantryRefusal(typeof value.error==='string'?value.error:'Pantry refused this request. Check its business setup and permissions.',response.status);
+    if(!response.ok) throw new PantryRefusal(`Pantry refused this request (HTTP ${response.status}). Check its business setup and permissions.`,response.status);
     return value;
   };
   const post=async(path:string,body:unknown,doc:BookDocument,operation:string)=>{

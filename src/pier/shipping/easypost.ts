@@ -7,7 +7,7 @@ export class CarrierRefusal extends Error {
 export function easyPost(apiKey: string) {
   async function call(path: string, body?: object) {
     const response = await fetch(`https://api.easypost.com/v2/${path}`, {
-      method: body ? 'POST' : 'GET',
+      method: body ? 'POST' : 'GET', redirect: 'manual',
       headers: { authorization: `Basic ${btoa(`${apiKey}:`)}`, 'content-type': 'application/json' },
       ...(body ? { body: JSON.stringify(body) } : {}),
       signal: AbortSignal.timeout(25000),

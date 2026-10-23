@@ -285,6 +285,7 @@ try {
   await running.cmd('workflow.enqueue', { ruleId: workflow.id });
   const savedReport = await running.cmd('report.save', { name: 'Portable valuation', parameters: { warehouse: 'Main' } });
   await running.cmd('report.run', { reportId: savedReport.id, version: savedReport.version });
+  await running.cmd('print.delivery.configure', { version: 0, provider: 'resend', verificationKey: 'synthetic-pier-7', consent: true });
   const original = documentOriginal([['synthetic-pier-1'], ['Private portable source original']]);
   await running.cmd('document.upload', { name: 'source.pdf', mimeType: 'application/pdf', base64: original.toString('base64') });
   await running.cmd('document.configure', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-2', consent: true });
@@ -409,6 +410,30 @@ try {
     "--output",
     join(parent, "restored.rer"),
   ]);
+  // A later journal is a real public archive made after explicit erasure.
+  // Its checkpoint refuses the older source archive before any private row
+  // returns. A current archive restores normally with the source absent.
+  running = await start(source, p);
+  const erasurePlan = await (await running.request('/api/pier/privacy?kind=attachment&subjectId=' + before.evidenceDocuments[0].id)).json();
+  await running.cmd('privacy.eraseAttachment', { documentId: before.evidenceDocuments[0].id, planHash: erasurePlan.planHash, confirm: true });
+  await running.close(); running = null;
+  const later = join(parent, 'later-journal.rer');
+  await command(source, ['export', '--output', later]);
+  const fenced = await copy('fenced-destination');
+  const older = child(fenced, ['import', '--input', archive, '--journal', later, '--yes']);
+  assert.notEqual(await older.done, 0, 'later erasure checkpoint refuses the older archive');
+  assert.match(clean(older.output()), /erasure_epoch/, 'refusal identifies the later-journal fence');
+  await command(fenced, ['import', '--input', later, '--yes']);
+  const p3 = await port();
+  await command(fenced, ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(p3)]);
+  running = await start(fenced, p3);
+  const fencedExport = await (await running.request('/api/pier/export')).json();
+  assert.equal(fencedExport.evidenceDocuments.length, 0);
+  assert.ok(!JSON.stringify(fencedExport).includes(original.toString('base64')));
+  assert.deepEqual(fencedExport.movements, before.movements);
+  assert.ok(fencedExport.workflowRules.every(rule => !rule.enabled));
+  assert.equal((await running.request('/api/pier/documents/' + before.evidenceDocuments[0].id + '/original')).status, 404);
+  await running.close(); running = null;
   console.log(
     "Fresh rer export/import retained business identity and exact history; a new native session continued receipt to 0.3.",
   );

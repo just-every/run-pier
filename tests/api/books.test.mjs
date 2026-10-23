@@ -8,7 +8,7 @@ import { pantryInstallation } from './pantry-installation.mjs';
 test('Pantry connects with a scoped credential and picked accounts; a matched invoice posts a ready payable, replays never duplicate, and revocation shows a broken connection',async()=>{
   const pantry=await pantryInstallation();
   let pier;
-  let loseJournalResponse=false;
+  let loseJournalResponse=false, echoFailure=false;
   try{
     await pantry.command('chart.start',{});
     const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory Asset',type:'asset',subtype:'other'});
@@ -17,6 +17,7 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     const bank=await pantry.command('bank-account.save',{name:'Operating checking',institution:'Synthetic bank',accountId:lookups.accounts.find(a=>a.code==='1000').id,numberLast4:'4242',routing:'',openingDate:'2026-01-01',openingBalance:'0.00'});
     pier=await installation({async outboundService(request){
       assert.equal(new URL(request.url).origin,pantry.origin);
+      if(echoFailure)return Response.json({error:request.headers.get('authorization')+' synthetic-pier-private-response'},{status:400});
       const response=await fetch(request.url,{method:request.method,headers:Object.fromEntries([...request.headers].filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),redirect:'manual',...(request.method==='GET'?{}:{body:await request.arrayBuffer()})});
       if(loseJournalResponse&&request.method==='POST'&&request.url.endsWith('/integration/v1/journals')){loseJournalResponse=false;await response.text();throw new Error('Synthetic response loss after Pantry saved the journal');}
       return response;
@@ -105,6 +106,11 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     assert.equal((await pier.state()).bookConnections[0].problem,null);
     state=await pier.state();assert.equal(state.bookJobs.filter(j=>['review','uncertain'].includes(j.status)).length,0);
     sales=await pantry.view('sales');assert.equal(sales.invoices.length,1);assert.equal(sales.bills.length,1);assert.equal((await pantry.view('journal')).entries.filter(e=>e.memo.startsWith('PIER-COGS-')).length,1);
+    echoFailure=true;
+    await pier.command('book.sync',{});
+    const safeExport=await(await pier.request('/api/pier/export')).text();
+    assert.ok(!safeExport.includes(credential.token));assert.ok(!safeExport.includes('synthetic-pier-private-response'),'provider error bodies never become retained command/job/audit messages');
+    echoFailure=false;
     await exerciseBooksFixtures();
   }finally{await pier?.close();await pantry.close();}
 });

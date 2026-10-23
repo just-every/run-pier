@@ -8,7 +8,7 @@ export function inactiveRecord(kind, record) {
     r.archiveAuthority ??= {};
     if (!Object.hasOwn(r.archiveAuthority, key)) r.archiveAuthority[key] = value;
   };
-  if (connections.has(kind) || policies.has(kind)) {
+  if (connections.has(kind) || policies.has(kind) || (kind === 'businessTemplates' && r.id === 'pier-print-delivery')) {
     for (const key of ['enabled', 'configured', 'autoDraft']) if (Object.hasOwn(r, key)) { remember(key, r[key]); r[key] = false; }
     r.restorePaused = true;
   }
