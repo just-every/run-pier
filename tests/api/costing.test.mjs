@@ -336,7 +336,14 @@ test('invoice-specific Stripe checkout verifies ACH success once and expires pai
   };
   const { invoice, path } = await makeInvoice();
   assert.equal((await h.request(path, { as: '' })).status, 200);
-  assert.equal((await h.request(`${path.slice(0, -1)}0`, { as: '' })).status, 404);
+  // Every altered signature digit must fail; a fixed replacement can equal the original.
+  const finalDigit = Number.parseInt(path.at(-1), 16);
+  for (let offset = 1; offset < 16; offset++) {
+    const changedDigit = ((finalDigit + offset) % 16).toString(16);
+    const tamperedPath = `${path.slice(0, -1)}${changedDigit}`;
+    assert.notEqual(tamperedPath, path);
+    assert.equal((await h.request(tamperedPath, { as: '' })).status, 404);
+  }
   const payload = { invoiceId: invoice.id, version: invoice.version, amount: '5.40' }, commandId = randomUUID();
   let session = await h.command('payment.checkout', payload, { commandId });
   assert.equal(session.status, 'open'); await h.command('payment.checkout', payload, { commandId }); assert.equal(creates, 1);
