@@ -491,3 +491,142 @@ test('saved filtered analysis schedules private snapshots and downloads retained
     if(shots){await mkdir(shots,{recursive:true});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(shots,`${width}-saved-reports.png`),fullPage:true})}
   }
 })
+
+async function assertNativeWidth(page: Page) {
+  const result = await page.evaluate(() => ({ viewport: window.innerWidth, width: document.documentElement.scrollWidth, edges: [...document.querySelectorAll('body *')].map(e => ({ tag: e.tagName, class: e.className, right: e.getBoundingClientRect().right, text: e.textContent?.slice(0, 60) })).filter(e => e.right > window.innerWidth + 1).slice(-20) }))
+  expect(result.width, JSON.stringify(result)).toBeLessThanOrEqual(result.viewport + 1)
+}
+
+test('warehouse stocktake blind tasks, zone review and retained adjustments at 1440 and 390', async ({ page, context }) => {
+  const origin = await ownerEntry(page)
+  const command = async (type: string, payload: object) => {
+    const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
+  }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const tag = `synthetic-pier-${width}-${crypto.randomUUID().slice(0, 6)}`
+    const item = await command('item.save', { sku: tag, name: tag, unit: 'each', packSize: '1', barcode: `${tag}-code` })
+    const bin = await command('location.save', { name: `${tag}-bin`, warehouse: tag, kind: 'bin', zone: 'West' })
+    await page.goto(`${origin}/app#counts`); await page.reload()
+    let form = section(page, 'Start warehouse stocktake')
+    await form.getByLabel('Stocktake warehouse', { exact: true }).selectOption(tag)
+    await form.getByLabel('Quantity recount threshold', { exact: true }).fill('10')
+    await form.getByLabel('USD recount threshold', { exact: true }).fill('100')
+    await form.getByLabel('Stocktake reason', { exact: true }).fill('Browser physical review')
+    await submit(page, form, 'Capture warehouse stocktake')
+    const take = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: new RegExp(`ST-.*${tag}`) }) }).last()
+    await expect(take).toContainText('Frozen stocktake')
+    form = section(page, 'Zone: West').last()
+    await form.locator('select[name="uncounted"]').selectOption('unchanged')
+    await submit(page, form, 'Save zone rule')
+    await take.getByText(`${bin.name} · West · Uncounted`, { exact: true }).click()
+    form = section(page, `Blind count: ${bin.name}`)
+    await expect(form).not.toContainText('Captured system quantity')
+    await form.getByLabel('Scanned bin code', { exact: true }).fill(bin.name)
+    await form.getByLabel('Item code 1', { exact: true }).fill(item.barcode)
+    await form.getByLabel('Base quantity 1', { exact: true }).fill('0')
+    await form.getByLabel('Physical count reason', { exact: true }).fill('Scanned empty shelf')
+    await submit(page, form, 'Save blind count')
+    if (shots) { await mkdir(shots, { recursive: true }); await page.screenshot({ path: join(shots, `${width}-stocktake-blind.png`), fullPage: true }) }
+    await take.getByText('Review counted and uncounted positions', { exact: true }).click()
+    await expect(take.getByRole('row').filter({ hasText: item.sku })).toContainText('counted')
+    await submit(page, take, 'Approve stocktake adjustments')
+    await expect(take).toContainText('posted')
+    await expect(take).toContainText('Ledger: not posted')
+    await assertNativeWidth(page)
+    // All controls on this screen have visible text; no icon-only action needs a tooltip.
+    if (shots) await page.screenshot({ path: join(shots, `${width}-stocktake-completed.png`), fullPage: true })
+  }
+})
+
+test('ranked receipt fill lists release once and transfer arrival dates remain reviewed at 1440 and 390', async ({ page, context }) => {
+  const origin = await ownerEntry(page)
+  const command = async (type: string, payload: object) => { const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } }); const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const tag = `synthetic-pier-fill-${width}-${crypto.randomUUID().slice(0, 6)}`
+    const item = await command('item.save', { sku: tag, name: tag, unit: 'each', packSize: '1' })
+    const bin = await command('location.save', { name: `${tag}-bin`, warehouse: tag, kind: 'bin' })
+    const destination = await command('location.save', { name: `${tag}-other`, warehouse: `${tag}-other`, kind: 'bin' })
+    const transit = await command('location.save', { name: `${tag}-transit`, warehouse: tag, kind: 'transit' })
+    const supplier = await command('party.save', { name: `${tag}-supplier`, kind: 'supplier' })
+    const customer = await command('party.save', { name: `${tag}-customer`, kind: 'customer' })
+    let rule = await command('routing.save', { source: 'manual', mode: 'fixed', shortage: 'hold', eligible: [tag] })
+    rule = await command('routing.preview', { ruleId: rule.id, version: rule.version }); await command('routing.activate', { ruleId: rule.id, version: rule.version })
+    for (let i = 0; i < 3; i++) await command('order.create', { customerId: customer.id, promiseDate: `2026-11-0${i + 1}`, warehouse: tag, lines: [{ itemId: item.id, quantity: '2' }] })
+    let po = await command('po.draft', { supplierId: supplier.id, destinationWarehouse: tag, promiseDate: '2026-11-01', reason: 'Physical receipt', lines: [{ itemId: item.id, quantity: '5', price: '1' }] })
+    await command('po.approve', { poId: po.id, version: po.version }); po = await command('po.commit', { poId: po.id, version: po.version })
+    const receive = (quantity: string, reference: string) => command('receipt.create', { poId: po.id, supplierReference: reference, lines: [{ poLineId: po.lines[0].id, locationId: bin.id, quantity, cost: '1' }] })
+    const receipt = await receive('4', `${tag}-receipt`)
+    await page.goto(`${origin}/app#sales`); await page.reload()
+    let form = section(page, 'Prepare receipt fill list')
+    await form.getByLabel('Received supply', { exact: true }).selectOption(receipt.id)
+    await form.getByLabel('Fill warehouse', { exact: true }).selectOption(tag)
+    await form.getByLabel('Allocation review reason', { exact: true }).fill('Review ranked physical supply')
+    await submit(page, form, 'Review receipt allocations')
+    const review = page.locator('section.record').filter({ has: page.getByRole('heading', { name: `Receipt allocation review · ${tag}-receipt`, exact: true }) }).last()
+    await expect(review.locator('tbody tr')).toHaveCount(2)
+    if (shots) await page.screenshot({ path: join(shots, `${width}-backorder-review.png`), fullPage: true })
+    await submit(page, review, 'Release reviewed backorders')
+    await expect(review).toContainText('released')
+    await assertNativeWidth(page)
+    if (shots) await page.screenshot({ path: join(shots, `${width}-backorder-released.png`), fullPage: true })
+    await receive('1', `${tag}-transfer-receipt`)
+    const transfer = await command('transfer.send', { itemId: item.id, fromLocationId: bin.id, toLocationId: destination.id, transitLocationId: transit.id, quantity: '1', reason: 'Reviewed internal transit' })
+    await page.goto(`${origin}/app#transfers`); await page.reload()
+    form = section(page, `Arrival promise: ${transfer.id}`)
+    await form.getByLabel('Transfer arrival date', { exact: true }).fill('2026-11-05')
+    await form.getByLabel('Transfer arrival reason', { exact: true }).fill('Warehouse confirmed arrival')
+    await submit(page, form, 'Save transfer arrival')
+    await assertNativeWidth(page)
+    if (shots) await page.screenshot({ path: join(shots, `${width}-transfer-arrival.png`), fullPage: true })
+  }
+})
+
+test('customer profiles and outside representatives show native aging at 1440 and 390', async ({ page, context }) => {
+  const origin = await ownerEntry(page)
+  const command = async (type: string, payload: object) => { const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } }); const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const tag = `synthetic-pier-customer-${width}-${crypto.randomUUID().slice(0, 5)}`
+    const customer = await command('party.save', { name: tag, kind: 'customer' })
+    await page.goto(`${origin}/app#sales`); await page.reload()
+    let form = section(page, 'Customer contacts and terms')
+    await form.getByLabel('Profile customer', { exact: true }).selectOption(customer.id)
+    await form.locator('textarea[name="contacts"]').fill('Synthetic accounts contact')
+    await form.locator('textarea[name="addresses"]').fill('Synthetic delivery address')
+    await form.locator('select[name="terms"]').selectOption('net30')
+    await form.getByLabel('Customer profile reason', { exact: true }).fill('Owner reviewed profile')
+    await submit(page, form, 'Save customer profile')
+    form = section(page, 'Add sales representative')
+    await form.getByLabel('Representative name', { exact: true }).fill(`${tag}-rep`)
+    await submit(page, form, 'Save sales representative')
+    form = section(page, 'Assign customer representative')
+    await form.getByLabel('Represented customer', { exact: true }).selectOption(customer.id)
+    await form.getByLabel('Default representative', { exact: true }).selectOption({ label: `${tag}-rep` })
+    await form.getByLabel('Representative assignment reason', { exact: true }).fill('Owner reviewed outside rep')
+    await submit(page, form, 'Save customer representative')
+    const item = await command('item.save', { sku: `${tag}-item`, name: `${tag}-item`, unit: 'each', packSize: '1' })
+    const currentState = await (await context.request.get(`${origin}/api/pier/state`)).json()
+    const taxTable = currentState.salesPolicies.find((p: any) => p.kind === 'tax-table' && p.state === 'CA')
+    await command('sales.taxTable', { state: 'CA', version: taxTable?.version ?? 0, rate: '0', reason: 'Reviewed synthetic no-tax table' })
+    const order = await command('order.create', { customerId: customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: item.id, quantity: '1', price: '10' }] })
+    await command('invoice.policy', { orderId: order.id, mode: 'prepay', reason: 'Reviewed prepayment' })
+    const invoiceDate = new Date(Date.now() - 31 * 86400000).toISOString().slice(0, 10)
+    let invoice = await command('invoice.draft', { orderId: order.id, invoiceDate })
+    invoice = await command('invoice.review', { invoiceId: invoice.id, version: invoice.version })
+    await command('invoice.authorize', { invoiceId: invoice.id, version: invoice.version })
+    await page.reload()
+    await page.getByText(`${tag} · ${tag}-rep`, { exact: true }).click()
+    const panel = section(page, 'Customers and receivables')
+    const customerDetail = panel.locator('details').filter({ has: page.getByText(`${tag} · ${tag}-rep`, { exact: true }) })
+    await expect(customerDetail.locator('tbody').first().locator('tr')).toContainText('USD')
+    await expect(customerDetail.locator('tbody').first().locator('tr').locator('td').nth(2)).toContainText('10.00')
+    await expect(panel).toContainText('Synthetic accounts contact')
+    await expect(panel).toContainText('Synthetic delivery address')
+    await expect(panel).toContainText('Connected ledger reconciliation and refunds remain pending')
+    await assertNativeWidth(page)
+    if (shots) await page.screenshot({ path: join(shots, `${width}-customers-aging.png`), fullPage: true })
+  }
+})

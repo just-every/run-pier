@@ -40,6 +40,7 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
     ![
       "transfer.send",
       "transfer.receive",
+      "transfer.promise",
       "count.capture",
       "count.record",
       "count.approve",
@@ -48,6 +49,13 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
   )
     return;
   requireRole(c, ["warehouse"]);
+  if (type === 'transfer.promise') {
+    const transfer = get(c.s, 'transfers', p.transferId); fresh(transfer, p.version);
+    if (transfer.status !== 'transit') fail('TRANSFER_STATE', 'Only a transfer in transit can have an arrival promise.');
+    const date = text(p.expectedDate, 'Arrival date');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) fail('DATE', 'Use a valid UTC calendar arrival date.');
+    transfer.expectedDate = date; transfer.promiseReason = text(p.reason); transfer.confirmedBy = c.actor.id; transfer.version++; return transfer;
+  }
   if (type === "transfer.send") {
     const q = decimal(p.quantity, true);
     const from = get(c.s, "locations", p.fromLocationId),

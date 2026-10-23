@@ -29,7 +29,7 @@ export async function invoices(c: Context, type: string, p: any, env?: Bindings)
     const old = c.s.salesPolicies.find(r => r.kind === 'invoicing' && (order ? r.orderId === order.id : r.customerId === customerId && !r.orderId));
     if (old) fresh(old, p.version);
     if (records(c.s, 'invoices').some(r => r.status !== 'voided' && r.status !== 'cancelled' && (order ? r.orderId === order.id : r.customerId === customerId))) fail('INVOICE_POLICY', 'Existing invoices retain their policy. Choose policy before invoicing this customer or order.');
-    const value = { kind: 'invoicing', orderId: order?.id ?? null, customerId, mode: p.mode, terms: p.terms ?? { kind: 'dueReceipt' }, approvedBy: c.actor.id, reason: text(p.reason) };
+    const value = { kind: 'invoicing', orderId: order?.id ?? null, customerId, mode: p.mode, terms: p.terms ?? get(c.s, 'parties', customerId).paymentTerms ?? { kind: 'dueReceipt' }, approvedBy: c.actor.id, reason: text(p.reason) };
     return old ? Object.assign(old, value, { version: old.version + 1 }) : row(c, 'salesPolicies', value);
   }
   if (type === 'invoice.draft') return draftInvoice(c, p);

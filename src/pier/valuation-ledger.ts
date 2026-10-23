@@ -195,7 +195,8 @@ export function valuationLedger(s: State, end: string) {
         const originalValue = original ? receiptValue(original) : null;
         const value = original ? originalValue === null ? null : share(originalValue, q, decimal(original.quantity))
           : opening ? openingValue(q, opening, batch) : null;
-        layers = [{ quantity: q, value, sourceId: m.id, receivedAt: m.createdAt }];
+        const traces=(s.traceEvents??[]).filter(e=>e.movementId===m.id&&BigInt(e.quantity)>0n);
+        layers = traces.length ? traces.map(e=>({quantity:BigInt(e.quantity),value:null,sourceId:m.id,receivedAt:m.createdAt,traceId:e.identityId})) : [{ quantity: q, value, sourceId: m.id, receivedAt: m.createdAt }];
         record(m.importId ? 'openings' : 'adjustments', layers);
       }
       p.layers.push(...layers);

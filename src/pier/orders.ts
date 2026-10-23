@@ -1,3 +1,4 @@
+import { repDefaults } from './customers';
 import { route, sourceKey, routingFrontier } from './routing';
 import { quoteLines, quoteTerms, currentQuote } from './sales-quotes';
 import { requireQuoteApproval } from './quote-approval';
@@ -83,7 +84,7 @@ export function reserve(c: Context, o: Row) {
 export function orderView(c: Context, o: Row, privateCommercial=c.actor.role==='owner') {
   return {
     ...o,
-    ...(privateCommercial?{}:{creditClearance:undefined,quoteApproval:undefined,quoteHistory:undefined,tax:o.tax?{...o.tax,certificate:o.tax.certificate?{state:o.tax.certificate.state,expires:o.tax.certificate.expires}:null}:undefined}),
+    ...(privateCommercial?{}:{salesRepId:undefined,salesRep:undefined,repHistory:undefined,creditClearance:undefined,quoteApproval:undefined,quoteHistory:undefined,tax:o.tax?{...o.tax,certificate:o.tax.certificate?{state:o.tax.certificate.state,expires:o.tax.certificate.expires}:null}:undefined}),
     lines: o.lines.map((l: any) => {
       const q = l.kit ? reservedKits(c.s, l) : c.s.reservations
         .filter((r) => r.orderLineId === l.id)
@@ -175,7 +176,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     if(p.currency && p.currency!=='USD') fail('CURRENCY','Quotes currently use USD.');
     if(p.warehouse && !c.s.locations.some(l=>l.kind==='bin'&&l.warehouse===p.warehouse)) fail('WAREHOUSE','Choose an existing warehouse.');
     const lines=quoteLines(c,p);
-    const quote=row(c,'orders',{reference:nextReference(c.s.orders,'SO'),customerId:p.customerId,warehouse:p.warehouse||null,promiseDate:p.promiseDate||null,channel:'manual',currency:'USD',documentType:'quote',lines,...quoteTerms(c,p,lines)});
+    const quote=row(c,'orders',{reference:nextReference(c.s.orders,'SO'),customerId:p.customerId,...repDefaults(c.s,p.customerId),warehouse:p.warehouse||null,promiseDate:p.promiseDate||null,channel:'manual',currency:'USD',documentType:'quote',lines,...quoteTerms(c,p,lines)});
     routeOrder(c,quote,{...p,routingSource:p.routingSource??'manual'});reserve(c,quote);
     return orderView(c,quote);
   }
@@ -221,6 +222,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     const o = row(c, "orders", {
       reference: nextReference(c.s.orders, "SO"),
       customerId: p.customerId,
+      ...repDefaults(c.s, p.customerId),
       warehouse: p.warehouse ? text(p.warehouse, "Warehouse") : null,
       promiseDate: p.promiseDate ?? null,
       channel: text(p.channel ?? "manual", "Order channel"),

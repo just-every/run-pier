@@ -103,3 +103,43 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
     assert.equal(state.bookJobs.filter(j => ['review', 'uncertain'].includes(j.status)).length, 0);
   } finally { await pier?.close(); await pantry.close(); }
 });
+
+test('customer terms, currency aging and invoice representatives retain their own source history', async t => {
+  const h = await installation(); t.after(() => h.close());
+  const b = await basics(h);
+  const rep = await h.command('salesRep.save', { name: 'synthetic-pier-outside-rep', kind: 'outside' });
+  const nextRep = await h.command('salesRep.save', { name: 'synthetic-pier-next-rep', kind: 'outside' });
+  let customer = await h.command('customer.profile', { customerId: b.customer.id, version: b.customer.version, contacts: ['Accounts contact'], addresses: ['Synthetic delivery address'], paymentTerms: { kind: 'net30' }, reason: 'Reviewed customer terms' });
+  customer = await h.command('customer.rep', { customerId: customer.id, version: customer.version, salesRepId: rep.id, reason: 'Assigned outside representative' });
+  await h.command('sales.taxTable', { state: 'CA', rate: '0', reason: 'Reviewed synthetic no-tax table' });
+  const today = new Date().toISOString().slice(0, 10), day = n => new Date(Date.parse(today) - n * 86400000).toISOString().slice(0, 10);
+  const invoices = [], orders = [];
+  for (const days of [0, 1, 31, 61, 91]) {
+    let order = await h.command('order.create', { customerId: customer.id, warehouse: 'North', shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '1', price: '10' }] });
+    assert.equal(order.salesRepId, rep.id); orders.push(order);
+    await h.command('invoice.policy', { orderId: order.id, mode: 'prepay', reason: 'Reviewed prepayment' });
+    let invoice = await h.command('invoice.draft', { orderId: order.id, invoiceDate: day(days + 30) });
+    assert.equal(invoice.dueDate, day(days)); assert.equal(invoice.salesRepId, rep.id);
+    invoice = await h.command('invoice.review', { invoiceId: invoice.id, version: invoice.version });
+    invoice = await h.command('invoice.authorize', { invoiceId: invoice.id, version: invoice.version }); invoices.push(invoice);
+  }
+  const current = (await h.state()).orders.find(o => o.id === orders[0].id);
+  await h.command('order.salesRep', { orderId: current.id, version: current.version, salesRepId: nextRep.id, reason: 'Audited per-order reassignment' });
+  const s = await h.state(), profile = s.customerProfiles.find(p => p.customerId === customer.id);
+  assert.deepEqual(profile.aging.USD, { current: '10.000000000000', '1-30': '10.000000000000', '31-60': '10.000000000000', '61-90': '10.000000000000', over90: '10.000000000000' });
+  assert.equal(profile.balance.USD, '50.000000000000');
+  assert.equal(s.invoices.find(i => i.id === invoices[0].id).salesRepId, rep.id, 'an order reassignment does not rewrite an authorized invoice');
+  assert.equal(s.orders.find(o => o.id === current.id).repHistory.at(-1).reason, 'Audited per-order reassignment');
+  let cadOrder = await h.command('order.create', { customerId: customer.id, warehouse: 'North', shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '1', price: '10' }] });
+  cadOrder = await h.command('order.salesRep', { orderId: cadOrder.id, version: cadOrder.version, salesRepId: nextRep.id, reason: 'Rep for this invoice' });
+  await h.command('invoice.policy', { orderId: cadOrder.id, mode: 'prepay', reason: 'Reviewed CAD prepayment' });
+  let cad = await h.command('invoice.draft', { orderId: cadOrder.id, currency: 'CAD', usdRate: '0.75', unitPrices: [{ orderLineId: cadOrder.lines[0].id, price: '12' }], priceReason: 'Reviewed CAD price', terms: { kind: 'dueReceipt' } });
+  cad = await h.command('invoice.review', { invoiceId: cad.id, version: cad.version }); await h.command('invoice.authorize', { invoiceId: cad.id, version: cad.version });
+  const last = await h.state(), separated = last.customerProfiles.find(p => p.customerId === customer.id);
+  assert.equal(separated.aging.CAD.current, '12.000000000000'); assert.equal(separated.balance.USD, '50.000000000000');
+  assert.equal(last.invoices.find(i => i.id === cad.id).salesRepId, nextRep.id);
+  const entered = await fetch(`${h.origin}/auth/dev/enter?as=member`, { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
+  const cookie = entered.headers.getSetCookie().map(v => v.split(';')[0]).join('; ');
+  assert.deepEqual((await (await h.request('/api/pier/state', { as: cookie })).json()).customerProfiles, []);
+  await h.command('salesRep.save', { name: 'Denied', kind: 'outside' }, { as: cookie, error: 'FORBIDDEN' });
+});
