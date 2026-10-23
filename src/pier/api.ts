@@ -43,7 +43,7 @@ import {
   type Actor,
   type Context,
 } from "./model";
-import { load, saved, commit, authority, activeAutomationActors } from "./storage";
+import { load, saved, commit, authority, policyAuthority, activeAutomationActors } from "./storage";
 import { channelWebhook } from './channels/webhook';
 import { shipping, unavailable as shippingUnavailable } from './shipping/commands';
 import { business } from './business';
@@ -177,6 +177,9 @@ export async function execute(
   now = () => new Date().toISOString(),
   backgroundPolicy?: Context["backgroundPolicy"],
 ): Promise<any> {
+  const gate = backgroundPolicy ? policyAuthority({ actor, backgroundPolicy }) : authority(actor);
+  if (!(await env.DB.prepare(`SELECT CASE WHEN (${gate.sql}) THEN 1 ELSE 0 END AS ok`).bind(...gate.params).first<any>())?.ok)
+    throw new Problem('AUTH', 'Session or role changed. Sign in again.', null, 401);
   admitScopedCommand(await load(env.DB), actor, type, payload);
   const digest = sha256(canonicalJson({ type, payload }));
   const previous = await saved(env.DB, commandId, digest, actor);
@@ -529,9 +532,13 @@ export async function pierResponse(
     } catch {
       throw new Problem("JSON", "Malformed JSON.", null, 400);
     }
+    const gate = authority(actor);
+    if (!(await env.DB.prepare(`SELECT CASE WHEN (${gate.sql}) THEN 1 ELSE 0 END AS ok`).bind(...gate.params).first<any>())?.ok)
+      throw new Problem('AUTH', 'Session or role changed. Sign in again.', null, 401);
     if (url.pathname === "/api/pier/catalogue/preview") {
       if (!body || typeof body !== "object" || Array.isArray(body)) throw new Problem("INPUT", "Supply a catalogue CSV object.", null, 400);
       const s = await load(env.DB);
+      admitScopedCommand(s, actor, 'catalogue.preview', body);
       const { trial: _trial, ...preview } = previewCatalogue({ s, actor, commandId: "preview", now: new Date().toISOString() }, body.csv);
       return json(preview);
     }

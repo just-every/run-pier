@@ -8,7 +8,7 @@ import {
 } from "./model";
 import type { Bindings } from "../auth.server";
 export const authority = (a: Actor) => ({
-  sql: `EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>?) AND (CASE WHEN EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=?) THEN (SELECT json_extract(data,'$.role') FROM pier_records WHERE kind='roles' AND id=?) ELSE (SELECT CASE WHEN role='owner' THEN 'owner' ELSE 'viewer' END FROM oa_operators WHERE id=?) END)=? AND COALESCE((SELECT version FROM pier_records WHERE kind='roles' AND id=?),0)=?`,
+  sql: `EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>?) AND (CASE WHEN EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=?) THEN (SELECT json_extract(data,'$.role') FROM pier_records WHERE kind='roles' AND id=?) ELSE (SELECT CASE WHEN role='owner' THEN 'owner' ELSE 'viewer' END FROM oa_operators WHERE id=?) END)=? AND COALESCE((SELECT version FROM pier_records WHERE kind='roles' AND id=?),0)=? AND NOT EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=? AND json_extract(data,'$.role')!='owner' AND json_extract(data,'$.permissions.expiresAt')<=strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
   params: [
     a.sessionId,
     a.id,
@@ -20,6 +20,7 @@ export const authority = (a: Actor) => ({
     a.role,
     a.id,
     a.permissionVersion ?? 0,
+    a.id,
   ],
 });
 const effectiveRole = `CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`;
@@ -27,7 +28,7 @@ export async function activeAutomationActors(db: D1Database): Promise<Record<str
   const rows = await db.prepare(`SELECT o.id,CASE WHEN json_type(r.data,'$.permissions')='object' AND ${effectiveRole}!='owner' THEN 'viewer' ELSE ${effectiveRole} END AS role FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.status='active'`).all<any>();
   return Object.fromEntries(rows.results.map(r => [r.id, r.role]));
 }
-function policyAuthority(c: Context) {
+export function policyAuthority(c: Pick<Context, "actor" | "backgroundPolicy">) {
   const p = c.backgroundPolicy!;
   const path = p.collection === 'purchaseOrders' ? '$.sendPolicy.version' : p.collection === 'orders' ? '$.promisePolicy.version' : '$.version';
   const approver = p.collection === 'purchaseOrders' ? '$.sendPolicy.approvedBy' : p.collection === 'orders' ? '$.promisePolicy.approvedBy' : '$.approvedBy';

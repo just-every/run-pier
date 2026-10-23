@@ -237,7 +237,7 @@ test(`owner completes real UI journeys at ${width}px`, async ({ page, context })
   await form.getByLabel('Operator', { exact: true }).selectOption({ label: invitedName })
   await form.getByLabel('Role', { exact: true }).selectOption('agent')
   await submit(page, form, 'Save')
-  await expect(operatorRow.getByRole('cell').last()).toHaveText('Agent')
+  await expect(operatorRow.getByRole('cell').nth(2)).toHaveText('Agent')
   form = section(page, 'Prepare evidence-backed proposal')
   await form.getByLabel('Preparation kind', { exact: true }).selectOption('replenishment')
   await form.getByLabel('Assumptions and explanation', { exact: true }).fill(`${tag}: reviewed replenishment preparation; stock remains physical`)
@@ -489,5 +489,61 @@ test('saved filtered analysis schedules private snapshots and downloads retained
     expect(await page.locator('button,a').evaluateAll(nodes=>nodes.filter(node=>!node.textContent?.trim()&&node.querySelector('svg')).length)).toBe(0)
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
     if(shots){await mkdir(shots,{recursive:true});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(shots,`${width}-saved-reports.png`),fullPage:true})}
+  }
+})
+
+
+test('owners assign and revoke expiring location grants at 1440 and 390', async ({ page, context }) => {
+  await ownerEntry(page)
+  const command = async (type: string, payload: any) => {
+    const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await response.json()
+    expect(response.status()).toBe(200)
+    return body.result
+  }
+  const tag = `synthetic-pier-${crypto.randomUUID().slice(0, 8)}`
+  const location = await command('location.save', { name: `${tag} bin`, warehouse: `${tag} North`, kind: 'bin' })
+  await command('location.save', { name: `${tag} other`, warehouse: `${tag} South`, kind: 'bin' })
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto(`${origin}/app#activity`)
+    await expect(page.getByRole('heading', { name: 'Activity', exact: true })).toBeVisible()
+    const name = `${tag} ${width}`, email = `${tag}-${width}@example.test`
+    let form = section(page, 'Invite an operator')
+    await form.getByLabel('Operator name', { exact: true }).fill(name)
+    await form.getByLabel('Operator email', { exact: true }).fill(email)
+    const invited = page.waitForResponse(response => response.url() === `${origin}/auth/invite` && response.request().method() === 'POST')
+    await form.getByRole('button', { name: 'Invite operator', exact: true }).click()
+    expect((await invited).status()).toBe(202)
+    form = section(page, 'Set an invited operator’s role')
+    await form.getByLabel('Operator', { exact: true }).selectOption({ label: name })
+    await form.getByLabel('Role', { exact: true }).selectOption('warehouse')
+    const restrict = form.getByRole('checkbox', { name: 'Restrict to physical stock and counts' })
+    await restrict.check()
+    await form.getByLabel('Granted warehouses (comma separated)', { exact: true }).fill(`${tag} North`)
+    await form.getByLabel('Granted location identities (comma separated)', { exact: true }).fill(location.id)
+    await form.getByLabel('Grant expiry (ISO timestamp)', { exact: true }).fill('2099-01-01T00:00:00Z')
+    await submit(page, form, 'Save')
+    const row = section(page, 'Operator roles').getByRole('row').filter({ hasText: email })
+    await expect(row).toContainText(`${tag} North`)
+    await expect(row).toContainText(location.id)
+    await expect(row).toContainText('2099-01-01T00:00:00.000Z')
+    await row.scrollIntoViewIfNeeded()
+    if (shots) { await mkdir(shots, { recursive: true }); await page.screenshot({ path: join(shots, `${width}-warehouse-grant.png`), fullPage: true }) }
+    // Every control on this screen has visible text; no icon-only controls exist.
+    const emptyButtons = await page.locator('button:visible').evaluateAll(buttons => buttons.filter(button => !button.textContent?.trim()).length)
+    expect(emptyButtons).toBe(0)
+    await expect(page.locator('body')).toHaveJSProperty('scrollWidth', width)
+    await form.getByLabel('Operator', { exact: true }).selectOption({ label: name })
+    await form.getByLabel('Role', { exact: true }).selectOption('warehouse')
+    await restrict.check()
+    await form.getByLabel('Granted warehouses (comma separated)', { exact: true }).fill('')
+    await form.getByLabel('Granted location identities (comma separated)', { exact: true }).fill('')
+    await form.getByLabel('Grant expiry (ISO timestamp)', { exact: true }).fill('')
+    await submit(page, form, 'Save')
+    await expect(row).toContainText('No warehouses')
+    await expect(row).toContainText('No expiry')
+    await row.scrollIntoViewIfNeeded()
+    if (shots) await page.screenshot({ path: join(shots, `${width}-warehouse-grant-revoked.png`), fullPage: true })
   }
 })

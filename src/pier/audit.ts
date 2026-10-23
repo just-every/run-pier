@@ -5,7 +5,7 @@ import { authority } from './storage';
 const scanTypes = new Set(['receiving.scan', 'pick.scan', 'pack.scan', 'slotting.scan']);
 // Preserve business field changes without retaining contacts, source originals,
 // provider responses, tokens, prompts or untrusted arbitrary metadata.
-const fields = new Set(['sku','name','barcode','caseBarcode','unit','packSize','archived','warehouse','kind','zone','status','quantity','reserved','dispatched','received','cancelled','promiseDate','destinationWarehouse','enabled','autoDraft','role','method','reorderPoint','reorderQuantity','maximum','locationId','itemId']);
+const fields = new Set(['sku','name','barcode','caseBarcode','unit','packSize','archived','warehouse','kind','zone','status','quantity','reserved','dispatched','received','cancelled','promiseDate','destinationWarehouse','enabled','autoDraft','role','method','reorderPoint','reorderQuantity','maximum','locationId','itemId','permissions']);
 function image(kind: string, row: any) {
   if (!row) return null;
   return Object.fromEntries(Object.entries(row).filter(([key]) => fields.has(key) && !(key === 'name' && kind !== 'items' && kind !== 'locations')));
@@ -17,14 +17,17 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
   for (const kind of collections) {
     if (kind === 'evidenceDocuments' || kind === 'documentInbox') continue;
     const old = new Map(before[kind].map(r => [r.id, r]));
-    for (const row of c.s[kind]) {
-      const previous = old.get(row.id);
+    const next = new Map(c.s[kind].map(r => [r.id, r]));
+    for (const id of new Set([...old.keys(), ...next.keys()])) {
+      const previous = old.get(id), row = next.get(id);
       if (JSON.stringify(previous) === JSON.stringify(row)) continue;
-      documents.add(row.id);
-      if (kind === 'items') itemIds.add(row.id);
-      if (row.itemId) itemIds.add(row.itemId);
-      for (const line of row.lines ?? []) if (line.itemId) itemIds.add(line.itemId);
-      changes.push({ kind, id: row.id, beforeVersion: previous?.version ?? null, afterVersion: row.version, before: image(kind, previous), after: image(kind, row) });
+      documents.add(id);
+      if (kind === 'items') itemIds.add(id);
+      for (const affected of [previous, row]) {
+        if (affected?.itemId) itemIds.add(affected.itemId);
+        for (const line of affected?.lines ?? []) if (line.itemId) itemIds.add(line.itemId);
+      }
+      changes.push({ kind, id, beforeVersion: previous?.version ?? null, afterVersion: row?.version ?? null, before: image(kind, previous), after: image(kind, row) });
     }
   }
   let resolution: any = null;

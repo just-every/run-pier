@@ -26,6 +26,7 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       fail("ROLE", "Unknown role");
     if (p.operatorId === c.actor.id)
       fail("ROLE", "Use native owner management to change your own authority.");
+    if (p.role === "owner" && p.permissions !== undefined) fail("ROLE", "Owner authority cannot be restricted by a physical stock grant. Choose a staff role.");
     const permissions = parsePermissions(p.permissions, c.s);
     const old = c.s.roles.find((r) => r.id === p.operatorId);
     if (old) {

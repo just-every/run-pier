@@ -56,6 +56,14 @@ test("native import graph revisions, grouped lines, frontier and safe undo", asy
   const h = await installation();
   t.after(() => h.close());
   const original = await post(h);
+  const publicationEvents = await (await h.request('/api/pier/audit')).json();
+  const publication = publicationEvents.find(event => event.type === 'import.commit' && event.documentIds.includes(original.id));
+  assert.ok(publication, 'native graph publication carries its atomic audit event');
+  assert.equal(publication.outcome, 'accepted');
+  assert.ok(publication.itemIds.length);
+  assert.equal(publication.version, (await h.state()).version);
+  const publicationExport = await (await h.request('/api/pier/export')).json();
+  assert.deepEqual(publicationExport.auditEvents.find(event => event.id === publication.id), publication);
   assert.equal((await h.state()).positions[0].quantity, "1");
   let same = await h.command("import.stage", native());
   same = await freeze(h, same);
@@ -292,6 +300,7 @@ test("empty downstream import undo restores native snapshot and retains custody"
   assert.equal(interrupted.items.length, 1);
   assert.equal(interrupted.movements.length, 0);
   assert.equal(interrupted.imports[0].status, "frozen");
+  assert.ok(!(await (await h.request('/api/pier/audit')).json()).some(event => event.commandId === commandId), 'failed native publication cannot leave a successful audit event');
   assert.equal(
     await h.db
       .prepare("SELECT COUNT(*) AS n FROM pier_commands WHERE id=?")
@@ -311,6 +320,9 @@ test("empty downstream import undo restores native snapshot and retains custody"
   await h.command("import.commit", payload, { error: "IDEMPOTENCY" });
   const b = await h.command("import.commit", payload, { commandId });
   assert.deepEqual(await h.command("import.commit", payload, { commandId }), b);
+  const committedEvents = (await (await h.request('/api/pier/audit')).json()).filter(event => event.commandId === commandId);
+  assert.equal(committedEvents.length, 1, 'publication retry has exactly one audit event');
+  const importedItem = (await h.state()).items.find(item => item.id !== unrelatedStock.item.id);
   const completed = await h.db
     .prepare(
       "SELECT id,fingerprint,state,checkpoint,total FROM ik_jobs WHERE operation_key=?",
@@ -338,6 +350,16 @@ test("empty downstream import undo restores native snapshot and retains custody"
   assert.equal(s.movements.length, 1);
   assert.ok(s.parties.some((p) => p.id === unrelated.id));
   assert.equal(s.imports[0].status, "undone");
+  const importHistory = await (await h.request('/api/pier/audit?itemId=' + importedItem.id)).json();
+  const undoneEvent = importHistory.find(event => event.type === 'import.undo');
+  assert.ok(undoneEvent, 'removed items retain a filterable correction trail');
+  assert.ok(undoneEvent.changes.some(change => change.kind === 'items' && change.id === importedItem.id && change.before.sku === importedItem.sku && change.after === null));
+  assert.equal(undoneEvent.actorId, committedEvents[0].actorId);
+  const beforeRestartHistory = importHistory;
+  await h.restartWithFreshSigningKey();
+  assert.deepEqual(await (await h.request('/api/pier/audit?itemId=' + importedItem.id)).json(), beforeRestartHistory);
+  const afterRestartExport = await (await h.request('/api/pier/export')).json();
+  assert.deepEqual(afterRestartExport.auditEvents.find(event => event.id === undoneEvent.id), undoneEvent);
   assert.ok(s.imports[0].source.artifacts[0].original.base64);
   await receive(h, unrelatedStock, po, "0.1");
   assert.equal((await h.state()).positions[0].quantity, "0.2");
@@ -404,8 +426,9 @@ test("empty downstream import undo restores native snapshot and retains custody"
 });
 
 test("roles, agent preparation, revoked session, stale human approval and direct HTTP denial", async (t) => {
-  const h = await installation();
-  t.after(() => h.close());
+  const outbound = [];
+  const h = await installation({ outboundService: request => { outbound.push(new URL(request.url).origin); throw new Error('A scoped refusal never authorizes egress.'); } });
+  t.after(async () => { assert.deepEqual(outbound, []); await h.close(); });
   const b = await basics(h);
   const { exportedAt: _beforeTime, ...beforeGeneric } = await (await h.request("/api/pier/export")).json();
   for (const type of ['record.update', 'movement.save', 'reservation.save'])
@@ -501,7 +524,14 @@ test("roles, agent preparation, revoked session, stale human approval and direct
   for (const field of ['parties', 'supplierItems', 'purchaseOrders', 'correspondence', 'deliveries', 'people', 'commands', 'bookConnections', 'priceLists']) assert.deepEqual(visible[field], [], field + ' is not exposed by a physical grant');
   const scopedExport = await (await scopedRead('/api/pier/scope-export')).json();
   assert.deepEqual(scopedExport.locations, visible.locations);
-  for (const path of ['/api/pier/export', '/api/pier/native-export', '/api/pier/reports', '/api/pier/books/export.csv', '/api/pier/dispatch-summary', '/api/pier/supplier-performance']) assert.equal((await scopedRead(path)).status, 403, path + ' cannot bypass the grant');
+  const privateId = 'synthetic-pier-1';
+  for (const path of ['/api/pier/export', '/api/pier/native-export', '/api/pier/reports', '/api/pier/books/export.csv', '/api/pier/dispatch-summary', '/api/pier/supplier-performance', '/api/pier/audit', '/api/pier/privacy', '/api/pier/trace', '/api/pier/returns/lookup', '/api/pier/replenishment', `/api/pier/report-snapshots/${privateId}.csv`, `/api/pier/documents/${privateId}/original`, `/api/pier/sales-documents/${privateId}.pdf`, `/api/pier/shipping/labels/${privateId}.pdf`, `/api/pier/orders/${privateId}/packing-slip`, `/api/pier/packs/${privateId}/packing-slip`]) assert.equal((await scopedRead(path)).status, 403, path + ' cannot bypass the grant');
+  const privatePreview = await h.request('/api/pier/catalogue/preview', { method: 'POST', as: member.cookie, body: { csv: 'sku,name,unit,packSize\nBOLT,Changed,each,0.5\n' } });
+  assert.equal(privatePreview.status, 403, 'catalogue preview cannot expose wider records or document references');
+  assert.equal((await privatePreview.json()).error.code, 'SCOPE');
+  for (const type of ['shipping.verify','shipping.rates','shipping.buy','shipping.reconcile','shipping.email','shipping.track','edi.send','document.extract','payment.checkout','payment.reconcile','payment.expire','itemAgent.explain','channel.stallKey','channel.shopifyLocations','book.accounts','book.sync','channel.sync','mail.process']) {
+    await run(type, {}, { error: 'SCOPE' });
+  }
   const { exportedAt: _scopeBeforeTime, ...scopeBefore } = await (await h.request('/api/pier/export')).json();
   const deniedIdentity = randomUUID();
   await run('count.capture', { locationId: b.destination.id }, { commandId: deniedIdentity, error: 'SCOPE' });
@@ -516,6 +546,37 @@ test("roles, agent preparation, revoked session, stale human approval and direct
   await run('count.capture', { locationId: b.source.id }, { error: 'SCOPE' });
   visible = await (await scopedRead('/api/pier/state')).json();
   assert.deepEqual([...new Set(visible.locations.map(l => l.warehouse))], ['South']);
+  // A location grant narrows a warehouse and its exact successful retry.
+  const secondNorth = await h.command('location.save', { name: 'A2', warehouse: 'North', kind: 'bin' });
+  await h.command('role.set', { operatorId: member.session.operator.id, role: 'warehouse', permissions: { warehouses: ['North'], locationIds: [b.source.id] } });
+  visible = await (await scopedRead('/api/pier/state')).json();
+  assert.deepEqual(visible.locations.map(location => location.id), [b.source.id]);
+  await run('count.capture', { locationId: secondNorth.id }, { error: 'SCOPE' });
+  const captureId = randomUUID();
+  const recoverableCount = await run('count.capture', { locationId: b.source.id }, { commandId: captureId });
+  assert.deepEqual(await run('count.capture', { locationId: b.source.id }, { commandId: captureId }), recoverableCount);
+  for (const expiresAt of ['not a date', '2020-01-01T00:00:00Z', '2099-01-01T00:00:00']) {
+    await h.command('role.set', { operatorId: member.session.operator.id, role: 'warehouse', permissions: { warehouses: ['North'], locationIds: [], expiresAt } }, { error: 'SCOPE' });
+  }
+  const expiresAt = new Date(Date.now() + 2000).toISOString();
+  const grant = await h.command('role.set', { operatorId: member.session.operator.id, role: 'warehouse', permissions: { warehouses: ['North'], locationIds: [b.source.id], expiresAt } });
+  const grantEvent = (await (await h.request('/api/pier/audit')).json()).find(event => event.type === 'role.set' && event.changes.some(change => change.after?.permissions?.expiresAt === expiresAt));
+  assert.ok(grantEvent, 'grant change is durable audit evidence');
+  const changedRole = grantEvent.changes.find(change => change.kind === 'roles');
+  assert.equal(changedRole.afterVersion, grant.version);
+  assert.deepEqual(changedRole.after.permissions, grant.permissions);
+  assert.deepEqual(changedRole.before.permissions.locationIds, [b.source.id]);
+  await new Promise(resolve => setTimeout(resolve, 2100));
+  assert.ok([401, 403].includes((await scopedRead('/api/pier/state')).status));
+  assert.ok([401, 403].includes((await scopedRead('/api/pier/scope-export')).status));
+  await run('count.capture', { locationId: b.source.id }, { commandId: captureId, error: 'AUTH' });
+  await run('count.record', { countId: recoverableCount.id, version: recoverableCount.version, lines: [], reason: 'Prepared before expiry' }, { error: 'AUTH' });
+  await h.command('role.set', { operatorId: member.session.operator.id, role: 'warehouse', permissions: { warehouses: [], locationIds: [] } });
+  await run('count.capture', { locationId: b.source.id }, { commandId: captureId, error: 'SCOPE' });
+  const { exportedAt: _expiredTime, ...expiredBefore } = await (await h.request('/api/pier/export')).json();
+  await run('count.capture', { locationId: b.source.id }, { error: 'SCOPE' });
+  const { exportedAt: _expiredAfterTime, ...expiredAfter } = await (await h.request('/api/pier/export')).json();
+  assert.deepEqual(expiredAfter, expiredBefore, 'expiry and revocation cannot write stock or a successful command result');
   await h.request("/auth/session/revoke", {
     method: "POST",
     body: { sessionId: member.session.id },

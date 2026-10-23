@@ -1,3 +1,4 @@
+import { auditEvent } from './audit';
 import {
   planD1Import,
   createD1ImportJob,
@@ -40,7 +41,26 @@ function commandSQL(
   result: Row,
 ): D1Sql[] {
   const a = authority(c.actor);
+  // Undo restores retained before-images in SQL rather than in c.s. Build the
+  // audit projection from those same retained graph entries, without mutating
+  // the command state or exposing source originals.
+  let auditContext = c;
+  if (result.status === 'undone') {
+    const s = structuredClone(c.s);
+    for (const entry of result.created ?? []) {
+      const kind = entry.kind as (typeof collections)[number];
+      s[kind] = s[kind].filter(record => record.id !== entry.id);
+    }
+    for (const entry of result.beforeRecords ?? []) {
+      const kind = entry.kind as (typeof collections)[number];
+      s[kind] = [...s[kind].filter(record => record.id !== entry.data.id), entry.data];
+    }
+    s.imports = s.imports.map(batch => batch.id === result.id ? result : batch);
+    auditContext = { ...c, s };
+  }
+  const event = auditEvent(auditContext, before, result.status === 'undone' ? 'import.undo' : 'import.commit', { batchId: result.id }, result);
   return [
+    sql('INSERT INTO pier_audit(id,at,actor_id,command_id,event_type,outcome,data) VALUES(?,?,?,?,?,?,?)', event.id, event.at, event.actorId, event.commandId, event.type, event.outcome, JSON.stringify(event)),
     sql(
       `INSERT INTO pier_guard VALUES(?,CASE WHEN (${a.sql}) AND (SELECT version FROM pier_meta WHERE id=1)=? THEN 1 ELSE 0 END)`,
       crypto.randomUUID(),
