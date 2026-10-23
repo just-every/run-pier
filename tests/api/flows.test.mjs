@@ -565,3 +565,86 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
     },
   );
 });
+
+test('warehouse stocktakes freeze only their scope, retain blind counts and zone decisions, require recounts and reject stale live approval', async t => {
+  const h = await installation(); t.after(() => h.close());
+  const b = await basics(h), bins = [];
+  for (let i = 0; i < 20; i++) bins.push(await h.command('location.save', { name: `synthetic-pier-${i}`, warehouse: 'Count warehouse', kind: 'bin', zone: i === 19 ? 'Keep' : 'Zero' }));
+  const po = await buy(h, b, '220');
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-20', lines: [...bins, b.destination].map(bin => ({ poLineId: po.lines[0].id, locationId: bin.id, quantity: bin.id === bins[18].id ? '0.5' : '10', cost: '0.25' })) });
+  let countRule = await h.command('routing.save', { source: 'manual', mode: 'fixed', shortage: 'hold', eligible: ['Count warehouse'] });
+  countRule = await h.command('routing.preview', { ruleId: countRule.id, version: countRule.version });
+  await h.command('routing.activate', { ruleId: countRule.id, version: countRule.version });
+  const order = await h.command('order.create', { customerId: b.customer.id, warehouse: 'Count warehouse', lines: [{ itemId: b.item.id, quantity: '1' }] });
+  const carrier = await h.command('carrier.save', { name: 'synthetic-pier-carrier', warehouse: 'Count warehouse', dock: 'A', cutoff: '16:00', timeZone: 'UTC' });
+  const wave = await h.command('wave.release', { carrierId: carrier.id, orderIds: [order.id] });
+  // Count scope also fences reservations, independently of the UI.
+  let take = await h.command('stocktake.start', { warehouse: 'Count warehouse', frozen: true, quantityThreshold: '1', valueThreshold: '100', reason: 'Year-end physical stocktake' });
+  assert.equal(take.bins.length, 20);
+  const unchanged = await h.state();
+  await h.command('pick.scan', { waveId: wave.id, lineId: wave.lines[0].id, binCode: bins.find(b => b.id === wave.lines[0].locationId).name, itemCode: b.item.barcode }, { error: 'STOCKTAKE_FROZEN' });
+  await h.command('order.create', { customerId: b.customer.id, warehouse: 'Count warehouse', lines: [{ itemId: b.item.id, quantity: '1' }] }, { error: 'STOCKTAKE_FROZEN' });
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-21', lines: [{ poLineId: po.lines[0].id, locationId: bins[0].id, quantity: '1', cost: '0.25' }] }, { error: 'STOCKTAKE_FROZEN' });
+  await h.command('transfer.send', { itemId: b.item.id, fromLocationId: bins[0].id, toLocationId: b.destination.id, transitLocationId: b.transit.id, quantity: '1', reason: 'Frozen refusal' }, { error: 'STOCKTAKE_FROZEN' });
+  assert.equal((await h.state()).version, unchanged.version);
+  await h.command('transfer.send', { itemId: b.item.id, fromLocationId: b.destination.id, toLocationId: b.source.id, transitLocationId: b.transit.id, quantity: '1', reason: 'Other warehouse continues' });
+  for (const zone of ['Zero', 'Keep']) take = await h.command('stocktake.zone', { stocktakeId: take.id, version: take.version, zone, uncounted: zone === 'Zero' ? 'zero' : 'unchanged', assignedTo: unchanged.actor.id });
+  const record = async (i, quantity) => take = await h.command('stocktake.record', { stocktakeId: take.id, version: take.version, locationId: bins[i].id, binCode: bins[i].name, lines: [{ itemCode: b.item.barcode, status: 'sellable', quantity }], reason: 'Scanned physical count' });
+  for (let i = 0; i < 18; i++) await record(i, i === 0 ? '8' : '10');
+  await h.command('stocktake.approve', { stocktakeId: take.id, version: take.version }, { error: 'COUNT_RECOUNT' });
+  await record(0, '8');
+  const review = (await h.state()).stocktakes.find(takeRow => takeRow.id === take.id);
+  assert.equal(review.preview.find(l => l.locationId === bins[0].id).valueCents, '-50');
+  assert.equal(review.preview.find(l => l.locationId === bins[18].id).quantity, '0');
+  assert.equal(review.preview.find(l => l.locationId === bins[19].id).quantity, '10');
+  const commandId = randomUUID();
+  const approved = await h.command('stocktake.approve', { stocktakeId: take.id, version: take.version }, { commandId });
+  assert.deepEqual(await h.command('stocktake.approve', { stocktakeId: take.id, version: take.version }, { commandId }), approved);
+  assert.equal(approved.status, 'posted'); assert.equal(approved.ledgerStatus, 'not-posted');
+  const state = await h.state();
+  assert.equal(state.movements.filter(m => m.documentId === take.id).length, 2);
+  assert.equal(state.stocktakes.find(r => r.id === take.id).result.length, 20);
+  assert.equal(state.stocktakes.find(r => r.id === take.id).bins[0].history.length, 2);
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-22', lines: [{ poLineId: po.lines[0].id, locationId: bins[0].id, quantity: '1', cost: '0.25' }] });
+  take = await h.command('stocktake.start', { warehouse: 'Count warehouse', zones: ['Keep'], frozen: false, quantityThreshold: '100', valueThreshold: '100', reason: 'Live frontier count' });
+  take = await h.command('stocktake.zone', { stocktakeId: take.id, version: take.version, zone: 'Keep', uncounted: 'unchanged', assignedTo: state.actor.id });
+  const liveRecord = () => h.command('stocktake.record', { stocktakeId: take.id, version: take.version, locationId: bins[19].id, binCode: bins[19].name, lines: [{ itemCode: b.item.barcode, status: 'sellable', quantity: '10' }], reason: 'Fresh physical observation' });
+  take = await liveRecord();
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-23', lines: [{ poLineId: po.lines[0].id, locationId: bins[19].id, quantity: '1', cost: '0.25' }] });
+  await h.command('stocktake.approve', { stocktakeId: take.id, version: take.version }, { error: 'COUNT_FRONTIER' });
+  take = await liveRecord();
+  assert.equal(take.bins[0].history.filter(h => h.stale).length, 1);
+  take = await h.command('stocktake.approve', { stocktakeId: take.id, version: take.version });
+  assert.equal(take.result[0].expected, '11'); assert.equal(take.result[0].delta, '-1');
+  const exported = await h.request('/api/pier/export');
+  assert.equal(exported.status, 200);
+  assert.ok((await exported.text()).includes(take.id));
+
+  const { traceStock } = await import('./trace-fixture.mjs');
+  const traced = await traceStock(h);
+  await h.command('receipt.create', { poId: traced.po.id, supplierReference: 'synthetic-pier-24', lines: [
+    { poLineId: traced.po.lines[0].id, locationId: traced.source.id, quantity: '4', cost: '2', trace: [{ lot: 'synthetic-pier-25', expiry: '2027-12-31', quantity: '4' }] },
+    { poLineId: traced.po.lines[1].id, locationId: traced.source.id, quantity: '1', cost: '3', trace: [{ serial: 'synthetic-pier-26', quantity: '1' }] },
+  ] });
+  const identities = (await h.state()).traceIdentities;
+  const lot = identities.find(i => i.itemId === traced.lot.id), serial = identities.find(i => i.itemId === traced.serial.id);
+  take = await h.command('stocktake.start', { warehouse: 'Trace North', frozen: true, quantityThreshold: '10', valueThreshold: '100', reason: 'Identity count' });
+  take = await h.command('stocktake.zone', { stocktakeId: take.id, version: take.version, zone: 'Unzoned', uncounted: 'unchanged', assignedTo: state.actor.id });
+  take = await h.command('stocktake.record', { stocktakeId: take.id, version: take.version, locationId: traced.source.id, binCode: traced.source.name, lines: [
+    { itemCode: traced.lot.barcode, identityCode: lot.code, status: 'sellable', quantity: '3' },
+    { itemCode: serial.code, status: 'sellable', quantity: '0' },
+  ], reason: 'Counted retained lot and absent serial' });
+  take = await h.command('stocktake.approve', { stocktakeId: take.id, version: take.version });
+  const tracedState = await h.state();
+  assert.equal(tracedState.tracePositions.find(p => p.identityId === lot.id).quantity, '3');
+  assert.equal(tracedState.tracePositions.find(p => p.identityId === serial.id).quantity, '0');
+  assert.deepEqual(take.result.map(l => l.valueCents).sort(), ['-200', '-300']);
+  take = await h.command('stocktake.start', { warehouse: 'Trace North', frozen: true, quantityThreshold: '10', valueThreshold: '100', reason: 'Serial identity conflict review' });
+  take = await h.command('stocktake.zone', { stocktakeId: take.id, version: take.version, zone: 'Unzoned', uncounted: 'unchanged', assignedTo: state.actor.id });
+  for (const bin of [traced.source, traced.destination]) for (let attempt = 0; attempt < 2; attempt++) take = await h.command('stocktake.record', { stocktakeId: take.id, version: take.version, locationId: bin.id, binCode: bin.name, lines: [{ itemCode: serial.code, status: 'sellable', quantity: '1' }], reason: 'Repeated physical serial observation' });
+  const beforeConflict = await h.state();
+  await h.command('stocktake.approve', { stocktakeId: take.id, version: take.version }, { error: 'TRACE_SERIAL' });
+  assert.equal((await h.state()).movements.length, beforeConflict.movements.length);
+  await h.command('stocktake.cancel', { stocktakeId: take.id, version: take.version, reason: 'Resolve duplicate physical serial before posting' });
+
+});

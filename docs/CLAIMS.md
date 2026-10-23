@@ -53,7 +53,7 @@ Command names are the `type` strings Pier's command door accepts (`POST /api/pie
 |---|---|---|---|
 | 15 | "Scan the bin, scan the carton" (put away: A-14 212 → 452, A-15 overflow 0 → 240; 480 put away) on a rugged handheld | backed | A bin label moves put-away; a receipt names each line's bin; a handheld's built-in scanner types into the scan box: `src/pier/floor/receiving.ts`, `src/ui/floor/scanner.tsx`, `src/ui/purchasing.tsx` |
 | 16 | "A count that disagrees gets a recount" (Cycle count CC-0412 · expected 452 · counted 432; Recount · 452 · adjustment none) | backed | Counts capture the bin's movement frontier, show the difference and ask for a recount: `count.capture/count.record/count.recount`, `src/pier/warehouse.ts` |
-| 17 | "… before anything moves" ("Nothing moves from A-14 until a second count") | partly | No adjustment posts until a count is recorded and reviewed (`src/pier/warehouse.ts`); holding the bin against picks during the recount is COUNT-001 work. |
+| 17 | "… before anything moves" ("Nothing moves from A-14 until a second count") | partly | Native frozen warehouse stocktakes refuse scoped stock movements, reservations and picks until completion or cancellation; above-threshold variances require matching physical recounts (`src/pier/stocktakes.ts`; `tests/api/flows.test.mjs`). COUNT-001 remains partial for mapped GL and QBO posting and valuation of increases. |
 
 ## 05 Nov 4 · Orders, "Every channel, one count."
 

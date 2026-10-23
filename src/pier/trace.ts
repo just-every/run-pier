@@ -125,8 +125,10 @@ export function reconcileTrace(c:Context,before:State,payload:any) {
   if(inputs?.some(input=>!input||typeof input!=='object'||Array.isArray(input)))fail('INPUT','Supply explicit trace identity objects.');
   for(const m of c.s.movements.slice(before.movements.length)) {
     if(!policyFor(c.s,m.itemId))continue;
-    const selected=inputs?.filter(x=>(!x.itemId||x.itemId===m.itemId)&&(!x.locationId||x.locationId===m.locationId));
-    const parts=BigInt(m.quantity)>0n?incoming(c,m,selected):outgoing(c,m,before,selected);
+    const stocktake=c.s.stocktakes.find(t=>t.id===m.documentId);
+    const counted=stocktake?.result?.find((line:any)=>line.movementId===m.id);
+    const selected=counted?.identityId?[{identityId:counted.identityId}]:inputs?.filter(x=>(!x.itemId||x.itemId===m.itemId)&&(!x.locationId||x.locationId===m.locationId));
+    const parts=counted?.identityId&&BigInt(m.quantity)>0n?[{identityId:counted.identityId,quantity:m.quantity}]:BigInt(m.quantity)>0n?incoming(c,m,selected):outgoing(c,m,before,selected);
     if(policyFor(c.s,m.itemId).mode==='serial' && parts.some((part:any)=>BigInt(part.quantity)!==SCALE))fail('TRACE_SERIAL','Move each serialized unit whole, never as fractional stock.');
     for(const part of parts)row(c,'traceEvents',{movementId:m.id,documentId:m.documentId,commandId:c.commandId,internal:!c.s.receipts.some(r=>r.id===m.documentId)&&!c.s.shipments.some(sh=>sh.id===m.documentId)&&(!c.s.returns.some(r=>r.id===m.documentId)||m.reason==='Reviewed restock'),itemId:m.itemId,identityId:part.identityId,locationId:m.locationId,status:m.status,quantity:(BigInt(part.quantity)*(BigInt(m.quantity)<0n?-1n:1n)).toString(),actorId:c.actor.id});
   }
@@ -140,6 +142,11 @@ export function reconcileTrace(c:Context,before:State,payload:any) {
       const pool=identitiesAt(c.s,reservation.itemId,reservation.locationId,'sellable',c.now.slice(0,10)).map(x=>({identityId:x.identity.id,quantity:(x.quantity-traceReserved(c.s,x.identity.id,reservation.locationId)).toString()})).filter(x=>BigInt(x.quantity)>0n);
       allocation!.parts.push(...selectParts(pool,wanted-current));allocation!.version++;
     }
+  }
+  if (c.s.stocktakes.some(t => t.status === 'posted' && !before.stocktakes.some(old => old.id === t.id && old.status === 'posted'))) {
+    const totals = new Map<string, bigint>();
+    for (const position of tracePositions(c.s).filter(p => policyFor(c.s, p.itemId)?.mode === 'serial')) totals.set(position.identityId, (totals.get(position.identityId) ?? 0n) + decimal(position.quantity));
+    if ([...totals.values()].some(quantity => quantity > SCALE)) fail('TRACE_SERIAL', 'A counted serial cannot exist in more than one physical position.');
   }
   for(const returned of c.s.returns.filter(r=>!before.returns.some(old=>old.id===r.id)))returned.costTotal=returnCost(c.s,returned,c.now);
   for(const position of tracePositions(c.s))if(position.quantity.startsWith('-'))fail('TRACE_STOCK','Lot/serial balances cannot become negative.');

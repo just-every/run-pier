@@ -1,3 +1,4 @@
+import { prioritizedOrders } from './backorder-release';
 import { reservedKits } from './kits';
 import { decimal, format, min, type Context, type Row } from './model';
 
@@ -9,12 +10,12 @@ const latest = (a: string | null, b: string | null) => a && b ? (a > b ? a : b) 
 export function backorderDates(c: Context) {
   const today = c.now.slice(0, 10);
   const supply = c.s.purchaseOrders.filter(po => po.status === 'committed'&&!po.dropshipId).flatMap(po => po.lines.map((line: any) => ({
-    poId: po.id, itemId: line.itemId, warehouse: po.destinationWarehouse || null,
+    poId: po.id, transferId: null as string | null, itemId: line.itemId, warehouse: line.destinationWarehouse ?? po.destinationWarehouse ?? null,
     remaining: decimal(line.quantity) - decimal(line.received),
     date: po.confirmation?.promiseDate || afterDays(c.now, line.terms?.leadDays ?? 0),
     confirmed: !!po.confirmation,
-  }))).filter(l => l.remaining > 0n).sort((a, b) => a.date.localeCompare(b.date) || a.poId.localeCompare(b.poId));
-  const orders = c.s.orders.filter(o=>o.fulfilment!=='dropship').sort((a, b) => String(a.promiseDate || '9999').localeCompare(String(b.promiseDate || '9999')) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  }))).concat(c.s.transfers.filter(t => t.status === 'transit' && t.expectedDate).map(t => ({ poId: null as any, transferId: t.id, itemId: t.itemId, warehouse: c.s.locations.find(l => l.id === t.toLocationId)?.warehouse || null, remaining: decimal(t.quantity) - decimal(t.received ?? '0'), date: t.expectedDate, confirmed: true }))).filter(l => l.remaining > 0n).sort((a, b) => a.date.localeCompare(b.date) || String(a.poId ?? a.transferId).localeCompare(String(b.poId ?? b.transferId)));
+  const orders = prioritizedOrders(c);
   return orders.map(order => {
     const warehouse = order.warehouse || null;
     const lines = order.lines.map((line: any) => {
@@ -22,7 +23,7 @@ export function backorderDates(c: Context) {
       let need = decimal(line.quantity) - decimal(line.dispatched) - decimal(line.cancelled) - reserved;
       const backorder = need;
       let expectedDate: string | null = null, estimated = false;
-      const sources: { poId: string | null; quantity: string; date: string | null; confirmed: boolean; basis: string }[] = [];
+      const sources: { poId: string | null; transferId?: string | null; quantity: string; date: string | null; confirmed: boolean; basis: string }[] = [];
       for (const inbound of supply) {
         if (need <= 0n) break;
         if (inbound.itemId !== line.itemId || (warehouse && inbound.warehouse && inbound.warehouse !== warehouse)) continue;
@@ -31,7 +32,7 @@ export function backorderDates(c: Context) {
         inbound.remaining -= used; need -= used;
         const date = inbound.date < today ? today : inbound.date;
         expectedDate = latest(expectedDate, date); estimated ||= !inbound.confirmed;
-        sources.push({ poId: inbound.poId, quantity: format(used), date, confirmed: inbound.confirmed, basis: inbound.confirmed ? 'supplier confirmed' : 'PO date from supplier lead time' });
+        sources.push({ poId: inbound.poId, transferId: inbound.transferId, quantity: format(used), date, confirmed: inbound.confirmed, basis: inbound.transferId ? 'reviewed transfer arrival' : inbound.confirmed ? 'supplier confirmed' : 'PO date from supplier lead time' });
       }
       if (need > 0n) {
         const policy = c.s.replenishmentPolicies.find(p => p.itemId === line.itemId && p.warehouse === warehouse);

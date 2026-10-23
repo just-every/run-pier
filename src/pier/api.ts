@@ -1,3 +1,6 @@
+import { customers, customerViews } from './customers';
+import { releaseBackorders } from './backorder-release';
+import { stocktakes, stocktakeView, enforceStocktakeFreeze } from './stocktakes';
 import { savedReports, filteredReports, reportCsv } from './saved-reports';
 import { workflowRules } from './workflow-rules';
 import { privacy, privacyPreview } from './privacy';
@@ -229,6 +232,9 @@ export async function execute(
       slowStock,
       replenishment,
       warehouse,
+      stocktakes,
+      releaseBackorders,
+      customers,
       imports,
       proposals,
       floor,
@@ -238,6 +244,7 @@ export async function execute(
       if (result !== undefined) break;
     }
     if (result === undefined) fail("COMMAND", "Unknown command type.");
+    enforceStocktakeFreeze(c, before, type, payload);
     reconcileTrace(c, before, payload);
     validateKitReservations(s);
     validatePlacements(s, before);
@@ -474,12 +481,14 @@ export async function pierResponse(
       return json({
         ...s,
         invoices: actor.role==='owner'?s.invoices.map(i=>({...i,balance:nativeBalance(s,i.id)})):[],
+        customerProfiles: actor.role === 'owner' ? customerViews(s, c.now) : [],
+        salesReps: actor.role === 'owner' ? s.salesReps : [],
         customerBalances: actor.role==='owner'?Object.fromEntries(s.parties.filter(p=>p.kind==='customer').map(p=>[p.id,customerBalance(s,p.id)])):{},
         evidenceDocuments: actor.role === 'owner' ? documentViews(s).documents : [],
         documentExtractions: actor.role === 'owner' ? s.documentExtractions : [],
         documentSettings: actor.role === 'owner' ? s.documentSettings : [],
         documentInbox: actor.role === 'owner' ? documentViews(s).inbox : [],
-        ...(actor.role==='owner'?{}:{savedReports:[],reportSnapshots:[],workflowRules:[],workflowJobs:[],privacyHolds:[],privacyPolicies:[],privacyReceipts:[],salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,...party})=>party)}),
+        ...(actor.role==='owner'?{}:{savedReports:[],reportSnapshots:[],workflowRules:[],workflowJobs:[],privacyHolds:[],privacyPolicies:[],privacyReceipts:[],salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,contacts,addresses,paymentTerms,salesRepId,...party})=>party)}),
         actor,
         people,
         bookConnections,
@@ -491,6 +500,7 @@ export async function pierResponse(
         replenishmentProblem: planningScope(c).valid ? null : 'Planning warehouses changed. Save the current planning scope before drafting.',
         deliveries: scoped(actor) ? [] : (await correspondenceDeliveries(env.DB)).filter(d=>actor.role==='owner'||!s.salesDocuments.some(doc=>doc.id===d.correspondenceId)),
         counts: s.counts.map((count) => countView(c, count)),
+        stocktakes: s.stocktakes.map(take => stocktakeView(c, take)),
         ...floorState(c),
         ...kitState(s),
         ...traceState(s),

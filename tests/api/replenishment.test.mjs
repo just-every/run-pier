@@ -236,4 +236,37 @@ test('cash and service horizon comparisons net supply and drafts with exact supp
   const received = await h.command('replenishment.compare', request);
   assert.equal(received.options[0].quantity, '0'); assert.equal(received.options[1].quantity, '12'); assert.equal(received.options[1].executable, false, 'comparison does not bypass the buyer-applied reorder point');
   assert.equal((await h.invariant()).positions.find(p => p.itemId === b.item.id && p.locationId === b.source.id).quantity, '18');
+
+});
+
+test('owner priority ranks dated supply and reviewed receipt releases preserve allocations and reject changed evidence', async t => {
+  const h = await installation(); t.after(() => h.close());
+  const b = await basics(h);
+  const customers = [b.customer];
+  for (let i = 1; i < 3; i++) customers.push(await h.command('party.save', { kind: 'customer', name: `synthetic-pier-priority-${i}` }));
+  for (let i = 0; i < 3; i++) customers[i] = await h.command('backorder.customerPriority', { customerId: customers[i].id, version: customers[i].version, priority: i * 10, reason: 'Owner reviewed priority' });
+  const orders = [];
+  for (const customer of customers) orders.push(await h.command('order.create', { customerId: customer.id, promiseDate: '2026-11-01', warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '2' }] }));
+  let priority = await h.command('backorder.priority', { version: 0, priority: ['customerPriority', 'promiseDate', 'orderDate'], reason: 'Customer priority first' });
+  let po = await buy(h, b, '4');
+  const receipt = await receive(h, b, po, '4');
+  let release = await h.command('backorder.prepare', { receiptId: receipt.id, warehouse: 'North', reason: 'Review received supply' });
+  assert.deepEqual(release.orders.map(o => o.orderId), [orders[2].id, orders[1].id]);
+  assert.deepEqual(release.orders.map(o => o.added), ['2', '2']);
+  assert.equal((await h.state()).reservations.length, 0, 'preparing allocates no stock');
+  priority = await h.command('backorder.priority', { version: priority.version, priority: ['promiseDate', 'orderDate', 'customerPriority'], reason: 'Changed owner priority' });
+  await h.command('backorder.release', { releaseId: release.id, version: release.version }, { error: 'STALE' });
+  await h.command('backorder.priority', { version: priority.version, priority: ['customerPriority', 'promiseDate', 'orderDate'], reason: 'Restore priority for this receipt' });
+  release = await h.command('backorder.prepare', { receiptId: receipt.id, warehouse: 'North', reason: 'Fresh allocation review' });
+  const commandId = crypto.randomUUID(), payload = { releaseId: release.id, version: release.version };
+  const applied = await h.command('backorder.release', payload, { commandId });
+  assert.equal(applied.status, 'released');
+  assert.deepEqual(await h.command('backorder.release', payload, { commandId }), applied);
+  const state = await h.state();
+  assert.equal(state.orders.find(o => o.id === orders[0].id).lines[0].reserved, '0');
+  assert.equal(state.orders.find(o => o.id === orders[2].id).lines[0].reserved, '2');
+  const empty = await h.command('backorder.prepare', { receiptId: receipt.id, warehouse: 'North', reason: 'Already fully reserved' });
+  assert.deepEqual(empty.orders, []);
+  await h.command('backorder.release', { releaseId: empty.id, version: empty.version }, { error: 'BACKORDER_EMPTY' });
+  await h.invariant();
 });
