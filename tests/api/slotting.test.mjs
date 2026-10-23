@@ -13,7 +13,20 @@ test('WMS-002: capacity, directed put-away/replenishment and source-backed ABC r
   await policy(face, { pickFace: true, pickFaces: [{ itemId: b.item.id, minimum: '2', maximum: '5' }] });
   await policy(reserve, { aisleMetres: '5', bayMetres: '4', pickSequence: '2' });
   const stable = async () => { const r = await h.request('/api/pier/export'); assert.equal(r.status, 200); const { exportedAt, ...s } = await r.json(); return s; };
-  const unchanged = async (type, payload, error) => { const before = await stable(); await h.command(type, payload, { error }); assert.deepEqual(await stable(), before); };
+  const unchanged = async (type, payload, error) => {
+    const { auditEvents: beforeAudit, ...before } = await stable(), commandId = randomUUID();
+    await h.command(type, payload, { error, commandId });
+    const { auditEvents: afterAudit, ...after } = await stable();
+    assert.deepEqual(after, before, 'a refused placement changes no business record or saved command result');
+    if (type === 'slotting.scan') {
+      const added = afterAudit.filter(event => !beforeAudit.some(old => old.id === event.id));
+      assert.equal(added.length, 1, 'one refused scan produces exactly one audit event');
+      const event = added[0];
+      assert.deepEqual(afterAudit.filter(row => row.id !== event.id), beforeAudit, 'all earlier audit events are immutable');
+      assert.deepEqual([event.id, event.commandId, event.type, event.outcome, event.reason, event.version, event.changes, event.device, event.code],
+        [commandId + ':refused', commandId, type, 'refused', error, before.version, [], payload.device, payload.itemCode]);
+    } else assert.deepEqual(afterAudit, beforeAudit, 'non-scan placement refusals add no scan event');
+  };
   const po = await buy(h, b, '30');
   await receive(h, b, po, '12');
   const oversized = await h.command('item.save', { sku: 'LARGE', name: 'Oversized box', unit: 'each', packSize: '1', dimensions: { length: '21', width: '1', height: '1', unit: 'cm' } });

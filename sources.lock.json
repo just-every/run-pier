@@ -4256,7 +4256,7 @@
       "executable": false
     },
     "tests/api/slotting.test.mjs": {
-      "sha256": "aad06fed1db921d3ff2cf7cbbe1cc30f2309bfb71664fc0c7bc0ef42c473bea1",
+      "sha256": "48e459c19a6a1ebb4e9a5295b5ca3ec47f08009faa01772de5394999dfa4fd7b",
       "executable": false
     },
     "tests/api/slow-stock.test.mjs": {
