@@ -355,7 +355,7 @@ try {
   }
   assert.equal(after.evidenceDocuments[0].original, original.toString('base64'));
   for (const field of ['documentSettings', 'aiSettings', 'channels', 'replenishmentPolicies', 'workflowRules'])
-    assert.ok(after[field].every(r => r.enabled === false && r.restorePaused), field + ' paused');
+    assert.ok(after[field].every(r => r.enabled !== true && r.autoDraft !== true && r.restorePaused), field + ' paused');
   assert.equal((await running.request('/api/pier/documents/' + after.evidenceDocuments[0].id + '/original')).status, 200);
   await running.cmd('document.configure', { version: after.documentSettings[0].version, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-6', consent: true });
   assert.equal((await (await running.request('/api/pier/export')).json()).documentSettings[0].enabled, true, 'fresh owner explicitly reconnects');
