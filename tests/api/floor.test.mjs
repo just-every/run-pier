@@ -42,7 +42,7 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
     assert.deepEqual((await h.state()).movements, beforeLink.movements, 'linking posts no stock');
     await h.command('receiving.link', { receivingId: r.id, itemId: towel.id, version: towel.version, code: 'synthetic-pier-unknown', quantity: '1', reason: 'Collision review' }, { error: 'DUPLICATE' });
     const linkAudit = await (await h.request('/api/pier/audit?itemId=' + mug.id)).json();
-    const link = linkAudit.find(event => event.type === 'receiving.link');
+    const link = linkAudit.find(event => event.type === 'receiving.link' && event.outcome === 'accepted');
     assert.equal(link.code, 'synthetic-pier-unknown');
     assert.equal(link.reason, 'Supervisor inspected supplier case');
     assert.equal(link.resolution.itemId, mug.id);
