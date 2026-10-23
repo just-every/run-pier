@@ -455,7 +455,7 @@ test('durable scan refusals and item edits are visible in scoped Activity filter
     // The touched Activity surface and shared shell use text-labelled controls.
     expect(await page.locator('button,a').evaluateAll(nodes => nodes.filter(node => !node.textContent?.trim() && node.querySelector('svg')).length)).toBe(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-    if (shots) { await mkdir(shots, { recursive: true }); await page.screenshot({ path: join(shots, `${width}-audit-history.png`), fullPage: true }) }
+    if (shots) { await mkdir(shots, { recursive: true }); await page.evaluate(() => window.scrollTo(0,0)); await page.screenshot({ path: join(shots, `${width}-audit-history.png`), fullPage: true }) }
     await page.getByLabel('Document identity filter', { exact: true }).fill(receiving.id)
     await expect(history).toContainText('synthetic-pier-scan'); await expect(history).not.toContainText('Audit revised item')
   }
@@ -488,6 +488,6 @@ test('saved filtered analysis schedules private snapshots and downloads retained
     const path = await file.path(); const {readFile}=await import('node:fs/promises'); const csv = await readFile(path!,'utf8'); expect(csv).toContain('20.000000000000'); expect(csv).toContain(bin.id)
     expect(await page.locator('button,a').evaluateAll(nodes=>nodes.filter(node=>!node.textContent?.trim()&&node.querySelector('svg')).length)).toBe(0)
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
-    if(shots){await mkdir(shots,{recursive:true});await page.screenshot({path:join(shots,`${width}-saved-reports.png`),fullPage:true})}
+    if(shots){await mkdir(shots,{recursive:true});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(shots,`${width}-saved-reports.png`),fullPage:true})}
   }
 })
