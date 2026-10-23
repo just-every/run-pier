@@ -15,6 +15,7 @@
 .pier-app .table-wrap code { font-family: var(--font-mono); font-size: 12.5px; }
 
 @media (max-width: 599px) {
+  .pier-app .table-wrap .nowrap { white-space: normal; overflow-wrap: anywhere; }
   .pier-app .table-wrap { overflow: visible; border: 0; background: none; }
   .pier-app .table-wrap table, .pier-app .table-wrap tbody { display: block; min-width: 0; }
   .pier-app .table-wrap thead { display: none; }

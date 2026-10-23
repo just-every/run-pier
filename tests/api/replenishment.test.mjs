@@ -83,7 +83,7 @@ test('sell-through drafts an approved supplier PO and re-promises backorders by 
   const competing = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '25', price: '5' }] });
   s = await h.state();
   const dates = s.orders.find(o => o.id === competing.id).backorderPlan.lines[0];
-  assert.equal(dates.sources[0].quantity, '20'); assert.equal(dates.uncovered, '5'); assert.equal(dates.estimated, true);
+  assert.equal(dates.safetyStockWithheld, '4'); assert.equal(dates.sources[0].quantity, '16'); assert.equal(dates.uncovered, '9'); assert.equal(dates.estimated, true);
   // A line without any supplier date cannot borrow a neighbour's date, and it
   // does not prevent explicit approval of another line's supported promise.
   const undatedItem = await h.command('item.save', { sku: 'UNDATED', name: 'Item awaiting supplier terms', unit: 'each', packSize: '1' });
@@ -268,5 +268,17 @@ test('owner priority ranks dated supply and reviewed receipt releases preserve a
   const empty = await h.command('backorder.prepare', { receiptId: receipt.id, warehouse: 'North', reason: 'Already fully reserved' });
   assert.deepEqual(empty.orders, []);
   await h.command('backorder.release', { releaseId: empty.id, version: empty.version }, { error: 'BACKORDER_EMPTY' });
+  await h.command('supplierItem.save', {supplierId:b.supplier.id,itemId:b.item.id,code:'synthetic-pier-safety',packSize:'1',minimum:'1',price:'2',leadDays:21});
+  await h.command('replenishment.save', {itemId:b.item.id,warehouse:'North',version:0,supplierId:b.supplier.id,method:'fixed',safetyStock:'2',reorderPoint:'0',reorderQuantity:'1',autoDraft:false});
+  const buffered = await h.command('order.create', {customerId:b.customer.id,warehouse:'North',promiseDate:'2026-11-01',lines:[{itemId:b.item.id,quantity:'4'}]});
+  let futurePo = await h.command('po.draft', {supplierId:b.supplier.id,destinationWarehouse:'North',promiseDate:'2026-11-01',reason:'Warehouse safety buffer',lines:[{itemId:b.item.id,quantity:'5',price:'2'}]});
+  await h.command('po.approve',{poId:futurePo.id,version:futurePo.version}); futurePo = await h.command('po.commit',{poId:futurePo.id,version:futurePo.version});
+  let bufferedState = await h.state();
+  const bufferPlan = bufferedState.orders.find(order => order.id === buffered.id).backorderPlan.lines[0];
+  assert.equal(bufferPlan.safetyStock,'2'); assert.equal(bufferPlan.safetyStockWithheld,'2');
+  assert.equal(bufferPlan.sources.find(source=>source.poId===futurePo.id).quantity,'1','the buffer is held once before older competing demand');
+  assert.equal(bufferPlan.uncovered,'3');
+  assert.deepEqual(bufferedState.reservations,state.reservations,'ATP does not move physical allocations');
+
   await h.invariant();
 });

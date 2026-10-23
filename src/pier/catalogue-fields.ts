@@ -35,10 +35,12 @@ export function catalogueFields(c: Context, p: any, old?: Row) {
 /** Names used as scan doors share the barcode namespace, including archived goods. */
 export function codeOwners(s: State, code: string, exceptItem?: string, exceptLocation?: string) {
   return [
+    ...s.receivings.flatMap(receiving => (receiving.notices ?? []).flatMap((notice: any) => notice.cartons.map((carton: any) => ({kind:'inbound SSCC', id:receiving.id, name:carton.sscc, code:carton.sscc})))).filter(owner => same(code, owner.code)),
     ...(s.traceIdentities??[]).filter(i=>[i.code,i.serial].some(value=>same(code,value))).map(i=>({kind:'trace',id:i.id,name:i.serial??i.lot??i.code})),
     ...s.items.filter(i => i.id !== exceptItem && [i.sku, ...barcodesOf(i).map(b => b.code)].some(b => same(code, b))).map(i => ({ kind: 'item', id: i.id, name: i.sku })),
     ...s.locations.filter(l => l.id !== exceptLocation && [l.barcode, l.name].some(b => same(code, b))).map(l => ({ kind: 'bin', id: l.id, name: `${l.warehouse}/${l.name}` })),
     ...(s.dropships??[]).flatMap(drop=>drop.shipments??[]).filter(sh=>[sh.id,sh.reference].some(value=>same(code,value))).map(sh=>({kind:'shipment',id:sh.id,name:sh.reference})),
+    ...s.shipments.filter(r => r.barcode && same(code, r.barcode)).map(r => ({kind:'shipment barcode',id:r.id,name:r.barcode})),
     ...s.shipments.filter(r => [r.id, r.reference].some(b => same(code, b))).map(r => ({ kind: 'shipment', id: r.id, name: r.reference })),
     ...s.ediDocuments.filter(d => d.cartons?.some((x: any) => same(code, x.sscc))).map(d => ({ kind: 'carton', id: d.id, name: d.id })),
   ];

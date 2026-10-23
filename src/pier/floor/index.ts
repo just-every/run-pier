@@ -8,7 +8,7 @@ import { dayClose } from "./summary";
 // waves, the pack step and the day's dispatch close.
 const handlers: [string[], string[], (c: Context, type: string, p: any) => Row | undefined][] = [
   [["receiving.link"], [], receiving],
-  [["receiving.start", "receiving.scan", "receiving.remove", "receiving.post"], ["warehouse"], receiving],
+  [["receiving.start", "receiving.notice", "receiving.scan", "receiving.remove", "receiving.post"], ["warehouse"], receiving],
   [["carrier.save", "order.carrier"], ["operator", "warehouse"], waves],
   [["wave.release", "pick.scan", "pick.short"], ["warehouse"], waves],
   [["pack.scan", "pack.carton", "pack.measure", "pack.close", "pack.dispatch"], ["warehouse"], packing],

@@ -1,3 +1,5 @@
+// @ts-expect-error Synthetic X12 source submitted through the public receiving door.
+import { inboundNotice } from '../api/inbound-asn-fixture.mjs'
 // @ts-expect-error Standard OOXML input fixture, not application state.
 import { salesWorkbook } from '../api/sales-workbook.mjs'
 // @ts-expect-error Real PDF source fixture, not application state.
@@ -609,9 +611,12 @@ test('ranked receipt fill lists release once and transfer arrival dates remain r
     const transit = await command('location.save', { name: `${tag}-transit`, warehouse: tag, kind: 'transit' })
     const supplier = await command('party.save', { name: `${tag}-supplier`, kind: 'supplier' })
     const customer = await command('party.save', { name: `${tag}-customer`, kind: 'customer' })
+    await command('supplierItem.save', {supplierId:supplier.id,itemId:item.id,code:`${tag}-supplier`,packSize:'1',price:'1',minimum:'1',leadDays:21})
+    await command('replenishment.save', {itemId:item.id,warehouse:tag,version:0,supplierId:supplier.id,method:'fixed',safetyStock:'1',reorderPoint:'0',reorderQuantity:'1',autoDraft:false})
     let rule = await command('routing.save', { source: 'manual', mode: 'fixed', shortage: 'hold', eligible: [tag] })
     rule = await command('routing.preview', { ruleId: rule.id, version: rule.version }); await command('routing.activate', { ruleId: rule.id, version: rule.version })
-    for (let i = 0; i < 3; i++) await command('order.create', { customerId: customer.id, promiseDate: `2026-11-0${i + 1}`, warehouse: tag, lines: [{ itemId: item.id, quantity: '2' }] })
+    const waitingOrders = []
+    for (let i = 0; i < 3; i++) waitingOrders.push(await command('order.create', { customerId: customer.id, promiseDate: `2026-11-0${i + 1}`, warehouse: tag, lines: [{ itemId: item.id, quantity: '2' }] }))
     let po = await command('po.draft', { supplierId: supplier.id, destinationWarehouse: tag, promiseDate: '2026-11-01', reason: 'Physical receipt', lines: [{ itemId: item.id, quantity: '5', price: '1' }] })
     await command('po.approve', { poId: po.id, version: po.version }); po = await command('po.commit', { poId: po.id, version: po.version })
     const receive = (quantity: string, reference: string) => command('receipt.create', { poId: po.id, supplierReference: reference, lines: [{ poLineId: po.lines[0].id, locationId: bin.id, quantity, cost: '1' }] })
@@ -636,7 +641,8 @@ test('ranked receipt fill lists release once and transfer arrival dates remain r
     await scan.press('Enter'); expect((await (await scanReply).json()).ok).toBe(true)
     let tally = (await (await context.request.get(`${origin}/api/pier/state`)).json()).receivings.find((row: any) => row.id === receiving.id)
     const receipt = await command('receiving.post', { receivingId: receiving.id, version: tally.version, supplierReference: `${tag}-receipt` })
-    await page.goto(`${origin}/app#sales`); await page.reload()
+    await page.goto(`${origin}/app#sales/${waitingOrders[2].id}`); await page.reload()
+    await expect(page.getByText('Safety stock: 1 each; inbound held for buffer: 0', {exact:true})).toBeVisible()
     let form = section(page, 'Prepare receipt fill list')
     await form.getByLabel('Received supply', { exact: true }).selectOption(receipt.id)
     await form.getByLabel('Fill warehouse', { exact: true }).selectOption(tag)
@@ -660,6 +666,30 @@ test('ranked receipt fill lists release once and transfer arrival dates remain r
     await form.scrollIntoViewIfNeeded()
     if (shots) await page.screenshot({ path: join(shots, `${width}-transfer-arrival.png`), fullPage: true })
     if (shots) await form.screenshot({ path: join(shots, `${width}-transfer-arrival-detail.png`) })
+    const palletItem = await command('item.save', {sku:`${tag}-pallet`,name:`${tag}-pallet`,unit:'each',packSize:'1'})
+    let palletPo = await command('po.draft', {supplierId:supplier.id,destinationWarehouse:tag,promiseDate:'2026-11-01',reason:'Advance notice pallet',lines:[{itemId:palletItem.id,quantity:'3',price:'1'}]})
+    await command('po.approve',{poId:palletPo.id,version:palletPo.version}); palletPo = await command('po.commit',{poId:palletPo.id,version:palletPo.version})
+    let palletReceiving = await command('receiving.start',{poId:palletPo.id,locationId:bin.id})
+    const body = '00614141' + String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, '0')
+    const checksum = (10 - [...body].reverse().reduce((sum, digit, index) => sum + Number(digit) * (index % 2 ? 1 : 3), 0) % 10) % 10
+    const sscc = body + checksum
+    palletReceiving = await command('receiving.notice',{receivingId:palletReceiving.id,version:palletReceiving.version,senderId:'SUPPLIER',receiverId:'PIER',x12:inboundNotice(palletPo.reference,[{sku:palletItem.sku,quantity:'3'}],sscc)})
+    await page.goto(`${origin}/app#floor/receive`); await page.reload()
+    const palletPanel = page.locator('section.panel').filter({has:page.getByRole('heading',{name:`Receiving ${palletPo.reference}`,exact:true})}).last()
+    await palletPanel.getByRole('checkbox',{name:'I checked the notice and confirm the whole pallet receipt'}).check()
+    await assertNativeWidth(page)
+    await palletPanel.scrollIntoViewIfNeeded()
+    if (shots) await page.screenshot({path:join(shots,`${width}-sscc-confirmation.png`),fullPage:true})
+    const palletScan = palletPanel.getByRole('textbox',{name:'Scan item or bin',exact:true})
+    await palletScan.fill(`(00)${sscc}`)
+    const palletReply = page.waitForResponse(response=>response.url()===`${origin}/api/pier/commands`&&response.request().postDataJSON()?.type==='receiving.scan')
+    await palletScan.press('Enter')
+    const palletResult = await (await palletReply).json(); expect(palletResult.ok,JSON.stringify(palletResult)).toBe(true)
+    expect(palletResult.result.lines[0].quantity).toBe('3')
+    expect(palletResult.result.sscc).toBe(sscc)
+    await expect(palletPanel).toHaveCount(0)
+    if (shots) await page.screenshot({path:join(shots,`${width}-sscc-received.png`),fullPage:true})
+
   }
 })
 

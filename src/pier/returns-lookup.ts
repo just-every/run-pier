@@ -14,7 +14,7 @@ export function returnLookup(s: ReturnSource, raw: unknown): ReturnCandidate[] {
   const orderIds = new Set(s.orders.filter(o => same(code, o.reference) || same(code, o.id)).map(o => o.id));
   return s.shipments.flatMap(sh => {
     const order = s.orders.find(o => o.id === sh.orderId);
-    const label = orderIds.has(sh.orderId) || same(code, sh.reference) || same(code, sh.id);
+    const label = orderIds.has(sh.orderId) || same(code, sh.reference) || same(code, sh.id) || same(code, sh.barcode);
     return sh.lines.flatMap((line: any) => {
       if (!label && !itemIds.has(line.itemId)) return [];
       if(identities.length && !(s.traceEvents??[]).some(e=>e.documentId===sh.id&&BigInt(e.quantity)<0n&&identities.some(i=>i.id===e.identityId)&&line.reservations?.some((link:any)=>link.movementId===e.movementId)))return [];

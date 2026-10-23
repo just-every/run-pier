@@ -283,10 +283,12 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     const owners = codeOwners(c.s, shipmentCode);
     const shipment = row(c, "shipments", {
       orderId: o.id,
+      barcode: `PIER-SHIP-${id()}`,
       warehouse:shipmentWarehouse,
       reference: text(p.shipmentReference),
       lines: [],
     });
+    if (codeOwners(c.s, shipment.barcode).some(owner => owner.id !== shipment.id)) fail('DUPLICATE', 'The allocated shipment barcode conflicts with an existing stock code. Retry this dispatch.');
     if (!Array.isArray(p.lines) || !p.lines.length)
       fail("LINES", "Add dispatch lines.");
     for (const x of p.lines) {

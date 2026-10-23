@@ -49,6 +49,15 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   assert.equal(shared.length, 2, 'one consolidated BOL is an alias for both dispatches');
   assert.deepEqual(new Set(shared.map(row => row.orderId)), new Set([order.id, second.id]));
   assert.equal(new Set(shared.map(row => row.shipmentId)).size, 2);
+  const shipments = (await h.state()).shipments.filter(shipment => shipment.reference === 'CAT-SHIP');
+  assert.equal(new Set(shipments.map(shipment => shipment.barcode)).size, 2);
+  for (const shipment of shipments) {
+    assert.match(shipment.barcode, /^PIER-SHIP-/);
+    const selected = await (await h.request('/api/pier/returns/lookup?code=' + encodeURIComponent(shipment.barcode))).json();
+    assert.deepEqual(selected.map(candidate => candidate.shipmentId), [shipment.id]);
+  }
+  await h.command('item.save', {sku:'synthetic-pier-barcode-collision',name:'Collision',unit:'each',packSize:'1',barcode:shipments[0].barcode}, {error:'DUPLICATE'});
+
   await h.command('item.save', { sku: 'BOL-COLLISION', name: 'Conflicting code', unit: 'each', packSize: '1', barcode: 'CAT-SHIP' }, { error: 'DUPLICATE' });
   const changed = catalogueCsv([{ sku: blue.sku, name: 'Blue stoneware mug revised', unit: 'each', packSize: '12' }]);
   const review = await h.preview(changed);

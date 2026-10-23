@@ -13,3 +13,10 @@ Interrupted floor work stays in the same browser tab, including the selected tas
 At **Floor → Returns**, scan the destination bin and record the inspection decision, then scan the returned unit. An owner or warehouse inspector can restock an intact unit in that one intake action, or write off a damaged unit against the owner's mapped Books expense account. An operator without inspection authority receives either condition into quarantine for a separate inspection. Ambiguous dispatches require an explicit source choice. Credits, valuation and write-off jobs remain visible in Books and reconcile through the connected ledger.
 
 Physical scanner, camera and printer acceptance remains recorded separately under SCAN-001/002; carrier postage and provider labels remain SHIP-001 work. Printable business templates remain PRINT-001 work. These boundaries do not turn a scan, print or postage purchase into dispatch.
+
+
+## Supplier advance notices
+
+The authenticated `receiving.notice` command registers an original X12 004010 856 against an open receiving tally. Supply `receivingId`, its current `version`, the reviewed `senderId` and `receiverId`, and the original `x12` text. The notice must name the current Pier PO reference in PRF. Every SKU or unit UPC must identify exactly one PO line, with EA mapped to an item whose base unit is each. Pallet and carton SSCCs retain their hierarchy and original source. Unsupported conditions, units and tracked goods without identity mappings require individual receiving review; they never become guessed stock.
+
+The receiving screen lists the retained notice and pallet quantities. Check the whole-pallet confirmation and scan its SSCC once to receive every mapped line. The command requires `confirmSscc: true`; without it, no stock posts. Existing loose scans must be posted or removed first. Excess quantities, a previously received pallet or an overlapping carton are refused atomically. Replaying the same command identity returns its original receipt. Physical scanner and camera acceptance remains separate.

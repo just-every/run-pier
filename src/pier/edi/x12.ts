@@ -59,7 +59,7 @@ function envelope(raw: string, type: string): { controls: Controls; body: string
   const s = rows.indexOf(st), e = rows.indexOf(se);
   if (rows[0] !== isa || rows[1] !== gs || s !== 2 || e !== rows.length - 3 || rows.at(-2) !== ge || rows.at(-1) !== iea) fail('invalid envelope nesting');
   if (gs.length !== 9 || gs[7] !== 'X' || gs[8] !== '004010') fail('unsupported functional group version');
-  if (st[1] !== type || gs[1] !== ({'850':'PO','997':'FA'} as Record<string,string>)[type]) fail(`expected ${type} transaction and matching functional group`);
+  if (st[1] !== type || gs[1] !== ({'850':'PO','997':'FA','856':'SH'} as Record<string,string>)[type]) fail(`expected ${type} transaction and matching functional group`);
   if (st.length !== 3 || se.length !== 3 || ge.length !== 3 || iea.length !== 3 || se[2] !== st[2] || ge[2] !== gs[6] || iea[2] !== isa[13]) fail('control number mismatch');
   if (!/^\d+$/.test(se[1]) || Number(se[1]) !== e - s + 1 || ge[1] !== '1' || iea[1] !== '1') fail('segment, transaction or group count mismatch');
   return { controls: {senderId: required(isa[6], 'ISA06'), receiverId: required(isa[8], 'ISA08'), interchangeControl: isa[13], groupControl: gs[6], transactionControl: st[2]}, body: rows.slice(s + 1, e), gs };
@@ -210,4 +210,45 @@ export function buildX12(type: '997' | '855' | '856' | '810', input: X12Input, n
     if (values.some((value,i) => /[*~\r\n]/.test(value) || (value.includes(':') && !(row[0] === 'ISA' && i === 16)) || /[^\x20-\x7e]/.test(value))) fail('element contains a delimiter or unsupported character');
     return values.join('*') + '~';
   }).join('\n');
+}
+
+/** Inbound shipment hierarchy; unsupported conditions require explicit review. */
+export function parse856(raw: string) {
+  const { controls, body } = envelope(raw, '856');
+  const bsn = exactly(body, 'BSN');
+  if (body[0] !== bsn || bsn[1] !== '00') fail('only an original 856 shipment notice is supported');
+  const shipmentReference = required(bsn[2], 'BSN02'); date(bsn[3], 'BSN03');
+  const nodes = new Map<string, {id:string;parent:string;kind:string;sscc?:string;po?:string;identifiers:X12Identifier[];quantity?:string;unit?:string}>();
+  let current: ReturnType<typeof nodes.get>;
+  for (const segment of body.slice(1)) {
+    const [tag, ...values] = segment;
+    if (tag === 'HL') {
+      const [id, parent, kind] = values;
+      if (!id || nodes.has(id) || !['S','O','T','P','I'].includes(kind) || (parent && !nodes.has(parent)) || (!parent && kind !== 'S')) fail('invalid or ambiguous shipment hierarchy');
+      current = { id, parent, kind, identifiers: [] }; nodes.set(id, current);
+    } else if (tag === 'PRF') {
+      if (!current || current.kind !== 'O' || current.po) fail('PRF requires one order parent');
+      current!.po = required(values[0], 'PRF01');
+    } else if (tag === 'MAN') {
+      if (!current || !['T','P'].includes(current.kind) || current.sscc || values[0] !== 'GM') fail('MAN requires a pallet or carton SSCC');
+      const code = values[1]?.replace(/^00(?=\d{18}$)/, '');
+      if (!validateSscc(code)) fail('invalid inbound SSCC'); current!.sscc = code;
+    } else if (tag === 'LIN') {
+      if (!current || current.kind !== 'I' || current.identifiers.length) fail('LIN requires one item hierarchy');
+      for (let i = 1; i < values.length; i += 2) {
+        if (!values[i] || !values[i+1]) fail('incomplete LIN item identifier');
+        current!.identifiers.push({qualifier: values[i], value: values[i+1]});
+      }
+    } else if (tag === 'SN1') {
+      if (!current || current.kind !== 'I' || current.quantity) fail('SN1 requires one item quantity');
+      current!.quantity = decimal(values[1], 'SN102', true); current!.unit = required(values[2], 'SN103');
+    } else if (!['DTM','CTT'].includes(tag)) fail(`unsupported inbound ${tag} condition; review the source before receiving`);
+  }
+  const ancestors = (node: NonNullable<typeof current>) => { const result = [node]; while (node.parent) { node = nodes.get(node.parent)!; result.push(node); } return result; };
+  const items = [...nodes.values()].filter(node => node.kind === 'I');
+  if (!items.length || items.length > 100 || items.some(node => !node.quantity || !node.identifiers.length)) fail('incomplete or excessive notice items');
+  if (items.some(node => !ancestors(node).some(parent => parent.sscc) || !ancestors(node).some(parent => parent.po))) fail('each item requires an order and SSCC parent');
+  const cartons = [...nodes.values()].filter(node => node.sscc).map(node => ({sscc: node.sscc!, lines: items.filter(item => ancestors(item).some(parent => parent.id === node.id)).map(item => ({sourceLine: item.id, poNumber: ancestors(item).find(parent => parent.po)!.po!, quantity: item.quantity!, unit: item.unit!, identifiers: item.identifiers}))}));
+  if (!cartons.length || cartons.some(carton => !carton.lines.length) || new Set(cartons.map(carton => carton.sscc)).size !== cartons.length) fail('empty or duplicate SSCC containers');
+  return {...controls, shipmentReference, cartons};
 }

@@ -1,3 +1,4 @@
+import { inboundNotice } from './inbound-asn-fixture.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { installation } from "./harness.mjs";
@@ -58,6 +59,34 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
     const s = await h.invariant(), at = (item, bin) => s.positions.find((p) => p.itemId === item.id && p.locationId === bin.id)?.quantity;
     assert.deepEqual([at(mug, b03), at(mug, b09), at(towel, b03)], ["6", "8", "3"]);
     assert.equal(s.purchaseOrders[0].lines.find((l) => l.itemId === towel.id).received, "3");
+  });
+
+  await t.test('confirmed SSCC receives every 856 pallet line once and invalid notices leave stock unchanged', async () => {
+    const items = [];
+    for (let i = 1; i <= 2; i++) items.push(await h.command('item.save', {sku:`synthetic-pier-pallet-${i}`,name:`Pallet item ${i}`,unit:'each',packSize:'1'}));
+    const bin = await h.command('location.save', {name:'Pallet receiving',warehouse:'Advance',kind:'bin'});
+    let inbound = await h.command('po.draft', {supplierId:supplier.id,promiseDate:today,reason:'Supplier pallet',lines:items.map((item,index)=>({itemId:item.id,quantity:String(index+2),price:'1'}))});
+    await h.command('po.approve',{poId:inbound.id,version:inbound.version}); inbound = await h.command('po.commit',{poId:inbound.id,version:inbound.version});
+    let receiving = await h.command('receiving.start',{poId:inbound.id,locationId:bin.id});
+    const x12 = inboundNotice(inbound.reference, items.map((item,index)=>({...item,quantity:String(index+2)})));
+    const register = {receivingId:receiving.id,version:receiving.version,senderId:'SUPPLIER',receiverId:'PIER',x12};
+    const original = await h.state();
+    await h.command('receiving.notice',{...register,x12:x12.replace('SE*14*','SE*15*')},{error:'ASN'});
+    assert.deepEqual((await h.state()).movements, original.movements);
+    receiving = await h.command('receiving.notice',register);
+    await h.command('item.save',{sku:'synthetic-pier-collision',name:'Collision',unit:'each',packSize:'1',barcode:'006141411234567890'},{error:'DUPLICATE'});
+    await h.command('receiving.scan',{receivingId:receiving.id,code:']C100006141411234567890'},{error:'SSCC_CONFIRM'});
+    assert.deepEqual((await h.state()).movements,original.movements);
+    const payload = {receivingId:receiving.id,code:'(00)006141411234567890',confirmSscc:true}, commandId = crypto.randomUUID();
+    const receipt = await h.command('receiving.scan',payload,{commandId});
+    assert.equal(receipt.sscc,'006141411234567890');
+    assert.deepEqual(receipt.lines.map(line=>line.quantity),['2','3']);
+    assert.deepEqual(await h.command('receiving.scan',payload,{commandId}),receipt);
+    await h.command('receiving.scan',payload,{error:'RECEIVING_STATE'});
+    const exported = await (await h.request('/api/pier/export')).json();
+    assert.equal(exported.receivings.find(row=>row.id===receiving.id).notices[0].x12,x12);
+    assert.equal(exported.receipts.find(row=>row.id===receipt.id).advanceNotice.senderId,'SUPPLIER');
+    await h.invariant();
   });
 
   let wave, so1, so2, ups;
