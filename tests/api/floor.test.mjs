@@ -31,6 +31,10 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
     await scan("036000291452");
     await scan("4006381333931", { count: 3 });
     await h.command("receiving.scan", { receivingId: r.id, code: "999999" }, { error: "UNKNOWN_CODE" });
+    const memberEntry = await h.request('/auth/dev/enter?as=member', { headers: { 'x-rer-dev-key': h.devKey } });
+    assert.equal(memberEntry.status, 303);
+    const memberCookie = memberEntry.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
+    await h.command('receiving.link', { receivingId: r.id, itemId: mug.id, version: mug.version, code: 'synthetic-pier-forbidden', quantity: '4', reason: 'Member cannot act as supervisor' }, { as: memberCookie, error: 'FORBIDDEN' });
     const beforeLink = await h.state();
     await h.command('receiving.link', { receivingId: r.id, itemId: mug.id, version: mug.version, code: 'synthetic-pier-unknown', quantity: '4', reason: 'Supervisor inspected supplier case' });
     const linked = (await h.state()).items.find(item => item.id === mug.id);
