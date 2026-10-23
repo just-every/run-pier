@@ -460,3 +460,34 @@ test('durable scan refusals and item edits are visible in scoped Activity filter
     await expect(history).toContainText('synthetic-pier-scan'); await expect(history).not.toContainText('Audit revised item')
   }
 })
+
+
+test('saved filtered analysis schedules private snapshots and downloads retained CSV at 1440 and 390', async ({ page, context }) => {
+  const origin = await ownerEntry(page)
+  const command = async (type: string, payload: object) => { const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } }); const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result }
+  const item = await command('item.save', { sku: 'synthetic-pier-report', name: 'Report source item', unit: 'each', packSize: '1' })
+  const bin = await command('location.save', { name: 'Report source bin', warehouse: 'Report warehouse', kind: 'bin' })
+  const supplier = await command('party.save', { name: 'Report supplier', kind: 'supplier' })
+  let po = await command('po.draft', { supplierId: supplier.id, promiseDate: '2026-11-01', reason: 'Saved analysis proof', lines: [{ itemId: item.id, quantity: '10', price: '2' }] })
+  await command('po.approve', { poId: po.id, version: po.version }); po = await command('po.commit', { poId: po.id, version: po.version })
+  await command('receipt.create', { poId: po.id, supplierReference: 'Report source receipt', lines: [{ poLineId: po.lines[0].id, locationId: bin.id, quantity: '10', cost: '2' }] })
+  for (const width of [1440,390]) {
+    await page.setViewportSize({ width, height:1000 }); await page.goto(`${origin}/app#reports`); await page.reload()
+    const dates = section(page, 'Report dates')
+    await dates.getByLabel('Report warehouse', {exact:true}).selectOption('Report warehouse')
+    await dates.getByRole('button', {name:'Run reports',exact:true}).click()
+    const valuation = section(page, 'Stock valuation')
+    await expect(valuation).toContainText('20.00')
+    const save = section(page, 'Save this analysis'); await save.getByLabel('Saved report name',{exact:true}).fill(`North valuation ${width}`); await submit(page,save,'Save report')
+    let state = await (await context.request.get(`${origin}/api/pier/state`)).json(); const saved = state.savedReports.find((r:any)=>r.name===`North valuation ${width}`)
+    expect(saved.parameters.warehouse).toBe('Report warehouse')
+    const schedule = section(page,'Schedule saved analysis'); await schedule.getByLabel('Saved analysis',{exact:true}).selectOption(saved.id); await schedule.getByLabel('Enable private snapshots',{exact:true}).check(); await schedule.getByLabel('I approve this schedule and its saved filters.',{exact:true}).check(); await submit(page,schedule,'Save report schedule')
+    const run = section(page,'Run saved analysis now'); await run.getByLabel('Analysis to run',{exact:true}).selectOption(saved.id); await submit(page,run,'Retain report snapshot')
+    const snapshots = section(page,'Saved report snapshots'); await expect(snapshots).toContainText(`North valuation ${width}`)
+    const download = page.waitForEvent('download'); await snapshots.getByRole('row').filter({hasText:`North valuation ${width}`}).getByRole('link',{name:'Download snapshot CSV',exact:true}).click(); const file = await download; expect(file.suggestedFilename()).toBe('pier-report.csv')
+    const path = await file.path(); const {readFile}=await import('node:fs/promises'); const csv = await readFile(path!,'utf8'); expect(csv).toContain('20.000000000000'); expect(csv).toContain(bin.id)
+    expect(await page.locator('button,a').evaluateAll(nodes=>nodes.filter(node=>!node.textContent?.trim()&&node.querySelector('svg')).length)).toBe(0)
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
+    if(shots){await mkdir(shots,{recursive:true});await page.screenshot({path:join(shots,`${width}-saved-reports.png`),fullPage:true})}
+  }
+})
