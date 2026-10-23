@@ -2,7 +2,7 @@
 import { build } from 'esbuild';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { unstable_splitSqlQuery } from 'wrangler';
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
@@ -17,9 +17,16 @@ export async function pantryInstallation(){
     let source=process.env.PANTRY_SOURCE;
     if(!source){
       source=join(dir,'source');
-      await exec('git',['clone','--quiet','--no-checkout','--filter=blob:none','https://github.com/just-every/run-pantry.git',source]);
       // Compatibility target, not a runtime dependency or a version assertion.
-      await exec('git',['-C',source,'checkout','--quiet','5c712d42d1c2107a7550aba3b0dd6add0f1927ff']);
+      // Read the sibling through GitHub's API; no sibling Git checkout or write
+      // remote is created by this integration fixture.
+      let archive;
+      try { archive = (await exec('gh',['api','repos/just-every/run-pantry/tarball/5c712d42d1c2107a7550aba3b0dd6add0f1927ff'], { encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 })).stdout; }
+      catch { throw new Error('Could not read the pinned Pantry source archive through gh api.'); }
+      const archivePath = join(dir,'source.tar.gz');
+      await writeFile(archivePath,archive); await mkdir(source);
+      await exec('tar',['-xzf',archivePath,'--directory',source,'--strip-components=1']);
+      await rm(archivePath);
     }
     const bundled=await build({entryPoints:[join(source,'tests/api/worker.ts')],nodePaths:[resolve('node_modules')],bundle:true,write:false,format:'esm',platform:'neutral',conditions:['workerd','worker','browser'],target:'es2023',external:['node:*','cloudflare:*'],logLevel:'error'});
     let origin='http://127.0.0.1';

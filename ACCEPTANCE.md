@@ -84,7 +84,7 @@ The table retains the repository’s journey / test-target / status form and add
 | AGENT-005 — Prove cutover and reconciliation | Use a named-source cutover with a duplicate SKU, unit conflict, open backorder and accounting difference. Inspect source-cited proposed mappings and totals, reject a merge, approve corrected mappings and cut over once. Replay and final-delta reconciliation show no duplicate opening or unaccounted field/value. | `src/pier/imports.ts`; `src/pier/import-incumbent.ts`; `tests/api/movein.test.mjs`: Native and named incumbent opening reconciliation now retain originals and explicit field/row decisions, check independent bin/unit/USD totals (native CSV openings in USD, or another currency at the batch's recorded USD rate) and allow reviewed idempotent cutover/undo. Accounting mapping, other source objects and full history/closure remain incomplete. | `partial` |
 | AGENT-006 — Live questions and reviewed bulk work | Ask a restricted warehouse user why an order is short and propose bulk promise/PO changes. Answers cite allowed evidence without exposing forbidden costs; preview, edit and approve the plan, then mutate an input. The stale action refuses and the remaining authorized results retain ordinary command/audit links. | `src/pier/item-agent/`; `src/ui/item-agent/`; `tests/api/item-agent.test.mjs`: An item has deterministic checks, optional install-key OpenAI explanation, exact source-linked proposals and logged human apply/reject/undo. General live questions and bulk-plan interfaces remain incomplete. | `partial` |
 
-**73 clauses: 26 done, 40 partial, 7 missing.**
+**73 clauses: 26 done, 41 partial, 6 missing.**
 
 ## Retained native evidence and its limits
 
