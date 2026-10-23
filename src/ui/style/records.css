@@ -60,3 +60,4 @@
 }
 
 .pier-app .backorder-fill h3, .pier-app .customer-workbench summary { overflow-wrap: anywhere; }
+.pier-app .panel, .pier-app .order-customer h3 { overflow-wrap: anywhere; }
