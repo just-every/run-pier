@@ -3224,7 +3224,7 @@
       "executable": false
     },
     "src/pier/privacy.ts": {
-      "sha256": "28d8f0f176ed87404f6fab6d66f02547e1d5119ef2fbef73beee90ab3a51d048",
+      "sha256": "e65b34bab5ed58c0ef6f378c00603f440f988474ca56374e4f7fe839c03f9fa9",
       "executable": false
     },
     "src/pier/proposals.ts": {
@@ -4240,7 +4240,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "a90e0847c48daa7c09984725e5eeef0112d372e7aee20e0f9852b38f60c92682",
+      "sha256": "6e0cc59b6eb54fd5a0f22084880f172284f64e640740a30b88fce16a83352f70",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {

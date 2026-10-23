@@ -3,14 +3,27 @@ import type { Bindings } from '../auth.server';
 import { canonicalJson, sha256 } from './import-kit';
 import { fail, fresh, get, requireRole, row, text, type Context, type State } from './model';
 
+function documentSubjects(s: State, document: any) {
+  const related = new Set<string>([document.id, ...document.links.map((link: any) => link.id)]);
+  for (const order of s.orders.filter(order => order.evidenceDocumentId === document.id)) related.add(order.id);
+  for (const extraction of s.documentExtractions.filter(extraction => extraction.documentId === document.id)) if (extraction.orderId) related.add(extraction.orderId);
+  const parents = new Map(Object.values(s).filter(Array.isArray).flat().filter((row: any) => row && typeof row.id === 'string').map((row: any) => [row.id, row]));
+  for (const id of related) {
+    const record: any = parents.get(id);
+    for (const field of ['customerId','supplierId','orderId','poId','receiptId','recordId']) if (typeof record?.[field] === 'string') related.add(record[field]);
+  }
+  return related;
+}
+
 export function privacyPreview(s: State, kind: string, id: string) {
   if (!['attachment','customer','supplier','operator'].includes(kind)) fail('PRIVACY_KIND', 'Choose attachment, customer, supplier or operator.');
   const collection = kind === 'attachment' ? 'evidenceDocuments' : kind === 'operator' ? 'roles' : 'parties';
   const target = get(s, collection, id);
-  const documents = kind === 'attachment' ? [target] : s.evidenceDocuments.filter(d => d.links.some((l: any) => l.id === id));
+  if (['customer','supplier'].includes(kind) && target.kind !== kind) fail('PRIVACY_KIND', 'The subject must match the requested customer or supplier kind.');
+  const documents = kind === 'attachment' ? [target] : s.evidenceDocuments.filter(d => documentSubjects(s, d).has(id));
   const originals = documents.map(d => d.id), extractions = s.documentExtractions.filter(e => originals.includes(e.documentId));
   const inbox = s.documentInbox.filter(mail => mail.documentIds.some((key: string) => originals.includes(key)));
-  const holds = s.privacyHolds.filter(h => h.active && (h.subjectId === id || documents.some(d => d.links.some((l: any) => l.id === h.subjectId))));
+  const holds = s.privacyHolds.filter(h => h.active && (h.subjectId === id || documents.some(d => documentSubjects(s, d).has(h.subjectId))));
   const pending = extractions.filter(e => e.status === 'requesting').length;
   const counts = { originals: documents.length, extractions: extractions.length, inboxCopies: inbox.length, pendingRequests: pending,
     orders: s.orders.filter(o => o.customerId === id).length, purchases: s.purchaseOrders.filter(po => po.supplierId === id).length };

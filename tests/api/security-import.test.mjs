@@ -685,12 +685,12 @@ test('retained originals and signed mail produce cited hostile drafts; corrected
   // Explicit attachment erasure is a separate governed door. Its preview
   // changes with holds and dependencies, and old command replies lose content.
   let currentDocument = (await h.state()).evidenceDocuments.find(d => d.id === document.id);
-  currentDocument = await h.command('document.attach', { documentId: document.id, version: currentDocument.version, record: { kind: 'parties', id: b.customer.id } });
+  currentDocument = await h.command('document.attach', { documentId: document.id, version: currentDocument.version, record: { kind: 'orders', id: extraction.orderId } });
   const preview = async () => (await h.request('/api/pier/privacy?kind=attachment&subjectId=' + document.id)).json();
   let plan = await preview(); assert.equal(plan.allowed, true); assert.equal(plan.counts.originals, 1); assert.ok(plan.counts.extractions >= 1); assert.equal(plan.counts.inboxCopies, 1);
   let hold = await h.command('privacy.hold', { kind: 'customer', subjectId: b.customer.id, category: 'accounting', reason: 'Owner retained evidence for review', active: true });
   await h.command('privacy.eraseAttachment', { documentId: document.id, planHash: plan.planHash, confirm: true }, { error: 'STALE' });
-  plan = await preview(); assert.equal(plan.allowed, false);
+  plan = await preview(); assert.equal(plan.allowed, false, 'a customer hold follows the order and extraction link to its original');
   await h.command('privacy.eraseAttachment', { documentId: document.id, planHash: plan.planHash, confirm: true }, { error: 'PRIVACY_HOLD' });
   hold = await h.command('privacy.hold', { id: hold.id, version: hold.version, kind: 'customer', subjectId: b.customer.id, category: 'accounting', reason: 'Owner explicitly released accounting hold', active: false });
   await h.command('privacy.retention', { version: 0, reviewAfterDays: 30, automaticDeletion: true, reason: 'Not authorized' }, { error: 'PRIVACY_POLICY' });
