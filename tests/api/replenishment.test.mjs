@@ -128,6 +128,7 @@ test('bounded workflow dry-runs, vendor and spend limits, worker loss and pause 
   assert.equal(finished.status, 'resolved'); assert.equal(finished.result.draftIds.length, 1);
   assert.deepEqual(await h.command('workflow.finish', finishPayload, { commandId: finishId }), finished);
   await h.command('workflow.finish', { ...finishPayload, version: finished.version }, { error: 'WORKFLOW_JOB' });
+  await h.command('workflow.unsupported', { ...finishPayload, version: finished.version }, { error: 'WORKFLOW_JOB' });
   state = await h.state();
   assert.equal(state.workflowJobs.find(j => j.id === finished.id).status, 'resolved', 'a fresh duplicate cannot erase resolved spend');
   assert.equal(state.workflowJobs.find(j => j.id === finished.id).ruleSnapshot.perRunBudget, '10.000000000000');
@@ -233,6 +234,6 @@ test('cash and service horizon comparisons net supply and drafts with exact supp
   const committed = await h.command('po.commit', { poId: po.id, version: po.version });
   await h.command('receipt.create', { poId: committed.id, supplierReference: 'synthetic-pier-3', lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '18', cost: '2' }] });
   const received = await h.command('replenishment.compare', request);
-  assert.equal(received.options[0].quantity, '0'); assert.equal(received.options[1].quantity, '12');
+  assert.equal(received.options[0].quantity, '0'); assert.equal(received.options[1].quantity, '12'); assert.equal(received.options[1].executable, false, 'comparison does not bypass the buyer-applied reorder point');
   assert.equal((await h.invariant()).positions.find(p => p.itemId === b.item.id && p.locationId === b.source.id).quantity, '18');
 });

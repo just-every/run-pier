@@ -58,6 +58,7 @@ export function workflowRules(c: Context, type: string, p: any) {
     const preview = previewWorkflow(c, rule);
     return row(c, 'workflowJobs', { key, ruleId: rule.id, ruleVersion: rule.version, ruleSnapshot: structuredClone(rule), sourceDigest: preview.sourceDigest, expectedSpend: preview.expectedSpend, status: 'pending', problem: null, attempts: 0, preparedBy: c.actor.id });
   }
+  if (!['workflow.claim', 'workflow.finish'].includes(type)) fail('WORKFLOW_JOB', 'Choose a supported workflow action.');
   const job = get(c.s, 'workflowJobs', p.jobId); fresh(job, p.version);
   if (job.ruleId !== rule.id) fail('WORKFLOW_JOB', 'Choose a job for this rule.');
   if ((type === 'workflow.claim' && job.status !== 'pending') || (type === 'workflow.finish' && job.status !== 'running')) fail('WORKFLOW_JOB', 'Only pending work can be claimed and running work finished. Terminal outcomes are retained.');

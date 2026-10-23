@@ -86,8 +86,8 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
   if (type === 'replenishment.check') { requireRole(c, ['buyer']); refreshReorderExceptions(c); return { id: c.commandId, version: 1 }; }
   if (type === 'replenishment.compare') {
     requireRole(c, ['buyer', 'agent']);
-    const f = forecast(c, [{ itemId: p.itemId, warehouse: p.warehouse, supplierId: p.supplierId }]).find(f => f.itemId === p.itemId && f.warehouse === p.warehouse);
-    if (!f) fail('NOT_FOUND', 'Choose an active item in the current planning scope.');
+    const f = forecast(c, [{ itemId: p.itemId, warehouse: p.warehouse, supplierId: p.supplierId }]).find(f => f.itemId === p.itemId && f.warehouse === p.warehouse)
+      ?? fail('NOT_FOUND', 'Choose an active item in the current planning scope.');
     return { id: c.commandId, version: 1, stateVersion: c.s.version + 1, itemId: f.itemId, warehouse: f.warehouse,
       supplierId: f.supplierId, ...compareReplenishment(f, p.cashCeiling) };
   }

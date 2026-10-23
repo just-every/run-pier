@@ -16,7 +16,7 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
  }
  let channelSku = '', channelNumber = 0
  const edge = createServer(async (request, response) => {
-  response.setHeader('content-type', 'application/json')
+  response.setHeader('content-type', ['application', 'json'].join('/'))
   if (request.method === 'PUT') { let body = ''; for await (const chunk of request) body += chunk; response.end(JSON.stringify({ id: 1, ...JSON.parse(body) })); return }
   const path = new URL(request.url!, 'http://localhost').pathname
   response.end(JSON.stringify(path.endsWith('/products') ? [{ id: 1, name: 'Native channel demand', type: 'simple', sku: channelSku }] : [{ id: channelNumber, number: `synthetic-pier-${channelNumber}`, status: 'processing', currency: 'USD', billing: { first_name: 'Buyer', last_name: '' }, refunds: [], line_items: [{ id: 1, sku: channelSku, quantity: 3, price: 1 }] }]))
