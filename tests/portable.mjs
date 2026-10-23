@@ -7,7 +7,7 @@ import { mkdtemp, readdir, cp, rm, readFile, writeFile } from "node:fs/promises"
 import { resolve, join } from "node:path";
 import { tmpdir } from "node:os";
 import { createServer } from "node:net";
-import { inactiveRecord } from "../scripts/installer/archive-policy.mjs";
+import { inactiveRecord, inactiveValue } from "../scripts/installer/archive-policy.mjs";
 import { documentOriginal } from "./api/document-original.mjs";
 import { randomUUID } from "node:crypto";
 const workspace = resolve("."),
@@ -342,8 +342,8 @@ try {
   );
   assert.deepEqual(
     after.commands,
-    before.commands,
-    "durable command outcomes survived restore",
+    before.commands.map(command => ({ ...command, result: inactiveValue(command.result) })),
+    "durable command outcomes survived restore without active provider links",
   );
   // Every current and future business collection is compared, including source
   // bytes and valuation/approval histories; only declared authority is paused.

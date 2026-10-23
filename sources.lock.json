@@ -284,7 +284,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "7388b7a2689802943f8249cee7c723a4330ce14334ed3282c646b8d6118874c7",
+      "sha256": "2624b41137a6f93f2df7e352049a8ef76688f821c1b686d5ccc814d81f525008",
       "executable": false
     },
     "DEMO.md": {
@@ -552,7 +552,7 @@
       "executable": false
     },
     "OPERATIONS.md": {
-      "sha256": "ecd1caf7f5c0cc1e675778748eca03467fe69c2cdc699def60914804e99eb3c2",
+      "sha256": "98c37086de0d266f324ed56a0dc02979be8564726f4994802355f4d21465ad98",
       "executable": false
     },
     "package.json": {
@@ -908,7 +908,7 @@
       "executable": false
     },
     "scripts/installer/archive-policy.mjs": {
-      "sha256": "107b76738c083c44723b3957b05b5cd0cd4ebad04dd38be92f109b10aa402a6d",
+      "sha256": "e0211505f9700a06f2f0f339cd174acf754ad8f02fdc99d608ba5db7f839863c",
       "executable": false
     },
     "scripts/installer/local.mjs": {
@@ -4648,7 +4648,7 @@
       "executable": false
     },
     "tests/portable.mjs": {
-      "sha256": "67ca8363f28d6635adfaba745824c073d1b98fddc10c1020aa2569febb9be0b1",
+      "sha256": "1f3675fdd6a36dca3d4f1d75b8388236ecf0b2d674469a6dbb0620f68a0ed958",
       "executable": false
     },
     "tests/runtime.mjs": {

@@ -30,6 +30,10 @@ All public commands use bare `rer` verbs. `rer export`/`rer import` are the inst
 
 Stop local serving before backup, reset or restore so no command can write during transfer. The installation archive is intended to preserve business records and their stock, reservation, approval, command and import-custody evidence. Durable operator, role and approval identities remain audit evidence, never access grants. Native credentials, sessions, tokens and private settings are excluded; establish a fresh native session for the retained owner before operating. The fresh-install restore and new-transaction journey is locally proven by `tests/portable.mjs`, as recorded in [ACCEPTANCE.md](ACCEPTANCE.md).
 
+Restored external connections, workflow/replenishment/recurring policies, delivery verification and embedded send policies are paused. Prior authority is retained as historical evidence; non-owner role assignments restore as viewer evidence. Credentials and native sessions are excluded, payment/Stall access is revoked, and provider checkout/verification URLs are removed from records and recovered command replies. Review the retained records and explicitly reconnect with fresh owner authority before resuming external work. Pending sends never resume because a backup was restored.
+
+After attachment erasure, keep a fresh post-erasure archive as the later journal. Pass its checkout-relative path with `rer import --input OLD_ARCHIVE --journal LATER_ARCHIVE --yes`: an older archive crossing the redaction checkpoint is refused. Restore the current post-erasure archive instead. This fences local restores; already copied offline backups and already delivered/provider-held messages remain outside Pier's local deletion.
+
 For a same-checkout local restore:
 
 ```sh

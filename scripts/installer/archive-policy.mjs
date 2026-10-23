@@ -2,8 +2,14 @@
 // Historical consent is evidence, never authority in the receiving installation.
 const connections = new Set(['channels', 'bookConnections', 'shippingSettings', 'paymentConnections', 'aiSettings', 'documentSettings', 'ediPartners']);
 const policies = new Set(['replenishmentPolicies', 'slowStockPolicies', 'recurringOrders', 'workflowRules']);
+export function inactiveValue(value) {
+  if (Array.isArray(value)) return value.map(inactiveValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key,
+    ['checkoutUrl', 'verificationUrl'].includes(key) ? null : inactiveValue(entry)]));
+}
 export function inactiveRecord(kind, record) {
-  const r = structuredClone(record);
+  const r = inactiveValue(record);
   const remember = (key, value) => {
     r.archiveAuthority ??= {};
     if (!Object.hasOwn(r.archiveAuthority, key)) r.archiveAuthority[key] = value;
@@ -28,6 +34,7 @@ export default {
   product: 'inventory-pier', replaceableTables: ['pier_meta'],
   requiredConfiguration: ['OWNER_EMAIL', 'SESSION_SECRET', 'SETUP_TOKEN', 'AUTH_ORIGIN', 'MAIL_PROVIDER', 'MAIL_FROM'],
   exportRow(table, row) {
+    if (table === 'pier_commands') row.result = JSON.stringify(inactiveValue(JSON.parse(row.result)));
     if (table === 'pier_records') row.data = JSON.stringify(inactiveRecord(row.kind, JSON.parse(row.data)));
     if (table === 'pier_mail_deliveries' && ['sending', 'unavailable'].includes(row.phase)) {
       row.phase = row.phase === 'sending' ? 'uncertain' : 'revoked';
