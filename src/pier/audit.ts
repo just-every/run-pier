@@ -2,10 +2,10 @@ import { collections, type Context, type State, type Actor } from './model';
 import { resolve } from './floor/codes';
 import { authority } from './storage';
 
-const scanTypes = new Set(['receiving.scan', 'pick.scan', 'pack.scan', 'slotting.scan']);
+const scanTypes = new Set(['receiving.scan', 'pick.scan', 'pack.scan', 'slotting.scan', 'receiving.link']);
 // Preserve business field changes without retaining contacts, source originals,
 // provider responses, tokens, prompts or untrusted arbitrary metadata.
-const fields = new Set(['sku','name','barcode','caseBarcode','unit','packSize','archived','warehouse','kind','zone','status','quantity','reserved','dispatched','received','cancelled','promiseDate','destinationWarehouse','enabled','autoDraft','role','method','reorderPoint','reorderQuantity','maximum','locationId','itemId','permissions']);
+const fields = new Set(['sku','name','barcode','caseBarcode','unit','packSize','archived','warehouse','kind','zone','status','quantity','reserved','dispatched','received','cancelled','promiseDate','destinationWarehouse','enabled','autoDraft','role','method','reorderPoint','reorderQuantity','maximum','locationId','itemId','permissions','barcodes']);
 function image(kind: string, row: any) {
   if (!row) return null;
   return Object.fromEntries(Object.entries(row).filter(([key]) => fields.has(key) && !(key === 'name' && kind !== 'items' && kind !== 'locations')));
@@ -33,7 +33,7 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
   let resolution: any = null;
   if (scanTypes.has(type)) {
     try {
-      const hit = resolve(before, p.code ?? p.itemCode);
+      const hit = resolve(type === 'receiving.link' ? c.s : before, p.code ?? p.itemCode);
       if ('item' in hit) { itemIds.add(hit.item.item.id); resolution = { itemId: hit.item.item.id, sku: hit.item.item.sku, packQuantity: String(hit.item.units), unit: 'millionths', trace: hit.item.trace ?? null }; }
       if ('bin' in hit) resolution = { locationId: hit.bin.id };
     } catch { /* Invalid or ambiguous codes have no asserted resolution. */ }
@@ -46,7 +46,7 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
   if (listing?.itemId) itemIds.add(listing.itemId);
   return { id: c.commandId + ':' + outcome, at: c.now, actorId: c.actor.id, commandId: c.commandId, type, outcome, version: before.version + (outcome === 'refused' ? 0 : 1), rule: c.backgroundPolicy ?? null,
     connectorId: p.channelId ?? (type.startsWith('book.') ? 'pantry' : null), direction: type === 'channel.ingest' ? 'inbound' : type === 'channel.published' ? 'outbound' : null,
-    itemIds: [...itemIds], documentIds: [...documents], changes, ...(reason ? { reason } : {}),
+    itemIds: [...itemIds], documentIds: [...documents], changes, ...(reason ? { reason } : type === 'receiving.link' ? { reason: p.reason } : {}),
     ...(scanTypes.has(type) ? { code: typeof (p.code ?? p.itemCode) === 'string' ? (p.code ?? p.itemCode).slice(0, 200) : '', binCode: typeof p.binCode === 'string' ? p.binCode.slice(0, 200) : null, device: typeof p.device === 'string' ? p.device.slice(0, 120) : 'unspecified input', resolution } : {}),
   };
 }

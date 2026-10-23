@@ -31,6 +31,19 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
     await scan("036000291452");
     await scan("4006381333931", { count: 3 });
     await h.command("receiving.scan", { receivingId: r.id, code: "999999" }, { error: "UNKNOWN_CODE" });
+    const beforeLink = await h.state();
+    await h.command('receiving.link', { receivingId: r.id, itemId: mug.id, version: mug.version, code: 'synthetic-pier-unknown', quantity: '4', reason: 'Supervisor inspected supplier case' });
+    const linked = (await h.state()).items.find(item => item.id === mug.id);
+    assert.equal(linked.barcodes.at(-1).quantity, '4');
+    assert.deepEqual((await h.state()).movements, beforeLink.movements, 'linking posts no stock');
+    await h.command('receiving.link', { receivingId: r.id, itemId: towel.id, version: towel.version, code: 'synthetic-pier-unknown', quantity: '1', reason: 'Collision review' }, { error: 'DUPLICATE' });
+    const linkAudit = await (await h.request('/api/pier/audit?itemId=' + mug.id)).json();
+    const link = linkAudit.find(event => event.type === 'receiving.link');
+    assert.equal(link.code, 'synthetic-pier-unknown');
+    assert.equal(link.reason, 'Supervisor inspected supplier case');
+    assert.equal(link.resolution.itemId, mug.id);
+    assert.equal(link.resolution.packQuantity, '4000000');
+    assert.ok(link.changes.some(change => change.after?.barcodes?.some(barcode => barcode.code === 'synthetic-pier-unknown')));
     await scan("B-09"); // a bin label moves put-away to B-09
     await scan("10036000291459", { count: 2 });
     assert.equal(r.locationId, b09.id);

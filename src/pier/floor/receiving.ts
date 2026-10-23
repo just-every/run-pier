@@ -1,3 +1,4 @@
+import { catalogue } from '../catalogue';
 import { policyFor } from '../trace-core';
 import { receiptConfirmation } from '../supplier-performance';
 import {
@@ -52,6 +53,16 @@ export function receiving(c: Context, type: string, p: any): Row | undefined {
   const r = get(c.s, "receivings", p.receivingId);
   if (r.status !== "open") fail("RECEIVING_STATE", "This receiving tally is already posted.");
   const po = get(c.s, "purchaseOrders", r.poId);
+  if (type === "receiving.link") {
+    const item = get(c.s, 'items', p.itemId);
+    fresh(item, p.version);
+    if (item.archived || !po.lines.some((line: any) => line.itemId === item.id)) fail('NOT_ON_PO', 'Choose an active item on this purchase order.');
+    const reason = text(p.reason, 'Barcode linking reason');
+    const code = text(p.code, 'Unknown supplier barcode');
+    const quantity = format(decimal(p.quantity, true));
+    const linked = catalogue(c, 'item.save', { ...item, barcodes: [...(item.barcodes ?? []), { code, quantity, label: reason }] })!;
+    return linked;
+  }
   if (type === "receiving.scan") {
     const scan = resolve(c.s, p.code, get(c.s, "locations", r.locationId).warehouse);
     // A bin label sets where the next scans are put away.
