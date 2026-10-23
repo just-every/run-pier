@@ -493,6 +493,29 @@ test("roles, agent preparation, revoked session, stale human approval and direct
     { poId: agentDraft.id, version: agentDraft.version },
     { error: "FORBIDDEN" },
   );
+  // An explicit grant exposes only physical stock in its current warehouses.
+  await h.command('role.set', { operatorId: member.session.operator.id, role: 'warehouse', permissions: { warehouses: ['North'], locationIds: [] } });
+  const scopedRead = async path => h.request(path, { as: member.cookie });
+  let visible = await (await scopedRead('/api/pier/state')).json();
+  assert.deepEqual([...new Set(visible.locations.map(l => l.warehouse))], ['North']);
+  for (const field of ['parties', 'supplierItems', 'purchaseOrders', 'correspondence', 'deliveries', 'people', 'commands', 'bookConnections', 'priceLists']) assert.deepEqual(visible[field], [], field + ' is not exposed by a physical grant');
+  const scopedExport = await (await scopedRead('/api/pier/scope-export')).json();
+  assert.deepEqual(scopedExport.locations, visible.locations);
+  for (const path of ['/api/pier/export', '/api/pier/native-export', '/api/pier/reports', '/api/pier/books/export.csv', '/api/pier/dispatch-summary', '/api/pier/supplier-performance']) assert.equal((await scopedRead(path)).status, 403, path + ' cannot bypass the grant');
+  const { exportedAt: _scopeBeforeTime, ...scopeBefore } = await (await h.request('/api/pier/export')).json();
+  const deniedIdentity = randomUUID();
+  await run('count.capture', { locationId: b.destination.id }, { commandId: deniedIdentity, error: 'SCOPE' });
+  const { exportedAt: _scopeAfterTime, ...scopeAfter } = await (await h.request('/api/pier/export')).json();
+  assert.deepEqual(scopeAfter, scopeBefore, 'foreign count refusal writes no record, movement, reservation or command outcome');
+  const count = await run('count.capture', { locationId: b.source.id });
+  assert.equal(count.locationId, b.source.id);
+  // A prepared payload and a prior successful identity gain no replay authority
+  // after its warehouse grant is revoked without changing the role name.
+  await h.command('role.set', { operatorId: member.session.operator.id, role: 'warehouse', permissions: { warehouses: ['South'], locationIds: [] } });
+  await run('count.record', { countId: count.id, version: count.version, lines: [], reason: 'Prepared before revocation' }, { error: 'SCOPE' });
+  await run('count.capture', { locationId: b.source.id }, { error: 'SCOPE' });
+  visible = await (await scopedRead('/api/pier/state')).json();
+  assert.deepEqual([...new Set(visible.locations.map(l => l.warehouse))], ['South']);
   await h.request("/auth/session/revoke", {
     method: "POST",
     body: { sessionId: member.session.id },

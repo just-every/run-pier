@@ -165,6 +165,8 @@ export type Actor = {
   role: string;
   sessionId: string;
   operatorVersion: number;
+  permissionVersion?: number;
+  permissions?: import("./permissions").Permissions;
 };
 export type Context = {
   s: State;

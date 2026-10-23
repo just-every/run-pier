@@ -1,3 +1,4 @@
+import { parsePermissions } from './permissions';
 import {
   decimal,
   format,
@@ -25,13 +26,15 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       fail("ROLE", "Unknown role");
     if (p.operatorId === c.actor.id)
       fail("ROLE", "Use native owner management to change your own authority.");
+    const permissions = parsePermissions(p.permissions, c.s);
     const old = c.s.roles.find((r) => r.id === p.operatorId);
     if (old) {
       old.role = p.role;
+      old.permissions = permissions;
       old.version++;
       return old;
     }
-    return row(c, "roles", { id: text(p.operatorId), role: p.role });
+    return row(c, "roles", { id: text(p.operatorId), role: p.role, permissions });
   }
   if (
     !["item.save", "location.save", "party.save", "supplierItem.save"].includes(

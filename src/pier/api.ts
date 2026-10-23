@@ -1,3 +1,4 @@
+import { admitScopedCommand, physicalState, scoped } from './permissions';
 import { recurringOrders } from './recurring-orders';
 import { documents } from './documents/commands';
 import { extractDocument } from './documents/provider';
@@ -115,6 +116,8 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
       : session.operator.role === "owner"
         ? "owner"
         : "viewer",
+    permissionVersion: role ? JSON.parse(role.data).version : 0,
+    permissions: role ? JSON.parse(role.data).permissions : undefined,
     sessionId: session.id,
     operatorVersion: session.operator.version,
   };
@@ -170,6 +173,7 @@ export async function execute(
   now = () => new Date().toISOString(),
   backgroundPolicy?: Context["backgroundPolicy"],
 ): Promise<any> {
+  admitScopedCommand(await load(env.DB), actor, type, payload);
   const digest = sha256(canonicalJson({ type, payload }));
   const previous = await saved(env.DB, commandId, digest, actor);
   if (previous) return previous;
@@ -304,7 +308,7 @@ export async function pierResponse(
     if (stall) return stall;
     const actor = await current(request, env);
     if (request.method === "GET") {
-      const s = await load(env.DB),
+      const full = await load(env.DB), s = physicalState(full, actor),
         c = { s, actor, commandId: "", now: new Date().toISOString() };
       const gate = authority(actor);
       if (
@@ -322,6 +326,10 @@ export async function pierResponse(
           null,
           401,
         );
+      if (scoped(actor)) {
+        if (!['/api/pier/state', '/api/pier/scope-export'].includes(url.pathname)) throw new Problem('SCOPE', 'This door requires wider authority; use your scoped stock export.', null, 403);
+        if (url.pathname === '/api/pier/scope-export') return json({ format: 'pier-scoped-stock-v1', ...s });
+      }
       const printDocument=printRead(url.pathname,actor,s);if(printDocument)return printDocument;
       const originalDocument = documentRead(url.pathname, actor, s);
       if (originalDocument) return originalDocument;
@@ -406,7 +414,7 @@ export async function pierResponse(
           },
           404,
         );
-      const commands = (
+      const commands = scoped(actor) ? [] : (
         await env.DB.prepare(
           "SELECT id,actor_id AS actorId,created_at AS createdAt FROM pier_commands ORDER BY created_at DESC LIMIT 100",
         ).all()
@@ -427,7 +435,7 @@ export async function pierResponse(
             ).results
           : [];
       // Every signed-in role sees who recorded each change by name.
-      const people = (
+      const people = scoped(actor) ? [] : (
         await env.DB.prepare(
           "SELECT id,display_name AS name FROM oa_operators",
         ).all()
@@ -451,7 +459,7 @@ export async function pierResponse(
         purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
         forecasts: forecast(c),
         replenishmentProblem: planningScope(c).valid ? null : 'Planning warehouses changed. Save the current planning scope before drafting.',
-        deliveries: (await correspondenceDeliveries(env.DB)).filter(d=>actor.role==='owner'||!s.salesDocuments.some(doc=>doc.id===d.correspondenceId)),
+        deliveries: scoped(actor) ? [] : (await correspondenceDeliveries(env.DB)).filter(d=>actor.role==='owner'||!s.salesDocuments.some(doc=>doc.id===d.correspondenceId)),
         counts: s.counts.map((count) => countView(c, count)),
         ...floorState(c),
         ...kitState(s),
@@ -513,6 +521,7 @@ export async function pierResponse(
         null,
         400,
       );
+    admitScopedCommand(await load(env.DB), actor, type, payload);
     if (type === "role.set") {
       const target = await env.DB.prepare(
         "SELECT role FROM oa_operators WHERE id=?",
