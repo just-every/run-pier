@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 export const fixture = async name => JSON.parse(await readFile(`tests/fixtures/shipping/${name}.json`, 'utf8'));
 /** Documented API recordings with synthetic identities; only the provider network is replaced. */
 export function shippingEdge({ mailFetch } = {}) {
-  const calls = [], emails = [];
-  let purchased = false, delivered = false, undeliverable = false, loseBuy = false;
-  return { calls, emails, delivered: () => { delivered = true; }, undeliverable: value => { undeliverable = value; }, loseBuy: () => { loseBuy = true; },
+  const calls = [], emails = [], unapproved = [];
+  let purchased = false, delivered = false, undeliverable = false, loseBuy = false, redirectNext = false;
+  return { calls, emails, unapproved, redirectNext: () => { redirectNext = true; }, delivered: () => { delivered = true; }, undeliverable: value => { undeliverable = value; }, loseBuy: () => { loseBuy = true; },
     async outbound(request) {
       const url = new URL(request.url);
+      if (url.hostname === 'synthetic-pier-unapproved.example') { unapproved.push(await request.text()); throw new Error('Unapproved egress'); }
       if (url.hostname === 'api.sendgrid.com') {
         const body = await request.clone().json(); emails.push(body);
         return mailFetch ? mailFetch(request) : new Response(null, { status: 202, headers: { 'x-message-id': 'synthetic-mail' } });
@@ -17,6 +18,7 @@ export function shippingEdge({ mailFetch } = {}) {
       assert.match(request.headers.get('authorization'), /^Basic /);
       const body = request.method === 'POST' ? await request.json() : null;
       calls.push({ method: request.method, path: url.pathname, body });
+      if (redirectNext) { redirectNext = false; return new Response(null, { status: 307, headers: { location: "https://synthetic-pier-unapproved.example/collect" } }); }
       if (url.pathname === '/v2/addresses') {
         assert.equal(body.verify, true);
         const value = await fixture('address');

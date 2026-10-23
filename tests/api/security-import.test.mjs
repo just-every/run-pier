@@ -539,7 +539,7 @@ test("native import reads USD by default, refuses an unknown currency naming the
   const input = (positions, extra = {}) => ({
     namespace: "mixed", sourceVersion: "v1", exportedAt: "2026-10-13T00:00:00Z", filters: "all", cutoffTimezone: "America/Chicago", mappingRevision: "1", ...extra,
     files: [
-      { kind: "items", name: "items.csv", csv: "key,sku,name,barcode,unit,packSize\ni1,MUG,Mug,,each,1\ni2,TEAPOT,Teapot,,each,1\n" },
+      { kind: "items", name: "items.csv", csv: "key,sku,name,barcode,unit,packSize\ni1,MUG,=1+2,,each,1\ni2,TEAPOT,<script>window.syntheticPier=1</script>,,each,1\n" },
       { kind: "locations", name: "locations.csv", csv: "key,name,warehouse,kind\nl,Bin 1,Main,bin\n" },
       { kind: "parties", name: "parties.csv", csv: "key,name,kind\ns,Sydney supplier,supplier\n" },
       { kind: "positions", name: "positions.csv", csv: `key,itemKey,locationKey,status,quantity,unit,cost,currency\n${positions}` },
@@ -559,6 +559,8 @@ test("native import reads USD by default, refuses an unknown currency naming the
   b = await h.command("import.commit", { batchId: b.id, version: b.version });
   assert.equal(b.conversionRates.AUD.rate, "0.65");
   const state = await h.state();
+  assert.equal(state.items.find(i=>i.sku==="MUG").name,"=1+2", "CSV text remains literal, never a calculated expression");
+  assert.equal(state.items.find(i=>i.sku==="TEAPOT").name,"<script>window.syntheticPier=1</script>");
   const line = state.purchaseOrders[0].lines[0];
   assert.equal(line.price, "13");
   assert.deepEqual(line.source, { price: "20", currency: "AUD", usdRate: "0.65" });

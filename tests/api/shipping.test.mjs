@@ -11,6 +11,10 @@ test('packed order → verified rates → label → emailed tracking → deliver
   await h.command('shipping.save', { apiKey: 'EZTK_synthetic', webhookSecret: 'synthetic-webhook-secret', mode: 'test', fromAddress: { ...destination, name: 'Pier warehouse' } });
   const { order, pack, payload } = await packedOrder(h);
   let job = await h.command('shipping.prepare', { packId: pack.id, carton: 1, address: destination, email: 'buyer@example.test' });
+  edge.redirectNext();
+  await h.command('shipping.verify', { jobId: job.id, version: job.version }, { error: 'TRANSACTION' });
+  assert.deepEqual(edge.unapproved, [], 'an upstream redirect cannot send approved customer address data to another destination');
+  assert.equal((await h.state()).shippingJobs[0].status, 'draft');
   const act = async (type, extra = {}, opts) => { job = await h.command(type, { jobId: job.id, version: job.version, ...extra }, opts); return job; };
   await act('shipping.buy', { rateId: 'invented' }, { error: 'SHIPPING_STATE' });
   job = (await h.state()).shippingJobs[0];
