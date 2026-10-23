@@ -306,6 +306,8 @@ try {
   await command(source, ["export", "--output", archive]);
   const corrupt = join(parent, 'corrupt.rer');
   const archiveBytes = await readFile(archive);
+  for (const secret of ['synthetic-pier-2','synthetic-pier-3','synthetic-pier-4','synthetic-pier-5','synthetic-pier-7', ...oldSession.split(';').map(part=>part.trim().slice(part.indexOf('=')+1))])
+    assert.ok(!archiveBytes.includes(Buffer.from(secret)), 'installation archive excludes active credential/session material');
   const corruptBytes = Buffer.from(archiveBytes); corruptBytes[Math.floor(corruptBytes.length / 2)] ^= 1;
   await writeFile(corrupt, corruptBytes);
   const refused = child(destination, ['import', '--input', corrupt, '--yes']);
@@ -420,7 +422,8 @@ try {
   const later = join(parent, 'later-journal.rer');
   await command(source, ['export', '--output', later]);
   const fenced = await copy('fenced-destination');
-  const older = child(fenced, ['import', '--input', archive, '--journal', later, '--yes']);
+  await cp(later, join(fenced, 'later-journal.rer'));
+  const older = child(fenced, ['import', '--input', archive, '--journal', 'later-journal.rer', '--yes']);
   assert.notEqual(await older.done, 0, 'later erasure checkpoint refuses the older archive');
   assert.match(clean(older.output()), /erasure_epoch/, 'refusal identifies the later-journal fence');
   await command(fenced, ['import', '--input', later, '--yes']);

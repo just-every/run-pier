@@ -111,6 +111,10 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     const safeExport=await(await pier.request('/api/pier/export')).text();
     assert.ok(!safeExport.includes(credential.token));assert.ok(!safeExport.includes('synthetic-pier-private-response'),'provider error bodies never become retained command/job/audit messages');
     echoFailure=false;
+    const csvCustomer=(await pier.state()).parties.find(p=>p.id===b.customer.id);
+    await pier.command('party.save',{...csvCustomer,name:'=1+2'});
+    const safeCsv=await(await pier.request('/api/pier/books/export.csv')).text();
+    assert.ok(safeCsv.includes("\"'=1+2\""),'spreadsheet-facing CSV keeps hostile text literal');
     await exerciseBooksFixtures();
   }finally{await pier?.close();await pantry.close();}
 });

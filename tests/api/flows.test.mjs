@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 import { installation, basics, buy, receive, parse } from "./harness.mjs";
 
 test("Pier public Worker and D1 wholesale journey", async (t) => {
-  const h = await installation();
-  t.after(() => h.close());
+  const outbound = [];
+  const h = await installation({ outboundService: request => { outbound.push(new URL(request.url).origin); throw new Error('Native stock does not authorize external access.'); } });
+  t.after(async () => { assert.deepEqual(outbound, [], "the complete native stock/import/return/count journey requires no external account or outbound request"); await h.close(); });
   let b, po, receipt, order, shipment, returned;
   await t.test(
     "01 item definitions and archive preserve used history",

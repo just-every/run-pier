@@ -433,7 +433,7 @@ test('durable scan refusals and item edits are visible in scoped Activity filter
     const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
     const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(success); return body.result
   }
-  const item = await command('item.save', { sku: 'synthetic-pier-audit', name: 'Audit source item', barcode: 'synthetic-pier-scan', unit: 'each', packSize: '1' })
+  const item = await command('item.save', { sku: 'synthetic-pier-audit', name: 'Audit source item <script>window.syntheticPier=1</script>', barcode: 'synthetic-pier-scan', unit: 'each', packSize: '1' })
   await command('item.save', { sku: 'synthetic-pier-other', name: 'Other audit item', barcode: 'synthetic-pier-wrong', unit: 'each', packSize: '1' })
   const bin = await command('location.save', { name: 'Audit bin', warehouse: 'Audit warehouse', kind: 'bin' })
   const supplier = await command('party.save', { name: 'Audit supplier', kind: 'supplier' })
@@ -451,7 +451,7 @@ test('durable scan refusals and item edits are visible in scoped Activity filter
     await expect(history).toContainText('Refused'); await expect(history).toContainText('synthetic-pier-browser')
     const changed = history.getByRole('row').filter({ hasText: 'Item.save' }).first()
     await changed.getByText('Recorded change details', { exact: true }).click()
-    await expect(changed).toContainText('Audit source item'); await expect(changed).toContainText('Audit revised item')
+    await expect(changed).toContainText('Audit source item <script>window.syntheticPier=1</script>'); expect(await page.evaluate(() => (globalThis as any).syntheticPier)).toBeUndefined(); await expect(changed).toContainText('Audit revised item')
     // The touched Activity surface and shared shell use text-labelled controls.
     expect(await page.locator('button,a').evaluateAll(nodes => nodes.filter(node => !node.textContent?.trim() && node.querySelector('svg')).length)).toBe(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)

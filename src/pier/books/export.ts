@@ -2,7 +2,7 @@ import type { State } from '../model';
 import { planBooks } from './planning';
 import { amount, money } from '../money';
 const clean=(value:unknown)=>String(value??'').replace(/[\t\r\n]/g,' ');
-const csv=(value:unknown)=>`"${String(value??'').replaceAll('"','""')}"`;
+const csv=(value:unknown)=>{let text=String(value??'');if(/^[=+@\-\t\r]/.test(text)&&!/^[-]?\d+(?:\.\d+)?$/.test(text))text="'"+text;return `"${text.replaceAll('"','""')}"`;};
 /** Export real source documents independently of any connected ledger. */
 export function booksExport(state:State,format:'csv'|'iif'){
   const s=structuredClone(state);
