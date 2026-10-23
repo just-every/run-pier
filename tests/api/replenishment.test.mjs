@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { installation, basics, buy, receive, parse } from './harness.mjs';
 
-// Only the paid/network edge is fake. Every business action uses authenticated
+// Only the paid network edge is fake. Every business action uses authenticated
 // HTTP through the real Worker, D1 admission and configured provider adapter.
 test('sell-through drafts an approved supplier PO and re-promises backorders by email', async t => {
   const mail = [];
-  const h = await installation({ bindings: { MAIL_PROVIDER: 'resend', MAIL_FROM: 'purchasing@example.test', MAIL_API_KEY: 'synthetic-test-provider-key' }, outboundService: async request => {
+  const h = await installation({ bindings: { MAIL_PROVIDER: 'resend', MAIL_FROM: 'purchasing@example.test', MAIL_API_KEY: 'synthetic-pier-1' }, outboundService: async request => {
     assert.equal(request.url, 'https://api.resend.com/emails');
-    assert.equal(request.headers.get('authorization'), 'Bearer synthetic-test-provider-key');
+    assert.equal(request.headers.get('authorization'), 'Bearer synthetic-pier-1');
     mail.push({ message: await request.json(), id: request.headers.get('idempotency-key') });
     return Response.json({ id: `provider-${mail.length}` });
   } });
@@ -127,7 +127,12 @@ test('bounded workflow dry-runs, vendor and spend limits, worker loss and pause 
   const finished = await h.command('workflow.finish', finishPayload, { commandId: finishId });
   assert.equal(finished.status, 'resolved'); assert.equal(finished.result.draftIds.length, 1);
   assert.deepEqual(await h.command('workflow.finish', finishPayload, { commandId: finishId }), finished);
-  state = await h.state(); assert.equal(state.purchaseOrders.length, 1); assert.equal(state.purchaseOrders[0].status, 'draft'); assert.equal(state.purchaseOrders[0].approval, null); assert.deepEqual(state.movements, before.movements);
+  await h.command('workflow.finish', { ...finishPayload, version: finished.version }, { error: 'WORKFLOW_JOB' });
+  state = await h.state();
+  assert.equal(state.workflowJobs.find(j => j.id === finished.id).status, 'resolved', 'a fresh duplicate cannot erase resolved spend');
+  assert.equal(state.workflowJobs.find(j => j.id === finished.id).ruleSnapshot.perRunBudget, '10.000000000000');
+  assert.deepEqual(state.purchaseOrders[0].workflow, { ruleId: active.id, ruleVersion: active.version, jobId: finished.id, draftOnly: true });
+  assert.equal(state.purchaseOrders.length, 1); assert.equal(state.purchaseOrders[0].status, 'draft'); assert.equal(state.purchaseOrders[0].approval, null); assert.deepEqual(state.movements, before.movements);
   // An uncertain job continues to reserve its budget, even after worker loss.
   await h.command('po.delete', { poId: state.purchaseOrders[0].id, version: state.purchaseOrders[0].version });
   const later = new Date(start + 15 * 60000).toISOString();
@@ -140,8 +145,57 @@ test('bounded workflow dry-runs, vendor and spend limits, worker loss and pause 
   await h.command('workflow.enable', { ruleId: limited.id, version: limited.version, previewHash: blockedPreview.previewHash }, { error: 'WORKFLOW_REVIEW' });
   limited = await h.command('workflow.save', { ...config, name: 'Spend limit', perRunBudget: '1' });
   const spendPreview = await h.command('workflow.preview', { ruleId: limited.id, version: limited.version }); assert.match(spendPreview.problems.join(' '), /per-run budget/);
+  let edited = await h.command('workflow.save', { ...config, name: 'Edit invalidates work' });
+  edited = await enable(edited);
+  const queued = await h.command('workflow.enqueue', { ruleId: edited.id });
+  edited = await h.command('workflow.save', { ...config, id: edited.id, version: edited.version, dailyBudget: '1' });
+  state = await h.state();
+  assert.equal(edited.enabled, false);
+  assert.equal(state.workflowJobs.find(j => j.id === queued.id).status, 'failed');
+  assert.ok(state.workflowJobs.find(j => j.id === queued.id).escalatedAt);
+  assert.equal(state.workflowJobs.find(j => j.id === queued.id).ruleSnapshot.dailyBudget, '10.000000000000');
+  await h.command('workflow.claim', { ruleId: edited.id, jobId: queued.id, version: state.workflowJobs.find(j => j.id === queued.id).version }, { error: 'WORKFLOW_JOB' });
   active = await h.command('workflow.pause', { ruleId: active.id, version: active.version });
   await h.command('workflow.enqueue', { ruleId: active.id }, { error: 'WORKFLOW_PAUSED' });
   active = await h.command('workflow.kill', { ruleId: active.id, version: active.version });
   await h.command('workflow.save', { ...config, id: active.id, version: active.version }, { error: 'WORKFLOW_KILLED' });
+});
+
+
+test('native channel demand and shipments reconcile once across dispatch, cancellation and planning windows', async t => {
+  const h = await installation({ outboundService: async request => {
+    const url = new URL(request.url);
+    assert.equal(url.hostname, 'demand.example.test');
+    if (request.method === 'PUT') return Response.json({ id: 1, ...await request.json() });
+    if (url.pathname.endsWith('/products')) return Response.json([{ id: 1, name: 'Brass bolt', type: 'simple', sku: 'BOLT' }]);
+    assert.ok(url.pathname.endsWith('/orders'));
+    return Response.json([{ id: 1, number: 'synthetic-pier-1', status: 'processing', currency: 'USD', billing: { first_name: 'Buyer', last_name: '' }, refunds: [], line_items: [{ id: 1, sku: 'BOLT', quantity: 10, price: 2 }] }]);
+  } }); t.after(() => h.close());
+  const b = await basics(h);
+  await receive(h, b, await buy(h, b, '60'), '60');
+  const manual = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '5', price: '2' }] });
+  await h.command('dispatch.create', { orderId: manual.id, shipmentReference: 'synthetic-pier-2', lines: [{ orderLineId: manual.lines[0].id, quantity: '5' }] });
+  await h.command('channel.save', { name: 'Native demand', provider: 'woocommerce', baseUrl: 'https://demand.example.test', warehouse: 'North', credentials: { consumerKey: 'synthetic-pier-3', consumerSecret: 'synthetic-pier-4' } });
+  let state = await h.state();
+  const source = state.channelOrders[0], order = state.orders.find(o => o.id === source.orderId);
+  assert.ok(order, JSON.stringify(state.channels));
+  const forecast = s => s.forecasts.find(f => f.itemId === b.item.id && f.warehouse === 'North');
+  const evidence = s => forecast(s).windows.find(w => w.days === 30);
+  assert.equal(forecast(state).observedSold, '15');
+  assert.equal(evidence(state).nativeShippedQuantity, '5'); assert.equal(evidence(state).channelOrderedQuantity, '10');
+  assert.deepEqual(evidence(state).channelOrderIds, [source.id]);
+  assert.equal(state.forecasts.find(f => f.itemId === b.item.id && f.warehouse === 'South').observedSold, '0');
+  await h.command('channel.sync', {});
+  await h.command('dispatch.create', { orderId: order.id, shipmentReference: 'synthetic-pier-5', lines: [{ orderLineId: order.lines[0].id, quantity: '4' }] });
+  state = await h.invariant(); assert.equal(forecast(state).observedSold, '15', 'channel dispatch never adds the same demand twice');
+  await h.command('order.cancel', { orderId: order.id, reason: 'Cancel the six unshipped units' });
+  state = await h.state(); assert.equal(forecast(state).observedSold, '9'); assert.equal(evidence(state).channelOrderedQuantity, '4');
+  await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: 'synthetic-pier-6', packSize: '1', price: '2', minimum: '1', leadDays: 10 });
+  state = await h.state();
+  const policy = await h.command('replenishment.save', { version: 0, itemId: b.item.id, warehouse: 'North', supplierId: b.supplier.id, method: 'fixed', safetyStock: '0', windowDays: 30, leadDays: 10, reviewDays: 10, applyLearned: true, stateVersion: state.version });
+  assert.equal(policy.reorderPoint, '3'); assert.deepEqual(policy.learnedApplication.channelOrderIds, [source.id]);
+  state = await h.state();
+  assert.equal(forecast(state).windows.find(w => w.days === 90).soldPerDay, '0.1');
+  await h.command('replenishment.configure', { version: 0, mode: 'company', warehouses: ['North', 'South'], destinationWarehouse: 'North' });
+  state = await h.state(); assert.equal(forecast(state).observedSold, '9'); assert.deepEqual(evidence(state).channelOrderIds, [source.id]);
 });

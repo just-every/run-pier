@@ -38,6 +38,6 @@ export function companyHistory(c: Context, itemId: string, warehouses: string[],
   const histories = warehouses.map(w => sellThrough(c, itemId, w, days));
   return (histories[0] ?? []).map((entry, index) => {
     const sold = histories.reduce((sum, h) => sum + decimal(h[index].sold), 0n);
-    return { ...entry, sold: format(sold), soldPerDay: format(sold / BigInt(entry.days)), hasHistory: sold > 0n, shipmentIds: [...new Set(histories.flatMap(h => h[index].shipmentIds))] };
+    return { ...entry, sold: format(sold), soldPerDay: format(sold / BigInt(entry.days)), hasHistory: sold > 0n, shipmentIds: [...new Set(histories.flatMap(h => h[index].shipmentIds))], channelOrderIds: [...new Set(histories.flatMap(h => h[index].channelOrderIds))], nativeShippedQuantity: format(histories.reduce((n, h) => n + decimal(h[index].nativeShippedQuantity), 0n)), channelOrderedQuantity: format(histories.reduce((n, h) => n + decimal(h[index].channelOrderedQuantity), 0n)) };
   });
 }

@@ -10,6 +10,8 @@ function inputs(c: Context, po: Row) {
     supplier: c.s.parties.find(p => p.id === po.supplierId),
     terms: c.s.supplierItems.filter(t => t.supplierId === po.supplierId && items.has(t.itemId)),
     policies: c.s.replenishmentPolicies.filter(p => items.has(p.itemId)),
+    planningScope: c.s.replenishmentSettings,
+    workflowRule: po.workflow ? c.s.workflowRules.find(rule => rule.id === po.workflow.ruleId) ?? null : null,
     demand: c.s.orders.filter(o => o.lines.some((l: any) => items.has(l.itemId))).map(o => ({ id: o.id, version: o.version })) }));
 }
 
@@ -18,7 +20,7 @@ export function invalidatePurchaseSends(c: Context) {
     const policy = po.sendPolicy;
     if (policy?.enabled && policy.inputs !== inputs(c, po)) {
       policy.enabled = false;
-      policy.stoppedReason = 'Purchase, demand, supplier terms, planning policy or business destination changed. Review a new authority.';
+      policy.stoppedReason = 'Purchase, demand, supplier terms, planning scope, workflow budget, planning policy or business destination changed. Review a new authority.';
       po.version++;
     }
   }

@@ -267,10 +267,10 @@ export async function execute(
     }
     refreshReorderExceptions(c);
     refreshPromises(c);
-    invalidatePurchaseSends(c);
     refreshSlowStock(c, backgroundPolicy?.collection === "slowStockPolicies");
     markChannelPending(c, before);
     }
+    invalidatePurchaseSends(c);
     c.audit = auditEvent(c, before, type, payload, result, type.endsWith(".failed") ? "failed" : "accepted");
     try {
       return await commit(env, c, before, digest, result);

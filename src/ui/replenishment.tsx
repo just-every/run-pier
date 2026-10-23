@@ -20,12 +20,12 @@ export function Replenishment({ state, run, busy }: Props) {
   return <>
     <ReorderScope state={state} run={run} busy={busy} /><ReorderBatch state={state} run={run} busy={busy} />
     <section className="panel"><h2>Demand and replenishment</h2>
-      <p className="muted">Shipment history proposes reorder points and quantities. A buyer applies the parameters; planning creates supplier purchase drafts for exact approval.</p>
+      <p className="muted">Observed demand proposes reorder points and quantities. A buyer applies the parameters; planning creates supplier purchase drafts for exact approval.</p>
       <div className="actions"><button className="primary" disabled={busy || !canBuy(state)} onClick={() => run('replenishment.plan', {})}>Create replenishment drafts</button></div>
-      {!rows.length ? <Empty>Define an item and a warehouse bin to plan replenishment. Sales rates use actual shipments.</Empty> : <Table numeric={[1, 3, 5]} headings={['Item / warehouse', 'Sales per day', 'Cover / stockout', 'Supply position', 'Applied rule', 'Suggested purchase', '']}>
+      {!rows.length ? <Empty>Define an item and a warehouse bin to plan replenishment. Demand rates use native shipments and captured channel orders.</Empty> : <Table numeric={[1, 3, 5]} headings={['Item / warehouse', 'Demand per day', 'Cover / stockout', 'Supply position', 'Applied rule', 'Suggested purchase', '']}>
         {rows.map(row => <tr key={JSON.stringify([row.itemId, row.warehouse])}>
           <td><ItemName state={state} id={row.itemId} /><small>{row.warehouse}</small>{row.autoDraft && <Badge>Automatic drafts enabled</Badge>}</td>
-          <td>{perDay(row.soldPerDay)} {unit(state, row.itemId)}<small>{row.observedSold} shipped / {row.windowDays} days</small>{!row.hasHistory && <small>No shipments in this window</small>}</td>
+          <td>{perDay(row.soldPerDay)} {unit(state, row.itemId)}<small>{row.observedSold} observed / {row.windowDays} days</small>{!row.hasHistory && <small>No observed demand in this window</small>}</td>
           <td>{row.daysOfCover === null ? 'No sales rate' : coverDays(row.daysOfCover)}<small>{row.projectedStockoutDate ? `Projected stockout ${day(row.projectedStockoutDate)}` : 'No stockout date projected'}</small></td>
           <td>{row.position} {unit(state, row.itemId)}<small>On hand {row.onHand} − demand {row.openDemand}</small><small>+ purchases {row.onOrder} + transit {row.inboundTransfers} − outbound {row.outboundTransfers}</small></td>
           <td>{row.configured ? <><Badge>{row.low ? 'At or below point' : 'Above point'}</Badge><small>Point {row.applied.reorderPoint}; {row.applied.method === 'upTo' ? `maximum ${row.applied.maximum}` : `fixed ${row.applied.reorderQuantity}`}</small></> : 'Awaiting buyer parameters'}</td>
@@ -62,9 +62,9 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
       ]} />
       {f.blockedReason && <p className="muted">{f.blockedReason}</p>}
       {f.minimumValueUnmet && <p>Supplier minimum order value of <Amount value={f.minimumValue} /> USD is unmet by this line. Review the grouped purchase draft; quantities are not padded to meet a spend target.</p>}
-      <h3>Observed sell-through</h3>
-      <Table numeric={[0, 1, 2]} headings={['Window (days)', 'Shipped quantity', 'Average per day', 'Evidence']}>
-        {f.windows.map((window: any) => <tr key={window.days}><td>{window.days}</td><td>{window.sold} {unit(state, f.itemId)}</td><td>{window.soldPerDay} {unit(state, f.itemId)}</td><td>{window.shipmentIds.length ? window.shipmentIds.map((id: string) => <small key={id}><a href={`#sales/${id}`}>{reference(records(state, 'shipments').find(shipment => shipment.id === id))}</a></small>) : 'No shipments in this window'}</td></tr>)}
+      <h3>Observed demand</h3>
+      <Table numeric={[0, 1, 2]} headings={['Window (days)', 'Demand quantity', 'Average per day', 'Evidence']}>
+        {f.windows.map((window: any) => <tr key={window.days}><td>{window.days}</td><td>{window.sold} {unit(state, f.itemId)}</td><td>{window.soldPerDay} {unit(state, f.itemId)}</td><td>{<>Native shipped: {window.nativeShippedQuantity}; channel ordered: {window.channelOrderedQuantity}{window.shipmentIds.map((id: string) => <small key={id}><a href={`#sales/${id}`}>{reference(records(state, 'shipments').find(shipment => shipment.id === id))}</a></small>)}{window.channelOrderIds.map((id: string) => { const source = records(state, 'channelOrders').find(order => order.id === id); return <small key={id}><a href={`#sales/${source?.orderId}`}>Channel order {source?.reference ?? id}</a></small> })}</>}</td></tr>)}
       </Table>
       <p className="muted">{f.projectionBasis}</p><p className="muted">{f.assumption}</p>
       {f.receipts.length > 0 && <><h3>Expected purchase receipts in the position</h3><Table headings={['Purchase order', 'Remaining quantity', 'Expected date', 'Supplier confirmation']}>
@@ -76,7 +76,7 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
         { label: 'Proposed reorder point', value: learned.reorderPoint }, { label: 'Proposed reorder quantity', value: learned.reorderQuantity },
         { label: 'Proposed order-up-to maximum', value: learned.maximum }, { label: 'Sales window / review period', value: `${f.windowDays} / ${f.reviewDays} days` },
       ]} />
-      <p className="muted">Save changed lead time, safety stock or windows below to refresh this proposal before applying it. Demand calculations round up to six decimal places. With no shipment history, only the entered safety stock contributes.</p>
+      <p className="muted">Save changed lead time, safety stock or windows below to refresh this proposal before applying it. Demand calculations round up to six decimal places. With no observed demand, only the entered safety stock contributes.</p>
       {policy ? <div className="actions"><button disabled={busy || !canBuy(state)} onClick={() => { const target = f.scope === 'company' ? f.defaults : f.localPolicy; return run('replenishment.save', { ...policy, id: target?.id, version: target?.version ?? 0, warehouse: f.warehouse, scope: f.scope === 'company' ? 'sku' : 'location', applyLearned: true, stateVersion: state.version }) }}>Apply proposed points and quantities</button></div> : <p className="muted">Save supplier and planning settings before applying this proposal.</p>}
       {f.draftIds.length > 0 && <p>Purchase drafts: {f.draftIds.map((id: string) => <a key={id} href={`#purchasing/${id}`}>{reference(records(state, 'purchaseOrders').find(po => po.id === id))} </a>)}</p>}
     </section>
@@ -102,6 +102,6 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
       <Field label="Duty estimate (USD total)" name="duty" defaultValue={policy?.duty ?? '0'} inputMode="decimal" />
       <Field label="Automatically prepare purchase drafts" name="autoDraft" type="checkbox" defaultChecked={policy?.autoDraft === true} required={false} />
     </Form>
-    <p className="muted">Supplier: {label(suppliers, supplierId)}. Policy version {f.policyVersion}. Buyer-applied parameters stay fixed when new shipments arrive.</p>
+    <p className="muted">Supplier: {label(suppliers, supplierId)}. Policy version {f.policyVersion}. Buyer-applied parameters stay fixed when new demand arrives.</p>
   </>;
 }

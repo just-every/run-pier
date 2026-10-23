@@ -74,7 +74,7 @@ export function forecast(c: Context, overrides: { itemId: string; warehouse: str
           : remaining > MAX ? 'The suggested quantity exceeds one purchase line; split it into reviewed purchases.'
             : remaining > 0n && (remaining < minimum || remaining % pack! !== 0n) ? 'Existing draft coverage leaves a quantity below the supplier minimum or outside whole case packs; review those drafts together.'
             : null,
-      assumption: 'Native shipment sell-through only. No seasonal, promotional, imported or channel history is inferred. Safety stock is buyer-entered; observed sales can be censored by stockouts. Drafts are coverage, never on-hand or committed supply.',
+      assumption: 'Observed demand combines native shipments with mapped native channel orders net of cancellations, counted once at their first Pier capture in the routed or connection warehouse. Linked shipments are excluded from the shipment contribution. No provider sale dates, imported history, seasonal effects or promotions are inferred. Safety stock is buyer-entered; observed sales can be censored by stockouts. Drafts are coverage, never on-hand or committed supply.',
     };
   }));
 }
@@ -117,7 +117,7 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
     const selected = (skuDefault ? companyHistory(c, i.id, planningScope(c).warehouses, data.windowDays) : sellThrough(c, i.id, warehouse!, data.windowDays)).find(window => window.days === data.windowDays)!;
     Object.assign(data, learnedParameters(selected.sold, data.windowDays, data.leadDays, data.reviewDays, data.safetyStock, i.unit));
     for (const key of ['reorderPoint', 'reorderQuantity', 'maximum']) decimal(data[key]);
-    data.learnedApplication = { actorId: c.actor.id, at: c.now, stateVersion: c.s.version, sold: selected.sold, shipmentIds: selected.shipmentIds };
+    data.learnedApplication = { actorId: c.actor.id, at: c.now, stateVersion: c.s.version, sold: selected.sold, shipmentIds: selected.shipmentIds, channelOrderIds: selected.channelOrderIds };
   } else data.learnedApplication = null;
   if (['each', 'ea', 'ea.'].includes(i.unit.trim().toLowerCase()))
     for (const key of ['safetyStock', 'reorderPoint', 'reorderQuantity', 'maximum', 'companyReorderPoint'])
@@ -163,13 +163,14 @@ export function draftReplenishment(c: Context, options: { policyId?: string; aut
       supplierId: group[0].supplierId, destinationWarehouse: group[0].warehouse, promiseDate,
       freight: format(group.reduce((sum, f) => sum + decimal(f.freight), 0n)),
       duty: format(group.reduce((sum, f) => sum + decimal(f.duty), 0n)),
-      reason: `Replenishment plan for ${group.length} buyer-applied item policies at ${group[0].warehouse}. Policy versions and shipment evidence are retained on this draft.`,
+      reason: `Replenishment plan for ${group.length} buyer-applied item policies at ${group[0].warehouse}. Policy versions and demand evidence are retained on this draft.`,
       lines: group.map(f => ({ itemId: f.itemId, quantity: f.suggestedQuantity, price: f.unitPrice })),
     })!;
     draft.replenishment = { plannedAt: c.now, policyVersions: group.map(f => ({ policyId: f.policyId, version: f.policyVersion })),
       evidence: group.map(f => ({ itemId: f.itemId, warehouse: f.warehouse, windowDays: f.windowDays,
         observedSold: f.observedSold, position: f.position, quantity: f.suggestedQuantity,
-        shipmentIds: f.windows.find(window => window.days === f.windowDays)!.shipmentIds })),
+        shipmentIds: f.windows.find(window => window.days === f.windowDays)!.shipmentIds,
+        channelOrderIds: f.windows.find(window => window.days === f.windowDays)!.channelOrderIds })),
       approvedBy: null, currency: 'USD', expectedLandedCost: money(group.reduce((sum, f) => sum + decimal(f.suggestedQuantity) * decimal(f.unitPrice!) + (decimal(f.freight) + decimal(f.duty)) * SCALE, 0n)) };
     drafts.push(draft);
   }

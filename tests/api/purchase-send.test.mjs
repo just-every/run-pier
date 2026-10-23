@@ -6,7 +6,7 @@ import { installation, basics, buy } from './harness.mjs';
 test('BUY-002: an agent sends only the exact bounded human-approved purchase once', async t => {
   const mail = [];
   let uncertain = false;
-  const h = await installation({ bindings: { MAIL_PROVIDER: 'resend', MAIL_FROM: 'buyer@example.test', MAIL_API_KEY: 'synthetic-mail-key' }, outboundService: async request => {
+  const h = await installation({ bindings: { MAIL_PROVIDER: 'resend', MAIL_FROM: 'buyer@example.test', MAIL_API_KEY: 'synthetic-pier-1' }, outboundService: async request => {
     mail.push(await request.json());
     if (uncertain) return new Response('Unavailable', { status: 503 });
     return Response.json({ id: `message-${mail.length}` });
@@ -73,5 +73,28 @@ test('BUY-002: an agent sends only the exact bounded human-approved purchase onc
   await h.command('mail.process', {});
   await worker.scheduled({ scheduledTime: new Date(), cron: '* * * * *' });
   assert.equal(mail.length, attempts, 'an ambiguous outcome is never blindly resubmitted');
+
+  await h.command('role.set', { operatorId: session.operator.id, role: 'agent' });
+  // A governing workflow edit invalidates an exact delegated send before any mail.
+  await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: 'synthetic-pier-2', packSize: '1', minimum: '1', price: '0.25', leadDays: 3 });
+  await h.command('replenishment.save', { version: 0, itemId: b.item.id, warehouse: 'North', supplierId: b.supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '100', reorderQuantity: '10' });
+  const config = { name: 'Reviewed workflow', kind: 'draft-po', warehouses: ['North'], supplierIds: [b.supplier.id], perRunBudget: '100', dailyBudget: '100', cadenceMinutes: 15, automaticApproval: false };
+  let rule = await h.command('workflow.save', config);
+  const preview = await h.command('workflow.preview', { ruleId: rule.id, version: rule.version });
+  rule = await h.command('workflow.enable', { ruleId: rule.id, version: rule.version, previewHash: preview.previewHash });
+  let job = await h.command('workflow.enqueue', { ruleId: rule.id });
+  job = await h.command('workflow.claim', { ruleId: rule.id, jobId: job.id, version: job.version });
+  job = await h.command('workflow.finish', { ruleId: rule.id, jobId: job.id, version: job.version });
+  po = await current(job.result.draftIds[0]);
+  await h.command('po.approve', { poId: po.id, version: po.version });
+  po = await h.command('po.commit', { poId: po.id, version: po.version });
+  po = await authorize(po, { maxSpend: '100' });
+  const mailBeforeEdit = mail.length;
+  rule = await h.command('workflow.save', { ...config, id: rule.id, version: rule.version, perRunBudget: '1' });
+  po = await current(po.id);
+  assert.equal(po.sendPolicy.enabled, false);
+  assert.equal(po.workflow.ruleVersion, rule.version - 1, 'draft provenance retains the generating revision');
+  await h.command('po.sendApproved', { poId: po.id, version: po.version }, { as: cookie, error: 'SEND_AUTHORITY' });
+  assert.equal(mail.length, mailBeforeEdit);
 
 });

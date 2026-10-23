@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createServer } from 'node:http'
 import { ownerEntry } from './session'
 
 test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, changes planning scope and reads matching reports at 1440 and 390', async ({ page, context }) => {
@@ -13,6 +14,16 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
  const command = async (type: string, payload: object) => {
   const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } }); const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
  }
+ let channelSku = '', channelNumber = 0
+ const edge = createServer(async (request, response) => {
+  response.setHeader('content-type', 'application/json')
+  if (request.method === 'PUT') { let body = ''; for await (const chunk of request) body += chunk; response.end(JSON.stringify({ id: 1, ...JSON.parse(body) })); return }
+  const path = new URL(request.url!, 'http://localhost').pathname
+  response.end(JSON.stringify(path.endsWith('/products') ? [{ id: 1, name: 'Native channel demand', type: 'simple', sku: channelSku }] : [{ id: channelNumber, number: `synthetic-pier-${channelNumber}`, status: 'processing', currency: 'USD', billing: { first_name: 'Buyer', last_name: '' }, refunds: [], line_items: [{ id: 1, sku: channelSku, quantity: 3, price: 1 }] }]))
+ })
+ await new Promise<void>(resolve => edge.listen(0, '127.0.0.1', resolve))
+ const edgePort = (edge.address() as { port: number }).port
+ try {
  const shots = process.env.PIER_SCREENSHOTS
  if (shots) await mkdir(shots, { recursive: true })
  for (const width of [1440, 390]) {
@@ -53,9 +64,16 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   const review = page.locator(`#document-${draft.id}`)
   await expect(review).toContainText('Supplier minimum order value of 1000 USD is unmet')
   if (shots) await review.screenshot({ path: join(shots, `${width}-reorder-draft.png`) })
+  channelSku = e.sku; channelNumber = width
+  const channel = await command('channel.save', { name: `Demand ${width}`, provider: 'woocommerce', baseUrl: `http://127.0.0.1:${edgePort}`, warehouse: eastName, credentials: { consumerKey: 'synthetic-pier-1', consumerSecret: 'synthetic-pier-2' } })
+  await page.reload()
   // Save a reusable default from the existing policy editor.
   const demand = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Demand and replenishment', exact: true }) }).last()
   await demand.getByRole('row').filter({ hasText: eLabel }).filter({ hasText: eastName }).getByRole('button', { name: 'Review policy', exact: true }).click()
+  const history = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: 'Observed demand', exact: true }) })
+  await expect(history).toContainText('Native shipped: 0; channel ordered: 3')
+  await expect(history.getByRole('link', { name: `Channel order synthetic-pier-${width}`, exact: true }).first()).toBeVisible()
+  if (shots) await history.screenshot({ path: join(shots, `${width}-native-demand.png`) })
   const policy = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Replenishment policy', exact: true }) }).last()
   await policy.getByLabel('Save as SKU default for locations without overrides', { exact: true }).check()
   if (shots) await policy.screenshot({ path: join(shots, `${width}-reorder-default.png`) })
@@ -71,6 +89,8 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   await expect(report).toContainText(a.sku); await expect(report).not.toContainText(e.sku)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
   if (shots) await report.screenshot({ path: join(shots, `${width}-reorder-report.png`) })
+  await command('channel.save', { ...channel, enabled: false })
   await command('item.save', { ...a, archived: true }); await command('item.save', { ...e, archived: true })
  }
+ } finally { await new Promise<void>((resolve, reject) => edge.close(error => error ? reject(error) : resolve())) }
 })

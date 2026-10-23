@@ -12,6 +12,10 @@ export function previewWorkflow(c: Context, rule: Row) {
   if (rule.kind === 'draft-po' && spend > amount(rule.perRunBudget)) problems.push('Expected landed spend exceeds the per-run budget. Human review required.');
   return { sourceDigest, previewHash: sha256(canonicalJson({ sourceDigest, ruleId: rule.id, ruleVersion: rule.version })), lines, expectedSpend: money(rule.kind === 'draft-po' ? spend : 0n), problems, effects: rule.kind === 'draft-po' ? 'Unapproved purchase drafts only; no stock, approval or external send.' : rule.kind === 'report' ? 'Private retained native report snapshot only; no delivery.' : 'Private low-stock inspection only; no business mutation.' };
 }
+function stopQueued(c: Context, ruleId: string) {
+  for (const job of c.s.workflowJobs.filter(j => j.ruleId === ruleId && ['pending','running'].includes(j.status)))
+    Object.assign(job, { status: 'failed', problem: 'Rule changed or paused. Human review required.', escalatedAt: c.now, version: job.version + 1 });
+}
 function reconcile(c: Context) {
   for (const job of c.s.workflowJobs.filter(j => j.status === 'running' && j.leaseUntil <= c.now)) {
     Object.assign(job, { status: 'uncertain', problem: 'Worker lease expired before resolution. Human review required; no automatic replay.', escalatedAt: c.now, version: job.version + 1 });
@@ -31,6 +35,7 @@ export function workflowRules(c: Context, type: string, p: any) {
     if (!Array.isArray(p.supplierIds) || !p.supplierIds.every((id: any) => c.s.parties.some(p => p.id === id && p.kind === 'supplier'))) fail('WORKFLOW_SCOPE', 'Choose explicit supplier identities.');
     if (!Number.isSafeInteger(p.cadenceMinutes) || p.cadenceMinutes < 15 || p.cadenceMinutes > 525600) fail('WORKFLOW_CADENCE', 'Use a cadence of 15 to 525600 UTC minutes.');
     const data = { name: text(p.name), kind: p.kind, warehouses: [...new Set(p.warehouses)], supplierIds: [...new Set(p.supplierIds)], perRunBudget: money(decimal(p.perRunBudget) * 1000000n), dailyBudget: money(decimal(p.dailyBudget) * 1000000n), cadenceMinutes: p.cadenceMinutes, automaticApproval: false, enabled: false, approvedBy: c.actor.id, approvedAt: c.now };
+    if (old) stopQueued(c, old.id);
     return old ? Object.assign(old, data, { version: old.version + 1 }) : row(c, 'workflowRules', data);
   }
   const rule = get(c.s, 'workflowRules', p.ruleId);
@@ -43,7 +48,7 @@ export function workflowRules(c: Context, type: string, p: any) {
       if (p.previewHash !== preview.previewHash || preview.problems.length) fail('WORKFLOW_REVIEW', 'Review a fresh preview within its vendor and spend limits.');
     }
     rule.enabled = type === 'workflow.enable'; rule.killed = type === 'workflow.kill'; rule.version++;
-    for (const job of c.s.workflowJobs.filter(j => j.ruleId === rule.id && ['pending','running'].includes(j.status))) Object.assign(job, { status: 'failed', problem: 'Rule changed or paused. Human review required.', escalatedAt: c.now, version: job.version + 1 });
+    stopQueued(c, rule.id);
     return rule;
   }
   if (type === 'workflow.enqueue') {
@@ -51,10 +56,11 @@ export function workflowRules(c: Context, type: string, p: any) {
     const slot = Math.floor(Date.parse(c.now) / (rule.cadenceMinutes * 60000)), key = `${rule.id}:${rule.version}:${slot}`;
     const old = c.s.workflowJobs.find(j => j.key === key); if (old) return old;
     const preview = previewWorkflow(c, rule);
-    return row(c, 'workflowJobs', { key, ruleId: rule.id, ruleVersion: rule.version, sourceDigest: preview.sourceDigest, expectedSpend: preview.expectedSpend, status: 'pending', problem: null, attempts: 0, preparedBy: c.actor.id });
+    return row(c, 'workflowJobs', { key, ruleId: rule.id, ruleVersion: rule.version, ruleSnapshot: structuredClone(rule), sourceDigest: preview.sourceDigest, expectedSpend: preview.expectedSpend, status: 'pending', problem: null, attempts: 0, preparedBy: c.actor.id });
   }
   const job = get(c.s, 'workflowJobs', p.jobId); fresh(job, p.version);
   if (job.ruleId !== rule.id) fail('WORKFLOW_JOB', 'Choose a job for this rule.');
+  if ((type === 'workflow.claim' && job.status !== 'pending') || (type === 'workflow.finish' && job.status !== 'running')) fail('WORKFLOW_JOB', 'Only pending work can be claimed and running work finished. Terminal outcomes are retained.');
   const stop = (problem: string) => Object.assign(job, { status: 'failed', problem, escalatedAt: c.now, version: job.version + 1 });
   if (!rule.enabled || rule.version !== job.ruleVersion || rule.killed) return stop('Rule version changed or paused. Human review required.');
   const preview = previewWorkflow(c, rule);
@@ -67,7 +73,11 @@ export function workflowRules(c: Context, type: string, p: any) {
   }
   if (type !== 'workflow.finish' || job.status !== 'running') fail('WORKFLOW_JOB', 'Only the current running job can resolve.');
   let result: any;
-  if (rule.kind === 'draft-po') result = { draftIds: preview.lines.length ? draftReplenishment(c, { autoOnly: false, selected: preview.lines.map(l => ({ itemId: l.itemId, warehouse: l.warehouse, supplierId: l.supplierId! })) }).map(po => po.id) : [] };
+  if (rule.kind === 'draft-po') {
+    const drafts = preview.lines.length ? draftReplenishment(c, { autoOnly: false, selected: preview.lines.map(l => ({ itemId: l.itemId, warehouse: l.warehouse, supplierId: l.supplierId! })) }) : [];
+    for (const po of drafts) po.workflow = { ruleId: rule.id, ruleVersion: job.ruleVersion, jobId: job.id, draftOnly: true };
+    result = { draftIds: drafts.map(po => po.id) };
+  }
   else if (rule.kind === 'report') {
     if (rule.reportId && c.s.savedReports.find(r => r.id === rule.reportId)?.version !== rule.reportVersion) return stop('Saved report changed. Review its schedule again.');
     if (rule.reportId && !rule.reportParameters.warehouse && c.s.locations.some(l => !rule.warehouses.includes(l.warehouse))) return stop('Reporting warehouses changed. Review this schedule again.');
