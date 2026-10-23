@@ -31,7 +31,7 @@ export function filteredReports(s: State, parameters: Record<string,string>, now
   result.deadStock.total = result.deadStock.rows.some(r=>r.value===null)?null:money(result.deadStock.rows.reduce((n,r)=>n+amount(r.value!),0n));
   result.lowStock = result.lowStock.filter(r=>(!warehouse||r.warehouse===warehouse)&&items.has(r.itemId));
   if (warehouse||customerId||channel||variantFamily) { result.kitMargins=[]; result.orderCosts={}; result.methodHistory=[]; result.overdueOrders={...result.overdueOrders,rows:result.overdueOrders.rows.filter((r:any)=>!warehouse||r.warehouse===warehouse)}; }
-  return { ...result, filters: parameters, generatedAt:now, sourceVersion:s.version, capacity:'PIER-SCALE-1 capacity has not been measured. No capacity guarantee is claimed.', filterBasis:'Warehouse/variant apply to physical positions and shipments; customer/channel apply to shipment margin only. Installation-wide reconciliation and kit/order-cost summaries are unavailable for filtered reports.' };
+  return { ...result, filters: parameters, generatedAt:now, sourceVersion:s.version, capacity:'PIER-SCALE-1 capacity has not been measured. No capacity guarantee is claimed.', filterBasis:'Warehouse and variant filters apply to physical positions and shipments. Customer and channel filters apply to shipment margin only. Low stock and reservations use current state. Installation-wide reconciliation and kit/order-cost summaries are unavailable for filtered reports.' };
 }
 export function savedReports(c: Context, type: string, p: any) {
   if (!type.startsWith('report.')) return;
@@ -53,7 +53,9 @@ export function savedReports(c: Context, type: string, p: any) {
   fail('COMMAND','Unknown saved report command.');
 }
 export function reportCsv(result: ReturnType<typeof filteredReports>) {
-  const rows = [...result.valuation.rows.map(r=>({report:'valuation',...r})),...result.margin.rows.map(r=>({report:'margin',...r})),...result.deadStock.rows.map(r=>({report:'dead-stock',...r}))];
+  const details = [...result.valuation.rows.map(r=>({report:'valuation',...r})),...result.margin.rows.map(r=>({report:'margin',...r})),...result.deadStock.rows.map(r=>({report:'dead-stock',...r}))];
+  const metadata = { currency:result.currency,asOf:result.asOf,from:result.from,to:result.to,timezone:result.timezone,method:result.method,sourceVersion:result.sourceVersion,generatedAt:result.generatedAt,...result.filters,basis:result.filterBasis };
+  const rows = [{report:'metadata',...metadata},...details.map(row=>({...metadata,...row}))];
   const keys=[...new Set(rows.flatMap(r=>Object.keys(r)))], cell=(v:any)=>{let s=v===null?'Unknown':typeof v==='object'?JSON.stringify(v):String(v??'');if(/^[=+@\-\t\r]/.test(s)&&!/^[-]?\d+(?:\.\d+)?$/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';};
   return [keys.map(cell).join(','),...rows.map(r=>keys.map(k=>cell((r as any)[k])).join(','))].join('\r\n');
 }

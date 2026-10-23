@@ -397,7 +397,7 @@ test('saved warehouse reports retain exact as-of snapshots and scheduled exports
   const saved = await h.command('report.save', { name: 'North as-of stock', parameters });
   const snapshot = await h.command('report.run', { reportId: saved.id, version: saved.version });
   assert.deepEqual(snapshot.result.valuation, filtered.valuation);
-  const csv = await (await h.request('/api/pier/report-snapshots/' + snapshot.id + '.csv')).text(); assert.match(csv, /2.500000000000/); assert.ok(csv.includes(b.source.id)); assert.ok(!csv.includes(b.destination.id));
+  const csv = await (await h.request('/api/pier/report-snapshots/' + snapshot.id + '.csv')).text(); assert.match(csv, /2.500000000000/); assert.ok(csv.includes(today)); assert.ok(csv.includes('metadata')); assert.ok(csv.includes('North')); assert.ok(csv.includes(b.source.id)); assert.ok(!csv.includes(b.destination.id));
   await h.command('report.save', { name: 'Unsupported parameters', parameters: { sql: 'SELECT private' } }, { error: 'REPORT_FILTER' });
   await h.command('report.schedule', { reportId: saved.id, version: saved.version, cadenceMinutes: 15, confirm: true, enabled: true });
   const worker = await h.mf.getWorker(); await worker.scheduled({ scheduledTime: new Date(), cron: '* * * * *' });

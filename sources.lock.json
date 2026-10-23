@@ -3308,7 +3308,7 @@
       "executable": false
     },
     "src/pier/saved-reports.ts": {
-      "sha256": "1fdcc743b3f8b07869083df60510ba83c686359380cc02884f08cc1a4d7f2efe",
+      "sha256": "00ee2efc5a6e6dab30a5ea5c087d41267c3b266ac1950bbe04a0f31dbb091de8",
       "executable": false
     },
     "src/pier/scheduled.ts": {
@@ -4008,7 +4008,7 @@
       "executable": false
     },
     "src/ui/reports.tsx": {
-      "sha256": "37e24504d97e424a8fafdd71e36847670149bc710ebba82490c92b74c47ecc52",
+      "sha256": "9004d499c3f67c99de4415646da0f9ee92ec1657e761d59f593c6fdb1a65b2a4",
       "executable": false
     },
     "src/ui/shell.tsx": {
@@ -4156,7 +4156,7 @@
       "executable": false
     },
     "tests/api/costing.test.mjs": {
-      "sha256": "416072cb52375e410d6b565478e6a1e2bd4adff72dca188b0b84c1665c9d2139",
+      "sha256": "e187de1bce7cda8c7e38b81a2a83cefb06d548c7912bb5ccb305a14d37c9ad99",
       "executable": false
     },
     "tests/api/dispatch.test.mjs": {
