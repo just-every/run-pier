@@ -407,6 +407,12 @@ test("roles, agent preparation, revoked session, stale human approval and direct
   const h = await installation();
   t.after(() => h.close());
   const b = await basics(h);
+  const { exportedAt: _beforeTime, ...beforeGeneric } = await (await h.request("/api/pier/export")).json();
+  for (const type of ['record.update', 'movement.save', 'reservation.save'])
+    await h.command(type, { id: b.item.id, quantity: '999' }, { error: 'COMMAND' });
+  assert.equal((await h.request('/api/records/' + b.item.id, { method: 'POST', body: { quantity: '999' } })).status, 404);
+  const { exportedAt: _afterTime, ...afterGeneric } = await (await h.request('/api/pier/export')).json();
+  assert.deepEqual(afterGeneric, beforeGeneric, 'generic writes cannot bypass domain stock admission');
   // Local mail is suppressed, so the member signs in as the local dev persona.
   async function persona(as) {
     const entered = await fetch(`${h.origin}/auth/dev/enter?as=${as}`, {

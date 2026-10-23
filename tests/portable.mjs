@@ -3,10 +3,12 @@
 import assert from "node:assert/strict";
 import { admittedServer } from "./server-admission.mjs";
 import { spawn } from "node:child_process";
-import { mkdtemp, readdir, cp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, cp, rm, readFile, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { tmpdir } from "node:os";
 import { createServer } from "node:net";
+import { inactiveRecord } from "../scripts/installer/archive-policy.mjs";
+import { documentOriginal } from "./api/document-original.mjs";
 import { randomUUID } from "node:crypto";
 const workspace = resolve("."),
   parent = await mkdtemp(join(tmpdir(), "pier-portable-")),
@@ -273,6 +275,15 @@ try {
     batchId: revision.id,
     version: revision.version,
   });
+  await running.cmd('supplierItem.save', { supplierId: supplier.id, itemId: item.id, packSize: '0.5', minimum: '0.5', price: '0.1', leadDays: 3 });
+  await running.cmd('replenishment.save', { version: 0, itemId: item.id, warehouse: 'Main', supplierId: supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '1', reorderQuantity: '1', autoDraft: true });
+  const currentPO = (await (await running.request('/api/pier/export')).json()).purchaseOrders.find(r => r.id === po.id);
+  await running.cmd('po.authorizeSend', { poId: po.id, version: currentPO.version, recipient: 'supplier@example.test', maxSpend: '3', expiresAt: new Date(Date.now() + 86400000).toISOString(), maxChases: 0, confirm: true });
+  const original = documentOriginal([['synthetic-pier-1'], ['Private portable source original']]);
+  await running.cmd('document.upload', { name: 'source.pdf', mimeType: 'application/pdf', base64: original.toString('base64') });
+  await running.cmd('document.configure', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-2', consent: true });
+  await running.cmd('ai.save', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-3', consent: true });
+  await running.cmd('channel.save', { name: 'Portable channel', provider: 'woocommerce', baseUrl: 'https://synthetic-pier.example', warehouse: 'Main', enabled: false, credentials: { consumerKey: 'synthetic-pier-4', consumerSecret: 'synthetic-pier-5' } });
   const before = await (await running.request("/api/pier/export")).json();
   const oldSession = running.sessionCookie();
   assert.ok(before.importJournal.jobs.length > 0);
@@ -286,6 +297,12 @@ try {
   running = null;
   const archive = join(parent, "installation.rer");
   await command(source, ["export", "--output", archive]);
+  const corrupt = join(parent, 'corrupt.rer');
+  const archiveBytes = await readFile(archive);
+  const corruptBytes = Buffer.from(archiveBytes); corruptBytes[Math.floor(corruptBytes.length / 2)] ^= 1;
+  await writeFile(corrupt, corruptBytes);
+  const refused = child(destination, ['import', '--input', corrupt, '--yes']);
+  assert.notEqual(await refused.done, 0, 'corrupt archive is refused before the valid restore');
   await command(destination, [
     "import",
     "--input",
@@ -319,24 +336,22 @@ try {
     before.commands,
     "durable command outcomes survived restore",
   );
-  for (const field of [
-    "items",
-    "locations",
-    "parties",
-    "orders",
-    "purchaseOrders",
-    "receipts",
-    "movements",
-    "reservations",
-    "imports",
-    "proposals",
-    "roles",
-  ])
+  // Every current and future business collection is compared, including source
+  // bytes and valuation/approval histories; only declared authority is paused.
+  for (const [field, rows] of Object.entries(before)) {
+    if (!Array.isArray(rows) || field === 'commands') continue;
     assert.deepEqual(
       [...after[field]].sort((a, b) => a.id.localeCompare(b.id)),
-      [...before[field]].sort((a, b) => a.id.localeCompare(b.id)),
-      field + " restored exactly",
+      rows.map(r => inactiveRecord(field, r)).sort((a, b) => a.id.localeCompare(b.id)),
+      field + ' restored with only declared inactive-authority changes',
     );
+  }
+  assert.equal(after.evidenceDocuments[0].original, original.toString('base64'));
+  for (const field of ['documentSettings', 'aiSettings', 'channels', 'replenishmentPolicies'])
+    assert.ok(after[field].every(r => r.enabled === false && r.restorePaused), field + ' paused');
+  assert.equal((await running.request('/api/pier/documents/' + after.evidenceDocuments[0].id + '/original')).status, 200);
+  await running.cmd('document.configure', { version: after.documentSettings[0].version, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-6', consent: true });
+  assert.equal((await (await running.request('/api/pier/export')).json()).documentSettings[0].enabled, true, 'fresh owner explicitly reconnects');
   let repeated = await running.cmd("import.stage", importInput);
   assert.deepEqual(repeated.errors, []);
   for (const stage of ["mapped", "reconciled", "shadow", "frozen"])

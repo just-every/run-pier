@@ -45,7 +45,7 @@ function quantity(value: unknown): bigint {
 /** Fail closed when a formerly approved message no longer describes live work. */
 export function correspondenceEligible(message: Correspondence, source: Row | null, now = new Date().toISOString()): boolean {
   const roles = message.kind === "customer-promise" ? ["owner", "operator", "buyer"] : ["owner", "buyer"];
-  if (!source || !message.approvedBy || !roles.includes(message.approvalRole)) return false;
+  if (message.restorePaused || !source || !message.approvedBy || !roles.includes(message.approvalRole)) return false;
   try {
     if (message.kind === 'slow-stock') return source.status === 'open' && source.notificationEnabled === true &&
       source.policyVersion === message.policyVersion && source.assigneeId === message.approvedBy && source.messageId === message.id;
