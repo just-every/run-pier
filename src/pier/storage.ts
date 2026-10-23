@@ -1,3 +1,4 @@
+import { auditStatement } from './audit';
 import {
   collections,
   fail,
@@ -208,6 +209,7 @@ export async function commit(
       .bind(before.version),
   );
   guard("changes()=1", []);
+  if (c.audit) statements.push(auditStatement(db, c.audit));
   const response = { ok: true, result, version: before.version + 1 };
   statements.push(
     db

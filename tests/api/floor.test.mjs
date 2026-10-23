@@ -110,6 +110,26 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
     assert.equal(closed.delivery.status, "not sent");
     await h.command("dispatch.delivered", { dayId: closed.id, version: closed.version, status: "sent" }, { error: "COMMAND" });
   });
+  const priorItem = (await h.state()).items.find(r => r.id === mug.id);
+  await h.command('item.save', { ...priorItem, name: 'Edited blue mug' });
+  const exported = await (await h.request('/api/pier/export')).json();
+  const events = await (await h.request('/api/pier/audit?itemId=' + mug.id)).json();
+  assert.deepEqual(events, exported.auditEvents.filter(e => e.itemIds.includes(mug.id)));
+  const refused = events.find(e => e.type === 'pick.scan' && e.reason === 'WRONG_ITEM');
+  assert.equal(refused.outcome, 'refused'); assert.equal(refused.code, '4006381333931');
+  assert.equal(refused.resolution.itemId, towel.id); assert.equal(refused.resolution.packQuantity, '1000000');
+  assert.ok(events.some(e => e.type === 'receiving.scan' && e.outcome === 'accepted' && e.resolution?.itemId === mug.id));
+  const edit = events.find(e => e.type === 'item.save' && e.changes.some(change => change.before?.name === 'Blue Mug 12oz'));
+  assert.equal(edit.changes.find(change => change.id === mug.id).after.name, 'Edited blue mug');
+  const actor = exported.auditEvents[0].actorId;
+  const own = await (await h.request('/api/pier/audit?userId=' + actor)).json();
+  assert.ok(own.every(e => e.actorId === actor));
+  assert.ok((await (await h.request('/api/pier/audit?documentId=' + po.id)).json()).every(e => e.documentIds.includes(po.id)));
+  await assert.rejects(h.db.prepare("UPDATE pier_audit SET outcome='accepted' WHERE id=?").bind(refused.id).run(), /AUDIT_APPEND_ONLY/);
+  await assert.rejects(h.db.prepare('DELETE FROM pier_audit WHERE id=?').bind(refused.id).run(), /AUDIT_APPEND_ONLY/);
+  await h.restartWithFreshSigningKey();
+  assert.deepEqual(await (await h.request('/api/pier/audit?itemId=' + mug.id)).json(), events, 'audit survives Worker restart with fresh session');
+
 });
 
 // Added to the existing warehouse journey budget: every business effect uses

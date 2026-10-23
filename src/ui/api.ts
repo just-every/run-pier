@@ -57,6 +57,7 @@ export function usePier() {
     return () => { window.clearInterval(timer); window.removeEventListener('offline', offline); window.removeEventListener('online', online) }
   }, [refresh])
   const run: RunCommand = async (type, payload, options) => {
+    if (type.endsWith('.scan') && !Object.hasOwn(payload, "device")) payload = { ...payload, device: navigator.userAgent.slice(0, 120) }
     if (inFlight.current) { settleScan(scanLink(), false); return false }
     const signature = JSON.stringify({ type, payload })
     if (pending.current && signature !== pending.current.signature) {

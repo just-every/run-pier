@@ -179,6 +179,7 @@ export type Context = {
   installationScope?: string;
   purchaseSendAuthority?: { poId: string; policyVersion: number; actorId: string; role: string };
   delegates?: { actorId: string; role: string; orderId: string; policyVersion: number }[];
+  audit?: ReturnType<typeof import("./audit").auditEvent>;
   approver?: {
     id: string;
     role: string;

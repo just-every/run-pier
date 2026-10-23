@@ -1,0 +1,61 @@
+import { collections, type Context, type State, type Actor } from './model';
+import { resolve } from './floor/codes';
+import { authority } from './storage';
+
+const scanTypes = new Set(['receiving.scan', 'pick.scan', 'pack.scan', 'slotting.scan']);
+// Preserve business field changes without retaining contacts, source originals,
+// provider responses, tokens, prompts or untrusted arbitrary metadata.
+const fields = new Set(['sku','name','barcode','caseBarcode','unit','packSize','archived','warehouse','kind','zone','status','quantity','reserved','dispatched','received','cancelled','promiseDate','destinationWarehouse','enabled','autoDraft','role','method','reorderPoint','reorderQuantity','maximum','locationId','itemId']);
+function image(kind: string, row: any) {
+  if (!row) return null;
+  return Object.fromEntries(Object.entries(row).filter(([key]) => fields.has(key) && !(key === 'name' && kind !== 'items' && kind !== 'locations')));
+}
+export function auditEvent(c: Context, before: State, type: string, p: any, result: any, outcome = 'accepted', reason?: string) {
+  const changes: any[] = [], itemIds = new Set<string>(), documents = new Set<string>();
+  if (typeof p.itemId === 'string') itemIds.add(p.itemId);
+  for (const key of ['poId','orderId','receivingId','waveId','packId','countId','returnId','jobId','documentId','extractionId']) if (typeof p[key] === 'string') documents.add(p[key]);
+  for (const kind of collections) {
+    if (kind === 'evidenceDocuments' || kind === 'documentInbox') continue;
+    const old = new Map(before[kind].map(r => [r.id, r]));
+    for (const row of c.s[kind]) {
+      const previous = old.get(row.id);
+      if (JSON.stringify(previous) === JSON.stringify(row)) continue;
+      documents.add(row.id);
+      if (kind === 'items') itemIds.add(row.id);
+      if (row.itemId) itemIds.add(row.itemId);
+      for (const line of row.lines ?? []) if (line.itemId) itemIds.add(line.itemId);
+      changes.push({ kind, id: row.id, beforeVersion: previous?.version ?? null, afterVersion: row.version, before: image(kind, previous), after: image(kind, row) });
+    }
+  }
+  let resolution: any = null;
+  if (scanTypes.has(type)) {
+    try {
+      const hit = resolve(before, p.code ?? p.itemCode);
+      if ('item' in hit) { itemIds.add(hit.item.item.id); resolution = { itemId: hit.item.item.id, sku: hit.item.item.sku, packQuantity: String(hit.item.units), unit: 'millionths', trace: hit.item.trace ?? null }; }
+      if ('bin' in hit) resolution = { locationId: hit.bin.id };
+    } catch { /* Invalid or ambiguous codes have no asserted resolution. */ }
+    const wave = before.waves.find(w => w.id === p.waveId), line = wave?.lines.find((l: any) => l.id === p.lineId);
+    if (line?.itemId) itemIds.add(line.itemId);
+    const receiving = before.receivings.find(r => r.id === p.receivingId);
+    if (receiving) for (const line of before.purchaseOrders.find(po => po.id === receiving.poId)?.lines ?? []) itemIds.add(line.itemId);
+  }
+  const listing = before.channelListings.find(l => l.id === p.listingId);
+  if (listing?.itemId) itemIds.add(listing.itemId);
+  return { id: c.commandId + ':' + outcome, at: c.now, actorId: c.actor.id, commandId: c.commandId, type, outcome, version: before.version + (outcome === 'refused' ? 0 : 1), rule: c.backgroundPolicy ?? null,
+    connectorId: p.channelId ?? (type.startsWith('book.') ? 'pantry' : null), direction: type === 'channel.ingest' ? 'inbound' : type === 'channel.published' ? 'outbound' : null,
+    itemIds: [...itemIds], documentIds: [...documents], changes, ...(reason ? { reason } : {}),
+    ...(scanTypes.has(type) ? { code: typeof (p.code ?? p.itemCode) === 'string' ? (p.code ?? p.itemCode).slice(0, 200) : '', binCode: typeof p.binCode === 'string' ? p.binCode.slice(0, 200) : null, device: typeof p.device === 'string' ? p.device.slice(0, 120) : 'unspecified input', resolution } : {}),
+  };
+}
+export function auditStatement(db: D1Database, event: ReturnType<typeof auditEvent>) {
+  return db.prepare('INSERT INTO pier_audit(id,at,actor_id,command_id,event_type,outcome,data) VALUES(?,?,?,?,?,?,?)').bind(event.id,event.at,event.actorId,event.commandId,event.type,event.outcome,JSON.stringify(event));
+}
+export async function refusedScan(db: D1Database, actor: Actor, commandId: string, type: string, p: any, reason: string, s: State) {
+  if (!scanTypes.has(type)) return;
+  const c: Context = { s, actor, commandId, now: new Date().toISOString() }, event = auditEvent(c, s, type, p, null, 'refused', reason), gate = authority(actor);
+  await db.prepare('INSERT INTO pier_audit(id,at,actor_id,command_id,event_type,outcome,data) SELECT ?,?,?,?,?,?,? WHERE (' + gate.sql + ') ON CONFLICT(id) DO NOTHING').bind(event.id,event.at,event.actorId,event.commandId,event.type,event.outcome,JSON.stringify(event),...gate.params).run();
+}
+export async function auditRows(db: D1Database) {
+  const rows = await db.prepare('SELECT data FROM pier_audit ORDER BY at,id').all<{data:string}>();
+  return rows.results.map(row => JSON.parse(row.data));
+}

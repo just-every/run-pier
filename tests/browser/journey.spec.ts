@@ -425,3 +425,38 @@ test('held Stripe sandbox verifies ACH ownership and applies one invoice payment
   // @ts-expect-error Shared live-provider browser journey, invoked only explicitly.
   const {exerciseLiveAch}=await import('./ach-live.mjs');await exerciseLiveAch(page,expect,shots);
 });
+
+
+test('durable scan refusals and item edits are visible in scoped Activity filters at 1440 and 390', async ({ page, context }) => {
+  const origin = await ownerEntry(page)
+  const command = async (type: string, payload: object, success = true) => {
+    const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(success); return body.result
+  }
+  const item = await command('item.save', { sku: 'synthetic-pier-audit', name: 'Audit source item', barcode: 'synthetic-pier-scan', unit: 'each', packSize: '1' })
+  await command('item.save', { sku: 'synthetic-pier-other', name: 'Other audit item', barcode: 'synthetic-pier-wrong', unit: 'each', packSize: '1' })
+  const bin = await command('location.save', { name: 'Audit bin', warehouse: 'Audit warehouse', kind: 'bin' })
+  const supplier = await command('party.save', { name: 'Audit supplier', kind: 'supplier' })
+  let po = await command('po.draft', { supplierId: supplier.id, promiseDate: '2026-11-01', reason: 'Audit journey', lines: [{ itemId: item.id, quantity: '2', price: '1' }] })
+  await command('po.approve', { poId: po.id, version: po.version }); po = await command('po.commit', { poId: po.id, version: po.version })
+  const receiving = await command('receiving.start', { poId: po.id, locationId: bin.id })
+  await command('receiving.scan', { receivingId: receiving.id, code: 'synthetic-pier-scan', device: 'synthetic-pier-browser' })
+  await command('receiving.scan', { receivingId: receiving.id, code: 'synthetic-pier-wrong', device: 'synthetic-pier-browser' }, false)
+  await command('item.save', { ...item, name: 'Audit revised item' })
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 }); await page.goto(`${origin}/app#activity`); await page.reload()
+    await page.getByLabel('Item filter', { exact: true }).selectOption(item.id)
+    const history = page.getByRole('heading', { name: 'Decision and input history', exact: true }).locator('..')
+    await expect(history).toContainText('synthetic-pier-scan'); await expect(history).toContainText('synthetic-pier-wrong')
+    await expect(history).toContainText('Refused'); await expect(history).toContainText('synthetic-pier-browser')
+    const changed = history.getByRole('row').filter({ hasText: 'Item.save' }).first()
+    await changed.getByText('Recorded change details', { exact: true }).click()
+    await expect(changed).toContainText('Audit source item'); await expect(changed).toContainText('Audit revised item')
+    // The touched Activity surface and shared shell use text-labelled controls.
+    expect(await page.locator('button,a').evaluateAll(nodes => nodes.filter(node => !node.textContent?.trim() && node.querySelector('svg')).length)).toBe(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+    if (shots) { await mkdir(shots, { recursive: true }); await page.screenshot({ path: join(shots, `${width}-audit-history.png`), fullPage: true }) }
+    await page.getByLabel('Document identity filter', { exact: true }).fill(receiving.id)
+    await expect(history).toContainText('synthetic-pier-scan'); await expect(history).not.toContainText('Audit revised item')
+  }
+})

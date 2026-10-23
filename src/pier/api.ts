@@ -1,3 +1,4 @@
+import { auditEvent, auditRows, refusedScan } from './audit';
 import { admitScopedCommand, physicalState, scoped } from './permissions';
 import { recurringOrders } from './recurring-orders';
 import { documents } from './documents/commands';
@@ -261,6 +262,7 @@ export async function execute(
     refreshSlowStock(c, backgroundPolicy?.collection === "slowStockPolicies");
     markChannelPending(c, before);
     }
+    c.audit = auditEvent(c, before, type, payload, result, type.endsWith(".failed") ? "failed" : "accepted");
     try {
       return await commit(env, c, before, digest, result);
     } catch (error) {
@@ -330,6 +332,13 @@ export async function pierResponse(
         if (!['/api/pier/state', '/api/pier/scope-export'].includes(url.pathname)) throw new Problem('SCOPE', 'This door requires wider authority; use your scoped stock export.', null, 403);
         if (url.pathname === '/api/pier/scope-export') return json({ format: 'pier-scoped-stock-v1', ...s });
       }
+      if (url.pathname === '/api/pier/audit') {
+        const events = await auditRows(env.DB);
+        return json(events.filter(event => ['itemId','documentId','userId','connectorId'].every(key => {
+          const value = url.searchParams.get(key);
+          return !value || (key === 'itemId' ? event.itemIds.includes(value) : key === 'documentId' ? event.documentIds.includes(value) : key === 'userId' ? event.actorId === value : event.connectorId === value);
+        })));
+      }
       const printDocument=printRead(url.pathname,actor,s);if(printDocument)return printDocument;
       const originalDocument = documentRead(url.pathname, actor, s);
       if (originalDocument) return originalDocument;
@@ -396,6 +405,7 @@ export async function pierResponse(
           precision: 6,
           exportedAt: new Date().toISOString(),
           ...s,
+          auditEvents: await auditRows(env.DB),
           commands: audit[0].results.map((command: any) => ({
             ...command,
             result: JSON.parse(command.result),
@@ -471,6 +481,7 @@ export async function pierResponse(
         ...stockPosition(s),
         reorder: reorder(c),
         commands,
+        auditEvents: scoped(actor) ? [] : await auditRows(env.DB),
         operators,
       });
     }
@@ -583,7 +594,12 @@ export async function pierResponse(
       return json({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
     }
     if(['order.create','quote.create'].includes(type)&&(Object.hasOwn(payload,'nativeCutover')||payload.fulfilment||payload.channelId||payload.ediPartnerId||payload.routingSource&&payload.routingSource!=='manual'))fail('ROUTING_SOURCE','Public manual orders use the manual source; connector and file sources are assigned by their own intake doors.');
-    const outcome = await execute(env, actor, commandId, type, payload);
+    let outcome;
+    try { outcome = await execute(env, actor, commandId, type, payload); }
+    catch (error) {
+      if (error instanceof Problem) await refusedScan(env.DB, actor, commandId, type, payload, error.code, await load(env.DB));
+      throw error;
+    }
     if (outcome && type.startsWith('document.')) return json(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
