@@ -199,3 +199,40 @@ test('native channel demand and shipments reconcile once across dispatch, cancel
   await h.command('replenishment.configure', { version: 0, mode: 'company', warehouses: ['North', 'South'], destinationWarehouse: 'North' });
   state = await h.state(); assert.equal(forecast(state).observedSold, '9'); assert.deepEqual(evidence(state).channelOrderIds, [source.id]);
 });
+
+
+test('cash and service horizon comparisons net supply and drafts with exact supplier rounding', async t => {
+  const h = await installation(); t.after(() => h.close()); const b = await basics(h);
+  await receive(h, b, await buy(h, b, '30'), '30');
+  const order = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '30' }] });
+  await h.command('dispatch.create', { orderId: order.id, shipmentReference: 'synthetic-pier-1', lines: [{ orderLineId: order.lines[0].id, quantity: '30' }] });
+  await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: 'synthetic-pier-2', packSize: '6', minimum: '12', price: '2', leadDays: 6 });
+  await h.command('replenishment.save', { version: 0, itemId: b.item.id, warehouse: 'North', supplierId: b.supplier.id, method: 'fixed', safetyStock: '4', leadDays: 6, windowDays: 30, reviewDays: 10, reorderPoint: '10', reorderQuantity: '10', freight: '6', duty: '2' });
+  const before = await h.state();
+  const request = { itemId: b.item.id, warehouse: 'North', cashCeiling: '44' };
+  const comparison = await h.command('replenishment.compare', request);
+  const options = Object.fromEntries(comparison.options.map(o => [o.name, o]));
+  assert.equal(options.minimum.quantity, '12'); assert.equal(options.minimum.expectedLandedCost, '32.000000000000');
+  assert.equal(options.recommended.quantity, '24'); assert.equal(options.recommended.expectedLandedCost, '56.000000000000');
+  assert.equal(options.stretch.quantity, '30'); assert.equal(options.stretch.expectedLandedCost, '68.000000000000');
+  assert.equal(options['cash-constrained'].quantity, '18'); assert.equal(options['cash-constrained'].expectedLandedCost, '44.000000000000');
+  assert.equal(options['cash-constrained'].uncoveredAtHorizon, '2'); assert.equal(options.recommended.withinCashCeiling, false);
+  let state = await h.state(); assert.deepEqual(state.purchaseOrders, before.purchaseOrders); assert.deepEqual(state.movements, before.movements);
+  const unaffordable = await h.command('replenishment.compare', { ...request, cashCeiling: '31' });
+  assert.equal(unaffordable.options[3].executable, false); assert.equal(unaffordable.options[3].quantity, '0');
+  state = await h.state();
+  const refreshed = await h.command('replenishment.compare', request);
+  const selected = { stateVersion: refreshed.stateVersion, lines: [{ itemId: b.item.id, warehouse: 'North', quantity: options['cash-constrained'].quantity }] };
+  const drafted = await h.command('replenishment.plan', selected);
+  const po = drafted.drafts[0]; assert.equal(po.lines[0].quantity, '18'); assert.equal(po.replenishment.expectedLandedCost, '44.000000000000');
+  await h.command('replenishment.plan', selected, { error: 'STALE' });
+  const rerun = await h.command('replenishment.compare', request);
+  assert.equal(rerun.options[3].quantity, '0', 'remaining six units cannot meet the supplier minimum alongside an existing draft');
+  assert.match(rerun.options[3].reason, /Existing drafts/);
+  await h.command('po.approve', { poId: po.id, version: po.version });
+  const committed = await h.command('po.commit', { poId: po.id, version: po.version });
+  await h.command('receipt.create', { poId: committed.id, supplierReference: 'synthetic-pier-3', lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '18', cost: '2' }] });
+  const received = await h.command('replenishment.compare', request);
+  assert.equal(received.options[0].quantity, '0'); assert.equal(received.options[1].quantity, '12');
+  assert.equal((await h.invariant()).positions.find(p => p.itemId === b.item.id && p.locationId === b.source.id).quantity, '18');
+});

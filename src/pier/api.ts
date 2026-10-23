@@ -260,7 +260,7 @@ export async function execute(
       return outcome;
     }
     // Retaining and reviewing untrusted evidence never triggers unrelated plans.
-    if (!type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
+    if (type !== 'replenishment.compare' && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -624,7 +624,7 @@ export async function pierResponse(
       if (error instanceof Problem) await refusedScan(env.DB, actor, commandId, type, payload, error.code, await load(env.DB));
       throw error;
     }
-    if (outcome && (type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return json(outcome);
+    if (outcome && (type === 'replenishment.compare' || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return json(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
       const doc = (await load(env.DB)).ediDocuments.find(d => d.id === outcome.result.acknowledgmentDocumentId);

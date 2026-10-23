@@ -1,3 +1,4 @@
+import { compareReplenishment } from './replenishment-alternatives';
 import { kitDefinition } from './kits';
 import { decimal, fail, format, fresh, get, item, MAX, requireRole, row, SCALE, text, type Context, type Row } from './model';
 import { money } from './money';
@@ -83,6 +84,13 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
   const settings = scopeCommand(c, type, p);
   if (settings) return settings;
   if (type === 'replenishment.check') { requireRole(c, ['buyer']); refreshReorderExceptions(c); return { id: c.commandId, version: 1 }; }
+  if (type === 'replenishment.compare') {
+    requireRole(c, ['buyer', 'agent']);
+    const f = forecast(c, [{ itemId: p.itemId, warehouse: p.warehouse, supplierId: p.supplierId }]).find(f => f.itemId === p.itemId && f.warehouse === p.warehouse);
+    if (!f) fail('NOT_FOUND', 'Choose an active item in the current planning scope.');
+    return { id: c.commandId, version: 1, stateVersion: c.s.version + 1, itemId: f.itemId, warehouse: f.warehouse,
+      supplierId: f.supplierId, ...compareReplenishment(f, p.cashCeiling) };
+  }
   if (!['replenishment.save', 'replenishment.plan'].includes(type)) return;
   requireRole(c, ['buyer']);
   if (type === 'replenishment.plan') {
