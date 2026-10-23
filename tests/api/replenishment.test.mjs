@@ -101,3 +101,47 @@ test('sell-through drafts an approved supplier PO and re-promises backorders by 
   assert.deepEqual(promised.promiseHistory.at(-1).lines.map(l => l.orderLineId), [datedLine.orderLineId]);
   assert.ok(parse((await h.invariant()).positions[0].quantity) >= 0n);
 });
+
+
+test('bounded workflow dry-runs, vendor and spend limits, worker loss and pause preserve human approval', async t => {
+  const h = await installation(); t.after(() => h.close()); const b = await basics(h);
+  await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: 'synthetic-pier-1', packSize: '1', minimum: '1', price: '2', leadDays: 3 });
+  await h.command('replenishment.save', { version: 0, itemId: b.item.id, warehouse: 'North', supplierId: b.supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '2', reorderQuantity: '2', autoDraft: false });
+  const config = { name: 'Bounded drafts', kind: 'draft-po', warehouses: ['North'], supplierIds: [b.supplier.id], perRunBudget: '10', dailyBudget: '10', cadenceMinutes: 15, automaticApproval: false };
+  let rule = await h.command('workflow.save', config);
+  const before = await h.state(); const preview = await h.command('workflow.preview', { ruleId: rule.id, version: rule.version });
+  assert.equal(preview.expectedSpend, '8.000000000000'); assert.deepEqual((await h.state()).purchaseOrders, before.purchaseOrders); assert.deepEqual((await h.state()).movements, before.movements);
+  await h.command('workflow.save', { ...config, automaticApproval: true }, { error: 'WORKFLOW_POLICY' });
+  rule = await h.command('workflow.enable', { ruleId: rule.id, version: rule.version, previewHash: preview.previewHash });
+  let job = await h.command('workflow.enqueue', { ruleId: rule.id });
+  job = await h.command('workflow.claim', { ruleId: rule.id, jobId: job.id, version: job.version });
+  const start = Date.parse(job.startedAt);
+  await h.command('workflow.recover', {}, { headers: { 'x-pier-test-now': new Date(start + 120001).toISOString() } });
+  let state = await h.state(); assert.equal(state.workflowJobs.find(j => j.id === job.id).status, 'uncertain'); assert.deepEqual(state.purchaseOrders, before.purchaseOrders);
+  await h.command('workflow.claim', { ruleId: rule.id, jobId: job.id, version: state.workflowJobs.find(j => j.id === job.id).version }, { error: 'WORKFLOW_JOB' });
+  // A separate rule proves successful once-only work and a disabled queued job.
+  let active = await h.command('workflow.save', { ...config, name: 'Second explicit policy' });
+  const enable = async r => { const preview = await h.command('workflow.preview', { ruleId: r.id, version: r.version }); return h.command('workflow.enable', { ruleId: r.id, version: r.version, previewHash: preview.previewHash }); };
+  active = await enable(active); job = await h.command('workflow.enqueue', { ruleId: active.id }); job = await h.command('workflow.claim', { ruleId: active.id, jobId: job.id, version: job.version });
+  const finishId = randomUUID(), finishPayload = { ruleId: active.id, jobId: job.id, version: job.version };
+  const finished = await h.command('workflow.finish', finishPayload, { commandId: finishId });
+  assert.equal(finished.status, 'resolved'); assert.equal(finished.result.draftIds.length, 1);
+  assert.deepEqual(await h.command('workflow.finish', finishPayload, { commandId: finishId }), finished);
+  state = await h.state(); assert.equal(state.purchaseOrders.length, 1); assert.equal(state.purchaseOrders[0].status, 'draft'); assert.equal(state.purchaseOrders[0].approval, null); assert.deepEqual(state.movements, before.movements);
+  // An uncertain job continues to reserve its budget, even after worker loss.
+  await h.command('po.delete', { poId: state.purchaseOrders[0].id, version: state.purchaseOrders[0].version });
+  const later = new Date(start + 15 * 60000).toISOString();
+  let next = await h.command('workflow.enqueue', { ruleId: rule.id }, { headers: { 'x-pier-test-now': later } });
+  next = await h.command('workflow.claim', { ruleId: rule.id, jobId: next.id, version: next.version }, { headers: { 'x-pier-test-now': later } });
+  assert.equal(next.status, 'failed'); assert.match(next.problem, /daily budget/);
+  let limited = await h.command('workflow.save', { ...config, name: 'Vendor limit', supplierIds: [] });
+  const blockedPreview = await h.command('workflow.preview', { ruleId: limited.id, version: limited.version });
+  assert.match(blockedPreview.problems.join(' '), /vendor/);
+  await h.command('workflow.enable', { ruleId: limited.id, version: limited.version, previewHash: blockedPreview.previewHash }, { error: 'WORKFLOW_REVIEW' });
+  limited = await h.command('workflow.save', { ...config, name: 'Spend limit', perRunBudget: '1' });
+  const spendPreview = await h.command('workflow.preview', { ruleId: limited.id, version: limited.version }); assert.match(spendPreview.problems.join(' '), /per-run budget/);
+  active = await h.command('workflow.pause', { ruleId: active.id, version: active.version });
+  await h.command('workflow.enqueue', { ruleId: active.id }, { error: 'WORKFLOW_PAUSED' });
+  active = await h.command('workflow.kill', { ruleId: active.id, version: active.version });
+  await h.command('workflow.save', { ...config, id: active.id, version: active.version }, { error: 'WORKFLOW_KILLED' });
+});

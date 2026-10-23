@@ -1,7 +1,7 @@
 // Archive normalization is pure and idempotent, and also runs on imported rows.
 // Historical consent is evidence, never authority in the receiving installation.
 const connections = new Set(['channels', 'bookConnections', 'shippingSettings', 'paymentConnections', 'aiSettings', 'documentSettings', 'ediPartners']);
-const policies = new Set(['replenishmentPolicies', 'slowStockPolicies', 'recurringOrders']);
+const policies = new Set(['replenishmentPolicies', 'slowStockPolicies', 'recurringOrders', 'workflowRules']);
 export function inactiveRecord(kind, record) {
   const r = structuredClone(record);
   const remember = (key, value) => {

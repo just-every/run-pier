@@ -1,3 +1,5 @@
+import { savedReports, filteredReports, reportCsv } from './saved-reports';
+import { workflowRules } from './workflow-rules';
 import { privacy, privacyPreview } from './privacy';
 import { auditEvent, auditRows, refusedScan } from './audit';
 import { admitScopedCommand, physicalState, scoped } from './permissions';
@@ -141,7 +143,7 @@ async function approver(env: Bindings, c: Context, type: string, p: any) {
     .bind(record.approval.actorId)
     .first<any>();
   const role = a?.data
-    ? JSON.parse(a.data).role
+    ? (JSON.parse(a.data).permissions && JSON.parse(a.data).role !== "owner" ? "viewer" : JSON.parse(a.data).role)
     : a?.role === "owner"
       ? "owner"
       : "viewer";
@@ -200,6 +202,8 @@ export async function execute(
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
+      savedReports,
+      workflowRules,
       trace,
       kits,
       slotting,
@@ -253,7 +257,7 @@ export async function execute(
       return outcome;
     }
     // Retaining and reviewing untrusted evidence never triggers unrelated plans.
-    if (!type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
+    if (!type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -334,6 +338,12 @@ export async function pierResponse(
         if (!['/api/pier/state', '/api/pier/scope-export'].includes(url.pathname)) throw new Problem('SCOPE', 'This door requires wider authority; use your scoped stock export.', null, 403);
         if (url.pathname === '/api/pier/scope-export') return json({ format: 'pier-scoped-stock-v1', ...s });
       }
+      const reportFile = /^\/api\/pier\/report-snapshots\/([^/]+)\.csv$/.exec(url.pathname);
+      if (reportFile) {
+        if (actor.role !== 'owner') throw new Problem('FORBIDDEN','Only an owner can export saved report details.',null,403);
+        const snapshot = s.reportSnapshots.find(r=>r.id===reportFile[1]) ?? fail('NOT_FOUND','Saved report snapshot not found.');
+        return new Response(reportCsv(snapshot.result),{headers:{'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="pier-report.csv"','cache-control':'no-store','x-content-type-options':'nosniff'}});
+      }
       if (url.pathname === '/api/pier/privacy') {
         if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only an owner can inspect retention and erasure dependencies.', null, 403);
         const kind = url.searchParams.get('kind'), subjectId = url.searchParams.get('subjectId');
@@ -383,7 +393,7 @@ export async function pierResponse(
         return json(returnLookup(s, url.searchParams.get("code")));
       if (url.pathname === "/api/pier/supplier-performance") return json(supplierPerformance(s));
       if (url.pathname === '/api/pier/replenishment') return json(forecast(c, [{ itemId: url.searchParams.get('itemId') ?? '', warehouse: url.searchParams.get('warehouse') ?? '', supplierId: url.searchParams.get('supplierId') ?? undefined }]));
-      if (url.pathname === "/api/pier/reports") return json(reports(s, url.searchParams));
+      if (url.pathname === "/api/pier/reports") return json(filteredReports(s, Object.fromEntries(url.searchParams)));
       if (url.pathname === "/api/pier/dispatch-summary")
         return json(
           dispatchSummary(
@@ -466,7 +476,7 @@ export async function pierResponse(
         documentExtractions: actor.role === 'owner' ? s.documentExtractions : [],
         documentSettings: actor.role === 'owner' ? s.documentSettings : [],
         documentInbox: actor.role === 'owner' ? documentViews(s).inbox : [],
-        ...(actor.role==='owner'?{}:{privacyHolds:[],privacyPolicies:[],privacyReceipts:[],salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,...party})=>party)}),
+        ...(actor.role==='owner'?{}:{savedReports:[],reportSnapshots:[],workflowRules:[],workflowJobs:[],privacyHolds:[],privacyPolicies:[],privacyReceipts:[],salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,...party})=>party)}),
         actor,
         people,
         bookConnections,
@@ -607,7 +617,7 @@ export async function pierResponse(
       if (error instanceof Problem) await refusedScan(env.DB, actor, commandId, type, payload, error.code, await load(env.DB));
       throw error;
     }
-    if (outcome && (type.startsWith('document.') || type.startsWith('privacy.'))) return json(outcome);
+    if (outcome && (type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return json(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
       const doc = (await load(env.DB)).ediDocuments.find(d => d.id === outcome.result.acknowledgmentDocumentId);

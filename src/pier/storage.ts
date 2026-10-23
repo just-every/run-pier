@@ -24,15 +24,15 @@ export const authority = (a: Actor) => ({
 });
 const effectiveRole = `CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`;
 export async function activeAutomationActors(db: D1Database): Promise<Record<string, string>> {
-  const rows = await db.prepare(`SELECT o.id,${effectiveRole} AS role FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.status='active'`).all<any>();
+  const rows = await db.prepare(`SELECT o.id,CASE WHEN json_type(r.data,'$.permissions')='object' AND ${effectiveRole}!='owner' THEN 'viewer' ELSE ${effectiveRole} END AS role FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.status='active'`).all<any>();
   return Object.fromEntries(rows.results.map(r => [r.id, r.role]));
 }
 function policyAuthority(c: Context) {
   const p = c.backgroundPolicy!;
   const path = p.collection === 'purchaseOrders' ? '$.sendPolicy.version' : p.collection === 'orders' ? '$.promisePolicy.version' : '$.version';
   const approver = p.collection === 'purchaseOrders' ? '$.sendPolicy.approvedBy' : p.collection === 'orders' ? '$.promisePolicy.approvedBy' : '$.approvedBy';
-  const enabled = p.collection === 'purchaseOrders' ? '$.sendPolicy.enabled' : p.collection === 'orders' ? '$.promisePolicy.enabled' : ['channels','bookConnections','shippingSettings','slowStockPolicies','recurringOrders','paymentConnections'].includes(p.collection) ? '$.enabled' : '$.autoDraft';
-  return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer','operator')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind=? AND id=? AND json_extract(data,?)=? AND json_extract(data,?)=? AND json_extract(data,?)=1)`,
+  const enabled = p.collection === 'purchaseOrders' ? '$.sendPolicy.enabled' : p.collection === 'orders' ? '$.promisePolicy.enabled' : ['channels','bookConnections','shippingSettings','slowStockPolicies','recurringOrders','paymentConnections','workflowRules'].includes(p.collection) ? '$.enabled' : '$.autoDraft';
+  return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND (json_type(r.data,'$.permissions') IS NULL OR ${effectiveRole}='owner') AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer','operator')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind=? AND id=? AND json_extract(data,?)=? AND json_extract(data,?)=? AND json_extract(data,?)=1)`,
     params: [c.actor.id, c.actor.role, p.collection, p.id, path, p.version, approver, c.actor.id, enabled] };
 }
 export async function load(db: D1Database): Promise<State> {
@@ -120,19 +120,19 @@ export async function commit(
   ]);
   if (c.approver) {
     guard(
-      `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END=?)`,
+      `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND (json_type(r.data,'$.permissions') IS NULL OR ${effectiveRole}='owner') AND CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END=?)`,
       [c.approver.id, c.approver.role],
     );
   }
   if (c.purchaseSendAuthority) {
     const d = c.purchaseSendAuthority;
-    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='purchaseOrders' AND id=? AND json_extract(data,'$.sendPolicy.version')=? AND json_extract(data,'$.sendPolicy.enabled')=1 AND json_extract(data,'$.sendPolicy.approvedBy')=?)`, [d.actorId, d.role, d.poId, d.policyVersion, d.actorId]);
+    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND (json_type(r.data,'$.permissions') IS NULL OR ${effectiveRole}='owner') AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='purchaseOrders' AND id=? AND json_extract(data,'$.sendPolicy.version')=? AND json_extract(data,'$.sendPolicy.enabled')=1 AND json_extract(data,'$.sendPolicy.approvedBy')=?)`, [d.actorId, d.role, d.poId, d.policyVersion, d.actorId]);
   }
   for (const d of c.delegates ?? []) {
     const oldPolicy = before.orders.find(o => o.id === d.orderId)?.promisePolicy;
     // A policy explicitly saved in this command is covered by the session guard.
     if (oldPolicy?.version !== d.policyVersion && d.actorId === c.actor.id) continue;
-    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=?) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='orders' AND id=? AND json_extract(data,'$.promisePolicy.version')=? AND json_extract(data,'$.promisePolicy.enabled')=1 AND json_extract(data,'$.promisePolicy.approvedBy')=?)`, [d.actorId,d.role,d.orderId,d.policyVersion,d.actorId]);
+    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND (json_type(r.data,'$.permissions') IS NULL OR ${effectiveRole}='owner') AND ${effectiveRole}=?) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='orders' AND id=? AND json_extract(data,'$.promisePolicy.version')=? AND json_extract(data,'$.promisePolicy.enabled')=1 AND json_extract(data,'$.promisePolicy.approvedBy')=?)`, [d.actorId,d.role,d.orderId,d.policyVersion,d.actorId]);
   }
   for (const secret of c.channelSecrets ?? []) statements.push(db.prepare("INSERT INTO pier_channel_secrets(channel_id,secret) VALUES(?,?) ON CONFLICT(channel_id) DO UPDATE SET secret=excluded.secret").bind(secret.channelId, secret.secret));
   for (const kind of collections) {

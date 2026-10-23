@@ -4,7 +4,7 @@ import { zipSync, strToU8 } from 'fflate';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID, createHmac } from 'node:crypto';
-import { installation, basics } from './harness.mjs';
+import { installation, basics, buy, receive } from './harness.mjs';
 
 test('landed receipts, priced shipments and dated FIFO/average reports reconcile', async t => {
   const h = await installation();
@@ -382,4 +382,32 @@ test('invoice-specific Stripe checkout verifies ACH success once and expires pai
   credit = await h.command('invoice.credit.authorize', { creditId: credit.id, version: credit.version }); assert.equal(credit.status, 'authorized');
   assert.equal((await h.request(uncertain.path, { method: 'POST', as: '' })).status, 409);
   state = await h.state(); assert.equal(state.invoicePayLinks.find(r => r.invoiceId === uncertain.invoice.id).status, 'credited'); assert.equal(state.invoicePayments.length, 2);
+});
+
+
+test('saved warehouse reports retain exact as-of snapshots and scheduled exports without exposing foreign stock', async t => {
+  const h = await installation(); t.after(() => h.close()); const b = await basics(h);
+  const po = await buy(h, b, '10'); await receive(h, b, po, '10');
+  const foreignPO = await buy(h, b, '4');
+  await h.command('receipt.create', { poId: foreignPO.id, supplierReference: 'Other warehouse source', lines: [{ poLineId: foreignPO.lines[0].id, itemId: b.item.id, locationId: b.destination.id, quantity: '4', cost: '0.25' }] });
+  const today = new Date().toISOString().slice(0,10), parameters = { asOf: today, from: today, to: today, warehouse: 'North', days: '180' };
+  const filtered = await (await h.request('/api/pier/reports?' + new URLSearchParams(parameters))).json();
+  assert.ok(filtered.valuation.rows.every(row => (row.locationId === b.source.id))); assert.equal(filtered.valuation.total, '2.500000000000');
+  assert.equal(filtered.valuation.reconciliation.receipts, null, 'unscoped reconciliation is unavailable, never leaked into a scoped total');
+  const saved = await h.command('report.save', { name: 'North as-of stock', parameters });
+  const snapshot = await h.command('report.run', { reportId: saved.id, version: saved.version });
+  assert.deepEqual(snapshot.result.valuation, filtered.valuation);
+  const csv = await (await h.request('/api/pier/report-snapshots/' + snapshot.id + '.csv')).text(); assert.match(csv, /2.500000000000/); assert.ok(csv.includes(b.source.id)); assert.ok(!csv.includes(b.destination.id));
+  await h.command('report.save', { name: 'Unsupported parameters', parameters: { sql: 'SELECT private' } }, { error: 'REPORT_FILTER' });
+  await h.command('report.schedule', { reportId: saved.id, version: saved.version, cadenceMinutes: 15, confirm: true, enabled: true });
+  const worker = await h.mf.getWorker(); await worker.scheduled({ scheduledTime: new Date(), cron: '* * * * *' });
+  let state = await h.state(); assert.equal(state.reportSnapshots.length, 2); assert.equal(state.workflowJobs.filter(j=>j.status==='resolved').length, 1);
+  await worker.scheduled({ scheduledTime: new Date(), cron: '* * * * *' }); assert.equal((await h.state()).reportSnapshots.length, 2, 'same scheduled window never repeats the snapshot');
+  await h.command('report.schedule', { reportId: saved.id, version: saved.version, cadenceMinutes: 15, confirm: true, enabled: false });
+  await worker.scheduled({ scheduledTime: new Date(Date.now()+900000), cron: '* * * * *' }); assert.equal((await h.state()).reportSnapshots.length, 2, 'paused schedule produces no snapshot');
+  const entered = await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}}), cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+  const session = await (await h.request('/auth/session',{as:cookie})).json();
+  await h.command('role.set',{operatorId:session.operator.id,role:'warehouse',permissions:{warehouses:['South'],locationIds:[]}});
+  assert.equal((await h.request('/api/pier/reports?warehouse=North',{as:cookie})).status,403); assert.equal((await h.request('/api/pier/report-snapshots/'+snapshot.id+'.csv',{as:cookie})).status,403);
+  state = await (await h.request('/api/pier/state',{as:cookie})).json(); assert.deepEqual(state.savedReports, []); assert.deepEqual(state.reportSnapshots, []);
 });

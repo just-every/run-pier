@@ -275,10 +275,16 @@ try {
     batchId: revision.id,
     version: revision.version,
   });
-  await running.cmd('supplierItem.save', { supplierId: supplier.id, itemId: item.id, packSize: '0.5', minimum: '0.5', price: '0.1', leadDays: 3 });
+  await running.cmd('supplierItem.save', { supplierId: supplier.id, itemId: item.id, code: 'synthetic-pier-1', packSize: '0.5', minimum: '0.5', price: '0.1', leadDays: 3 });
   await running.cmd('replenishment.save', { version: 0, itemId: item.id, warehouse: 'Main', supplierId: supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '1', reorderQuantity: '1', autoDraft: true });
   const currentPO = (await (await running.request('/api/pier/export')).json()).purchaseOrders.find(r => r.id === po.id);
   await running.cmd('po.authorizeSend', { poId: po.id, version: currentPO.version, recipient: 'supplier@example.test', maxSpend: '3', expiresAt: new Date(Date.now() + 86400000).toISOString(), maxChases: 0, confirm: true });
+  let workflow = await running.cmd('workflow.save', { name: 'Portable inspection', kind: 'inventory-check', warehouses: ['Main'], supplierIds: [], perRunBudget: '0', dailyBudget: '0', cadenceMinutes: 15, automaticApproval: false });
+  const workflowPreview = await running.cmd('workflow.preview', { ruleId: workflow.id, version: workflow.version });
+  workflow = await running.cmd('workflow.enable', { ruleId: workflow.id, version: workflow.version, previewHash: workflowPreview.previewHash });
+  await running.cmd('workflow.enqueue', { ruleId: workflow.id });
+  const savedReport = await running.cmd('report.save', { name: 'Portable valuation', parameters: { warehouse: 'Main' } });
+  await running.cmd('report.run', { reportId: savedReport.id, version: savedReport.version });
   const original = documentOriginal([['synthetic-pier-1'], ['Private portable source original']]);
   await running.cmd('document.upload', { name: 'source.pdf', mimeType: 'application/pdf', base64: original.toString('base64') });
   await running.cmd('document.configure', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-2', consent: true });
@@ -347,7 +353,7 @@ try {
     );
   }
   assert.equal(after.evidenceDocuments[0].original, original.toString('base64'));
-  for (const field of ['documentSettings', 'aiSettings', 'channels', 'replenishmentPolicies'])
+  for (const field of ['documentSettings', 'aiSettings', 'channels', 'replenishmentPolicies', 'workflowRules'])
     assert.ok(after[field].every(r => r.enabled === false && r.restorePaused), field + ' paused');
   assert.equal((await running.request('/api/pier/documents/' + after.evidenceDocuments[0].id + '/original')).status, 200);
   await running.cmd('document.configure', { version: after.documentSettings[0].version, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-6', consent: true });

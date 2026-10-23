@@ -4,7 +4,7 @@ export type Permissions = { warehouses: string[]; locationIds: string[] };
 const denied = () => { throw new Problem('SCOPE', 'Your current warehouse grant does not authorize this operation.', null, 403); };
 export function parsePermissions(value: any, s: State): Permissions | undefined {
   if (value === undefined) return;
-  if (!value || !Array.isArray(value.warehouses) || !Array.isArray(value.locationIds) ||
+  if (!value || Object.keys(value).some(key => !['warehouses','locationIds'].includes(key)) || !Array.isArray(value.warehouses) || !Array.isArray(value.locationIds) ||
       !value.warehouses.every((w: any) => typeof w === 'string' && s.locations.some(l => l.warehouse === w)) ||
       !value.locationIds.every((id: any) => s.locations.some(l => l.id === id && value.warehouses.includes(l.warehouse)))) return denied();
   return { warehouses: [...new Set<string>(value.warehouses)], locationIds: [...new Set<string>(value.locationIds)] };

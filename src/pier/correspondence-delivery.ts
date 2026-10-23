@@ -19,7 +19,7 @@ const metadata = `correspondence_id AS correspondenceId,phase,
 const authority = `EXISTS (
   SELECT 1 FROM oa_operators o
   LEFT JOIN pier_records role ON role.kind='roles' AND role.id=o.id
-  WHERE o.id=json_extract(c.data,'$.approvedBy') AND o.status='active'
+  WHERE o.id=json_extract(c.data,'$.approvedBy') AND o.status='active' AND (json_type(role.data,'$.permissions') IS NULL OR json_extract(role.data,'$.role')='owner')
   AND (json_extract(c.data,'$.approvalRole') IN ('owner','buyer') OR
     (json_extract(c.data,'$.kind')='customer-promise' AND json_extract(c.data,'$.approvalRole')='operator'))
   AND CASE WHEN role.data IS NOT NULL THEN json_extract(role.data,'$.role')

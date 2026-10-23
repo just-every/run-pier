@@ -1,3 +1,4 @@
+import { runWorkflowRules } from './workflow-schedule';
 import { runRecurringSchedule } from './recurring-schedule';
 import type { Bindings } from '../auth.server';
 import { syncBooks } from './books/sync';
@@ -32,5 +33,6 @@ export async function runReplenishmentSchedule(env: Bindings, scheduledTime = Da
     await execute(env, { id: policy.approvedBy, role, name: operator.display_name, sessionId: 'scheduled-policy', operatorVersion: operator.version }, `schedule-${policy.id}-${policy.version}-${slot}`, 'automation.tick', {}, () => now, policy);
   }
   await runRecurringSchedule(env,scheduledTime);
+  await runWorkflowRules(env,scheduledTime);
   return deliverCorrespondence(env, now);
 }
