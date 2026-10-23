@@ -680,6 +680,31 @@ test('retained originals and signed mail produce cited hostile drafts; corrected
   inbound = await h.command('document.inboundRevoke', { version: inbound.version });
   assert.equal((await intake()).status, 404); assert.equal(setup.enabled, false); assert.equal(inbound.enabled, false);
   await h.command('document.delete', { documentId: document.id }, { error: 'COMMAND' });
+  // Explicit attachment erasure is a separate governed door. Its preview
+  // changes with holds and dependencies, and old command replies lose content.
+  let currentDocument = (await h.state()).evidenceDocuments.find(d => d.id === document.id);
+  currentDocument = await h.command('document.attach', { documentId: document.id, version: currentDocument.version, record: { kind: 'parties', id: b.customer.id } });
+  const preview = async () => (await h.request('/api/pier/privacy?kind=attachment&subjectId=' + document.id)).json();
+  let plan = await preview(); assert.equal(plan.allowed, true); assert.equal(plan.counts.originals, 1); assert.ok(plan.counts.extractions >= 1); assert.equal(plan.counts.inboxCopies, 1);
+  let hold = await h.command('privacy.hold', { kind: 'customer', subjectId: b.customer.id, category: 'accounting', reason: 'Owner retained evidence for review', active: true });
+  await h.command('privacy.eraseAttachment', { documentId: document.id, planHash: plan.planHash, confirm: true }, { error: 'STALE' });
+  plan = await preview(); assert.equal(plan.allowed, false);
+  await h.command('privacy.eraseAttachment', { documentId: document.id, planHash: plan.planHash, confirm: true }, { error: 'PRIVACY_HOLD' });
+  hold = await h.command('privacy.hold', { id: hold.id, version: hold.version, kind: 'customer', subjectId: b.customer.id, category: 'accounting', reason: 'Owner explicitly released accounting hold', active: false });
+  await h.command('privacy.retention', { version: 0, reviewAfterDays: 30, automaticDeletion: true, reason: 'Not authorized' }, { error: 'PRIVACY_POLICY' });
+  await h.command('privacy.retention', { version: 0, reviewAfterDays: 30, automaticDeletion: false, reason: 'Review originals after thirty days; deletion always explicit' });
+  plan = await preview(); const beforeErase = await (await h.request("/api/pier/export")).json(), eraseId = randomUUID();
+  const receipt = await h.command('privacy.eraseAttachment', { documentId: document.id, planHash: plan.planHash, confirm: true }, { commandId: eraseId });
+  assert.equal(receipt.outcome, 'complete'); assert.equal(receipt.counts.originals, 1); assert.ok(!JSON.stringify(receipt).includes(payload.base64));
+  const erased = await (await h.request('/api/pier/export')).json();
+  assert.ok(!erased.evidenceDocuments.some(d => d.id === document.id)); assert.ok(!erased.documentExtractions.some(e => e.documentId === document.id)); assert.ok(!erased.documentInbox.some(m => m.documentIds.includes(document.id)));
+  assert.ok(!JSON.stringify(erased).includes(payload.base64)); assert.ok(!JSON.stringify(erased).includes(raw.toString('base64')));
+  assert.deepEqual(erased.movements, beforeErase.movements); assert.deepEqual(erased.reservations, beforeErase.reservations); assert.deepEqual(erased.orders, beforeErase.orders);
+  assert.equal((await h.request(`/api/pier/documents/${document.id}/original`)).status, 404);
+  assert.ok((await h.db.prepare('SELECT epoch FROM rer_portability_state WHERE id=1').first()).epoch > 0);
+  assert.ok((await h.db.prepare('SELECT count(*) AS n FROM rer_portability_journal').first()).n > 0);
+  assert.equal((await h.request('/api/pier/privacy', { as: memberCookie })).status, 403);
+
 });
 
 test('document paid claims send once across concurrency, image input and failed or uncited provider outcomes', async t => {

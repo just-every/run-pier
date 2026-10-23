@@ -1,3 +1,4 @@
+import { privacy, privacyPreview } from './privacy';
 import { auditEvent, auditRows, refusedScan } from './audit';
 import { admitScopedCommand, physicalState, scoped } from './permissions';
 import { recurringOrders } from './recurring-orders';
@@ -185,7 +186,8 @@ export async function execute(
       s = structuredClone(before),
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, installationScope:sha256('pier-recurring-authority\0'+env.SESSION_SECRET), automationActors: await activeAutomationActors(env.DB) };
     await approver(env, c, type, payload);
-    let result: any = supplierBills(c, type, payload);
+    let result: any = await privacy(c, type, payload, env);
+    if (result === undefined) result = supplierBills(c, type, payload);
     if (result === undefined) result = await shipping(c, type, payload, env);
     if (result === undefined) result = business(c, type, payload);
     if (result === undefined) result = await edi(c, type, payload, env);
@@ -251,7 +253,7 @@ export async function execute(
       return outcome;
     }
     // Retaining and reviewing untrusted evidence never triggers unrelated plans.
-    if (!type.startsWith('document.') || type === 'document.approve') {
+    if (!type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -331,6 +333,11 @@ export async function pierResponse(
       if (scoped(actor)) {
         if (!['/api/pier/state', '/api/pier/scope-export'].includes(url.pathname)) throw new Problem('SCOPE', 'This door requires wider authority; use your scoped stock export.', null, 403);
         if (url.pathname === '/api/pier/scope-export') return json({ format: 'pier-scoped-stock-v1', ...s });
+      }
+      if (url.pathname === '/api/pier/privacy') {
+        if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only an owner can inspect retention and erasure dependencies.', null, 403);
+        const kind = url.searchParams.get('kind'), subjectId = url.searchParams.get('subjectId');
+        return json(kind && subjectId ? privacyPreview(s, kind, subjectId) : { policies: s.privacyPolicies, holds: s.privacyHolds, receipts: s.privacyReceipts, reviewDue: s.evidenceDocuments.filter(d => Date.parse(d.createdAt) + (s.privacyPolicies[0]?.reviewAfterDays ?? 36500) * 86400000 <= Date.now()).map(d => d.id), automaticDeletion: false });
       }
       if (url.pathname === '/api/pier/audit') {
         const events = await auditRows(env.DB);
@@ -459,7 +466,7 @@ export async function pierResponse(
         documentExtractions: actor.role === 'owner' ? s.documentExtractions : [],
         documentSettings: actor.role === 'owner' ? s.documentSettings : [],
         documentInbox: actor.role === 'owner' ? documentViews(s).inbox : [],
-        ...(actor.role==='owner'?{}:{salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,...party})=>party)}),
+        ...(actor.role==='owner'?{}:{privacyHolds:[],privacyPolicies:[],privacyReceipts:[],salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,...party})=>party)}),
         actor,
         people,
         bookConnections,
@@ -600,7 +607,7 @@ export async function pierResponse(
       if (error instanceof Problem) await refusedScan(env.DB, actor, commandId, type, payload, error.code, await load(env.DB));
       throw error;
     }
-    if (outcome && type.startsWith('document.')) return json(outcome);
+    if (outcome && (type.startsWith('document.') || type.startsWith('privacy.'))) return json(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
       const doc = (await load(env.DB)).ediDocuments.find(d => d.id === outcome.result.acknowledgmentDocumentId);
