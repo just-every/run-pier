@@ -1,7 +1,7 @@
 import { collections, type Context } from './model';
 import { subjectPlan, type NativeSubject } from './privacy-plan';
 
-const privateFields = new Set(['email','contacts','addresses','address','phone','telephone','fax','contact','contactName','attention','recipient','shipTo','shippingAddress','originalAddress','suggestedAddress','customerName','supplierName','customerPO','profileReason','resaleCertificates','certificate','body','subject','text','html','raw','pdf','filename','notes','note','reason','sourceReference','supplierReference','verificationUrl','checkoutUrl','labelPdfUrl','labelZplUrl','trackingUrl','replies','supplierReply','ambiguities','citations','verificationErrors','rateMessages','problem']);
+const privateFields = new Set(['email','contacts','addresses','address','phone','telephone','fax','contact','contactName','attention','recipient','shipTo','shippingAddress','originalAddress','suggestedAddress','customerName','supplierName','customerPO','profileReason','resaleCertificates','certificate','body','subject','text','html','raw','pdf','filename','notes','note','reason','sourceReference','supplierReference','shipmentReference','channelReference','verificationUrl','checkoutUrl','labelPdfUrl','labelZplUrl','trackingUrl','replies','supplierReply','ambiguities','citations','verificationErrors','rateMessages','problem']);
 const identityContainers = new Set(['customer','supplier','supplierSnapshot','customerSnapshot','party','salesRep']);
 const policyFields = ['promisePolicy','sendPolicy','chasePolicy','creditClearance'];
 export function personalValues(target: any, native?: NativeSubject): Set<string> {
