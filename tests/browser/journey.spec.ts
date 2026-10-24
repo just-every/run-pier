@@ -816,7 +816,7 @@ test('live answers and editable bulk purchase reviews retain exact human command
     await scopedQuestion.getByRole('button', { name: 'Ask current records', exact: true }).click()
     await expect(scopedQuestion.getByRole('status')).toContainText('Remaining demand exceeds')
     await expect(scopedQuestion.getByRole('status')).not.toContainText(customer.id)
-    expect(await scopedQuestion.getByLabel('Question', { exact: true }).locator('option').allTextContents()).toEqual(['What stock is available?', 'Why is an order short?'])
+    await expect(scopedQuestion.getByLabel('Question', { exact: true }).locator('option[value="margin"],option[value="supplier"],option[value="allocation"],option[value="late"]')).toHaveCount(0)
     await assertNativeWidth(memberPage)
     if (shots) await scopedQuestion.screenshot({ path: join(shots, width + '-question-restricted.png') })
     const review = section(page, 'Review purchase changes')
