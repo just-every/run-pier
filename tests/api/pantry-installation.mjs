@@ -21,7 +21,7 @@ export async function pantryInstallation(){
       // Read the sibling through GitHub's API; no sibling Git checkout or write
       // remote is created by this integration fixture.
       let archive;
-      try { archive = (await exec('gh',['api','repos/just-every/run-pantry/tarball/5c712d42d1c2107a7550aba3b0dd6add0f1927ff'], { encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 })).stdout; }
+      try { archive = (await exec('gh',['api','repos/just-every/run-pantry/tarball/e987ba0a2270a81c62d399c44c6e05d3b504bb07'], { encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 })).stdout; }
       catch { throw new Error('Could not read the pinned Pantry source archive through gh api.'); }
       const archivePath = join(dir,'source.tar.gz');
       await writeFile(archivePath,archive); await mkdir(source);

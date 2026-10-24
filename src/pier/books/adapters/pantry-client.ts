@@ -20,7 +20,7 @@ export function pantryClient(config: BooksAdapterConfig) {
     // keeps the same identity after response loss, reconnect or restore.
     const key=`pier:${sha256(doc.key)}:${operation}`;
     try{return await request(path,body,key);}catch(error){
-      if(error instanceof PantryRefusal&&['contacts','invoices','bills','journals','documents'].includes(path))error.safeCreationRefusal=true;
+      if(error instanceof PantryRefusal&&['contacts','invoices','bills','journals','documents','vendor-credits'].includes(path))error.safeCreationRefusal=true;
       throw error;
     }
   };

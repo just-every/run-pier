@@ -1,9 +1,10 @@
 import { balance, decimal, fail, format, fresh, get, id, move, nextReference, requireRole, row, text, type Context, type Row } from './model';
+import { amount, extended, money, share, toCents } from './money';
 import { landReceipt } from './landed-cost';
 
 /** Physical supplier returns never reverse or reopen the original receipt/PO. */
 export function supplierReturns(c: Context, type: string, p: any): Row | undefined {
-  if (!['supplierReturn.create', 'supplierReturn.authorize', 'supplierReturn.dispatch', 'supplierReturn.credit', 'supplierReturn.replace'].includes(type)) return;
+  if (!['supplierReturn.create', 'supplierReturn.authorize', 'supplierReturn.dispatch', 'supplierReturn.credit', 'supplierReturn.replace', 'supplierReturn.postCredit'].includes(type)) return;
   requireRole(c, ['warehouse', 'buyer']);
   if (type === 'supplierReturn.create') {
     const receipt = get(c.s, 'receipts', p.receiptId);
@@ -29,6 +30,23 @@ export function supplierReturns(c: Context, type: string, p: any): Row | undefin
   }
   const document = get(c.s, 'supplierReturns', p.returnId);
   fresh(document, p.version);
+  if (type === 'supplierReturn.postCredit') {
+    requireRole(c, []);
+    if (!c.s.bookConnections.some(connection => connection.enabled && connection.provider === 'pantry')) fail('BOOK_CONNECTION', 'Connect Pantry before posting a supplier credit.');
+    const resolution = document.resolutions.find((r: Row) => r.kind === 'supplierReturn.credit' && r.reference === p.reference);
+    if (!resolution || resolution.postingAuthorizedAt) fail('SUPPLIER_CREDIT', 'Choose an unposted retained supplier credit.');
+    const bill = get(c.s, 'supplierBills', p.supplierBillId);
+    if (bill.status !== 'approved' || bill.supplierId !== document.supplierId || bill.poId !== document.poId) fail('SUPPLIER_CREDIT', 'Choose an approved matched payable for this supplier and purchase order.');
+    for (const entry of resolution.lines) {
+      const line = document.lines.find((l: Row) => l.id === entry.returnLineId);
+      const matched = bill.approval.match.lines.flatMap((l: Row) => l.receiptAllocations).filter((a: Row) => a.receiptId === document.receiptId && a.receiptLineId === line.receiptLineId).reduce((n: bigint, a: Row) => n + decimal(a.quantity), 0n);
+      const prior = c.s.supplierReturns.flatMap(r => r.resolutions.filter((x: Row) => x.supplierBillId === bill.id).flatMap((x: Row) => x.lines.map((e: Row) => ({ ...e, receiptLineId: r.lines.find((l: Row) => l.id === e.returnLineId).receiptLineId })))).filter(e => e.receiptLineId === line.receiptLineId).reduce((n: bigint, e: Row) => n + decimal(e.quantity), 0n);
+      if (prior + decimal(entry.quantity) > matched) fail('SUPPLIER_CREDIT', 'The credit quantity exceeds this payable’s matched original receipt quantity.');
+    }
+    Object.assign(resolution, { id: resolution.id ?? id(), supplierBillId: bill.id, supplierName: bill.approval.supplier.name, postingAuthorizedAt: c.now, postingAuthorizedBy: c.actor.id, posting: 'pending' });
+    document.version++;
+    return document;
+  }
   if (type === 'supplierReturn.authorize') {
     if (document.status !== 'quarantined') fail('SUPPLIER_RETURN_STATE', 'Only a quarantined return awaits authorization.');
     const reference = text(p.authorizationReference, 'Supplier authorization reference');
@@ -60,7 +78,7 @@ export function supplierReturns(c: Context, type: string, p: any): Row | undefin
       if (q + decimal(l.credited) + decimal(l.replaced) > decimal(l.quantity)) fail('SUPPLIER_RETURN_LIMIT', 'Credit and replacement exceed the dispatched quantity.');
       return { returnLineId: l.id, quantity: format(q), locationId: x.locationId };
     });
-    const resolution: any = { kind: type, reference, evidence: text(p.evidence, 'Supplier resolution evidence'), lines: entries, actorId: c.actor.id, at: c.now };
+    const resolution: any = { id: id(), kind: type, reference, evidence: text(p.evidence, 'Supplier resolution evidence'), lines: entries, actorId: c.actor.id, at: c.now };
     if (type === 'supplierReturn.credit') {
       const amount = decimal(p.amount, true);
       if (amount % 10000n) fail('SUPPLIER_CREDIT', 'Record a USD credit in whole cents.');
@@ -77,6 +95,18 @@ export function supplierReturns(c: Context, type: string, p: any): Row | undefin
         receipt.lines.push({ id: id(), poLineId: l.poLineId, itemId: l.itemId, locationId: x.locationId, quantity: x.quantity, cost: l.cost, movementId: movement.id });
       }
       landReceipt(receipt);
+      // Replacements carry the retained original landed shares; they create no payable.
+      const original = get(c.s, 'receipts', document.receiptId);
+      for (let index = 0; index < entries.length; index++) {
+        const entry = entries[index], returned = document.lines.find((l: Row) => l.id === entry.returnLineId);
+        const source = original.lines.find((l: Row) => l.id === returned.receiptLineId), line = receipt.lines[index];
+        const prior = c.s.supplierReturns.filter(r => r.receiptId === original.id).flatMap(r => r.lines).filter(l => l.receiptLineId === source.id).reduce((n: bigint, l: Row) => n + decimal(l.replaced), 0n);
+        for (const field of ['freight', 'duty']) line[field] = money(share(amount(source[field] ?? '0'), prior + decimal(entry.quantity), decimal(source.quantity)) - share(amount(source[field] ?? '0'), prior, decimal(source.quantity)));
+        line.landedTotal = money(extended(line.quantity, line.cost) + amount(line.freight) + amount(line.duty));
+        line.landedUnitCost = money(toCents(amount(line.landedTotal) * 1000000n / decimal(line.quantity)));
+      }
+      receipt.landedCost = { ...receipt.landedCost, freight: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.freight), 0n)), duty: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.duty), 0n)), total: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.landedTotal), 0n)) };
+
       resolution.receiptId = receipt.id;
     }
     for (const x of entries) {

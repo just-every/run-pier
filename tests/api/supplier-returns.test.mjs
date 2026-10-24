@@ -1,11 +1,25 @@
+import { pantryInstallation } from './pantry-installation.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { installation, basics, buy, receive } from './harness.mjs';
 
 test('BUY-003: quarantine, supplier authority, once-only dispatch, credit/replacement evidence preserve receipt and outstanding PO', async t => {
-  const h = await installation(); t.after(() => h.close());
-  const b = await basics(h), po = await buy(h, b, '10'), receipt = await receive(h, b, po, '8');
+  const pantry=await pantryInstallation();t.after(()=>pantry.close());
+  await pantry.command('chart.start',{});
+  const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),freight=await pantry.command('account.save',{code:'5100',name:'Freight and duty',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find(a=>a.code==='4000');
+  let loseCredit=false;
+  const h=await installation({async outboundService(request){
+    const response=await fetch(request.url,{method:request.method,headers:Object.fromEntries([...request.headers].filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),...(request.method==='GET'?{}:{body:await request.arrayBuffer()})});
+    if(loseCredit&&request.method==='POST'&&request.url.endsWith('/vendor-credits')){loseCredit=false;await response.text();throw new Error('Synthetic loss after Pantry saved supplier credit');}
+    return response;
+  }});t.after(()=>h.close());
+  const b = await basics(h), po = await buy(h, b, '10'), receipt = await h.command('receipt.create',{poId:po.id,supplierReference:'synthetic-pier-1',landedCost:{freight:'0.80',duty:'0.08',allocation:'quantity'},lines:[{poLineId:po.lines[0].id,locationId:b.source.id,quantity:'8',cost:'0.25'}]});
+  const bill=await h.command('supplierBill.save',{poId:po.id,reference:'synthetic-pier-2',date:new Date().toISOString().slice(0,10),quantityTolerancePercent:'0',priceTolerancePercent:'0',lines:[{poLineId:po.lines[0].id,quantity:'8',unitPrice:'0.25'}]});
+  await h.command('supplierBill.approve',{id:bill.id,version:bill.version,receiptEvidence:bill.match.receiptEvidence});
+  const credential=await pantry.command('integration.create',{name:'Pier returns',scopes:['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','vendor-credits:read','vendor-credits:write','post']});
+  await h.command('book.connect',{baseUrl:pantry.origin,integrationToken:credential.token,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,landedCostAccountId:freight.id,taxCode:'exempt'});
+  await h.command('book.sync',{});
   const before = await h.state();
   const original = before.receipts.find(r => r.id === receipt.id), commitment = before.purchaseOrders.find(r => r.id === po.id);
   const payload = { receiptId: receipt.id, reason: 'Three damaged units', lines: [{ receiptLineId: receipt.lines[0].id, quantity: '3' }] };
@@ -15,7 +29,7 @@ test('BUY-003: quarantine, supplier authority, once-only dispatch, credit/replac
   let state = await h.invariant();
   assert.equal(state.positions.find(p => p.status === 'sellable' && p.locationId === b.source.id).available, '5');
   assert.equal(state.positions.find(p => p.status === 'quarantine').quantity, '3');
-  const stable = () => h.request('/api/pier/export').then(r => r.json()).then(({ exportedAt, ...s }) => s);
+  const stable = () => h.request('/api/pier/export').then(r => r.json()).then(({ exportedAt, bookJobs, bookConnections, auditEvents, providerAudits, ...s }) => s);
   const unchanged = async (type, payload, error) => { const before = await stable(); await h.command(type, payload, { error }); assert.deepEqual(await stable(), before); };
   await unchanged('supplierReturn.create', { ...payload, lines: [{ receiptLineId: receipt.lines[0].id, quantity: '6' }] }, 'SUPPLIER_RETURN_LIMIT');
   await unchanged('supplierReturn.dispatch', { returnId: returned.id, version: returned.version, dispatchReference: 'OUT' }, 'SUPPLIER_RETURN_STATE');
@@ -44,6 +58,18 @@ test('BUY-003: quarantine, supplier authority, once-only dispatch, credit/replac
   assert.deepEqual(state.purchaseOrders.find(r => r.id === po.id), commitment);
   assert.equal(state.positions.find(p => p.status === 'sellable' && p.locationId === b.destination.id).quantity, '2');
   assert.equal(state.positions.find(p => p.status === 'quarantine').quantity, '0');
+  assert.equal(replacedReceipt.lines[0].freight,'0.200000000000');assert.equal(replacedReceipt.lines[0].duty,'0.020000000000');assert.equal(replacedReceipt.lines[0].landedTotal,'0.720000000000');
+  await unchanged('supplierReturn.postCredit',{returnId:returned.id,version:returned.version,reference:'CM-42',supplierBillId:'missing'},'NOT_FOUND');
+  const post={returnId:returned.id,version:returned.version,reference:'CM-42',supplierBillId:bill.id},postId=randomUUID();loseCredit=true;
+  await h.command('supplierReturn.postCredit',post,{commandId:postId});
+  state=await h.state();assert.equal(state.bookJobs.find(j=>j.key.startsWith('supplier-credit:')).status,'uncertain');
+  await h.command('supplierReturn.postCredit',post,{commandId:postId});await h.command('book.sync',{});await h.command('book.sync',{});
+  state=await h.state();returned=state.supplierReturns[0];assert.equal(returned.resolutions[0].posting,'posted');assert.equal(returned.resolutions[0].books.allocated,'0.25');assert.equal(returned.resolutions[0].books.unallocated,'0.00');
+  const creditResponse=await fetch(pantry.origin+'/api/pantry/integration/v1/vendor-credits',{headers:{authorization:`Bearer ${credential.token}`}});assert.equal(creditResponse.status,200);
+  const credits=(await creditResponse.json()).vendorCredits;assert.equal(credits.length,1);assert.equal(credits[0].amount_cents,25);assert.equal(credits[0].unallocated_cents,0);assert.equal(credits[0].allocations.length,1);
+  const remoteBill=(await pantry.view('sales')).bills[0];assert.equal(remoteBill.open_cents,175);assert.equal(credits[0].allocations[0].target_id,remoteBill.id);assert.equal((await pantry.view('sales')).bills.length,1,'replacement never creates a second payable');
+  assert.equal(state.bookJobs.find(j=>j.key==='inventory-reconciliation').status,'reconciled');
+  assert.equal((await pantry.view('reports/trial-balance')).rows.find(r=>r.id===inventory.id).net,252);
   const exported = await stable();
   assert.deepEqual(exported.supplierReturns[0], returned);
   const reports = await h.request('/api/pier/reports'); assert.equal(reports.status, 200, await reports.clone().text());

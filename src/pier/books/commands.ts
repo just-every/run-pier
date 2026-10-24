@@ -50,6 +50,12 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
       const credits=c.s.bookJobs.filter(j=>j.kind==='credit'&&(returnIds.has(j.sourceId)||creditIds.has(j.sourceId)));
       if(invoices.length)order.books={invoiceIds:invoices.map(j=>j.remoteId).filter(Boolean),creditIds:credits.map(j=>j.remoteId).filter(Boolean),credited:money(credits.filter(j=>j.status==='posted'||j.status==='reconciled').reduce((n,j)=>n+amount(j.total??'0.00'),0n)),paid:money(invoices.reduce((n,j)=>n+amount(j.paid??'0.00'),0n)),open:invoices.every(j=>j.open!==null&&j.open!==undefined)?money(invoices.reduce((n,j)=>n+amount(j.open),0n)):null,status:invoices.every(j=>j.status==='reconciled')?'reconciled':'open'};
     }
+    if(job.sourceKind==='supplierCredit'){
+      for(const returned of c.s.supplierReturns){
+        const resolution=returned.resolutions.find((r:any)=>r.id===job.sourceId);
+        if(resolution)Object.assign(resolution,{posting:job.status,books:{creditId:job.remoteId,status:job.status,allocated:job.allocated,unallocated:job.unallocated,checkedAt:c.now}});
+      }
+    }
     if(job.sourceKind==='customerCredit'){
       const credit=c.s.customerCredits.find(r=>r.id===job.sourceId);
       if(credit){

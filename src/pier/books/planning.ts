@@ -3,6 +3,7 @@ import { amount, money, extended } from '../money';
 import { valuationLedger } from '../valuation-ledger';
 import type { BookDocument } from './adapters/types';
 import { planSupplierBills } from './supplier-bills';
+import { planSupplierReturns } from './supplier-return-planning';
 import { planReturnBooks } from './return-planning';
 import { repairLandedCents } from '../landed-cost';
 
@@ -44,7 +45,7 @@ export function planBooks(c: Context) {
   planSupplierBills(c, connection, add, dollars);
   // Freight and duty enter Pantry's inventory from the account their carrier and
   // customs bills are entered in, so Pantry's stock value matches Pier's landed cost.
-  for (const receipt of c.s.receipts.filter(r => r.status === 'posted' && r.currency === 'USD' && r.landedCost)) {
+  for (const receipt of c.s.receipts.filter(r => r.status === 'posted' && r.currency === 'USD' && r.landedCost && !r.replacementFor)) {
     const extra = receipt.lines.reduce((n: bigint, l: any) => n + amount(l.freight ?? '0') + amount(l.duty ?? '0'), 0n);
     if (!extra) continue;
     add(`landed:${receipt.id}`,'journal',receipt,'receipt',ref('LAND',receipt.id),() => {
@@ -78,6 +79,7 @@ export function planBooks(c: Context) {
     });
   }
   planReturnBooks(c, connection, add, dollars);
+  planSupplierReturns(c, connection, add, dollars);
   const frontier = c.s.movements.at(-1)?.sequence;
   if (frontier) {
     const source={id:`valuation-${frontier}`,version:1};

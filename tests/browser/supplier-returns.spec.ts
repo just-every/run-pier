@@ -1,9 +1,15 @@
+// @ts-expect-error Real sibling Worker fixture accessed through GitHub's API.
+import { pantryInstallation } from '../api/pantry-installation.mjs'
 import { test, expect } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ownerEntry } from './session'
 
 test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evidence at 1440 and 390', async ({ page, context }) => {
+  const pantry=await pantryInstallation()
+  try {
+  await pantry.command('chart.start',{})
+  const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find((a:any)=>a.code==='4000')
   const origin = process.env.PIER_BOOTSTRAP ? process.env.PIER_BASE_URL! : await ownerEntry(page)
   if (process.env.PIER_BOOTSTRAP) {
     const response = await context.request.post(`${origin}/auth/bootstrap`, { headers: { origin }, data: { token: process.env.PIER_BOOTSTRAP, displayName: 'Owner' }, maxRedirects: 0 })
@@ -25,6 +31,10 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     await command('po.approve', { poId: po.id, version: po.version })
     po = await command('po.commit', { poId: po.id, version: po.version })
     await command('receipt.create', { poId: po.id, supplierReference: `DEL-${width}`, lines: [{ poLineId: po.lines[0].id, locationId: bin.id, quantity: '8', cost: '4' }] })
+    const credential=await pantry.command('integration.create',{name:`Pier returns ${width}`,scopes:['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','vendor-credits:read','vendor-credits:write','post']})
+    await command('book.connect',{baseUrl:pantry.origin,integrationToken:credential.token,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,taxCode:'exempt'})
+    const bill=await command('supplierBill.save',{poId:po.id,reference:`synthetic-pier-${width}`,date:new Date().toISOString().slice(0,10),quantityTolerancePercent:'0',priceTolerancePercent:'0',lines:[{poLineId:po.lines[0].id,quantity:'8',unitPrice:'4'}]})
+    await command('supplierBill.approve',{id:bill.id,version:bill.version,receiptEvidence:bill.match.receiptEvidence})
     await page.setViewportSize({ width, height: 1000 })
     await page.goto(`${origin}/app#purchasing`); await page.reload()
     await page.getByRole('button', { name: 'All', exact: true }).click()
@@ -65,7 +75,13 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     await expect(returned).toContainText('Replacement received')
     await page.reload(); await page.getByRole('button', { name: 'All', exact: true }).click()
     await expect(returned).toContainText(`CM-${width}`)
+    const post=returned.locator('section').filter({has:page.getByRole('heading',{name:`Post supplier credit · CM-${width}`,exact:true})})
+    await post.getByLabel('Matched supplier payable',{exact:true}).selectOption(bill.id)
+    await post.getByRole('button',{name:'Post supplier credit to Pantry',exact:true}).click()
+    await expect.poll(async()=>{const response=await context.request.get(`${origin}/api/pier/state`);return (await response.json()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting}).toBe('posted')
+    await page.reload();await page.getByRole('button',{name:'All',exact:true}).click();await expect(returned).toContainText('Books: posted')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
     if (shots) await returned.screenshot({ path: join(shots, `${width}-return-reconciled.png`) })
   }
+  } finally { await pantry.close() }
 })

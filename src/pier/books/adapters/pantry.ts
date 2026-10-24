@@ -16,6 +16,7 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
   };
   const invoice=(number:string)=>lookup('invoices','invoices','number',number);
   const raw=async(doc:BookDocument) => {
+    if(doc.vendorCreditForReference)return lookup('vendor-credits','vendorCredits',doc.remoteId?'id':'reference',doc.remoteId??doc.reference);
     if(doc.kind==='item')return client.attachment(doc);
     if(doc.kind==='journal')return lookup('journals','entries',doc.remoteId?'id':'memo',doc.remoteId??doc.reference);
     const sales=['invoice','credit'].includes(doc.kind);
@@ -28,6 +29,10 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
   };
   const validate=(doc:BookDocument,r:any) => {
     const mismatch=()=>{throw new PantryRefusal('The Pantry record with this Pier reference has different amounts, accounts or lines. Review both records before continuing.',409);};
+    if(doc.vendorCreditForReference){
+      if(r.credit_date!==doc.date || r.vendor_name!==doc.party?.name || r.account_id!==doc.lines[0].account || BigInt(r.amount_cents)!==cents(doc.total))mismatch();
+      return;
+    }
     if(doc.kind==='item')return;
     if((doc.kind==='journal'?r.entry_date:['invoice','credit'].includes(doc.kind)?r.issue_date:r.bill_date)!==doc.date || r.reversed_by_id) mismatch();
     if(doc.kind==='journal') {
@@ -41,6 +46,12 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
   };
   const result=async(doc:BookDocument,r:any):Promise<BookResult>=>{
     validate(doc,r);
+    if(doc.vendorCreditForReference){
+      const target=await lookup('bills','bills','reference',doc.vendorCreditForReference);
+      const allocated=r.allocations.reduce((n:bigint,a:any)=>n+BigInt(a.amount_cents),0n);
+      if(!target||r.vendor_id!==target.vendor_id||r.allocations.some((a:any)=>a.target_id!==target.id||a.target_kind!=='bill')||allocated!==cents(doc.total)||BigInt(r.unallocated_cents)!==0n)throw new PantryRefusal('The supplier credit is not fully allocated to its matched payable. Review it in Pantry.',409);
+      return {id:r.id,status:'posted',allocated:dollars(allocated),unallocated:dollars(BigInt(r.unallocated_cents))};
+    }
     if(doc.kind==='credit') {
       const target=await invoice(doc.creditForReference!);
       if(!target||target.kind!=='invoice'||r.credit_for!==target.id)throw new PantryRefusal('The return credit is linked to a different invoice. Review its dispatch reference in Pantry.',409);
@@ -68,6 +79,15 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
       if(doc.kind==='item'){const r=await client.upload(doc);return{id:r.id,status:'posted'};}
       let r=await raw(doc);
       if(r)validate(doc,r);
+      if(doc.vendorCreditForReference){
+        const target=await lookup('bills','bills','reference',doc.vendorCreditForReference);
+        if(!target||target.status!=='posted'||target.vendor_name!==doc.party?.name)throw new PantryRefusal('Post the matched supplier payable in Pantry before its credit.',409);
+        if(!r){
+          if(BigInt(target.open_cents)<cents(doc.total))throw new PantryRefusal('The matched payable has insufficient open balance. Review the supplier credit with your accountant.',409);
+          r=await client.post('vendor-credits',{vendorId:target.vendor_id,reference:doc.reference,date:doc.date,amount:doc.total,accountId:doc.lines[0].account,allocations:[{targetId:target.id,amount:doc.total}]},doc,'vendor-credit');
+        }
+        return result(doc,r);
+      }
       if(doc.kind==='invoice'||doc.kind==='credit'){
         let target:any;
         if(doc.kind==='credit') {

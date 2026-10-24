@@ -74,6 +74,7 @@ export function shipmentLayers(consumed: Map<string, Layer[]>, shipment: any, li
 export function valuationLedger(s: State, end: string) {
   const positions = new Map<string, Position>();
   const consumed = new Map<string, Layer[]>();
+  const supplierReturnLayers = new Map<string, Layer[]>();
   const moved = new Map<string, Layer[]>();
   const kitting = new Map((s.kittingTasks ?? []).map(task => [task.id, task]));
   const kitIssues = new Map<string, (Layer & { itemId: string })[]>();
@@ -141,7 +142,10 @@ export function valuationLedger(s: State, end: string) {
           }
           totals.receipts -= originalValue;
         } else record('receipts', layers, -1n);
-      } else record('adjustments', layers, -1n);
+      } else {
+        if (s.supplierReturns.some(r => r.id === m.documentId)) supplierReturnLayers.set(m.documentId, [...(supplierReturnLayers.get(m.documentId) ?? []), ...structuredClone(layers)]);
+        record('adjustments', layers, -1n);
+      }
     } else if (q > 0n) {
       if (isInternal) {
         const layers = moved.get(key);
@@ -204,5 +208,5 @@ export function valuationLedger(s: State, end: string) {
     }
   }
   applyMethods(Number.MAX_SAFE_INTEGER);
-  return { positions: [...positions.values()], consumed, totals, incomplete, method, history, kittingIssues: kitIssues, returnedLayers };
+  return { positions: [...positions.values()], consumed, supplierReturnLayers, totals, incomplete, method, history, kittingIssues: kitIssues, returnedLayers };
 }

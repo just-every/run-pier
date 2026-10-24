@@ -8,7 +8,7 @@ import { loadPantryAccounts, type PantryAccount, type PantryBankAccount } from '
 // the credential to create inside Pantry, then accounts picked from the list
 // Pantry returns. No account IDs or browser cookies are copied by hand.
 
-const SCOPES = 'Contacts, Invoices, Bills, Journals, Documents, Payments readback, Record external payments, Reports and Post approved sibling records'
+const SCOPES = 'Contacts, Invoices, Bills, Journals, Documents, Payments readback, Record external payments, Vendor credits read and write, Reports and Post approved sibling records'
 const option = (a: PantryAccount) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>
 const kinds = {
   inventory: (a: PantryAccount) => a.type === 'asset' && !['bank', 'receivable'].includes(a.subtype),

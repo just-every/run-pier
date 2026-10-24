@@ -101,7 +101,7 @@ export async function syncBooks(env:Bindings){
         }
         const posted=['issued','posted','attached'].includes(result.status);
         const settled=['invoice','bill'].includes(job.kind)&&(result.open!==undefined?amount(result.open)===0n:result.paid!==undefined&&amount(result.paid)===amount(doc.total));
-        await record('book.record',{jobId:job.id,result:{remoteId:result.id,status:settled?'reconciled':posted?'posted':'review',paid:result.paid??null,open:result.open??null,received:result.received??false,readyToPay:result.readyToPay??false,reason:posted?'':'Pantry has not posted this document. Review its current approval state.',fix:'Open the matching record in Pantry, resolve its review, then check again.'}});processed++;
+        await record('book.record',{jobId:job.id,result:{remoteId:result.id,status:settled?'reconciled':posted?'posted':'review',paid:result.paid??null,open:result.open??null,received:result.received??false,readyToPay:result.readyToPay??false,allocated:result.allocated??null,unallocated:result.unallocated??null,reason:posted?'':'Pantry has not posted this document. Review its current approval state.',fix:'Open the matching record in Pantry, resolve its review, then check again.'}});processed++;
       }catch(error){
         if(error instanceof PantryRefusal&&error.status===401)connectionProblem=BROKEN;
         if(error instanceof PantryRefusal&&error.status===403)connectionProblem=`Pantry refused part of Pier's work: ${error.message}. In Pantry, create a new integration credential for Pier with every permission listed in Books settings, then reconnect here.`;
