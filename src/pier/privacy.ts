@@ -52,6 +52,7 @@ async function eraseSubject(c: Context, p: any, env: Bindings) {
   if (!preview.allowed) fail('PRIVACY_DEPENDENCY', 'Resolve the listed source custody or remote dependencies before erasure.', { blockers: plan.blockers });
   if (native?.id === c.actor.id) fail('PRIVACY_OWNER', 'Another owner must review and confirm erasure of this operator. Self-erasure is unavailable.');
   if (p.confirm !== true) fail('PRIVACY_CONSENT', 'Explicitly confirm irreversible local anonymization, deletion of the listed private copies and cancellation of queued correspondence.');
+  const subjectVersion = plan.target.version;
   const values = personalValues(plan.target, native);
   const statements = remoteGuards(env, plan, p.kind, p.subjectId);
   if (native) statements.push(...eraseNativeIdentity(c, env, native));
@@ -71,7 +72,7 @@ async function eraseSubject(c: Context, p: any, env: Bindings) {
   for (const id of secretIds) statements.push(env.DB.prepare('DELETE FROM pier_channel_secrets WHERE channel_id=?').bind(id));
   statements.push(...await redactionStatements(env.DB), ...await invalidateTransfersStatements(env.DB));
   c.privacyStatements = statements;
-  return row(c, 'privacyReceipts', { kind:p.kind, subjectId:p.subjectId, subjectVersion:plan.target.version, nativeBeforeVersion:native?.version ?? null, counts:preview.counts, completedAt:c.now, approvedBy:c.actor.id, outcome:'complete', retained:preview.retained, beyondLocalDeletion:preview.beyondLocalDeletion });
+  return row(c, 'privacyReceipts', { kind:p.kind, subjectId:p.subjectId, subjectVersion, nativeBeforeVersion:native?.version ?? null, counts:preview.counts, completedAt:c.now, approvedBy:c.actor.id, outcome:'complete', retained:preview.retained, beyondLocalDeletion:preview.beyondLocalDeletion });
 }
 
 export async function privacy(c: Context, type: string, p: any, env: Bindings) {
