@@ -45,7 +45,10 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   const termsEditor = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Revise supplier-item terms', exact: true }) }).last()
   await termsEditor.getByLabel('Supplier minimum order value (USD, optional)', { exact: true }).fill('1000')
   if (shots) await termsEditor.screenshot({ path: join(shots, `${width}-reorder-supplier-terms.png`) })
+  const termsSaved = page.waitForResponse(response => response.url() === `${origin}/api/pier/commands` && response.request().postDataJSON()?.type === 'supplierItem.save')
   await termsEditor.getByRole('button', { name: 'Save', exact: true }).click()
+  await termsSaved
+  await page.locator('main[aria-busy="false"]').waitFor()
   const batch = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Reorder list and purchase batch', exact: true }) }).last()
   const aLabel = `Blue mugs ${width} · PLAN-A-${width}`, eLabel = `Tea cups ${width} · PLAN-E-${width}`
   await expect(batch.getByLabel(`Purchase quantity for ${aLabel} at ${eastName}`, { exact: true })).toHaveValue('48')

@@ -1,0 +1,47 @@
+name: Nightly acceptance
+on:
+  schedule:
+    - cron: '43 18 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    name: Browser acceptance ${{ matrix.shard }} of 4
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+      GH_TOKEN: ${{ github.token }}
+      PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-acceptance
+      PIER_SCREENSHOTS: ${{ runner.temp }}/pier-acceptance/screenshots
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reclaim unused hosted runner toolchain space
+        if: runner.environment == 'github-hosted' && runner.os == 'Linux'
+        shell: bash
+        run: |
+          df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
+          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
+          df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.20.0'
+      - run: corepack enable && corepack prepare pnpm@10.12.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Exercise existing desktop and phone acceptance
+        run: node tests/browser/acceptance.mjs --shard=${{ matrix.shard }}/4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: acceptance-${{ matrix.shard }}
+          path: ${{ runner.temp }}/pier-acceptance
+          if-no-files-found: ignore
+          retention-days: 7

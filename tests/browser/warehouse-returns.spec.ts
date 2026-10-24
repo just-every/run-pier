@@ -116,7 +116,9 @@ test('warehouse partial receiving, transfers, counts and authorized or quarantin
       current = await state()
       const waiting = current.returns.filter((r: any) => r.itemId === item.id && r.receivedBy === member.operator.id)
       expect(waiting).toHaveLength(2); expect(waiting.every((r: any) => r.status === 'quarantine' && !r.inspectedBy && !r.writeOffAccountId)).toBe(true)
-      await command('book.sync', {})
+      // A busy sync returns before the current ledger pass finishes. Complete
+      // a fresh pass before the next warehouse scenario captures its frontier.
+      await expect.poll(async () => Boolean((await command('book.sync', {})).busy), { timeout: 30_000 }).toBe(false)
       const jobs = (await state()).bookJobs
       expect(jobs.find((j: any) => j.key === `return-writeoff:${written.id}`).status).toBe('posted')
     }
