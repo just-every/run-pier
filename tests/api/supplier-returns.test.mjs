@@ -77,6 +77,10 @@ test('BUY-003: quarantine, supplier authority, once-only dispatch, credit and re
   const remoteBill=(await pantry.view('sales')).bills[0];assert.equal(remoteBill.open_cents,175);assert.equal(credits[0].allocations[0].target_id,remoteBill.id);assert.equal((await pantry.view('sales')).bills.length,1,'replacement never creates a second payable');
   assert.equal(state.bookJobs.find(j=>j.key==='inventory-reconciliation').status,'reconciled');
   assert.equal((await pantry.view('reports/trial-balance')).rows.find(r=>r.id===inventory.id).net,252);
+  const csv=await (await h.request('/api/pier/books/export.csv')).text();
+  assert.ok(csv.includes('"Supplier credit total","Accounts Payable","1","0.25",""'));
+  const iif=await h.request('/api/pier/books/export.iif');assert.equal(iif.status,200,await iif.clone().text());
+  assert.match(await iif.text(),/GENERAL JOURNAL\t[^\n]*Accounts Payable\tMetals\t0\.25/);
   const exported = await stable();
   assert.deepEqual(exported.supplierReturns[0], returned);
   const reports = await h.request('/api/pier/reports'); assert.equal(reports.status, 200, await reports.clone().text());

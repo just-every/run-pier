@@ -7,7 +7,7 @@ const csv=(value:unknown)=>{let text=String(value??'');if(/^[=+@\-\t\r]/.test(te
 export function booksExport(state:State,format:'csv'|'iif'){
   const s=structuredClone(state);
   s.bookJobs=[];
-  s.bookConnections=[{id:'export',version:1,enabled:true,inventoryAccountId:'Inventory Asset',cogsAccountId:'Cost of Goods Sold',revenueAccountId:'Sales'}];
+  s.bookConnections=[{id:'export',version:1,enabled:true,inventoryAccountId:'Inventory Asset',cogsAccountId:'Cost of Goods Sold',revenueAccountId:'Sales',landedCostAccountId:state.bookConnections.some(c=>c.enabled&&c.landedCostAccountId)?'Freight and duty':undefined}];
   planBooks({s,now:new Date().toISOString(),commandId:'export',actor:{id:'',name:'',role:'viewer',sessionId:'',operatorVersion:0}});
   const jobs=s.bookJobs.filter(j=>['invoice','credit','bill','journal'].includes(j.kind));
   if(format==='csv'){
@@ -16,9 +16,9 @@ export function booksExport(state:State,format:'csv'|'iif'){
       if(!job.document){rows.push([job.kind,'',job.reference,'','','','','','',job.reason]);continue;}
       const d=job.document;
       if(d.kind==='invoice')rows.push([d.kind,d.date,d.reference,d.party.name,'Invoice total','Accounts Receivable','1',d.total,'','']);
-      if(d.kind==='credit')rows.push([d.kind,d.date,d.reference,d.party.name,'Return credit total','Accounts Receivable','1','',d.total,'']);
+      if(d.kind==='credit')rows.push([d.kind,d.date,d.reference,d.party.name,d.vendorCreditForReference?'Supplier credit total':'Return credit total',d.vendorCreditForReference?'Accounts Payable':'Accounts Receivable','1',d.vendorCreditForReference?d.total:'',d.vendorCreditForReference?'':d.total,'']);
       if(d.kind==='bill')rows.push([d.kind,d.date,d.reference,d.party.name,'Bill total','Accounts Payable','1','',d.total,'']);
-      for(const l of d.lines)rows.push([d.kind,d.date,d.reference,d.party?.name??'',l.description,l.account,l.quantity,l.debit??(['bill','credit'].includes(d.kind)?l.amount:''),l.credit??(d.kind==='invoice'?l.amount:''),'']);
+      for(const l of d.lines)rows.push([d.kind,d.date,d.reference,d.party?.name??'',l.description,l.account,l.quantity,l.debit??(d.kind==='bill'||d.kind==='credit'&&!d.vendorCreditForReference?l.amount:''),l.credit??(d.kind==='invoice'||d.vendorCreditForReference?l.amount:''),'']);
     }
     return rows.map(r=>r.map(csv).join(',')).join('\r\n')+'\r\n';
   }
@@ -27,9 +27,9 @@ export function booksExport(state:State,format:'csv'|'iif'){
   const rows=['!TRNS\tTRNSID\tTRNSTYPE\tDATE\tACCNT\tNAME\tAMOUNT\tDOCNUM\tMEMO','!SPL\tSPLID\tTRNSTYPE\tDATE\tACCNT\tNAME\tAMOUNT\tDOCNUM\tMEMO','!ENDTRNS'];
   for(const job of jobs){
     const d=job.document,party=d.party?.name??'',date=d.date.slice(5,7)+'/'+d.date.slice(8,10)+'/'+d.date.slice(0,4);
-    const lines=d.kind==='journal'?d.lines.map((l:any)=>({account:l.account,value:l.debit??`-${l.credit}`,description:l.description})):d.kind==='invoice'?[{account:'Accounts Receivable',value:d.total,description:'Invoice total'},...d.lines.map((l:any)=>({account:l.account,value:`-${l.amount}`,description:l.description}))]:d.kind==='credit'?[{account:'Accounts Receivable',value:`-${d.total}`,description:'Return credit total'},...d.lines.map((l:any)=>({account:l.account,value:l.amount,description:l.description}))]:[...d.lines.map((l:any)=>({account:l.account,value:l.amount,description:l.description})),{account:'Accounts Payable',value:`-${d.total}`,description:'Bill total'}];
+    const lines=d.kind==='journal'?d.lines.map((l:any)=>({account:l.account,value:l.debit??`-${l.credit}`,description:l.description})):d.kind==='invoice'?[{account:'Accounts Receivable',value:d.total,description:'Invoice total'},...d.lines.map((l:any)=>({account:l.account,value:`-${l.amount}`,description:l.description}))]:d.kind==='credit'?(d.vendorCreditForReference?[{account:'Accounts Payable',value:d.total,description:'Supplier credit total'},...d.lines.map((l:any)=>({account:l.account,value:`-${l.amount}`,description:l.description}))]:[{account:'Accounts Receivable',value:`-${d.total}`,description:'Return credit total'},...d.lines.map((l:any)=>({account:l.account,value:l.amount,description:l.description}))]):[...d.lines.map((l:any)=>({account:l.account,value:l.amount,description:l.description})),{account:'Accounts Payable',value:`-${d.total}`,description:'Bill total'}];
     if(lines.reduce((n:bigint,l:any)=>n+amount(l.value),0n)!==0n)throw new Error('Export entries do not balance. Review the source document.');
-    lines.forEach((l:any,i:number)=>rows.push([i?'SPL':'TRNS','',d.kind==='invoice'?'INVOICE':d.kind==='credit'?'CREDIT MEMO':d.kind==='bill'?'BILL':'GENERAL JOURNAL',date,l.account,party,l.value,d.reference,l.description].map(clean).join('\t')));
+    lines.forEach((l:any,i:number)=>rows.push([i?'SPL':'TRNS','',d.kind==='invoice'?'INVOICE':d.kind==='credit'?(d.vendorCreditForReference?'GENERAL JOURNAL':'CREDIT MEMO'):d.kind==='bill'?'BILL':'GENERAL JOURNAL',date,l.account,party,l.value,d.reference,l.description].map(clean).join('\t')));
     rows.push('ENDTRNS');
   }
   return rows.join('\r\n')+'\r\n';
