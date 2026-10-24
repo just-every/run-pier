@@ -409,7 +409,8 @@ export function ScheduledSales({
             {drop.credits.map((credit: any) => (
               <p key={credit.id}>
                 {credit.reference} · authorized customer credit{" "}
-                <Amount value={credit.amount} /> USD · not posted to books
+                <Amount value={credit.amount} /> USD · {credit.postingAuthorizedAt ? `Books: ${credit.posting}` : 'not posted to books'}
+                {!credit.postingAuthorizedAt && <button type="button" disabled={busy || !owner} onClick={() => run('dropship.postCredit', { dropshipId: drop.id, version: drop.version, creditId: credit.id })}>Post customer credit to Pantry</button>}
               </p>
             ))}
           </section>

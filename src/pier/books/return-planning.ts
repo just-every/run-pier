@@ -8,6 +8,27 @@ type Dollars = (value: string) => string;
 const reference = (prefix: string, id: string) => `PIER-${prefix}-${id.replaceAll('-', '').slice(0, 24)}`;
 
 export function planReturnBooks(c: Context, connection: Row, add: Add, dollars: Dollars) {
+  // Only a retained credit's explicit owner authorization opens this financial door.
+  for (const drop of c.s.dropships) {
+    const order = c.s.orders.find(o => o.id === drop.orderId)!;
+    for (const shipment of drop.shipments) {
+      const credits = c.s.customerCredits.filter(credit => credit.dropshipId === drop.id && credit.shipmentId === shipment.id && credit.postingAuthorizedAt);
+      if (!credits.length) continue;
+      const party = { id: order.customerId, name: credits[0].customerName, kind: 'customer' as const };
+      add(`dropship-invoice:${shipment.id}`, 'invoice', { ...shipment, orderId: order.id }, 'order', reference('DSINV', shipment.id), () => {
+        const lines = shipment.lines.map((line: Row) => {
+          const total = dollars(line.salesTotal);
+          return { itemId: line.itemId, description: `Direct supplier shipment ${shipment.reference} · ${line.quantity}`, quantity: '1', unitPrice: total, amount: total, account: connection.revenueAccountId };
+        });
+        return { key: `dropship-invoice:${shipment.id}`, kind: 'invoice', date: shipment.shipDate, reference: reference('DSINV', shipment.id), party, lines, total: dollars(money(lines.reduce((n: bigint, line: Row) => n + amount(line.amount), 0n))) };
+      });
+      for (const credit of credits) add(`dropship-credit:${credit.id}`, 'credit', credit, 'customerCredit', reference('DSCR', credit.id), () => {
+        const total = dollars(credit.amount);
+        if (!amount(total)) throw new Error('A zero-value dropship credit needs accountant review.');
+        return { key: `dropship-credit:${credit.id}`, kind: 'credit', date: credit.authorizedAt.slice(0, 10), reference: reference('DSCR', credit.id), creditForReference: reference('DSINV', shipment.id), party: { ...party, name: credit.customerName }, total, lines: [{ description: `${credit.reference} · ${credit.quantity} · ${credit.reason}`, quantity: '1', unitPrice: total, amount: total, account: connection.revenueAccountId }] };
+      });
+    }
+  }
   for (const returned of c.s.returns) {
     const shipment = c.s.shipments.find(sh => sh.id === returned.shipmentId)!;
     const order = c.s.orders.find(o => o.id === shipment.orderId)!;

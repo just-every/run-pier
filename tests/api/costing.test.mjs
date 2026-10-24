@@ -1,3 +1,4 @@
+import { pantryInstallation } from './pantry-installation.mjs';
 import { salesWorkbook } from './sales-workbook.mjs';
 import { pdfText } from './pdf-text.mjs';
 import { zipSync, strToU8 } from 'fflate';
@@ -205,10 +206,43 @@ test('recurring orders apply price, stock and credit policy once per due day and
   await h.restartWithFreshSigningKey();worker=await h.mf.getWorker();await worker.scheduled({scheduledTime:new Date(Date.now()+2*86400000),cron:'* * * * *'});s=await h.state();schedule=s.recurringOrders[0];assert.match(schedule.lastOutcome.reason,/Re-authorize/);assert.equal(s.orders.length,2);
   schedule=await h.command('recurring.pause',{scheduleId:schedule.id,version:schedule.version,reason:'Customer paused'});await worker.scheduled({scheduledTime:new Date(Date.now()+3*86400000),cron:'* * * * *'});assert.equal((await h.state()).orders.length,2);
   schedule=await h.command('recurring.cancel',{scheduleId:schedule.id,version:schedule.version,reason:'Customer cancelled'});await h.command('recurring.save',{...policy,id:schedule.id,version:schedule.version},{error:'RECURRING_CANCELLED'});assert.equal((await h.state()).orders.length,2);
+  const entered=await fetch(`${h.origin}/auth/dev/enter?as=member`,{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}}),cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+  const member=await (await h.request('/api/pier/state',{as:cookie})).json();await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
+  await h.command('recurring.save',policy,{as:cookie,error:'FORBIDDEN'});
+  await h.command('customer.creditClearance',{customerId:b.customer.id,version:(await h.state()).parties.find(p=>p.id===b.customer.id).version,status:'clear',allowance:'100',validThrough:future,reason:'New signing scope'},{as:cookie,error:'FORBIDDEN'});
+  for(const cadenceDays of [0,367])await h.command('recurring.save',{...policy,cadenceDays},{error:'CADENCE'});
+  await clearance('clear');
+  const bounded=async(change,expected)=>{let schedule=await h.command('recurring.save',{...policy,...change});schedule=await h.command('recurring.run',{scheduleId:schedule.id,version:schedule.version});assert.match(schedule.lastOutcome.reason,expected);assert.equal(schedule.occurrences.length,0);};
+  await bounded({enabled:false},/paused/);
+  await bounded({nextDue:future},/not due/);
+  await bounded({ceiling:'1'},/price ceiling/);
+  await bounded({lines:[{itemId:b.item.id,quantity:'100'}],ceiling:'1000'},/allowance/);
+  const customer=(await h.state()).parties.find(p=>p.id===b.customer.id);
+  await h.command('customer.creditClearance',{customerId:customer.id,version:customer.version,status:'clear',allowance:'1000',validThrough:future,reason:'Reviewed stock bound'});
+  await bounded({lines:[{itemId:b.item.id,quantity:'100'}],ceiling:'1000'},/Full-stock/);
+  const expired=(await h.state()).parties.find(p=>p.id===b.customer.id);
+  await h.command('customer.creditClearance',{customerId:expired.id,version:expired.version,status:'clear',allowance:'1000',validThrough:'2020-01-01',reason:'Expired reviewed allowance'});
+  await bounded({},/credit clearance/);
+  await clearance('clear');
+  const other=await h.command('party.save',{name:'Other recurring customer',kind:'customer'});
+  await bounded({customerId:other.id,lines:[{itemId:b.item.id,quantity:'1',price:'3'}]},/credit clearance/);
+  const overdue=await h.command('recurring.save',{...policy,nextDue:new Date(Date.now()-3*86400000).toISOString().slice(0,10)});
+  await worker.scheduled({scheduledTime:new Date(),cron:'* * * * *'});
+  s=await h.state();assert.equal(s.recurringOrders.find(r=>r.id===overdue.id).occurrences.length,1,'one overdue occurrence per policy in a pass');
+  assert.equal(s.shipments.length,0);assert.equal(s.invoices.length,0);assert.equal(s.bookJobs.length,0);assert.equal(s.correspondence?.length??0,0);
+
 });
 
 test('direct dropship demand retains supplier PO, confirmation, tracking, cost and bounded customer credit without warehouse stock',async t=>{
-  const h=await installation();t.after(()=>h.close());const b=await basics(h),stable=async()=>{const s=await h.state();return {movements:s.movements,reservations:s.reservations,positions:s.positions,companyStocks:s.companyStocks};};const before=await stable();
+  const pantry=await pantryInstallation();t.after(()=>pantry.close());
+  await pantry.command('chart.start',{});
+  const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find(a=>a.code==='4000');
+  let loseCredit=false;
+  const h=await installation({async outboundService(request){
+    const response=await fetch(request.url,{method:request.method,headers:Object.fromEntries([...request.headers].filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),...(request.method==='GET'?{}:{body:await request.arrayBuffer()})});
+    if(loseCredit&&request.method==='POST'&&request.url.endsWith('/invoices')){const body=await response.clone().json();if(body.kind==='credit'){loseCredit=false;await response.text();throw new Error('Synthetic response loss after saving customer credit');}}
+    return response;
+  }});t.after(()=>h.close());const b=await basics(h),stable=async()=>{const s=await h.state();return {movements:s.movements,reservations:s.reservations,positions:s.positions,companyStocks:s.companyStocks};};const before=await stable();
   let drop=await h.command('dropship.create',{customerId:b.customer.id,supplierId:b.supplier.id,shipTo:'40 Pier Road, Portland OR 97210',promiseDate:'2026-11-01',reason:'Supplier ships directly',lines:[{itemId:b.item.id,quantity:'3',price:'10',cost:'4'}]});let s=await h.state(),po=s.purchaseOrders.find(p=>p.id===drop.poId);assert.equal(po.directToCustomer,drop.shipTo);assert.deepEqual(await stable(),before);
   await h.command('dropship.confirm',{dropshipId:drop.id,version:drop.version,supplierReference:'synthetic-pier-1',shipDate:'2026-11-01'},{error:'DROPSHIP_PO'});
   await h.command('po.approve',{poId:po.id,version:po.version});po=await h.command('po.commit',{poId:po.id,version:po.version});assert.deepEqual(await stable(),before);
@@ -217,6 +251,18 @@ test('direct dropship demand retains supplier PO, confirmation, tracking, cost a
   const payload={dropshipId:drop.id,version:drop.version,supplierReference:'synthetic-pier-2',carrier:'Supplier carrier',tracking:'synthetic-pier-3',shipDate:new Date().toISOString().slice(0,10),lines:[{orderLineId:drop.lines[0].orderLineId,quantity:'3'}]},commandId=randomUUID();await h.command('dropship.ship',{...payload,shipDate:new Date(Date.now()+86400000).toISOString().slice(0,10)},{error:'DATE'});await h.command('dropship.ship',{...payload,supplierReference:b.item.sku},{error:'DUPLICATE'});drop=await h.command('dropship.ship',payload,{commandId});assert.deepEqual(await h.command('dropship.ship',payload,{commandId}),drop);assert.equal(drop.shipments[0].lines[0].costTotal,'12.000000000000');
   const credit={dropshipId:drop.id,version:drop.version,shipmentId:drop.shipments[0].id,orderLineId:drop.lines[0].orderLineId,quantity:'2',reference:'synthetic-pier-4',reason:'Customer credit for supplier damage'};drop=await h.command('dropship.credit',credit);assert.equal(drop.credits[0].amount,'20.000000000000');assert.equal(drop.credits[0].posting,'not-posted');
   await h.command('dropship.credit',{...credit,version:drop.version,quantity:'2',reference:'synthetic-pier-5'},{error:'CREDIT_LIMIT'});assert.deepEqual(await stable(),before);
+  const credential=await pantry.command('integration.create',{name:'Pier',scopes:['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','post']});
+  await h.command('book.connect',{baseUrl:pantry.origin,integrationToken:credential.token,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,taxCode:'exempt'});
+  assert.equal((await pantry.view('sales')).invoices.length,0,'retaining a credit alone does not authorize posting');
+  const posting={dropshipId:drop.id,version:drop.version,creditId:drop.credits[0].id},postingId=randomUUID();loseCredit=true;
+  await h.command('dropship.postCredit',posting,{commandId:postingId});
+  s=await h.state();assert.equal(s.bookJobs.find(j=>j.key.startsWith('dropship-credit:')).status,'uncertain');
+  await h.command('dropship.postCredit',posting,{commandId:postingId});await h.command('book.sync',{});
+  const financial=(await pantry.view('sales')).invoices,invoice=financial.find(i=>i.kind==='invoice'),posted=financial.find(i=>i.kind==='credit');
+  assert.equal(financial.length,2);assert.equal(posted.credit_for,invoice.id);assert.equal(posted.total_cents,2000);assert.equal(invoice.open_cents,1000);
+  s=await h.state();assert.equal(s.customerCredits[0].posting,'posted');assert.equal(s.customerCredits[0].books.creditId,posted.id);assert.equal(s.dropships[0].credits[0].posting,'posted');
+  await h.command('dropship.postCredit',{...posting,version:s.dropships[0].version},{error:'CREDIT'});
+  assert.deepEqual(await stable(),before);
   s=await h.state();assert.equal(s.orders.find(o=>o.id===drop.orderId).lines[0].dispatched,'3');assert.equal(s.receipts.length,0);assert.equal(s.customerCredits.length,1);const nativeExit=await h.request('/api/pier/native-export');assert.equal(nativeExit.status,409);assert.equal((await nativeExit.json()).error.code,'NATIVE_DROPSHIP');assert.equal((await (await h.request('/api/pier/export')).json()).dropships[0].shipments[0].tracking,'synthetic-pier-3');
 });
 

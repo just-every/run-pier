@@ -184,6 +184,21 @@ export function dropships(c: Context, type: string, p: any): Row | undefined {
     drop.version++;
     return drop;
   }
+  if (type === "dropship.postCredit") {
+    const credit = get(c.s, "customerCredits", p.creditId);
+    if (credit.dropshipId !== drop.id) fail("CREDIT", "Choose this dropship's retained credit.");
+    if (!c.s.bookConnections.some(connection => connection.enabled && connection.provider === "pantry"))
+      fail("BOOK_CONNECTION", "Connect Pantry before authorizing this credit posting.");
+    if (credit.postingAuthorizedAt) fail("CREDIT", "This credit posting is already authorized. Check Books for its outcome.");
+    credit.postingAuthorizedAt = c.now;
+    credit.postingAuthorizedBy = c.actor.id;
+    credit.customerName = get(c.s, "parties", order.customerId).name;
+    credit.posting = "pending";
+    credit.version++;
+    Object.assign(drop.credits.find((entry: Row) => entry.id === credit.id), credit);
+    drop.version++;
+    return drop;
+  }
   if (type === "dropship.credit") {
     const shipment = drop.shipments.find((s: any) => s.id === p.shipmentId),
       line = shipment?.lines.find((l: any) => l.orderLineId === p.orderLineId);

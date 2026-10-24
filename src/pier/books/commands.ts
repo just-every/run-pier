@@ -46,8 +46,18 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
     for(const order of c.s.orders){
       const invoices=c.s.bookJobs.filter(j=>j.sourceKind==='order'&&j.sourceId===order.id&&j.kind==='invoice');
       const returnIds=new Set(c.s.returns.filter(r=>c.s.shipments.some(sh=>sh.id===r.shipmentId&&sh.orderId===order.id)).map(r=>r.id));
-      const credits=c.s.bookJobs.filter(j=>j.kind==='credit'&&returnIds.has(j.sourceId));
+      const creditIds=new Set(c.s.customerCredits.filter(cr=>cr.orderId===order.id).map(cr=>cr.id));
+      const credits=c.s.bookJobs.filter(j=>j.kind==='credit'&&(returnIds.has(j.sourceId)||creditIds.has(j.sourceId)));
       if(invoices.length)order.books={invoiceIds:invoices.map(j=>j.remoteId).filter(Boolean),creditIds:credits.map(j=>j.remoteId).filter(Boolean),credited:money(credits.filter(j=>j.status==='posted'||j.status==='reconciled').reduce((n,j)=>n+amount(j.total??'0.00'),0n)),paid:money(invoices.reduce((n,j)=>n+amount(j.paid??'0.00'),0n)),open:invoices.every(j=>j.open!==null&&j.open!==undefined)?money(invoices.reduce((n,j)=>n+amount(j.open),0n)):null,status:invoices.every(j=>j.status==='reconciled')?'reconciled':'open'};
+    }
+    if(job.sourceKind==='customerCredit'){
+      const credit=c.s.customerCredits.find(r=>r.id===job.sourceId);
+      if(credit){
+        Object.assign(credit,{posting:job.status,books:{creditId:job.remoteId,status:job.status,checkedAt:c.now}});
+        const drop=c.s.dropships.find(r=>r.id===credit.dropshipId);
+        const retained=drop?.credits.find((r:any)=>r.id===credit.id);
+        if(retained)Object.assign(retained,credit);
+      }
     }
     if(job.sourceKind==='supplierBill'){
       const bill=c.s.supplierBills.find(r=>r.id===job.sourceId);
