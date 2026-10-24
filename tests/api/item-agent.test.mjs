@@ -204,14 +204,17 @@ test('bulk purchase reviews preview exact rows, edit, apply once with human auth
   assert.equal(afterPromise.orders.find(order => order.id === demand.id).lines[0].backorderPromiseDate, current.backorderPlan.lines[0].expectedDate);
   assert.ok(afterPromise.correspondence.some(message => message.id === promised.rows[0].resultId && message.recipient === 'customer@example.test'));
   await h.command('role.set', { operatorId: session.operator.id, role: 'operator' });
+  const operatorEntry = await fetch(h.origin + '/auth/dev/enter?as=member', { redirect:'manual', headers:{'x-rer-dev-key':h.devKey} });
+  assert.equal(operatorEntry.status,303);
+  const operatorCookie = operatorEntry.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
   const currentState = await h.state(), pendingPurchase = currentState.purchaseOrders.find(po => po.id === third.id), pendingOrder = currentState.orders.find(order => order.id === demand.id);
   let mixed = await h.command('itemAgent.bulkPreview', { rows: [
     { type:'po.revise', payload:{ ...pendingPurchase, poId:pendingPurchase.id, promiseDate:'2026-11-06', reason:'Review remaining purchase independently' } },
     { type:'order.repromise', payload:{ orderId:pendingOrder.id, version:pendingOrder.version, fingerprint:pendingOrder.backorderPlan.fingerprint, recipient:'reviewed@example.test', confirm:true } },
   ] });
-  await h.command('itemAgent.bulkApply', { proposalId:mixed.id, version:mixed.version, rowId:mixed.rows[0].id, reason:'Operator lacks purchase revision authority' }, { as:cookie, error:'FORBIDDEN' });
+  await h.command('itemAgent.bulkApply', { proposalId:mixed.id, version:mixed.version, rowId:mixed.rows[0].id, reason:'Operator lacks purchase revision authority' }, { as:operatorCookie, error:'FORBIDDEN' });
   assert.deepEqual((await h.state()).purchaseOrders, currentState.purchaseOrders);
-  mixed = await h.command('itemAgent.bulkApply', { proposalId:mixed.id, version:mixed.version, rowId:mixed.rows[1].id, reason:'Operator approves only the exact customer promise' }, { as:cookie });
+  mixed = await h.command('itemAgent.bulkApply', { proposalId:mixed.id, version:mixed.version, rowId:mixed.rows[1].id, reason:'Operator approves only the exact customer promise' }, { as:operatorCookie });
   assert.equal(mixed.rows[1].approval.role, 'operator');
   mixed = await h.command('itemAgent.bulkApply', { proposalId:mixed.id, version:mixed.version, rowId:mixed.rows[0].id, reason:'Owner approves the remaining purchase row' });
   assert.equal(mixed.rows[0].approval.role, 'owner');
