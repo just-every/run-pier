@@ -366,9 +366,9 @@ export async function pierResponse(
       }
       if (url.pathname === '/api/pier/audit') {
         const events = await auditRows(env.DB);
-        return json(events.filter(event => ['itemId','documentId','userId','connectorId'].every(key => {
+        return json(events.filter(event => ['itemId','documentId','userId','connectorId','commandId'].every(key => {
           const value = url.searchParams.get(key);
-          return !value || (key === 'itemId' ? event.itemIds.includes(value) : key === 'documentId' ? event.documentIds.includes(value) : key === 'userId' ? event.actorId === value : event.connectorId === value);
+          return !value || (key === 'itemId' ? event.itemIds.includes(value) : key === 'documentId' ? event.documentIds.includes(value) || event.commandId === value : key === 'userId' ? event.actorId === value : key === 'commandId' ? event.commandId === value : event.connectorId === value);
         })));
       }
       const printDocument=printRead(url.pathname,actor,s);if(printDocument)return printDocument;

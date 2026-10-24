@@ -64,6 +64,7 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
   if (listing?.itemId) itemIds.add(listing.itemId);
   return { id: c.commandId + ':' + outcome, at: c.now, actorId: c.actor.id, commandId: c.commandId, type, outcome, version: before.version + (outcome === 'refused' ? 0 : 1), rule: c.backgroundPolicy ?? null,
     connectorId: p.channelId ?? (type.startsWith('book.') ? 'pantry' : modelTraffic ? 'openai' : null), direction: type === 'channel.ingest' ? 'inbound' : type === 'channel.published' ? 'outbound' : modelTraffic ? modelAttempt ? 'outbound' : 'inbound' : null,
+    ...(type === 'itemAgent.bulkApply' ? { ordinaryCommand: { type: c.s.proposals.find(plan => plan.id === p.proposalId)?.rows.find((entry: any) => entry.id === p.rowId)?.type, commandId: c.commandId } } : {}),
     ...(modelTraffic ? { phase: modelAttempt ? 'attempt' : 'outcome', attemptId: p.operationId, requestId: p.operationId } : {}),
     itemIds: [...itemIds], documentIds: [...documents], changes, ...(reason ? { reason } : type === 'receiving.link' ? { reason: p.reason } : {}),
     ...(scanTypes.has(type) ? { code: typeof (p.code ?? p.itemCode) === 'string' ? (p.code ?? p.itemCode).slice(0, 200) : '', binCode: typeof p.binCode === 'string' ? p.binCode.slice(0, 200) : null, device: typeof p.device === 'string' ? p.device.slice(0, 120) : 'unspecified input', resolution } : {}),

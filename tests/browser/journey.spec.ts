@@ -835,6 +835,12 @@ test('live answers and editable bulk purchase reviews retain exact human command
     await expect(review).toContainText('draft; separate purchase approval required')
     await submit(page, review, 'Approve ' + drafts[0].reference)
     await expect(review).toContainText('Applied command')
+    const appliedLink = review.getByRole('link', { name: 'Activity', exact: true }).last()
+    const appliedCommand = (await appliedLink.getAttribute('href'))!.split('/').at(-1)!
+    await appliedLink.click()
+    await expect(page.getByLabel('Document identity filter', { exact: true })).toHaveValue(appliedCommand)
+    await expect(section(page, 'Decision and input history')).toContainText(appliedCommand)
+    await page.getByRole('link', { name: 'Activity', exact: true }).first().click()
     const orders = []
     for (let i = 0; i < 2; i++) orders.push(await command('order.create', { customerId: customer.id, warehouse: 'Bulk warehouse', promiseDate: '2026-11-01', lines: [{ itemId: item.id, quantity: '2', price: '4' }] }))
     await page.reload()
