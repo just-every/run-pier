@@ -38,6 +38,7 @@ export async function beginProviderAttempt(db: D1Database, input: ProviderAudit,
   const attemptId = crypto.randomUUID();
   const event = {
     id: `${attemptId}:attempt`, at: new Date().toISOString(), actorId: input.actor.id,
+    authority: { role: input.actor.role, nativeVersion: input.actor.operatorVersion, permissionVersion: input.actor.permissionVersion ?? 0 },
     commandId: input.commandId, type: 'provider.' + input.operation, outcome: 'uncertain' as Outcome,
     phase: 'attempt', attemptId, requestId: input.requestId ?? input.commandId,
     providerAttemptId: input.providerAttemptId ?? attemptId, approval: input.approval ?? null,

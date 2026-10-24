@@ -71,7 +71,7 @@ async function eraseSubject(c: Context, p: any, env: Bindings) {
   for (const id of secretIds) statements.push(env.DB.prepare('DELETE FROM pier_channel_secrets WHERE channel_id=?').bind(id));
   statements.push(...await redactionStatements(env.DB), ...await invalidateTransfersStatements(env.DB));
   c.privacyStatements = statements;
-  return row(c, 'privacyReceipts', { kind:p.kind, subjectId:p.subjectId, counts:preview.counts, completedAt:c.now, approvedBy:c.actor.id, outcome:'complete', retained:preview.retained, beyondLocalDeletion:preview.beyondLocalDeletion });
+  return row(c, 'privacyReceipts', { kind:p.kind, subjectId:p.subjectId, subjectVersion:plan.target.version, nativeBeforeVersion:native?.version ?? null, counts:preview.counts, completedAt:c.now, approvedBy:c.actor.id, outcome:'complete', retained:preview.retained, beyondLocalDeletion:preview.beyondLocalDeletion });
 }
 
 export async function privacy(c: Context, type: string, p: any, env: Bindings) {

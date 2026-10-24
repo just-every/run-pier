@@ -179,6 +179,7 @@ test('bulk purchase reviews preview exact rows, edit, apply once with human auth
   const applied = events.find(event => event.commandId === applyId);
   assert.ok(applied);
   assert.equal(applied.ordinaryCommand.type, 'po.revise');
+  assert.equal(applied.authority.role, 'owner');
   assert.deepEqual(await (await h.request('/api/pier/audit?commandId=' + applyId)).json(), [applied]);
   const change = applied.changes.find(change => change.kind === 'purchaseOrders');
   assert.equal(change.before.promiseDate, '2026-11-01');
