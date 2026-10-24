@@ -776,7 +776,7 @@ test('live answers and editable bulk purchase reviews retain exact human command
     const question = section(page, 'Live operational questions')
     await question.getByLabel('Question item', { exact: true }).selectOption(item.id)
     await question.getByRole('button', { name: 'Ask current records', exact: true }).click()
-    await expect(question.getByRole('status')).toContainText('state Version')
+    await expect(question.getByRole('status')).toContainText('Committed version')
     await expect(question).toContainText('No physical count is inferred.')
     const shotQuestion = async (name: string) => { if (shots) { await question.screenshot({ path: join(shots, width + '-question-' + name + '.png') }); await question.evaluate(node => node.scrollIntoView({ block: 'start' })); await page.screenshot({ path: join(shots, width + '-question-' + name + '-viewport.png') }) } }
     await shotQuestion('stock')

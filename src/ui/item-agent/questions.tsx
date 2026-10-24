@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { records, type PierState, type RecordData } from '../api'
-import { Evidence, Field, Select } from '../controls'
+import { Field, Select } from '../controls'
+
+import { QuestionAnswer } from './question-answer'
 
 type Question = 'stock' | 'late' | 'shortage' | 'margin' | 'supplier' | 'allocation'
 const questions: { id: Question; label: string; global?: boolean }[] = [
@@ -76,6 +78,6 @@ export function LiveQuestions({ state }: { state: PierState }) {
     {kind === 'shortage' && !choicesBusy && !choicesProblem && !orders.length && <p>No order is available within your current warehouse authority.</p>}
     {['supplier', 'allocation'].includes(kind) && <p>Compare current records without changing stock, purchases, customer promises or messages. Applying a change requires its ordinary human review.</p>}
     <button disabled={busy || missing || (restricted && questions.find(question => question.id === kind)?.global)} onClick={() => void ask()}>{busy ? 'Reading current records…' : 'Ask current records'}</button>
-    {problem && <p role="alert">{problem}</p>}{answer !== null && <div role="status"><Evidence value={answer} /></div>}
+    {problem && <p role="alert">{problem}</p>}{answer !== null && <div role="status"><QuestionAnswer state={state} answer={answer} /></div>}
   </section>
 }
