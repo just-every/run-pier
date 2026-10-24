@@ -28,7 +28,7 @@ type Result = { outcome?: Outcome; externalIds?: unknown[] };
 // a stable digest, never a URL, contact, credential or arbitrary response text.
 function identities(values: unknown[] = []): string[] {
   return [...new Set(values.filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .map(value => /^[a-zA-Z0-9_.:-]{1,200}$/.test(value) ? value : `sha256:${sha256(value)}`))];
+    .map(value => (/^[a-zA-Z0-9_.:-]{1,200}$/.test(value) || /^gid:\/\/shopify\/(?:ProductVariant|InventoryItem|Location|Order|LineItem)\/\d+$/.test(value)) ? value : `sha256:${sha256(value)}`))];
 }
 
 /** Admission and intent are one SQL write. Completion never needs renewed authority. */

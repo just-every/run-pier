@@ -62,5 +62,7 @@ export function anonymizeSubject(c: Context, kind: string, id: string, native?: 
       if (JSON.stringify(next) !== before) Object.assign(record, next, { version:record.version + 1 });
     }
   }
+  for (const hold of c.s.privacyHolds.filter(hold => !hold.active && plan.ids.has(hold.subjectId))) { hold.reason = 'Released hold retained without personal content after erasure.'; hold.version++; }
+  if (kind === 'operator') for (const policy of c.s.privacyPolicies.filter(policy => policy.approvedBy === id)) { policy.consent = null; policy.version++; }
   return plan;
 }

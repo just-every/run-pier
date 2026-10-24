@@ -1,5 +1,6 @@
 import type { Bindings } from '../auth.server';
 import { fail, type State } from './model';
+import { personalValues } from './privacy-state';
 import { subjectPlan, type NativeSubject } from './privacy-plan';
 
 type Plan = ReturnType<typeof subjectPlan>;
@@ -14,6 +15,9 @@ export async function nativeSubject(env: Bindings, kind: string, id: string) {
 }
 export async function inspectSubject(s: State, kind: string, id: string, env: Bindings) {
   const native = await nativeSubject(env, kind, id), plan = subjectPlan(s, kind, id, native), ids = JSON.stringify([...plan.ids]);
+  const personal = [...personalValues(plan.target, native)].filter(value => value.length >= 3);
+  const legacy = await env.DB.prepare("SELECT id,data FROM pier_audit WHERE actor_id=? OR EXISTS(SELECT 1 FROM json_each(data,'$.documentIds') d JOIN json_each(?) i ON i.value=d.value)").bind(kind === 'operator' ? id : '',ids).all<{id:string;data:string}>();
+  for (const event of legacy.results) if (personal.some(value => event.data.includes(value))) plan.blockers.push({ code:'PRIVACY_AUDIT_CONTENT', kind:'audit', id:event.id, reason:'This append-only input event contains personal subject text. A dedicated audit-content redaction is required before erasure.' });
   const remote = await env.DB.prepare(`SELECT (${noPendingProvider}) AND (${noPendingMail}) AND (${noActiveSync}) AS clear`).bind(ids,kind,id,ids,Date.now(),Date.now()).first<{ clear:number }>();
   if (!remote?.clear) plan.blockers.push({ code:'PRIVACY_REMOTE', kind:'provider', id, reason:'Reconcile unfinished provider attempts and uncertain or sending mail, and wait for active accounting and channel syncs to finish before erasure.' });
   if (native?.role === 'owner' && native.status === 'active') {
