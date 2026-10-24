@@ -4,7 +4,7 @@ import { fail } from '../model';
 export class CarrierRefusal extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
-export function easyPost(apiKey: string) {
+export function easyPost(apiKey: string, expectedMode: string) {
   async function call(path: string, body?: object) {
     const response = await fetch(`https://api.easypost.com/v2/${path}`, {
       method: body ? 'POST' : 'GET', redirect: 'manual',
@@ -13,7 +13,9 @@ export function easyPost(apiKey: string) {
       signal: AbortSignal.timeout(25000),
     });
     if (!response.ok) throw new CarrierRefusal(response.status, `EasyPost refused the request (${response.status}). Review the address, carrier account and account balance in EasyPost.`);
-    return response.json() as Promise<any>;
+    const value: any = await response.json();
+    if (path.startsWith('shipments') && value.mode !== expectedMode) throw new CarrierRefusal(409, 'EasyPost returned a shipment in another mode. Reconnect the intended account before purchasing a label.');
+    return value;
   }
   return {
     verify: (address: object) => call('addresses', { address, verify: true }),

@@ -4,6 +4,7 @@ import { credentials } from '../channels/secrets';
 import { execute } from '../api';
 import { SETTINGS, unavailable } from './commands';
 import { easyPost } from './easypost';
+import { providerOperation } from '../provider-audit';
 import { trackingChange } from './transport';
 
 export async function shippingWebhook(request: Request, env: Bindings): Promise<Response | null> {
@@ -34,9 +35,10 @@ export async function shippingWebhook(request: Request, env: Bindings): Promise<
   if (event.mode !== settings.mode || (await activeAutomationActors(env.DB))[settings.approvedBy] !== 'owner') return new Response('Connection authority changed.', { status: 409 });
   if (job.eventIds?.includes(event.id)) return Response.json({ accepted: true });
   // Signed notifications trigger canonical reads; an event body never supplies order state.
-  const tracker = await easyPost(secret.apiKey).tracker(job.trackerId);
   const operator = await env.DB.prepare('SELECT version,display_name FROM oa_operators WHERE id=?').bind(settings.approvedBy).first<any>();
   const actor = { id: settings.approvedBy, role: 'owner', name: operator.display_name, operatorVersion: operator.version, sessionId: 'shipping-webhook' };
+  const policy = { collection: 'shippingSettings' as const, id: SETTINGS, version: settings.version };
+  const tracker = await providerOperation(env.DB, { actor, policy, commandId: `shipping-event-${event.id}`, connectorId: SETTINGS, operation: 'shipping.trackerNotification', direction: 'inbound', state, sources: [{ collection: 'shippingJobs', row: job }, { collection: 'shippingSettings', row: settings }], documentIds: [job.id, job.orderId, job.packId], itemIds: state.orders.find(order => order.id === job.orderId)?.lines.map((line: any) => line.itemId) ?? [], externalIds: [job.trackerId], requestId: event.id }, () => easyPost(secret.apiKey, job.mode).tracker(job.trackerId), value => ({ externalIds: [value.id] }));
   await execute(env, actor, `shipping-event-${crypto.randomUUID()}`, 'shipping.record', { jobId: job.id, version: job.version, change: trackingChange(job, tracker, event.id) }, undefined, { collection: 'shippingSettings', id: SETTINGS, version: settings.version });
   return Response.json({ accepted: true });
 }

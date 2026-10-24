@@ -17,7 +17,7 @@ async function perform(env: Bindings, actor: Actor, commandId: string, type: str
   const settings = initial.shippingSettings.find(s => s.id === SETTINGS);
   if (!settings) return fail('SHIPPING_KEY', 'Connect EasyPost in Shipping setup first.');
   if (job.mode !== settings.mode) fail('SHIPPING_MODE', 'Reconnect the EasyPost mode used by this carton before continuing.');
-  const client = easyPost((await credentials(env, SETTINGS)).apiKey);
+  const client = easyPost((await credentials(env, SETTINGS)).apiKey, settings.mode);
   let step = 0;
   const record = async (change: object) => {
     const out = await execute(env, actor, `${commandId}-${++step}`, 'shipping.record', { jobId: job.id, version: job.version, change });

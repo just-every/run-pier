@@ -28,7 +28,7 @@ export function LiveQuestions({ state }: { state: PierState }) {
     const controller = new AbortController()
     request.current?.abort(); setAnswer(null); setOrders([]); setChoicesBusy(true); setChoicesProblem('')
     void fetch('/api/pier/questions?kind=orders', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal }).then(async response => {
-      const body = await response.json()
+      const body: any = await response.json()
       if (!response.ok) throw new Error(body.error?.message ?? 'Order choices could not be loaded.')
       if (!controller.signal.aborted) setOrders(body.orders.map((order: RecordData) => ({ ...order, label: `${order.reference ?? order.id} · ${order.warehouse ?? 'Unassigned warehouse'}` })))
     }).catch(cause => { if (!controller.signal.aborted) setChoicesProblem((cause as Error).message) }).finally(() => { if (!controller.signal.aborted) setChoicesBusy(false) })
@@ -47,7 +47,7 @@ export function LiveQuestions({ state }: { state: PierState }) {
     if (kind === 'allocation') { params.set('fromOrderId', fromOrderId); params.set('toOrderId', toOrderId); params.set('itemId', itemId); params.set('quantity', quantity) }
     try {
       const response = await fetch('/api/pier/questions?' + params, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
-      const body = await response.json()
+      const body: any = await response.json()
       if (!response.ok) throw new Error(body.error?.message ?? 'Question could not be answered.')
       if (!controller.signal.aborted) setAnswer(body)
     } catch (cause) { if (!controller.signal.aborted) setProblem((cause as Error).message) }

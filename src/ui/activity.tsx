@@ -5,13 +5,14 @@ import { fromMillionths } from './quantity'
 import { Empty, Select, Table, Evidence, Field } from './controls'
 import { Proposals } from './proposals'
 import { LiveWork } from './item-agent/bulk'
+import { PrivacyReview } from './privacy'
 import { Operators } from './operators'
 
 export function Activity({ state, run, busy, itemId, refresh }: { state: PierState; run: RunCommand; busy: boolean; itemId: string; refresh: () => Promise<void> }) {
   const [filter, setFilter] = useState(itemId)
   const [document, setDocument] = useState(''), [user, setUser] = useState(''), [connector, setConnector] = useState('')
   const events = records(state, 'auditEvents').filter(event => (!filter || event.itemIds.includes(filter)) && (!document || event.documentIds.includes(document)) && (!user || event.actorId === user) && (!connector || event.connectorId === connector))
-  const connectorOptions = [...new Set(records(state, 'auditEvents').map(event => event.connectorId).filter(Boolean))].map(id => ({ id, name: records(state, 'channels').find(channel => channel.id === id)?.name ?? words(id) }));
+  const connectorOptions = [...new Set(records(state, 'auditEvents').map(event => event.connectorId).filter(Boolean))].map(id => ({ id, version: 0, name: records(state, 'channels').find(channel => channel.id === id)?.name ?? words(id) }));
   const importName = (id: string) => records(state, 'imports').find(batch => batch.id === id)?.namespace
   // Movements carry no cost of their own: a receipt line or an opening-stock row records it.
   const cost = (movement: RecordData) => records(state, 'receipts').flatMap(receipt => receipt.lines).find((line: any) => line.movementId === movement.id)?.cost
@@ -23,6 +24,7 @@ export function Activity({ state, run, busy, itemId, refresh }: { state: PierSta
       <div className="form-grid"><Field label="Document identity filter" required={false} value={document} onChange={setDocument} /><Select label="User filter" rows={records(state, 'people')} value={user} onChange={setUser} required={false} /><Select label="Connector filter" rows={connectorOptions} value={connector} onChange={setConnector} required={false} /></div>
       {!events.length ? <Empty>No recorded decisions for this selection.</Empty> : <Table headings={['When', 'Action / outcome', 'Actor / input', 'Source / changes']}>{events.slice().reverse().map(event => <tr key={event.id}><td>{when(event.at)}</td><td>{words(event.type)}<small>{words(event.outcome)}{event.reason ? ` · ${words(event.reason)}` : ''}</small></td><td>{person(state, event.actorId)}{event.code && <small>{event.code} · {event.device}</small>}{event.connectorId && <small>{event.connectorId} · {event.direction || 'recorded outcome'}</small>}</td><td><small>Command {event.commandId} · version {event.version}</small><details><summary>Recorded change details</summary><Evidence value={{ resolution: event.resolution, changes: event.changes, sourceIds: event.documentIds, rule: event.rule, phase: event.phase, attemptId: event.attemptId, requestId: event.requestId, providerAttemptId: event.providerAttemptId, externalIds: event.externalIds, sourceVersions: event.sourceVersions, approval: event.approval }} /></details></td></tr>)}</Table>}
     </section>
+    {state.actor.role === 'owner' && <PrivacyReview state={state} run={run} busy={busy} />}
     <LiveWork state={state} run={run} busy={busy} />
     <Proposals state={state} run={run} busy={busy} />
     {state.actor.role === 'owner' && <Operators state={state} run={run} busy={busy} refresh={refresh} />}

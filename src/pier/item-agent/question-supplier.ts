@@ -24,7 +24,7 @@ export function supplierQuestion(c: Context, params: URLSearchParams) {
     if (supplierId === po.supplierId) return { itemId: line.itemId, quantity: line.quantity, price: line.price };
     const terms = c.s.supplierItems.find(term => term.supplierId === supplierId && term.itemId === line.itemId);
     if (!terms) fail('SUPPLIER_TERMS', 'The proposed supplier needs current terms for every purchase item.');
-    return { itemId: line.itemId, quantity: line.quantity, price: terms.price };
+    return { itemId: line.itemId, quantity: line.quantity, price: terms!.price };
   });
   const after = purchasing(trial, 'po.revise', { ...po, poId: po.id, version: po.version, supplierId, promiseDate, lines, reason: 'Compare supplier and requested date against current live evidence.' })!;
   const beforeImage = purchase(po), afterImage = purchase(after);

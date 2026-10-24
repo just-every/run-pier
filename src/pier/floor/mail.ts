@@ -1,6 +1,8 @@
 import type { Bindings } from "../../auth.server";
 import { operatorMail } from "../../mail.server.mjs";
-import type { Row } from "../model";
+import type { Actor, Row } from "../model";
+import { load } from "../storage";
+import { beginProviderAttempt } from "../provider-audit";
 
 // The owner's copy of a closed dispatch day, sent through the installation's
 // own mail after the day-close record commits. Where this installation cannot
@@ -43,7 +45,7 @@ export function summaryText(day: Row, origin: string) {
 }
 
 /** Sends the owner's copy and reports what happened, in words a person can act on. */
-export async function sendSummary(env: Bindings, day: Row): Promise<{ status: string; detail: string }> {
+export async function sendSummary(env: Bindings, day: Row, actor: Actor, commandId: string): Promise<{ status: string; detail: string }> {
   if (env.RER_OWNER_CLAIM_ISSUER && env.RER_DEMO !== "1")
     return { status: "not available", detail: "Email is not available yet on RER Managed; the summary is kept here." };
   if (env.AUTH_LOCAL === "true" || env.RER_DEMO === "1")
@@ -52,6 +54,8 @@ export async function sendSummary(env: Bindings, day: Row): Promise<{ status: st
   if (!sender || !env.MAIL_FROM || !env.OWNER_EMAIL)
     return { status: "not sent", detail: "No mail provider is set up for this installation; the summary is kept here." };
   const text = summaryText(day, env.AUTH_ORIGIN);
+  const state = await load(env.DB);
+  const finish = await beginProviderAttempt(env.DB, { actor, commandId, connectorId: 'mail', operation: 'dispatch.summary', direction: 'outbound', state, sources: [{ collection: 'dispatchDays', row: day }], documentIds: [day.id], requestId: `${day.id}-${day.version}` });
   try {
     const result = await sender.send({
       deliveryId: `${day.id}-${day.version}`,
@@ -62,9 +66,11 @@ export async function sendSummary(env: Bindings, day: Row): Promise<{ status: st
       html: `<pre style="font:14px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap">${escape(text)}</pre>`,
       headers: {},
     });
+    await finish({ outcome: result.status === 'accepted' ? 'accepted' : 'refused', externalIds: [result.providerMessageId] });
     if (result.status === "accepted") return { status: "sent", detail: "Sent to the owner's email address." };
     return { status: "failed", detail: `The mail provider did not accept the message (${result.status}${result.code ? `, ${result.code}` : ""}). Close the day again to retry.` };
-  } catch (error: any) {
-    return { status: "failed", detail: `The mail provider refused the message (${String(error?.code ?? error?.message ?? "unknown").slice(0, 120)}). Close the day again to retry.` };
+  } catch {
+    await finish({ outcome: 'uncertain' });
+    return { status: 'failed', detail: 'The mail provider did not confirm this submission. Review its retained attempt before sending another summary.' };
   }
 }

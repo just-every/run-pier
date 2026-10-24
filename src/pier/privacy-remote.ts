@@ -1,0 +1,30 @@
+import type { Bindings } from '../auth.server';
+import { fail, type State } from './model';
+import { subjectPlan, type NativeSubject } from './privacy-plan';
+
+type Plan = ReturnType<typeof subjectPlan>;
+export const noPendingProvider = `NOT EXISTS(SELECT 1 FROM pier_audit a WHERE json_extract(a.data,'$.phase')='attempt' AND
+  (EXISTS(SELECT 1 FROM json_each(a.data,'$.documentIds') d JOIN json_each(?) i ON i.value=d.value) OR (?='operator' AND a.actor_id=?))
+  AND NOT EXISTS(SELECT 1 FROM pier_audit done WHERE json_extract(done.data,'$.phase')='outcome' AND json_extract(done.data,'$.attemptId')=json_extract(a.data,'$.attemptId')))`;
+export const noPendingMail = `NOT EXISTS(SELECT 1 FROM pier_mail_deliveries WHERE correspondence_id IN (SELECT value FROM json_each(?)) AND phase IN ('sending','uncertain'))`;
+const noActiveSync = `NOT EXISTS(SELECT 1 FROM pier_book_locks WHERE expires_at>?) AND NOT EXISTS(SELECT 1 FROM pier_channel_locks WHERE expires_at>?)`;
+export async function nativeSubject(env: Bindings, kind: string, id: string) {
+  if (kind !== 'operator') return undefined;
+  return await env.DB.prepare('SELECT id,version,email,display_name,role,status FROM oa_operators WHERE id=?').bind(id).first<NativeSubject>() ?? fail('NOT_FOUND', 'Native operator not found.');
+}
+export async function inspectSubject(s: State, kind: string, id: string, env: Bindings) {
+  const native = await nativeSubject(env, kind, id), plan = subjectPlan(s, kind, id, native), ids = JSON.stringify([...plan.ids]);
+  const remote = await env.DB.prepare(`SELECT (${noPendingProvider}) AND (${noPendingMail}) AND (${noActiveSync}) AS clear`).bind(ids,kind,id,ids,Date.now(),Date.now()).first<{ clear:number }>();
+  if (!remote?.clear) plan.blockers.push({ code:'PRIVACY_REMOTE', kind:'provider', id, reason:'Reconcile unfinished provider attempts and uncertain or sending mail, and wait for active accounting and channel syncs to finish before erasure.' });
+  if (native?.role === 'owner' && native.status === 'active') {
+    const other = await env.DB.prepare("SELECT id FROM oa_operators WHERE role='owner' AND status='active' AND id!=? LIMIT 1").bind(id).first();
+    if (!other) plan.blockers.push({ code:'PRIVACY_OWNER', kind:'operator', id, reason:'The last active native owner cannot be erased.' });
+  }
+  plan.preview.allowed = !plan.holds.length && !plan.blockers.length;
+  return { plan, native };
+}
+export function remoteGuards(env: Bindings, plan: Plan, kind: string, id: string): D1PreparedStatement[] {
+  const ids = JSON.stringify([...plan.ids]);
+  return [env.DB.prepare(`INSERT INTO pier_guard(id,ok) VALUES(?,CASE WHEN (${noPendingProvider}) AND (${noPendingMail}) AND (${noActiveSync}) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(),ids,kind,id,ids,Date.now(),Date.now()),
+    env.DB.prepare("UPDATE pier_mail_deliveries SET phase='revoked',error=NULL WHERE correspondence_id IN (SELECT value FROM json_each(?)) AND phase IN ('unavailable','failed','revoked')").bind(ids)];
+}

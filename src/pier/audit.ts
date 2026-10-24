@@ -6,7 +6,7 @@ const scanTypes = new Set(['receiving.scan', 'pick.scan', 'pack.scan', 'slotting
 // Preserve business field changes without retaining contacts, source originals,
 // provider responses, tokens, prompts or untrusted arbitrary metadata.
 const fields = new Set(['sku','name','barcode','caseBarcode','unit','packSize','archived','warehouse','kind','zone','status','quantity','reserved','dispatched','received','cancelled','promiseDate','destinationWarehouse','enabled','autoDraft','role','method','reorderPoint','reorderQuantity','maximum','locationId','itemId','permissions','barcodes']);
-const businessFields = new Set([...fields, 'id','version','lines','price','cost','freight','duty','tax','currency','approval','approvedBy','actorId','role','at','poLineId','orderLineId','beforeVersion','afterVersion','operationId','responseId','externalId','externalIds','attemptId','requestId','providerId','resultId','commandId','ruleId','ruleVersion','correctionId','reversalId','originalId','invoiceId','creditId','refundId','amount','total','dueDate','confirmation','promiseHistory','backorderPromiseDate','backorderPromisedQuantity','ai','counts','outcome','completedAt','kind','subjectId','warehouses','locationIds','expiresAt','code','packQuantity','originals','extractions','inboxCopies','pendingRequests','orders','purchases','supplierId','customerId','salesRepId','operatorId','repHistory','before','after','minimum','minimumValue','leadDays','safetyStock','windowDays','reviewDays','defaultSupplierId','supplierMode','scope','priority','buffer','provider','channelId','listingId','direction','affectedRecords','terms','estimated','sources','poId','shipmentId','receiptId','returnId','batchId','reservedPromiseDate','allowSplit','creditLimit','creditClearance','paymentTerms','days','discountDays','discountPercent','variantFamily','category','weight','dimensions','length','width','height','image','imageUrl','aliases','unitBarcodes','tier','minimumQuantity']);
+const businessFields = new Set([...fields, 'id','version','lines','price','cost','freight','duty','tax','currency','approval','approvedBy','actorId','role','at','poLineId','orderLineId','beforeVersion','afterVersion','operationId','responseId','externalId','externalIds','attemptId','requestId','providerId','resultId','commandId','ruleId','ruleVersion','correctionId','reversalId','originalId','invoiceId','creditId','refundId','amount','total','dueDate','confirmation','promiseHistory','backorderPromiseDate','backorderPromisedQuantity','ai','counts','outcome','completedAt','kind','subjectId','warehouses','locationIds','expiresAt','code','packQuantity','originals','extractions','inboxCopies','pendingRequests','orders','purchases','supplierId','customerId','salesRepId','operatorId','repHistory','before','after','minimum','minimumValue','leadDays','safetyStock','windowDays','reviewDays','defaultSupplierId','supplierMode','scope','priority','buffer','provider','channelId','listingId','direction','affectedRecords','terms','estimated','sources','poId','shipmentId','receiptId','returnId','batchId','reservedPromiseDate','allowSplit','creditLimit','creditClearance','paymentTerms','days','discountDays','discountPercent','variantFamily','category','weight','dimensions','length','width','height','image','imageUrl','aliases','unitBarcodes','tier','minimumQuantity','mode','shortage','eligible','defaultEligible','zones','zipPrefixes','states','countries','locations','activeAt','preparedBy','revision','source','sourceVersion','mappingRevision','frontier','settings','rule','condition','threshold','action','budget','privacyErasedAt']);
 function image(kind: string, row: any): any {
   if (row === null || row === undefined) return null;
   if (Array.isArray(row)) return row.map(value => image(kind, value));
@@ -16,7 +16,17 @@ function image(kind: string, row: any): any {
 export function auditEvent(c: Context, before: State, type: string, p: any, result: any, outcome = 'accepted', reason?: string) {
   const changes: any[] = [], itemIds = new Set<string>(), documents = new Set<string>();
   if (typeof p.itemId === 'string') itemIds.add(p.itemId);
-  for (const key of ['poId','orderId','receivingId','waveId','packId','countId','returnId','jobId','documentId','extractionId']) if (typeof p[key] === 'string') documents.add(p[key]);
+  if (typeof result?.id === 'string') documents.add(result.id);
+  const references = (value: any) => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) { value.forEach(references); return; }
+    for (const [key, child] of Object.entries(value)) {
+      if (key === 'itemId' && typeof child === 'string') itemIds.add(child);
+      if (['orderId','poId','documentId','receiptId','shipmentId','subjectId','proposalId'].includes(key) && typeof child === 'string') documents.add(child);
+      if (!['original','raw','source','body','pdf','draft'].includes(key)) references(child);
+    }
+  };
+  for (const key of ['poId','orderId','receivingId','waveId','packId','countId','returnId','jobId','documentId','extractionId','subjectId','proposalId','invoiceId','paymentId']) if (typeof p[key] === 'string') documents.add(p[key]);
   for (const kind of collections) {
     if (kind === 'evidenceDocuments' || kind === 'documentInbox') continue;
     const old = new Map(before[kind].map(r => [r.id, r]));
@@ -27,10 +37,12 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
       documents.add(id);
       if (kind === 'items') itemIds.add(id);
       for (const affected of [previous, row]) {
+        references(affected);
         if (affected?.itemId) itemIds.add(affected.itemId);
         for (const line of affected?.lines ?? []) if (line.itemId) itemIds.add(line.itemId);
       }
-      changes.push({ kind, id, beforeVersion: previous?.version ?? null, afterVersion: row?.version ?? null, before: image(kind, previous), after: image(kind, row) });
+      const changedFields = [...new Set([...Object.keys(previous ?? {}), ...Object.keys(row ?? {})])].filter(field => JSON.stringify(previous?.[field]) !== JSON.stringify(row?.[field]));
+      changes.push({ kind, id, changedFields, redactedFields: changedFields.filter(field => !businessFields.has(field) || field === 'name' && kind !== 'items' && kind !== 'locations'), beforeVersion: previous?.version ?? null, afterVersion: row?.version ?? null, before: image(kind, previous), after: image(kind, row) });
     }
   }
   let resolution: any = null;

@@ -28,6 +28,12 @@ test('item checks prepare current evidence and humans apply, reject and safely u
   const openDemand = before.orders.flatMap(o => o.lines).reduce((sum, l) => sum + parse(l.quantity) - parse(l.dispatched) - parse(l.cancelled), 0n);
   assert.equal(parse(stock.values.openDemand), openDemand);
   assert.ok(review.checks.find(c => c.kind === 'cost').evidence.includes(receipt.id));
+  const termsHistory = await (await h.request('/api/pier/audit?documentId=' + terms.id)).json();
+  const savedTerms = termsHistory.find(event => event.type === 'supplierItem.save').changes.find(change => change.kind === 'supplierItems').after;
+  assert.equal(savedTerms.supplierId, b.supplier.id);
+  assert.equal(savedTerms.minimum, '12');
+  assert.equal(savedTerms.leadDays, 6);
+
   assert.ok(review.inputVersions.shipments.length);
   await h.command('itemAgent.explain', { proposalId: review.id, version: review.version }, { error: 'AI_SETUP' });
   assert.equal(requests, 0);
@@ -272,6 +278,11 @@ test('supplier and date comparisons validate current terms without changing purc
   assert.equal(result.stateVersion, before.version);
   assert.deepEqual(await exportedBusiness(h), before);
   assert.equal((await h.request('/api/pier/questions?' + new URLSearchParams({ kind: 'supplier', poId: po.id, promiseDate: '2026-02-30' }))).status, 409);
+  const plan = await h.command('itemAgent.bulkPreview', { rows: [{ ...result.ordinaryCommand, payload: { ...result.ordinaryCommand.payload, reason: 'Human compares supplier price and cash' } }] });
+  assert.equal(plan.rows[0].impact.cash.delta, '12.000000000000');
+  assert.equal(plan.rows[0].impact.affectedPromises[0].lines[0].quantity, '2');
+  assert.equal(plan.rows[0].impact.service.backorders[0].itemId, b.item.id);
+  assert.deepEqual((await h.state()).correspondence, []);
 });
 
 test('allocation comparisons cite both orders and refuse excess while leaving live hard reservations unchanged', async t => {

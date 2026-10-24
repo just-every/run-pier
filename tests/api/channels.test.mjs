@@ -79,7 +79,21 @@ test('channel order reserves once and publishes net stock to every channel withi
   for (const position of s.positions) assert.ok(parse(position.available) >= 0n);
   const exported = await (await h.request('/api/pier/export')).text();
   assert.doesNotMatch(exported, /synthetic-(?:key|secret|hook-secret|shop-token|amazon-token|stall-token)/);
-  const cipher = await h.db.prepare('SELECT secret FROM pier_channel_secrets LIMIT 1').first();
+  const audited = await (await h.request('/api/pier/audit?itemId=' + b.item.id)).json();
+  const stockOutcome = audited.find(event => event.type === 'provider.channel.stock' && event.phase === 'outcome' && event.outcome === 'accepted');
+  assert.ok(stockOutcome);
+  const stockAttempt = audited.find(event => event.attemptId === stockOutcome.attemptId && event.phase === 'attempt');
+  assert.ok(stockAttempt);
+  assert.equal(stockAttempt.direction, 'outbound');
+  assert.ok(stockAttempt.sourceVersions.some(source => source.kind === 'channelListings'));
+  assert.ok(stockAttempt.externalIds.length);
+  const connectorEvents = await (await h.request('/api/pier/audit?connectorId=' + stockAttempt.connectorId)).json();
+  assert.ok(connectorEvents.some(event => event.id === stockAttempt.id));
+  await h.restartWithFreshSigningKey();
+  assert.deepEqual(await (await h.request('/api/pier/audit?itemId=' + b.item.id)).json(), audited);
+  const afterRestart = await (await h.request('/api/pier/export')).json();
+  assert.deepEqual(afterRestart.auditEvents.find(event => event.id === stockOutcome.id), stockOutcome);
+  const cipher = await (await h.mf.getD1Database('DB')).prepare('SELECT secret FROM pier_channel_secrets LIMIT 1').first();
   assert.ok(cipher.secret); assert.doesNotMatch(cipher.secret, /synthetic/);
 });
 

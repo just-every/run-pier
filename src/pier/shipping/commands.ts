@@ -11,13 +11,15 @@ export async function shipping(c: Context, type: string, p: any, env: Bindings):
     if (!['test','production'].includes(p.mode)) fail('SHIPPING_MODE', 'Choose test or production.');
     const old = c.s.shippingSettings.find(s => s.id === SETTINGS);
     if (!old && !p.apiKey) fail('SHIPPING_KEY', 'Paste your EasyPost Test API key (EZTK…) to connect.');
-    if (p.apiKey && !String(p.apiKey).startsWith(p.mode === 'test' ? 'EZTK' : 'EZAK')) fail('SHIPPING_KEY', 'Paste the EasyPost API key for the chosen mode.');
+    if (p.apiKey && (/\s/.test(String(p.apiKey)) || String(p.apiKey).length > 1000 || /^(EZTK|EZAK)/.test(String(p.apiKey)) && !String(p.apiKey).startsWith(p.mode === 'test' ? 'EZTK' : 'EZAK'))) fail('SHIPPING_KEY', 'Paste the EasyPost API key for the chosen mode.');
     if (old && old.mode !== p.mode && !p.apiKey) fail('SHIPPING_KEY', 'Paste the API key for the new mode.');
     const value = { mode: p.mode, fromAddress: address(p.fromAddress), connected: true, webhookConfigured: !!p.webhookSecret || !!old?.webhookConfigured, enabled: true, approvedBy: c.actor.id };
     const settings = old ? Object.assign(old, value, { version: old.version + 1 }) : row(c, 'shippingSettings', { ...value, id: SETTINGS });
     if (p.apiKey || p.webhookSecret) {
       const stored = await env.DB.prepare('SELECT channel_id FROM pier_channel_secrets WHERE channel_id=?').bind(SETTINGS).first();
-      const before = stored ? await credentials(env, SETTINGS) : {};
+      // An explicit complete replacement does not need the old encryption key.
+      const replacing = p.apiKey && (p.webhookSecret || !old?.webhookConfigured);
+      const before = stored && !replacing ? await credentials(env, SETTINGS) : {};
       if (!stored && !p.apiKey) fail('SHIPPING_KEY', 'Paste your EasyPost API key to reconnect this restored installation.');
       c.channelSecrets = [{ channelId: SETTINGS, secret: await seal(env, SETTINGS, { ...before, ...(p.apiKey ? { apiKey: text(p.apiKey) } : {}), ...(p.webhookSecret ? { webhookSecret: text(p.webhookSecret) } : {}) }) }];
     }

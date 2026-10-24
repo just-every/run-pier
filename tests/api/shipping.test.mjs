@@ -6,9 +6,9 @@ import { shippingEdge } from './shipping-edge.mjs';
 
 import { destination, packedOrder } from './shipping-fixtures.mjs';
 test('packed order → verified rates → label → emailed tracking → delivered shipment', async t => {
-  const edge = shippingEdge(), h = await installation({ outboundService: edge.outbound, bindings: { MAIL_PROVIDER: 'sendgrid', MAIL_API_KEY: 'synthetic-mail-key', MAIL_FROM: 'shipping@example.test' } });
+  const edge = shippingEdge(), h = await installation({ outboundService: edge.outbound, bindings: { MAIL_PROVIDER: 'sendgrid', MAIL_API_KEY: 'synthetic-pier-322', MAIL_FROM: 'shipping@example.test' } });
   t.after(() => h.close());
-  await h.command('shipping.save', { apiKey: 'EZTK_synthetic', webhookSecret: 'synthetic-webhook-secret', mode: 'test', fromAddress: { ...destination, name: 'Pier warehouse' } });
+  await h.command('shipping.save', { apiKey: 'synthetic-pier-321', webhookSecret: 'synthetic-pier-323', mode: 'test', fromAddress: { ...destination, name: 'Pier warehouse' } });
   const { order, pack, payload } = await packedOrder(h);
   let job = await h.command('shipping.prepare', { packId: pack.id, carton: 1, address: destination, email: 'buyer@example.test' });
   edge.redirectNext();
@@ -26,7 +26,13 @@ test('packed order → verified rates → label → emailed tracking → deliver
   await act('shipping.address', { choice: 'original' });
   assert.equal((await h.state()).orders.find(o => o.id === order.id).shippingAddress.choice, 'original');
   // Both choices are public actions; rate the accepted provider suggestion.
-  await act('shipping.verify'); await act('shipping.address', { choice: 'suggested' }); await act('shipping.rates');
+  await act('shipping.verify'); await act('shipping.address', { choice: 'suggested' });
+  edge.setShipmentMode('production');
+  await act('shipping.rates', {}, { error: 'TRANSACTION' });
+  assert.equal(edge.calls.filter(call => call.path.endsWith('/buy')).length, 0);
+  edge.setShipmentMode('test');
+  job = (await h.state()).shippingJobs[0];
+  await act('shipping.rates');
   assert.deepEqual(new Set(job.rates.map(r => r.carrier)), new Set(['UPS','FedEx','USPS']));
   assert.equal(job.rates.find(r => r.cheapest).carrier, 'USPS');
   assert.equal(job.rates.find(r => r.fastest).carrier, 'FedEx');
@@ -36,6 +42,20 @@ test('packed order → verified rates → label → emailed tracking → deliver
   const replay = await h.command('shipping.buy', buyPayload, { commandId: 'buy-label-once' });
   assert.deepEqual(replay, job, 'same purchase command recovers the recorded response');
   assert.equal(job.status, 'uncertain');
+  const attempts = await (await h.request('/api/pier/audit?documentId=' + job.id)).json();
+  const buyAttempt = attempts.find(event => event.type === 'provider.shipping.buy' && event.phase === 'attempt');
+  assert.ok(buyAttempt);
+  assert.equal(buyAttempt.outcome, 'uncertain');
+  assert.equal(buyAttempt.commandId, 'buy-label-once');
+  assert.ok(attempts.some(event => event.attemptId === buyAttempt.attemptId && event.phase === 'outcome' && event.outcome === 'uncertain'));
+  assert.ok(attempts.some(event => event.type === 'provider.shipping.verify' && event.outcome === 'refused'));
+  await h.restartWithFreshSigningKey();
+  assert.deepEqual(await (await h.request('/api/pier/audit?documentId=' + job.id)).json(), attempts);
+  const auditExport = await (await h.request('/api/pier/export')).json();
+  for (const event of attempts) assert.deepEqual(auditExport.auditEvents.find(row => row.id === event.id), event);
+  assert.ok(!JSON.stringify(attempts).includes('buyer@example.test'));
+  assert.ok(!JSON.stringify(attempts).includes('synthetic-pier-321'));
+  await h.command('shipping.save', { apiKey: 'synthetic-pier-321', webhookSecret: 'synthetic-pier-323', mode:'test', fromAddress: { ...destination, name:'Pier warehouse' } });
   await act('shipping.reconcile');
   assert.equal(job.status, 'labelled'); assert.equal(job.mail.status, 'sent');
   assert.equal(edge.emails.length, 1);
@@ -55,7 +75,7 @@ test('packed order → verified rates → label → emailed tracking → deliver
   edge.delivered();
   const event = JSON.stringify({ id: 'evt_synthetic_delivered', description: 'tracker.updated', mode: 'test', result: { id: 'trk_synthetic' } });
   const timestamp = String(Math.floor(Date.now() / 1000)), path = '/api/pier/shipping/webhook';
-  const signature = createHmac('sha256', 'synthetic-webhook-secret').update(`${timestamp}POST${path}${event}`).digest('hex');
+  const signature = createHmac('sha256', 'synthetic-pier-323').update(`${timestamp}POST${path}${event}`).digest('hex');
   const notify = sig => fetch(h.origin + path, { method: 'POST', headers: { 'x-timestamp': timestamp, 'x-path': path, 'x-hmac-signature-v2': `hmac-sha256-hex=${sig}` }, body: event });
   assert.equal((await notify('0'.repeat(64))).status, 401);
   const response = await notify(signature); assert.equal(response.status, 200, await response.text());
@@ -65,10 +85,10 @@ test('packed order → verified rates → label → emailed tracking → deliver
   assert.equal(state.orders.find(o => o.id === order.id).deliveryStatus, 'delivered');
   assert.equal(state.shippingJobs[0].events.length, 3);
   assert.equal(edge.calls.filter(c => c.path.endsWith('/buy')).length, 1);
-  assert.equal(JSON.stringify(state).includes('EZTK_synthetic'), false);
+  assert.equal(JSON.stringify(state).includes('synthetic-pier-321'), false);
   const managedEdge = shippingEdge(), managed = await installation({ outboundService: managedEdge.outbound, bindings: { RER_OWNER_CLAIM_ISSUER: 'https://managed.example.test' } });
   t.after(() => managed.close());
-  await managed.command('shipping.save', { apiKey: 'EZTK_synthetic', mode: 'test', fromAddress: destination });
+  await managed.command('shipping.save', { apiKey: 'synthetic-pier-321', mode: 'test', fromAddress: destination });
   const managedPack = await packedOrder(managed);
   const managedJob = await managed.command('shipping.prepare', { packId: managedPack.pack.id, carton: 1, address: destination, email: 'buyer@example.test' });
   await managed.command('shipping.verify', { jobId: managedJob.id, version: managedJob.version }, { error: 'SHIPPING_UNAVAILABLE' });

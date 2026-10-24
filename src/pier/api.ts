@@ -3,7 +3,8 @@ import { releaseBackorders } from './backorder-release';
 import { stocktakes, stocktakeView, enforceStocktakeFreeze } from './stocktakes';
 import { savedReports, filteredReports, reportCsv } from './saved-reports';
 import { workflowRules } from './workflow-rules';
-import { privacy, privacyPreview } from './privacy';
+import { privacy, privacyPreview, privacySubjectPreview } from './privacy';
+import { providerOperation } from './provider-audit';
 import { bulkInputDigest } from './item-agent/bulk';
 import { liveQuestion } from './item-agent/questions';
 import { auditEvent, auditRows, refusedScan } from './audit';
@@ -304,7 +305,7 @@ export async function execute(
 async function deliver(env: Bindings, actor: Actor, commandId: string, outcome: any) {
   const day = (await load(env.DB)).dispatchDays.find((d) => d.id === outcome.result?.id);
   if (!day || day.version !== outcome.result.version || day.delivery?.status !== "sending") return { ...outcome, result: day ?? outcome.result };
-  const sent = await sendSummary(env, day);
+  const sent = await sendSummary(env, day, actor, commandId);
   const recorded = await execute(env, actor, `${commandId}-mail`, "dispatch.delivered", { dayId: day.id, version: day.version, ...sent });
   return recorded ?? outcome;
 }
@@ -361,7 +362,7 @@ export async function pierResponse(
       if (url.pathname === '/api/pier/privacy') {
         if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only an owner can inspect retention and erasure dependencies.', null, 403);
         const kind = url.searchParams.get('kind'), subjectId = url.searchParams.get('subjectId');
-        return json(kind && subjectId ? privacyPreview(s, kind, subjectId) : { policies: s.privacyPolicies, holds: s.privacyHolds, receipts: s.privacyReceipts, reviewDue: s.evidenceDocuments.filter(d => Date.parse(d.createdAt) + (s.privacyPolicies[0]?.reviewAfterDays ?? 36500) * 86400000 <= Date.now()).map(d => d.id), automaticDeletion: false });
+        return json(kind && subjectId ? await privacySubjectPreview(s, kind, subjectId, env) : { policies: s.privacyPolicies, holds: s.privacyHolds, receipts: s.privacyReceipts, reviewDue: s.evidenceDocuments.filter(d => Date.parse(d.createdAt) + (s.privacyPolicies[0]?.reviewAfterDays ?? 36500) * 86400000 <= Date.now()).map(d => d.id), automaticDeletion: false });
       }
       if (url.pathname === '/api/pier/audit') {
         const events = await auditRows(env.DB);
@@ -380,7 +381,7 @@ export async function pierResponse(
         const job = s.shippingJobs.find(j => j.id === labelMatch[1]);
         const destination = labelUrl(labelMatch[2] === 'pdf' ? job?.labelPdfUrl : job?.labelZplUrl);
         if (!destination) fail('LABEL', 'This label format is not available from the carrier.');
-        const response = await fetch(destination!, { redirect: 'manual', signal: AbortSignal.timeout(25000) });
+        const response = await providerOperation(env.DB, { actor, commandId: crypto.randomUUID(), connectorId: 'shipping-easypost', operation: 'shipping.labelDownload', direction: 'inbound', state: full, sources: [{ collection: 'shippingJobs', row: job! }], documentIds: [job!.id, job!.orderId], itemIds: full.orders.find(order => order.id === job!.orderId)?.lines.map((line: any) => line.itemId) ?? [] }, () => fetch(destination!, { redirect: 'manual', signal: AbortSignal.timeout(25000) }), response => ({ outcome: response.ok ? 'accepted' : 'refused' }));
         if (!response.ok) fail('LABEL', 'The carrier label could not be downloaded. Check EasyPost.');
         return new Response(response.body, { headers: { 'content-type': labelMatch[2] === 'pdf' ? 'application/pdf' : 'application/octet-stream', 'content-disposition': `inline; filename="pier-label-${job!.carton}.${labelMatch[2]}"`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
       }
@@ -388,6 +389,7 @@ export async function pierResponse(
       if(salesPdf){
         if(actor.role!=='owner')throw new Problem('FORBIDDEN','Only an owner can read retained commercial PDFs.',null,403);
         const doc=s.salesDocuments.find(d=>d.id===salesPdf[1]) ?? fail('NOT_FOUND','Document not found.');
+        if (!doc.pdf && doc.privacyErasedAt) return json({ ok:false, error:{ code:'ERASED', message:'This private document copy was erased.' } },410);
         return new Response(Uint8Array.from(atob(doc.pdf),ch=>ch.charCodeAt(0)),{headers:{'content-type':'application/pdf','cache-control':'no-store','content-disposition':`inline; filename="${doc.filename}"`,'x-content-type-options':'nosniff'}});
       }
       const packSlip = /^\/api\/pier\/packs\/([^/]+)\/packing-slip$/.exec(url.pathname);
@@ -608,13 +610,13 @@ export async function pierResponse(
     }
     if (type === "channel.shopifyLocations") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect Shopify.",null,403);
-      try { return json({ok:true,result:await readShopifyLocations(payload),version:(await load(env.DB)).version}); }
+      try { const state = await load(env.DB); return json({ok:true,result:await providerOperation(env.DB, { actor, commandId, connectorId: 'shopify', operation: 'channel.locations', direction: 'inbound', state, sources: [] }, () => readShopifyLocations(payload)),version:(await load(env.DB)).version}); }
       catch { fail('CHANNEL_SETUP','Pier could not load Shopify locations. Check the myshopify.com address and read_locations scope. For a new app, check its client ID/secret and that it is installed on a store in the same Shopify organization; for a legacy app, check its Admin API token.'); }
     }
     if (type === "book.accounts") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect the books.",null,403);
-      const connected = (await load(env.DB)).bookConnections.find((row) => row.enabled);
-      return json({ok:true,result:await pantryAccounts(env,payload,connected),version:(await load(env.DB)).version});
+      const state = await load(env.DB), connected = state.bookConnections.find((row) => row.enabled);
+      return json({ok:true,result:await providerOperation(env.DB, { actor, commandId, connectorId: 'pantry', operation: 'book.accounts', direction: 'inbound', state, sources: connected ? [{ collection: 'bookConnections', row: connected }] : [] }, () => pantryAccounts(env,payload,connected)),version:(await load(env.DB)).version});
     }
     if (type === "book.sync") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can sync the books.",null,403);

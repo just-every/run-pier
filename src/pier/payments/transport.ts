@@ -5,6 +5,7 @@ import { credentials } from '../channels/secrets';
 import { load, saved } from '../storage';
 import { find, records } from '../invoices/state';
 import { CONNECTION } from './commands';
+import { paymentRequest } from './audit';
 import { checkoutUrl, matchingSession, paymentEvidence, stripe, StripeFailure } from './stripe';
 
 export type Execute = (env: Bindings, actor: Actor, commandId: string, type: string, payload: any, now?: () => string, policy?: Context['backgroundPolicy']) => Promise<any>;
@@ -30,11 +31,11 @@ export async function reconcileSession(env: Bindings, authority: PaymentAuthorit
   if (!providerId || typeof providerId !== 'string') fail('PAYMENT_IDENTITY', 'Find this request in Stripe using its retained idempotency key and supply its Checkout Session ID. Pier will not repeat an uncertain creation.');
   const client = stripe((await credentials(env, CONNECTION)).secretKey);
   let remote: any;
-  try { remote = await client.read(providerId); }
+  try { remote = await paymentRequest(env, authority, session, 'read', () => client.read(providerId)); }
   catch (error) { return (await recordPayment(env, authority, execute, session, { status: 'uncertain', problem: error instanceof StripeFailure ? error.message : 'Stripe readback is unavailable. Reconcile before another checkout.' })).result; }
   matchingSession(session, invoice, connection, remote);
   if (expire && remote.status === 'open') {
-    try { await client.expire(providerId, `pier-expire-${session.id}`); remote = await client.read(providerId); }
+    try { await paymentRequest(env, authority, session, 'expire', () => client.expire(providerId, `pier-expire-${session.id}`)); remote = await paymentRequest(env, authority, session, 'read', () => client.read(providerId)); }
     catch (error) { return (await recordPayment(env, authority, execute, session, { status: 'uncertain', problem: error instanceof StripeFailure ? error.message : 'Stripe did not confirm checkout expiration.' })).result; }
   }
   const evidence = paymentEvidence(session, invoice, connection, remote);
@@ -57,7 +58,8 @@ export async function checkout(env: Bindings, authority: PaymentAuthority, execu
   const state = await load(env.DB), invoice = find(state, 'invoices', session.invoiceId), connection = find(state, 'paymentConnections', session.connectionId), link = find(state, 'invoicePayLinks', session.linkId);
   let remote: any;
   try {
-    remote = await stripe((await credentials(env, CONNECTION)).secretKey).create(session, invoice, link.url);
+    const client = stripe((await credentials(env, CONNECTION)).secretKey);
+    remote = await paymentRequest(env, authority, session, 'create', () => client.create(session, invoice, link.url));
     matchingSession(session, invoice, connection, remote);
     const url = checkoutUrl(remote.url);
     if (remote.status !== 'open' || !url) fail('PAYMENT_PROVIDER', 'Stripe returned no usable hosted checkout. Reconcile its existing request.');

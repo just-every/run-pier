@@ -20,11 +20,13 @@ export function bulkImpact(beforeContext: Context, afterContext: Context, entry:
   });
   const cashBefore = entry.type === 'po.revise' ? expectedLandedCost(before) : null;
   const cashAfter = entry.type === 'po.revise' ? expectedLandedCost(after) : null;
+  const quantities = new Map<string, bigint>();
+  for (const line of affectedPromises.flatMap(p => p.lines)) quantities.set(line.itemId, (quantities.get(line.itemId) ?? 0n) + decimal(line.quantity));
   return {
     cash: cashBefore && cashAfter ? { before: cashBefore, after: cashAfter, delta: money(amount(cashAfter.total) - amount(cashBefore.total)), currency: 'USD', status: 'draft; separate purchase approval required' } : { delta: money(0n), currency: 'USD', status: 'No purchase cash change' },
     promise: { before: before.promiseDate ?? null, after: after.promiseDate ?? null, lines: after.promiseHistory?.at(-1)?.lines ?? [] },
     affectedPromises,
-    service: { affectedOrders: affectedPromises.length, backorderedQuantity: format(affectedPromises.flatMap(p => p.lines).reduce((n, line) => n + decimal(line.quantity), 0n)),
+    service: { affectedOrders: affectedPromises.length, backorders: [...quantities].map(([itemId, quantity]) => ({ itemId, unit: afterContext.s.items.find(item => item.id === itemId)?.unit, quantity: format(quantity) })),
       basis: entry.type === 'po.revise' ? 'Uncommitted draft purchases are not dated supply. Customer fill dates and reservations remain unchanged until separately approved committed supply exists.' : 'Only the selected backordered lines receive their calculated dates. Reserved units retain their promise; physical stock is unchanged.',
       uncertainty: 'Dates are requested or estimated; receipt and delivery remain unconfirmed.' },
     customerMessageQueuedOnApply: entry.type === 'order.repromise',

@@ -776,7 +776,7 @@ test('live answers and editable bulk purchase reviews retain exact human command
     await question.getByRole('button', { name: 'Ask current records', exact: true }).click()
     await expect(question.getByRole('status')).toContainText('state Version')
     await expect(question).toContainText('No physical count is inferred.')
-    const shotQuestion = async (name: string) => { if (shots) await question.screenshot({ path: join(shots, width + '-question-' + name + '.png') }) }
+    const shotQuestion = async (name: string) => { if (shots) { await question.screenshot({ path: join(shots, width + '-question-' + name + '.png') }); await question.evaluate(node => node.scrollIntoView({ block: 'start' })); await page.screenshot({ path: join(shots, width + '-question-' + name + '-viewport.png') }) } }
     await shotQuestion('stock')
     await question.getByLabel('Question', { exact: true }).selectOption('shortage')
     await question.getByLabel('Question order', { exact: true }).selectOption(short.id)
@@ -852,6 +852,7 @@ test('live answers and editable bulk purchase reviews retain exact human command
     await expect(page.getByText(/mapping undefined/)).toHaveCount(0)
     const changed = await command('item.save', { ...item, name: 'Changed live evidence ' + width })
     item.version = changed.version
+    await review.getByLabel('Bulk review reason', { exact: true }).fill('Review remaining purchase against changed evidence')
     await submit(page, review, 'Approve ' + drafts[1].reference, false)
     await expect(page.getByRole('alert')).toContainText('Business inputs changed')
     await submit(page, promises, 'Approve ' + orders[1].reference, false)
@@ -865,4 +866,62 @@ test('live answers and editable bulk purchase reviews retain exact human command
     expect(state.purchaseOrders.find((po: any) => po.id === drafts[1].id).promiseDate).toBe('2026-11-01')
   }
   } finally { await memberContext.close() }
+})
+
+test('owners inspect holds and erase reviewed customer copies with durable stock and anonymous history at 1440 and 390', async ({ page, context }) => {
+  const base = await ownerEntry(page)
+  const command = async (type: string, payload: any) => {
+    const response = await context.request.post(base + '/api/pier/commands', { headers: { origin: base }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
+  }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const warehouse = 'Privacy warehouse ' + width
+    const item = await command('item.save', { sku: 'synthetic-pier-privacy-' + width, name: 'Privacy evidence item ' + width, unit: 'each', packSize: '1' })
+    const bin = await command('location.save', { name: 'Privacy bin ' + width, warehouse, kind: 'bin' })
+    const supplier = await command('party.save', { kind: 'supplier', name: 'Private source supplier ' + width })
+    const customer = await command('party.save', { kind: 'customer', name: 'Private erased customer ' + width, email: `erase-${width}@example.test` })
+    let route = await command('routing.save', { source: 'manual', mode: 'fixed', shortage: 'hold', eligible: [warehouse], zones: [] })
+    route = await command('routing.preview', { ruleId: route.id, version: route.version }); await command('routing.activate', { ruleId: route.id, version: route.version })
+    let po = await command('po.draft', { supplierId: supplier.id, destinationWarehouse: warehouse, promiseDate: '2026-11-01', reason: 'Private subject evidence', lines: [{ itemId: item.id, quantity: '3', price: '2' }] })
+    await command('po.approve', { poId: po.id, version: po.version }); po = await command('po.commit', { poId: po.id, version: po.version })
+    await command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-privacy-' + width, lines: [{ poLineId: po.lines[0].id, locationId: bin.id, quantity: '3', cost: '2' }] })
+    const order = await command('order.create', { customerId: customer.id, warehouse, lines: [{ itemId: item.id, quantity: '2', price: '4' }] })
+    await command('dispatch.create', { orderId: order.id, shipmentReference: 'synthetic-pier-private-shipment-' + width, lines: [{ orderLineId: order.lines[0].id, quantity: '1' }] })
+    const original = documentOriginal([[customer.name, customer.email, 'Private original for a retained shipment']])
+    let document = await command('document.upload', { name: 'customer.pdf', mimeType: 'application/pdf', base64: original.toString('base64') })
+    document = await command('document.attach', { documentId: document.id, version: document.version, record: { kind: 'orders', id: order.id } })
+    const hold = await command('privacy.hold', { kind: 'customer', subjectId: customer.id, category: 'accounting', reason: 'Owner must release this accounting hold before erasure' })
+    await page.goto(base + '/app#activity'); await page.reload()
+    const privacy = page.locator('section.panel').filter({ has: page.getByText('Retention and erasure', { exact: true }) }).last()
+    await privacy.getByText('Retention and erasure', { exact: true }).click()
+    await privacy.getByLabel('Erasure subject kind', { exact: true }).selectOption('customer')
+    await privacy.getByLabel('Erasure subject', { exact: true }).selectOption(customer.id)
+    await privacy.getByRole('button', { name: 'Inspect erasure dependencies', exact: true }).click()
+    await expect(privacy).toContainText('Erasure is blocked')
+    await expect(privacy.getByRole('button', { name: 'Erase reviewed local data', exact: true })).toHaveCount(0)
+    if (shots) await privacy.screenshot({ path: join(shots, width + '-privacy-held.png') })
+    await command('privacy.hold', { id: hold.id, version: hold.version, kind: 'customer', subjectId: customer.id, category: 'accounting', active: false, reason: 'Owner releases retention hold' })
+    await page.reload(); await privacy.getByText('Retention and erasure', { exact: true }).click()
+    await privacy.getByLabel('Erasure subject kind', { exact: true }).selectOption('customer')
+    await privacy.getByLabel('Erasure subject', { exact: true }).selectOption(customer.id)
+    await privacy.getByRole('button', { name: 'Inspect erasure dependencies', exact: true }).click()
+    await expect(privacy).toContainText('Eligible for explicit owner confirmation')
+    await expect(privacy.getByRole('button', { name: 'Erase reviewed local data', exact: true })).toBeDisabled()
+    await privacy.getByLabel('Confirm irreversible local erasure', { exact: true }).check()
+    if (shots) await privacy.screenshot({ path: join(shots, width + '-privacy-reviewed.png') })
+    const before = await (await context.request.get(base + '/api/pier/state')).json()
+    await submit(page, privacy, 'Erase reviewed local data')
+    const after = await (await context.request.get(base + '/api/pier/state')).json()
+    expect(after.movements).toEqual(before.movements); expect(after.reservations).toEqual(before.reservations)
+    expect(after.parties.find((party: any) => party.id === customer.id).name).toBe('Anonymous customer')
+    expect((await context.request.get(base + '/api/pier/documents/' + document.id + '/original')).status()).toBe(404)
+    await page.getByLabel('Document identity filter', { exact: true }).fill(customer.id)
+    const history = section(page, 'Decision and input history')
+    await expect(history).toContainText('Privacy.eraseSubject')
+    await expect(history).not.toContainText(customer.email)
+    await assertNativeWidth(page)
+    expect(await page.locator('button,a').evaluateAll(nodes => nodes.filter(node => !node.textContent?.trim() && node.querySelector('svg')).length)).toBe(0)
+    if (shots) { await history.screenshot({ path: join(shots, width + '-privacy-history.png') }); await privacy.screenshot({ path: join(shots, width + '-privacy-erased.png') }) }
+  }
 })

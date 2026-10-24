@@ -4,8 +4,8 @@ export const fixture = async name => JSON.parse(await readFile(`tests/fixtures/s
 /** Documented API recordings with synthetic identities; only the provider network is replaced. */
 export function shippingEdge({ mailFetch } = {}) {
   const calls = [], emails = [], unapproved = [];
-  let purchased = false, delivered = false, undeliverable = false, loseBuy = false, redirectNext = false;
-  return { calls, emails, unapproved, redirectNext: () => { redirectNext = true; }, delivered: () => { delivered = true; }, undeliverable: value => { undeliverable = value; }, loseBuy: () => { loseBuy = true; },
+  let purchased = false, delivered = false, undeliverable = false, loseBuy = false, redirectNext = false, shipmentMode = 'test';
+  return { calls, emails, unapproved, setShipmentMode: value => { shipmentMode = value; }, redirectNext: () => { redirectNext = true; }, delivered: () => { delivered = true; }, undeliverable: value => { undeliverable = value; }, loseBuy: () => { loseBuy = true; },
     async outbound(request) {
       const url = new URL(request.url);
       if (url.hostname === 'synthetic-pier-unapproved.example') { unapproved.push(await request.text()); throw new Error('Unapproved egress'); }
@@ -28,7 +28,7 @@ export function shippingEdge({ mailFetch } = {}) {
       if (url.pathname === '/v2/shipments') {
         assert.deepEqual(body.shipment.parcel, { weight: 40, length: 12, width: 8, height: 4 });
         assert.equal(body.shipment.to_address.zip, '94104-1210');
-        return Response.json(await fixture('shipment'));
+        return Response.json({ ...await fixture('shipment'), mode: shipmentMode });
       }
       if (url.pathname === '/v2/shipments/shp_synthetic/buy') {
         assert.equal(body.rate.id, 'rate_usps');

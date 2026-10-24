@@ -18,7 +18,8 @@ function allowedLocations(s: State, actor: Actor) {
 }
 // Scoped stock views expose only physical definitions and admitted positions.
 // Costs, parties, documents, proposals, connections and command results remain
-// owner and global role doors until each domain can prove its own narrower scope.
+// owner and global role doors. The dedicated live-question door projects only
+// minimal operational order data for a complete granted warehouse.
 export function physicalState(s: State, actor: Actor): State {
   if (!scoped(actor)) return s;
   const result = { version: s.version, movements: [], reservations: [] } as unknown as State;

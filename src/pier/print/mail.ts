@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server';
 import type { Actor } from '../model';
 import { authority, load } from '../storage';
+import { beginProviderAttempt } from '../provider-audit';
 import { businessMail, emailUnavailable } from '../correspondence-delivery-provider';
 
 /** Durable provider submission claim; the recipient consent binds the retained bytes. */
@@ -13,6 +14,9 @@ export async function deliverDocument(env:Bindings,actor:Actor,documentId:string
     AND json_extract(data,'$.approvedBy')=? AND json_extract(data,'$.recipient')=?
     ON CONFLICT(correspondence_id) DO NOTHING RETURNING phase`).bind(sender?'sending':'unavailable',sender?null:emailUnavailable,now,doc.id,...gate.params,actor.role,actor.id,doc.recipient).first<any>();
   if(!claim||claim.phase!=='sending'||!sender)return;
+  const state=await load(env.DB);
+  const order=state.orders.find(order=>order.id===doc.orderId);
+  const finish=await beginProviderAttempt(env.DB,{actor,commandId:doc.id,connectorId:'mail',operation:'document.send',direction:'outbound',state,sources:[{collection:'salesDocuments',row:doc}],itemIds:order?.lines.map((line:any)=>line.itemId)??[],documentIds:[doc.id,...(order?[order.id]:[])],requestId:doc.id,approval:{actorId:doc.approvedBy,documentId:doc.id,version:doc.version,policyVersion:null}});
   let phase='uncertain',providerId:string|null=null,error:string|null='Submission outcome is uncertain. No automatic retry.';
   try{
     const outcome=await sender.send({deliveryId:doc.id,from:env.MAIL_FROM!,to:[doc.recipient],subject:doc.subject,text:doc.body,
@@ -20,5 +24,6 @@ export async function deliverDocument(env:Bindings,actor:Actor,documentId:string
     providerId=outcome.providerMessageId;
     if(outcome.status==='accepted'){phase='sent';error=null;}else if(['rejected','rate_limited'].includes(outcome.status)){phase='failed';error='The provider declined this submission.';}
   }catch{/* Provider bodies and credentials never enter diagnostics. */}
+  await finish({outcome:phase==='sent'?'accepted':phase==='failed'?'refused':'uncertain',externalIds:[providerId]});
   await env.DB.prepare("UPDATE pier_mail_deliveries SET phase=?,provider_message_id=?,error=?,at=? WHERE correspondence_id=? AND phase='sending'").bind(phase,providerId,error,new Date().toISOString(),doc.id).run();
 }
