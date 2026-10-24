@@ -2,6 +2,7 @@ import { fail, fresh, get, requireRole, text, type Actor, type Context, type Row
 import { load } from '../storage';
 import { bridgeUrl, ediUnavailable, sendEdi, type EdiEnv } from './adapter';
 import { timestamp } from './records';
+import { providerOperation } from '../provider-audit';
 
 function outbound(c: Context, p: any): Row {
   const doc = get(c.s, 'ediDocuments', p.documentId); fresh(doc, p.version);
@@ -58,6 +59,11 @@ export async function deliverEdi(env: EdiEnv, actor: Actor, commandId: string, p
   const token = crypto.randomUUID();
   const begun = await execute(env, actor, `${commandId}-begin-${token}`, 'edi.send.begin', { ...payload, attemptToken: token });
   const admitted = begun.result as Row;
-  const result = await sendEdi(env, partner, admitted);
+  const state = await load(env.DB), order = state.orders.find(row => row.id === admitted.orderId);
+  const result = await providerOperation(env.DB, { actor, commandId, connectorId: partner.id, operation: 'edi.send', direction: 'outbound', state,
+    sources: [{ collection: 'ediDocuments', row: admitted }, { collection: 'ediPartners', row: partner }],
+    itemIds: order?.lines.map((line: Row) => line.itemId) ?? [],
+    documentIds: [admitted.orderId, admitted.ediOrderId, admitted.packId, admitted.shipmentId].filter(Boolean), requestId: admitted.id, providerAttemptId: token,
+  }, () => sendEdi(env, partner, admitted), outcome => ({ outcome: outcome.status, externalIds: [outcome.providerId] }));
   return execute(env, actor, `${commandId}-result-${token}`, 'edi.send.result', { documentId: admitted.id, version: admitted.version, attemptToken: token, ...result });
 }

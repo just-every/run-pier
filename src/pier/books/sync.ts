@@ -13,6 +13,8 @@ import type { BookDocument } from './adapters/types';
 import { valuationLedger } from '../valuation-ledger';
 import { amount, money } from '../money';
 import { withShopPayment, reconciliationDate } from './shop-payment';
+import { providerOperation, type ProviderAudit } from '../provider-audit';
+import type { Row, State } from '../model';
 
 // A sync after a command runs under waitUntil, which Cloudflare ends about 30 s
 // after the response. Work stops well inside that, and the lease outlives the
@@ -41,7 +43,33 @@ export async function syncBooks(env:Bindings){
       await record('book.checked',{problem:MISSING});
       return {processed};
     }
-    const remote=createPantryAdapter({baseUrl:connection.baseUrl,credentials:secret});
+    const audit=(state:State,job:Row|undefined,operation:string,direction:ProviderAudit['direction'],requestId?:string):ProviderAudit=>{
+      const sources:ProviderAudit['sources']=[{collection:'bookConnections',row:connection}];
+      if(job){
+        sources.push({collection:'bookJobs',row:job});
+        for(const collection of ['items','orders','receipts','returns','supplierBills','invoices'] as const){
+          const source=state[collection].find(row=>row.id===job.sourceId);
+          if(source)sources.push({collection,row:source});
+          if(collection==='supplierBills'&&source){
+            for(const receipt of state.receipts.filter(row=>row.poId===source.poId))sources.push({collection:'receipts',row:receipt});
+          }
+        }
+      }
+      return {actor,policy,commandId:`book-${crypto.randomUUID()}`,connectorId:connection.id,operation,direction,state,sources,
+        itemIds:job?[...(job.sourceKind==='item'?[job.sourceId]:[]),...(job.document?.lines??[]).map((line:Row)=>line.itemId).filter(Boolean)]:state.items.map(row=>row.id),
+        documentIds:job?[job.id,job.sourceId].filter(Boolean):[],externalIds:job?.remoteId?[job.remoteId]:[],requestId:requestId??job?.document?.key};
+    };
+    // The adapter may make several effects per document. Admit each actual
+    // request as well as retaining the final verified document outcome.
+    const transport=(state:State,job?:Row):typeof fetch=>async(input,init)=>{
+      const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+      const method=(init?.method??'GET').toUpperCase(),resource=url.pathname.split('/').filter(Boolean)[4];
+      const kind=['contacts','invoices','bills','journals','documents','payments','reports'].includes(resource)?resource:'record';
+      const key=new Headers(init?.headers).get('idempotency-key')??undefined;
+      return providerOperation(env.DB,audit(state,job,`book.request.${kind}`,method==='GET'?'inbound':'outbound',key),()=>fetch(input,init),response=>({
+        outcome:response.ok?'accepted':response.status>=400&&response.status<500?'refused':'uncertain',
+      }));
+    };
     const jobs=(await load(env.DB)).bookJobs.filter(j=>j.status!=='skipped'&&j.document);
     for(const snapshot of jobs){
       if(Date.now()-start>BUDGET)break;
@@ -54,7 +82,8 @@ export async function syncBooks(env:Bindings){
       let creating=false;
       try{
         doc=withShopPayment(state,job.sourceId,current,doc);
-        let result=await remote.read(doc);
+        const remote=createPantryAdapter({baseUrl:connection.baseUrl,credentials:secret,fetch:transport(state,job)});
+        let result=await providerOperation(env.DB,audit(state,job,'book.read','inbound'),()=>remote.read(doc),value=>({externalIds:[value?.id]}));
         // The owner's Check Pantry re-sends a request Pantry has no record of, under
         // its original idempotency keys, so a request that did arrive is never doubled.
         if(!result&&job.attempted&&!job.resend){
@@ -63,8 +92,12 @@ export async function syncBooks(env:Bindings){
         if(!result||['draft','approved'].includes(result.status)||(job.kind==='bill'&&!(result.evidenceCurrent??result.received))||(doc.payment&&!result.paymentCurrent)){
           // A known remote ID resumes state transitions, never creates another financial document.
           if(result)doc.remoteId=result.id;
-          await record('book.begin',{jobId:job.id});creating=true;
-          result=await remote.post(doc);
+          const begun=await record('book.begin',{jobId:job.id});creating=true;
+          const postingState={...state,version:begun.version},postingJob=begun.result as Row;
+          const posting=createPantryAdapter({baseUrl:connection.baseUrl,credentials:secret,fetch:transport(postingState,postingJob)});
+          result=await providerOperation(env.DB,audit(postingState,postingJob,'book.post','outbound'),()=>posting.post(doc),value=>({
+            outcome:['issued','posted','attached'].includes(value.status)?'accepted':'uncertain',externalIds:[value.id],
+          }));
         }
         const posted=['issued','posted','attached'].includes(result.status);
         const settled=['invoice','bill'].includes(job.kind)&&(result.open!==undefined?amount(result.open)===0n:result.paid!==undefined&&amount(result.paid)===amount(doc.total));
@@ -83,7 +116,7 @@ export async function syncBooks(env:Bindings){
     const expected=layers.some(l=>l.value===null)?null:money(layers.reduce((n,l)=>n+l.value!,0n));
     try {
       const through=reconciliationDate(state,new Date().toISOString().slice(0,10));
-      const tb=await pantryClient({baseUrl:connection.baseUrl,credentials:await credentials(env,'books:pantry')}).request('reports/trial-balance?to='+through);
+      const tb=await pantryClient({baseUrl:connection.baseUrl,credentials:await credentials(env,'books:pantry'),fetch:transport(state)}).request('reports/trial-balance?to='+through);
       const actual=money(BigInt(tb.rows.find((r:any)=>r.id===connection.inventoryAccountId)?.net??0)*10000000000n);
       await record('book.reconcile',{actual,expected,through});
     } catch (error) { connectionProblem??=error instanceof PantryRefusal&&error.status===401?BROKEN:`Pier could not reach Pantry at ${connection.baseUrl}. Check that Pantry is running at that address, then choose Sync now.`; await record('book.reconcile',{actual:null,expected,problem:'Pantry inventory value could not be checked. Restore the connection, then sync again.'}); }

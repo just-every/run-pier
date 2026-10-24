@@ -1,8 +1,9 @@
 import type { Bindings } from "../auth.server";
-import { authority as actorAuthority } from "./storage";
+import { authority as actorAuthority, load } from "./storage";
 import type { Actor, Row } from "./model";
 import { businessMail, businessMessage, emailUnavailable } from "./correspondence-delivery-provider";
 import { correspondenceEligible, type Correspondence } from "./correspondence-delivery-eligibility";
+import { beginProviderAttempt } from './provider-audit';
 export { poMaterial } from "./correspondence-delivery-eligibility";
 
 export type DeliveryPhase = "sending" | "sent" | "failed" | "uncertain" | "unavailable" | "revoked";
@@ -86,6 +87,15 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
         candidate.id, candidate.data, now).first<CorrespondenceDelivery>();
     if (!claimed || claimed.phase !== "sending" || !sender || !mail) return claimed;
 
+    const sourceKind = message.kind === 'customer-promise' ? 'orders' : message.kind === 'slow-stock' ? 'slowStockExceptions' : 'purchaseOrders';
+    const finish = await beginProviderAttempt(db, {
+      actor: actor ?? { id: message.approvedBy, role: message.approvalRole, name: '', sessionId: '', operatorVersion: 0 },
+      commandId: message.id, connectorId: 'mail', operation: 'correspondence.send', direction: 'outbound', state: await load(db),
+      sources: [{ collection: 'correspondence', row: message }, { collection: sourceKind, row: source! }],
+      itemIds: (source?.lines ?? []).map((line: Row) => line.itemId).filter(Boolean), documentIds: [message.recordId], requestId: message.id,
+      approval: { actorId: message.approvedBy, documentId: message.id, version: message.version, policyVersion: message.policyVersion ?? message.sendPolicyVersion ?? null },
+    }, { sql: `EXISTS(SELECT 1 FROM pier_records c WHERE c.kind='correspondence' AND c.id=? AND c.data=? AND ${live})`,
+      params: [candidate.id, candidate.data, ...gate.params, eligible ? 1 : 0, candidate.sourceData] });
     let providerMessageId: string | null = null;
     try {
       const outcome = await sender.send(mail);
@@ -103,6 +113,7 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
       phase = "uncertain";
       error = "The email submission ended without a confirmed outcome. Review before approving another send.";
     }
+    await finish({ outcome: phase === 'sent' ? 'accepted' : phase === 'failed' ? 'refused' : 'uncertain', externalIds: [providerMessageId] });
     // Never copy thrown errors, provider response bodies, credentials or message
     // content into diagnostics. If this write fails, the durable claim survives.
     return db.prepare(`UPDATE pier_mail_deliveries SET phase=?,provider_message_id=?,error=?,at=?

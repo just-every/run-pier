@@ -5,6 +5,7 @@ import { type Row, type Actor } from '../model';
 import { credentials } from './secrets';
 import { adapter } from './adapters';
 import { channelAvailability } from './availability';
+import { providerOperation, type ProviderAudit } from '../provider-audit';
 
 /** One installation-wide lease prevents slow stock requests overtaking newer ones. */
 export async function syncChannels(env: Bindings) {
@@ -24,6 +25,13 @@ export async function syncChannels(env: Bindings) {
       const auth = sessions.get(ch.id)!;
       return execute(env, auth.actor, `channel-${crypto.randomUUID()}`, type, { channelId: ch.id, ...payload }, undefined, auth.policy);
     };
+    const audit = (ch: Row, state: typeof initial, operation: string, direction: ProviderAudit['direction'], listing?: Row): ProviderAudit => {
+      const auth = sessions.get(ch.id)!;
+      const affected = listing ? [listing] : state.channelListings.filter(row => row.channelId === ch.id);
+      return { ...auth, commandId: `channel-${crypto.randomUUID()}`, connectorId: ch.id, operation, direction, state,
+        sources: [{ collection: 'channels', row: ch }, ...(listing ? [{ collection: 'channelListings' as const, row: listing }] : [])],
+        itemIds: affected.map(row => row.itemId).filter(Boolean), documentIds: affected.map(row => row.id), externalIds: affected.map(row => row.externalId) };
+    };
     // Ingest every source before publishing: a Woo order immediately reduces Stall too.
     const connections = new Map<string, ReturnType<typeof adapter>>();
     for (const ch of live) {
@@ -31,7 +39,10 @@ export async function syncChannels(env: Bindings) {
       const result = { channelId: ch.id, imported: 0, published: 0, problem: undefined as string | undefined }; summary.push(result);
       try {
         const remote = adapter({ provider: ch.provider, baseUrl: ch.baseUrl, credentials: await credentials(env, ch.id) });
-        const [listings, orders] = await Promise.all([remote.listings(), remote.orders()]);
+        const [listings, orders] = await Promise.all([
+          providerOperation(env.DB, audit(ch, initial, 'channel.listings', 'inbound'), () => remote.listings(), rows => ({ externalIds: rows.map(row => row.externalId) })),
+          providerOperation(env.DB, audit(ch, initial, 'channel.orders', 'inbound'), () => remote.orders(), rows => ({ externalIds: rows.map(row => row.externalId) })),
+        ]);
         await record(ch, 'channel.ingest', { listings, orders });
         connections.set(ch.id, remote); result.imported = orders.length;
       } catch {
@@ -49,11 +60,14 @@ export async function syncChannels(env: Bindings) {
         if (Date.now() - now > 20000) break;
         const state = await load(env.DB), current = state.channels.find(c => c.id === ch.id);
         if (!current?.enabled || current.version !== ch.version) break;
-        const quantity = channelAvailability(state, ch, listing.itemId,listing);
-        if (listing.publishedQuantity === quantity && !listing.problem) continue;
+        const currentListing = state.channelListings.find(row => row.id === listing.id);
+        if (!currentListing) continue;
+        const quantity = channelAvailability(state, ch, currentListing.itemId,currentListing);
+        if (currentListing.publishedQuantity === quantity && !currentListing.problem) continue;
         const start = Date.now();
         try {
-          await remote.stock({ ...listing, externalId: listing.externalId, sku: listing.sku, title: listing.title }, quantity);
+          await providerOperation(env.DB, audit(current, state, 'channel.stock', 'outbound', currentListing),
+            () => remote.stock({ ...currentListing, externalId: currentListing.externalId, sku: currentListing.sku, title: currentListing.title }, quantity));
           await record(ch, 'channel.published', { listingId: listing.id, quantity, acceptanceMs: Date.now() - start });
           result.published!++;
         } catch {

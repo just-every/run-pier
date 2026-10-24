@@ -7,6 +7,7 @@ import { SETTINGS, bought, unavailable } from './commands';
 import { CarrierRefusal, easyPost, publicAddress, rates } from './easypost';
 import { trackingMail } from './mail';
 import { execute } from '../api';
+import { providerOperation, type ProviderAudit } from '../provider-audit';
 
 async function perform(env: Bindings, actor: Actor, commandId: string, type: string, p: any) {
   const initial = await load(env.DB), job = get(initial, 'shippingJobs', p.jobId);
@@ -22,9 +23,18 @@ async function perform(env: Bindings, actor: Actor, commandId: string, type: str
     const out = await execute(env, actor, `${commandId}-${++step}`, 'shipping.record', { jobId: job.id, version: job.version, change });
     Object.assign(job, out.result); return out;
   };
+  const remote = async <T>(operation: string, direction: ProviderAudit['direction'], run: () => Promise<T>, result?: (value: T) => { outcome?: 'accepted'|'refused'|'uncertain'|'unavailable'; externalIds?: unknown[] }) => {
+    const state = await load(env.DB), order = state.orders.find(row => row.id === job.orderId);
+    return providerOperation(env.DB, { actor, commandId, connectorId: operation === 'shipping.email' ? 'mail' : SETTINGS,
+      operation, direction, state, sources: [{ collection: 'shippingJobs', row: job }, { collection: 'shippingSettings', row: settings }],
+      itemIds: order?.lines.map((line: Row) => line.itemId) ?? [], documentIds: [job.orderId, job.packId],
+      externalIds: [job.providerShipmentId, job.trackerId], requestId: `pier-${job.id}` }, run, result);
+  };
   if (type === 'shipping.verify') {
     if (!['draft','address_review','verified','verification_failed'].includes(job.status)) fail('SHIPPING_STATE', 'Edit the destination before verifying again.');
-    const result = await client.verify(job.originalAddress), verification = result.verifications?.delivery;
+    const result = await remote('shipping.verify', 'outbound', () => client.verify(job.originalAddress), value => ({
+      outcome: value.verifications?.delivery?.success === true ? 'accepted' : value.verifications?.delivery?.success === false ? 'refused' : 'uncertain', externalIds: [value.id],
+    })), verification = result.verifications?.delivery;
     const verified = verification?.success === true;
     return record({ verified, suggestedAddress: publicAddress(result), verificationErrors: (verification?.errors ?? []).map((e: any) => String(e.message ?? e.code)), addressChoice: null, status: verified ? 'address_review' : 'verification_failed' });
   }
@@ -33,14 +43,16 @@ async function perform(env: Bindings, actor: Actor, commandId: string, type: str
     const pack = get(initial, 'packs', job.packId);
     if (pack.status !== 'packed') fail('PACK_STATE', 'This pack has already dispatched.');
     const carton = pack.cartons.find((c: any) => c.number === job.carton);
-    const shipment = await client.rates(settings.fromAddress, job.addressChoice === 'suggested' ? job.suggestedAddress : job.originalAddress, carton, `pier-${job.id}`);
+    const shipment = await remote('shipping.rates', 'outbound', () => client.rates(settings.fromAddress, job.addressChoice === 'suggested' ? job.suggestedAddress : job.originalAddress, carton, `pier-${job.id}`), value => ({ externalIds: [value.id] }));
     return record({ providerShipmentId: shipment.id, rates: rates(shipment.rates ?? []), rateMessages: (shipment.messages ?? []).map((m: any) => `${m.carrier ?? 'Carrier'}: ${m.message ?? 'No rate returned'}`), status: 'rated' });
   }
   const email = async () => {
     if (!job.trackingCode) fail('SHIPPING_STATE', 'Buy a label before sending tracking.');
     if (['sent','sending','uncertain'].includes(job.mail?.status)) return record({ mail: job.mail });
     await record({ mail: { status: 'sending', detail: 'Tracking email submission started.' } });
-    return record({ mail: await trackingMail(env, job) });
+    return record({ mail: await remote('shipping.email', 'outbound', () => trackingMail(env, job), value => ({
+      outcome: value.status === 'sent' ? 'accepted' : value.status === 'failed' ? 'refused' : value.status === 'uncertain' ? 'uncertain' : 'unavailable',
+    })) });
   };
   if (type === 'shipping.email') return email();
   if (type === 'shipping.buy' || type === 'shipping.reconcile') {
@@ -52,10 +64,10 @@ async function perform(env: Bindings, actor: Actor, commandId: string, type: str
     if (type === 'shipping.buy') await record({ status: 'buying', selectedRateId: p.rateId, buyAttempted: true });
     let shipment: any;
     try {
-      shipment = await client.read(job.providerShipmentId);
+      shipment = await remote('shipping.read', 'inbound', () => client.read(job.providerShipmentId), value => ({ externalIds: [value.id] }));
       if (!bought(shipment)) {
         if (type === 'shipping.reconcile') return record({ status: 'uncertain', problem: 'EasyPost has not confirmed a label. Check this shipment in EasyPost; Pier will not repeat an uncertain purchase.' });
-        shipment = await client.buy(job.providerShipmentId, job.selectedRateId);
+        shipment = await remote('shipping.buy', 'outbound', () => client.buy(job.providerShipmentId, job.selectedRateId), value => ({ outcome: bought(value) ? 'accepted' : 'uncertain', externalIds: [value.id] }));
       }
     } catch (error) {
       return record({ status: 'uncertain', problem: error instanceof CarrierRefusal ? error.message : 'EasyPost did not confirm the label request. Check the existing shipment before any further purchase.' });
@@ -65,14 +77,16 @@ async function perform(env: Bindings, actor: Actor, commandId: string, type: str
     await record({ ...label, problem: null });
     for (const format of ['PDF','ZPL'] as const) {
       if (format === 'PDF' ? job.labelPdfUrl : job.labelZplUrl) continue;
-      try { const converted = bought(await client.label(job.providerShipmentId, format)); if (converted) await record({ ...converted, labelPdfUrl: converted.labelPdfUrl ?? job.labelPdfUrl, labelZplUrl: converted.labelZplUrl ?? job.labelZplUrl }); }
+      try { const converted = bought(await remote('shipping.label', 'outbound', () => client.label(job.providerShipmentId, format), value => ({ externalIds: [value.id] }))); if (converted) await record({ ...converted, labelPdfUrl: converted.labelPdfUrl ?? job.labelPdfUrl, labelZplUrl: converted.labelZplUrl ?? job.labelZplUrl }); }
       catch { await record({ problem: 'This carrier did not provide both PDF and ZPL. Use the available format or check label settings in EasyPost.' }); }
     }
     return email();
   }
   if (type === 'shipping.track') {
     if (!job.trackerId) fail('TRACKER', 'The label has no EasyPost tracker yet.');
-    const tracker = await client.tracker(job.trackerId);
+    const tracker = await remote('shipping.track', 'inbound', () => client.tracker(job.trackerId), value => ({
+      outcome: value.id === job.trackerId && value.tracking_code === job.trackingCode ? 'accepted' : 'uncertain', externalIds: [value.id],
+    }));
     return record(trackingChange(job, tracker));
   }
   return fail('COMMAND', 'Unknown shipping action.');

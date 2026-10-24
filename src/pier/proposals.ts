@@ -79,8 +79,8 @@ export function proposals(c: Context, type: string, p: any): Row | undefined {
     });
   }
   const proposal = get(c.s, "proposals", p.proposalId);
-  if (proposal.kind === 'item-review')
-    fail('PROPOSAL', 'Review each exact item action with its apply, reject or undo command.');
+  if (!['replenishment', 'reallocation', 'count-drift', 'migration'].includes(proposal.kind))
+    fail('PROPOSAL', 'Use this preparation’s exact action review command.');
   requireRole(
     c,
     proposal.kind === "replenishment"

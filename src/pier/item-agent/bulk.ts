@@ -2,6 +2,7 @@ import { collections, fail, fresh, get, requireRole, row, text, type Context } f
 import { canonicalJson, sha256 } from '../import-kit';
 import { purchasing } from '../purchasing';
 import { expectedLandedCost, purchasingWorkflow } from '../purchasing-workflow';
+import { bulkImpact } from './bulk-impact';
 
 // Any intervening business change requires a new preview. Reviews themselves
 // are excluded so independently prepared plans cannot make each other stale.
@@ -29,10 +30,7 @@ function preview(c: Context, entries: any) {
     ordinary(simulation, entry);
     const after = structuredClone(get(simulation.s, collection, targetId));
     return { id: crypto.randomUUID(), type: entry.type, payload: structuredClone(entry.payload), targetId, before, after,
-      impact: { cash: entry.type === 'po.revise' ? { before: expectedLandedCost(before), after: expectedLandedCost(after), currency: 'USD', status: 'draft; separate purchase approval required' } : { status: 'No purchase cash change' },
-        promise: { before: before.promiseDate ?? null, after: after.promiseDate ?? null, lines: after.promiseHistory?.at(-1)?.lines ?? [] },
-        service: 'Dates are requested or estimated; no delivery guarantee. Reservations and physical stock are unchanged.',
-        customerMessageQueuedOnApply: entry.type === 'order.repromise' },
+      impact: bulkImpact(c, simulation, entry, before, after),
       status: 'prepared' };
   });
 }

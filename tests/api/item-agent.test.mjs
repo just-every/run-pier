@@ -1,7 +1,9 @@
+const keysForQuestion = value => value && typeof value === 'object' ? Object.entries(value).flatMap(([key, child]) => [key, ...keysForQuestion(child)]) : [];
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { installation, basics, buy, receive, parse } from './harness.mjs';
+const exportedBusiness = async h => { const { exportedAt, ...snapshot } = await (await h.request('/api/pier/export')).json(); return snapshot; };
 
 test('item checks prepare current evidence and humans apply, reject and safely undo exact changes without AI', async t => {
   let requests = 0;
@@ -142,6 +144,7 @@ test('bulk purchase reviews preview exact rows, edit, apply once with human auth
   const rows = [first, second, third].map(po => ({ type: 'po.revise', payload: { ...po, poId: po.id, promiseDate: '2026-11-03', reason: 'Review revised delivery' } }));
   const before = await h.state();
   let plan = await h.command('itemAgent.bulkPreview', { rows });
+  await h.command('proposal.approve', { proposalId: plan.id, version: plan.version }, { error: 'PROPOSAL' });
   assert.deepEqual((await h.state()).purchaseOrders, before.purchaseOrders);
   assert.equal(plan.rows[0].impact.cash.before.total, '24.000000000000');
   assert.equal(plan.rows[0].after.promiseDate, '2026-11-03');
@@ -200,9 +203,29 @@ test('live stock questions cite current granted bins without costs, customers or
   const cookie = entered.headers.getSetCookie().map(v => v.split(';')[0]).join('; ');
   const session = await (await h.request('/auth/session', { as: cookie })).json();
   await h.command('role.set', { operatorId: session.operator.id, role: 'warehouse', permissions: { warehouses: ['North'], locationIds: [b.source.id] } });
+  let routing = await h.command('routing.save', { source: 'manual', mode: 'fixed', shortage: 'hold', eligible: ['North'], zones: [] });
+  routing = await h.command('routing.preview', { ruleId: routing.id, version: routing.version });
+  await h.command('routing.activate', { ruleId: routing.id, version: routing.version });
+  const order = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '12', price: '5' }] });
+  const shortageResponse = await h.request('/api/pier/questions?kind=shortage&orderId=' + order.id, { as: cookie });
+  assert.equal(shortageResponse.status, 200);
+  const shortage = await shortageResponse.json();
+  assert.equal(shortage.lines[0].reserved, '10');
+  assert.equal(shortage.lines[0].backorder, '2');
+  assert.deepEqual(shortage.lines[0].stock.map(position => position.locationId), [b.source.id]);
+  assert.ok(!JSON.stringify(shortage).includes(b.customer.id));
+  assert.ok(!JSON.stringify(shortage).includes(b.supplier.id));
+  assert.ok(!JSON.stringify(shortage).includes(b.destination.id));
+  for (const kind of ['margin', 'supplier', 'allocation']) assert.equal((await h.request('/api/pier/questions?kind=' + kind, { as: cookie })).status, 403);
+  const extraBin = await h.command('location.save', { name: 'Other North bin', warehouse: 'North', kind: 'bin' });
+  assert.equal((await h.request('/api/pier/questions?kind=shortage&orderId=' + order.id, { as: cookie })).status, 403);
+  await h.command('role.set', { operatorId: session.operator.id, role: 'warehouse', permissions: { warehouses: ['North'], locationIds: [b.source.id, extraBin.id] } });
+  assert.deepEqual((await (await h.request('/api/pier/questions?kind=orders', { as: cookie })).json()).orders.map(row => row.id), [order.id]);
   const question = await (await h.request('/api/pier/questions?kind=stock&itemId=' + b.item.id, { as: cookie })).json();
-  assert.equal(question.answer.available, '10');
+  assert.equal(question.answer.available, '0');
   assert.deepEqual(question.evidence.map(row => row.locationId), [b.source.id]);
+  const shortageKeys = keysForQuestion(shortage);
+  assert.ok(!shortageKeys.some(key => /price|cost|supplier|customer/i.test(key)));
   assert.equal(question.stateVersion, (await h.state()).version);
   const serialized = JSON.stringify(question);
   for (const forbidden of [b.customer.id, b.supplier.id, b.destination.id]) assert.ok(!serialized.includes(forbidden), forbidden);
@@ -226,4 +249,64 @@ test('late purchase answers cite outstanding quantities and stop reporting a com
   assert.ok(late.evidence[0].version > po.version);
   await receive(h, b, po, '3');
   assert.deepEqual((await (await h.request('/api/pier/questions?kind=late')).json()).evidence, []);
+});
+
+test('supplier and date comparisons validate current terms without changing purchases or customer promises', async t => {
+  const h = await installation(); t.after(() => h.close());
+  const b = await basics(h);
+  await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: 'synthetic-pier-311', packSize: '1', minimum: '1', price: '2', leadDays: 3 });
+  const alternate = await h.command('party.save', { kind: 'supplier', name: 'Alternate synthetic supplier' });
+  const terms = await h.command('supplierItem.save', { supplierId: alternate.id, itemId: b.item.id, code: 'synthetic-pier-312', packSize: '1', minimum: '1', price: '3', leadDays: 8 });
+  await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', promiseDate: '2026-11-01', lines: [{ itemId: b.item.id, quantity: '2', price: '5' }] });
+  const po = await h.command('po.draft', { supplierId: b.supplier.id, destinationWarehouse: 'North', promiseDate: '2026-11-01', reason: 'Compare a real alternative', lines: [{ itemId: b.item.id, quantity: '12', price: '2' }] });
+  const before = await exportedBusiness(h);
+  const response = await h.request('/api/pier/questions?' + new URLSearchParams({ kind: 'supplier', poId: po.id, supplierId: alternate.id, promiseDate: '2026-11-05' }));
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.before.cash.total, '24.000000000000');
+  assert.equal(result.after.cash.total, '36.000000000000');
+  assert.equal(result.cashDelta, '12.000000000000');
+  assert.equal(result.after.lines[0].termsId, terms.id);
+  assert.equal(result.after.promiseDate, '2026-11-05');
+  assert.equal(result.affectedPromises.length, 1);
+  assert.equal(result.stateVersion, before.version);
+  assert.deepEqual(await exportedBusiness(h), before);
+  assert.equal((await h.request('/api/pier/questions?' + new URLSearchParams({ kind: 'supplier', poId: po.id, promiseDate: '2026-02-30' }))).status, 409);
+});
+
+test('allocation comparisons cite both orders and refuse excess while leaving live hard reservations unchanged', async t => {
+  const h = await installation(); t.after(() => h.close());
+  const b = await basics(h), po = await buy(h, b, '4'); await receive(h, b, po, '4');
+  const donor = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '4', price: '4' }] });
+  const recipient = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '3', price: '4' }] });
+  const before = await exportedBusiness(h);
+  const params = new URLSearchParams({ kind: 'allocation', fromOrderId: donor.id, toOrderId: recipient.id, itemId: b.item.id, quantity: '2' });
+  const response = await h.request('/api/pier/questions?' + params);
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.before[0].lines[0].reserved, '4');
+  assert.equal(result.before[1].lines[0].backorder, '3');
+  assert.equal(result.after[0].lines[0].backorder, '2');
+  assert.equal(result.after[1].lines[0].reserved, '2');
+  assert.deepEqual(result.sources.orders.map(row => row.id), [donor.id, recipient.id]);
+  assert.deepEqual(await exportedBusiness(h), before);
+  params.set('quantity', '5');
+  const refused = await h.request('/api/pier/questions?' + params);
+  assert.equal(refused.status, 409);
+  assert.deepEqual(await exportedBusiness(h), before);
+});
+
+test('live margin answers retain observed losses and expose missing cost as unknown', async t => {
+  const h = await installation(); t.after(() => h.close());
+  const b = await basics(h), po = await buy(h, b, '4'); await h.command('receipt.create', { poId: po.id, supplierReference: 'Observed costly delivery', lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '4', cost: '2' }] });
+  const loss = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '4', price: '1' }] });
+  const unknown = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '3', price: '5' }] });
+  const before = await exportedBusiness(h), result = await (await h.request('/api/pier/questions?kind=margin')).json();
+  const costed = result.orders.find(row => row.orderId === loss.id), uncosted = result.orders.find(row => row.orderId === unknown.id);
+  assert.equal(costed.revenue, '4.000000000000');
+  assert.ok(Number(costed.margin) < 0);
+  assert.equal(costed.lines[0].costedQuantity, '4');
+  assert.equal(uncosted.cost, null); assert.equal(uncosted.margin, null);
+  assert.equal(uncosted.lines[0].uncostedQuantity, '3');
+  assert.deepEqual(await exportedBusiness(h), before);
 });
