@@ -4,6 +4,7 @@ import { ItemName, money, person, sourceDocument, when, words } from './display'
 import { fromMillionths } from './quantity'
 import { Empty, Select, Table, Evidence, Field } from './controls'
 import { Proposals } from './proposals'
+import { LiveWork } from './item-agent/bulk'
 import { Operators } from './operators'
 
 export function Activity({ state, run, busy, itemId, refresh }: { state: PierState; run: RunCommand; busy: boolean; itemId: string; refresh: () => Promise<void> }) {
@@ -21,6 +22,7 @@ export function Activity({ state, run, busy, itemId, refresh }: { state: PierSta
       <div className="form-grid"><Field label="Document identity filter" required={false} value={document} onChange={setDocument} /><Select label="User filter" rows={records(state, 'people')} value={user} onChange={setUser} required={false} /><Select label="Connector filter" rows={records(state, 'channels')} value={connector} onChange={setConnector} required={false} /></div>
       {!events.length ? <Empty>No recorded decisions for this selection.</Empty> : <Table headings={['When', 'Action / outcome', 'Actor / input', 'Source / changes']}>{events.slice().reverse().map(event => <tr key={event.id}><td>{when(event.at)}</td><td>{words(event.type)}<small>{words(event.outcome)}{event.reason ? ` · ${words(event.reason)}` : ''}</small></td><td>{person(state, event.actorId)}{event.code && <small>{event.code} · {event.device}</small>}{event.connectorId && <small>{event.connectorId} · {event.direction || 'recorded outcome'}</small>}</td><td><small>Command {event.commandId} · version {event.version}</small><details><summary>Recorded change details</summary><Evidence value={{ resolution: event.resolution, changes: event.changes, sourceIds: event.documentIds, rule: event.rule }} /></details></td></tr>)}</Table>}
     </section>
+    <LiveWork state={state} run={run} busy={busy} />
     <Proposals state={state} run={run} busy={busy} />
     {state.actor.role === 'owner' && <Operators state={state} run={run} busy={busy} refresh={refresh} />}
     <section className="panel"><details className="technical-log"><summary>Technical log</summary><p className="muted">The latest commands. Durable command identities make exact retries recover their original result.</p><Table headings={['Recorded', 'Actor', 'Command identity']}>{records(state, 'commands').map(command => <tr key={command.id}><td><span className="nowrap">{when(command.createdAt)}</span></td><td>{person(state, command.actorId)}</td><td><small>{command.id}</small></td></tr>)}</Table></details></section>

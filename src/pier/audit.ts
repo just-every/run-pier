@@ -6,9 +6,12 @@ const scanTypes = new Set(['receiving.scan', 'pick.scan', 'pack.scan', 'slotting
 // Preserve business field changes without retaining contacts, source originals,
 // provider responses, tokens, prompts or untrusted arbitrary metadata.
 const fields = new Set(['sku','name','barcode','caseBarcode','unit','packSize','archived','warehouse','kind','zone','status','quantity','reserved','dispatched','received','cancelled','promiseDate','destinationWarehouse','enabled','autoDraft','role','method','reorderPoint','reorderQuantity','maximum','locationId','itemId','permissions','barcodes']);
-function image(kind: string, row: any) {
-  if (!row) return null;
-  return Object.fromEntries(Object.entries(row).filter(([key]) => fields.has(key) && !(key === 'name' && kind !== 'items' && kind !== 'locations')));
+const businessFields = new Set([...fields, 'id','version','lines','price','cost','freight','duty','tax','currency','approval','approvedBy','actorId','role','at','poLineId','orderLineId','beforeVersion','afterVersion','operationId','responseId','externalId','externalIds','attemptId','requestId','providerId','resultId','commandId','ruleId','ruleVersion','correctionId','reversalId','originalId','invoiceId','creditId','refundId','amount','total','dueDate','confirmation','promiseHistory','backorderPromiseDate','backorderPromisedQuantity','ai','counts','outcome','completedAt','kind','subjectId','warehouses','locationIds','expiresAt','code','packQuantity','originals','extractions','inboxCopies','pendingRequests','orders','purchases']);
+function image(kind: string, row: any): any {
+  if (row === null || row === undefined) return null;
+  if (Array.isArray(row)) return row.map(value => image(kind, value));
+  if (typeof row !== 'object') return row;
+  return Object.fromEntries(Object.entries(row).filter(([key]) => businessFields.has(key) && !(key === 'name' && kind !== 'items' && kind !== 'locations')).map(([key, value]) => [key, image(kind, value)]));
 }
 export function auditEvent(c: Context, before: State, type: string, p: any, result: any, outcome = 'accepted', reason?: string) {
   const changes: any[] = [], itemIds = new Set<string>(), documents = new Set<string>();

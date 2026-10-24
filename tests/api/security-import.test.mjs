@@ -767,6 +767,16 @@ test('retained originals and signed mail produce cited hostile drafts; corrected
   assert.ok((await h.db.prepare('SELECT epoch FROM rer_portability_state WHERE id=1').first()).epoch > 0);
   assert.ok((await h.db.prepare('SELECT count(*) AS n FROM rer_portability_journal').first()).n > 0);
   assert.equal((await h.request('/api/pier/privacy', { as: memberCookie })).status, 403);
+  const erasureHistory = await (await h.request('/api/pier/audit?documentId=' + document.id)).json();
+  const erasedEvent = erasureHistory.find(event => event.commandId === eraseId);
+  assert.equal(erasedEvent.outcome, 'accepted');
+  assert.equal(erasedEvent.changes.find(change => change.kind === 'privacyReceipts').after.counts.originals, 1);
+  assert.ok(!JSON.stringify(erasureHistory).includes(payload.base64));
+  assert.ok(!JSON.stringify(erasureHistory).includes(raw.toString('base64')));
+  assert.ok(!JSON.stringify(erasureHistory).includes('synthetic-pier-1'));
+  await h.restartWithFreshSigningKey();
+  assert.deepEqual(await (await h.request('/api/pier/audit?documentId=' + document.id)).json(), erasureHistory);
+  assert.deepEqual((await (await h.request('/api/pier/export')).json()).auditEvents.find(event => event.id === erasedEvent.id), erasedEvent);
 
 });
 

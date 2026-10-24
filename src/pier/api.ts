@@ -4,6 +4,8 @@ import { stocktakes, stocktakeView, enforceStocktakeFreeze } from './stocktakes'
 import { savedReports, filteredReports, reportCsv } from './saved-reports';
 import { workflowRules } from './workflow-rules';
 import { privacy, privacyPreview } from './privacy';
+import { bulkInputDigest } from './item-agent/bulk';
+import { liveQuestion } from './item-agent/questions';
 import { auditEvent, auditRows, refusedScan } from './audit';
 import { admitScopedCommand, physicalState, scoped } from './permissions';
 import { recurringOrders } from './recurring-orders';
@@ -267,7 +269,7 @@ export async function execute(
       return outcome;
     }
     // Retaining and reviewing untrusted evidence never triggers unrelated plans.
-    if (type !== 'replenishment.compare' && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
+    if (!['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && type !== 'replenishment.compare' && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -278,6 +280,7 @@ export async function execute(
     markChannelPending(c, before);
     }
     invalidatePurchaseSends(c);
+    if (type === 'itemAgent.bulkApply') result.sourceDigest = bulkInputDigest(c);
     c.audit = auditEvent(c, before, type, payload, result, type.endsWith(".failed") ? "failed" : "accepted");
     try {
       return await commit(env, c, before, digest, result);
@@ -344,6 +347,7 @@ export async function pierResponse(
           null,
           401,
         );
+      if (url.pathname === '/api/pier/questions') return json(liveQuestion(full, actor, url.searchParams));
       if (scoped(actor)) {
         if (!['/api/pier/state', '/api/pier/scope-export'].includes(url.pathname)) throw new Problem('SCOPE', 'This door requires wider authority; use your scoped stock export.', null, 403);
         if (url.pathname === '/api/pier/scope-export') return json({ format: 'pier-scoped-stock-v1', ...s });

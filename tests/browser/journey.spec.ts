@@ -739,3 +739,48 @@ test('customer profiles and outside representatives show native aging at 1440 an
     if (shots) await page.screenshot({ path: join(shots, `${width}-customers-aging.png`), fullPage: true })
   }
 })
+
+test('live answers and editable bulk purchase reviews retain exact human commands at 1440 and 390', async ({ page, context }) => {
+  const origin = await ownerEntry(page)
+  const command = async (type: string, payload: object) => {
+    const response = await context.request.post(origin + '/api/pier/commands', { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
+  }
+  const item = await command('item.save', { sku: 'synthetic-pier-bulk', name: 'Bulk review item', unit: 'each', packSize: '1' })
+  const supplier = await command('party.save', { name: 'Synthetic bulk supplier', kind: 'supplier' })
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const drafts = []
+    for (let i = 0; i < 2; i++) drafts.push(await command('po.draft', { supplierId: supplier.id, promiseDate: '2026-11-01', reason: 'Synthetic reviewed demand', lines: [{ itemId: item.id, quantity: '12', price: '2' }] }))
+    await page.goto(origin + '/app#activity'); await page.reload()
+    const question = section(page, 'Live operational questions')
+    await question.getByLabel('Question item', { exact: true }).selectOption(item.id)
+    await question.getByRole('button', { name: 'Ask current records', exact: true }).click()
+    await expect(question.getByRole('status')).toContainText('state Version')
+    await expect(question).toContainText('No physical count is inferred.')
+    const review = section(page, 'Review purchase changes')
+    for (const draft of drafts) await review.getByLabel('Select ' + draft.reference, { exact: true }).check()
+    await review.getByLabel('Proposed purchase date', { exact: true }).fill('2026-11-03')
+    await review.getByLabel('Bulk review reason', { exact: true }).fill('Human reviewed delivery change')
+    await submit(page, review, 'Preview selected changes')
+    await review.getByLabel('Proposed purchase date', { exact: true }).fill('2026-11-04')
+    await submit(page, review, 'Update plan date')
+    await expect(review).toContainText('2026-11-01 → 2026-11-04')
+    const detail = review.getByText('Exact rows and impact', { exact: true }).first()
+    await detail.click()
+    await expect(review).toContainText('draft; separate purchase approval required')
+    await submit(page, review, 'Approve ' + drafts[0].reference)
+    await expect(review).toContainText('Applied command')
+    const changed = await command('item.save', { ...item, name: 'Changed live evidence ' + width })
+    item.version = changed.version
+    await submit(page, review, 'Approve ' + drafts[1].reference, false)
+    await expect(page.getByRole('alert')).toContainText('Business inputs changed')
+    // The touched Activity surface and shared shell have visible text labels.
+    expect(await page.locator('button,a').evaluateAll(nodes => nodes.filter(node => !node.textContent?.trim() && node.querySelector('svg')).length)).toBe(0)
+    await assertNativeWidth(page)
+    if (shots) { await mkdir(shots, { recursive: true }); await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: join(shots, width + '-bulk-review.png'), fullPage: true }) }
+    const state = await (await context.request.get(origin + '/api/pier/state')).json()
+    expect(state.purchaseOrders.find((po: any) => po.id === drafts[0].id).promiseDate).toBe('2026-11-04')
+    expect(state.purchaseOrders.find((po: any) => po.id === drafts[1].id).promiseDate).toBe('2026-11-01')
+  }
+})
