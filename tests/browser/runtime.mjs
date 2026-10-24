@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { realpathSync } from 'node:fs'
 import { cp, mkdir } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
@@ -76,8 +77,17 @@ export async function stopDev(root, runtime) {
     try { process.kill(-runtime.process.pid, value) }
     catch (error) { if (error.code !== 'ESRCH') throw error }
   }
-  signal('SIGTERM')
+  // The CLI can re-exec into another process group. This unique installation
+  // root was created by this runner; record its exact processes before stopping.
+  const canonical = realpathSync(root)
+  const owned = execFileSync('ps', ['-axo', 'pid=,command=']).toString().split('\n').flatMap(line => {
+    const match = /^\s*(\d+)\s+(.+)$/.exec(line)
+    if (!match || Number(match[1]) === process.pid) return []
+    return [root, canonical].some(path => match[2].includes(path + '/') || match[2].endsWith(' ' + path) || match[2].includes(' ' + path + ' ')) ? [Number(match[1])] : []
+  })
+  const stopOwned = value => { for (const pid of owned) { try { process.kill(pid, value) } catch (error) { if (error.code !== 'ESRCH') throw error } } }
+  signal('SIGTERM'); stopOwned('SIGTERM')
   await new Promise(resolve => setTimeout(resolve, 1000))
-  signal('SIGKILL')
+  signal('SIGKILL'); stopOwned('SIGKILL')
   await runtime.done
 }
