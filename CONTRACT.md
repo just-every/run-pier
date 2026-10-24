@@ -200,7 +200,7 @@ Sales staff see present availability and dated available-to-promise by warehouse
 
 ### SALES-004 — Recurring and dropship orders.
 
-Authorized staff schedule recurring wholesale orders with explicit customer, price, cadence, stock/credit policy and pause or cancel controls. Dropship lines link sales demand to a supplier PO and direct-to-customer shipment, carrying confirmations, tracking, credits and cost without inventing a receipt in Pier’s own warehouse.
+Authorized staff schedule recurring wholesale orders with explicit customer, price, cadence, stock and credit policy and pause or cancel controls. Dropship lines link sales demand to a supplier PO and direct-to-customer shipment, carrying confirmations, tracking, credits and cost without inventing a receipt in Pier’s own warehouse.
 
 **Acceptance evidence:** Run a recurring order across a price change and credit hold, pause it and confirm no further order is created. Fulfill a dropship line from supplier confirmation to tracking and customer credit; local on-hand stock remains unchanged.
 
