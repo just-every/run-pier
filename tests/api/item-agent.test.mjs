@@ -202,6 +202,19 @@ test('bulk purchase reviews preview exact rows, edit, apply once with human auth
   const afterPromise = await h.state();
   assert.equal(afterPromise.orders.find(order => order.id === demand.id).lines[0].backorderPromiseDate, current.backorderPlan.lines[0].expectedDate);
   assert.ok(afterPromise.correspondence.some(message => message.id === promised.rows[0].resultId && message.recipient === 'customer@example.test'));
+  await h.command('role.set', { operatorId: session.operator.id, role: 'operator' });
+  const currentState = await h.state(), pendingPurchase = currentState.purchaseOrders.find(po => po.id === third.id), pendingOrder = currentState.orders.find(order => order.id === demand.id);
+  let mixed = await h.command('itemAgent.bulkPreview', { rows: [
+    { type:'po.revise', payload:{ ...pendingPurchase, poId:pendingPurchase.id, promiseDate:'2026-11-06', reason:'Review remaining purchase independently' } },
+    { type:'order.repromise', payload:{ orderId:pendingOrder.id, version:pendingOrder.version, fingerprint:pendingOrder.backorderPlan.fingerprint, recipient:'reviewed@example.test', confirm:true } },
+  ] });
+  await h.command('itemAgent.bulkApply', { proposalId:mixed.id, version:mixed.version, rowId:mixed.rows[0].id, reason:'Operator lacks purchase revision authority' }, { as:cookie, error:'FORBIDDEN' });
+  assert.deepEqual((await h.state()).purchaseOrders, currentState.purchaseOrders);
+  mixed = await h.command('itemAgent.bulkApply', { proposalId:mixed.id, version:mixed.version, rowId:mixed.rows[1].id, reason:'Operator approves only the exact customer promise' }, { as:cookie });
+  assert.equal(mixed.rows[1].approval.role, 'operator');
+  mixed = await h.command('itemAgent.bulkApply', { proposalId:mixed.id, version:mixed.version, rowId:mixed.rows[0].id, reason:'Owner approves the remaining purchase row' });
+  assert.equal(mixed.rows[0].approval.role, 'owner');
+
 });
 
 test('live stock questions cite current granted bins without costs, customers or outside stock', async t => {
