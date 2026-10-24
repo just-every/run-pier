@@ -19,8 +19,6 @@ jobs:
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
       GH_TOKEN: ${{ github.token }}
-      PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-acceptance
-      PIER_SCREENSHOTS: ${{ runner.temp }}/pier-acceptance/screenshots
     steps:
       - uses: actions/checkout@v4
       - name: Reclaim unused hosted runner toolchain space
@@ -37,6 +35,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - name: Exercise existing desktop and phone acceptance
+        env:
+          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-acceptance
+          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-acceptance/screenshots
         run: node tests/browser/acceptance.mjs --shard=${{ matrix.shard }}/4
       - uses: actions/upload-artifact@v4
         if: always()
