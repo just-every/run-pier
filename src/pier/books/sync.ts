@@ -70,7 +70,9 @@ export async function syncBooks(env:Bindings){
         outcome:response.ok?'accepted':response.status>=400&&response.status<500?'refused':'uncertain',
       }));
     };
-    const jobs=(await load(env.DB)).bookJobs.filter(j=>j.status!=='skipped'&&j.document);
+    // Stored rows with the same creation time have no insertion order. Credits
+    // depend on their invoice or payable, which must be admitted first.
+    const jobs=(await load(env.DB)).bookJobs.filter(j=>j.status!=='skipped'&&j.document).sort((a,b)=>Number(a.kind==='credit')-Number(b.kind==='credit'));
     for(const snapshot of jobs){
       if(Date.now()-start>BUDGET)break;
       const state=await load(env.DB),current=state.bookConnections.find(c=>c.id===connection.id),job=state.bookJobs.find(j=>j.id===snapshot.id)!;
