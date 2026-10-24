@@ -234,7 +234,7 @@ test('recurring orders apply price, stock and credit policy once per due day and
 });
 
 test('direct dropship demand retains supplier PO, confirmation, tracking, cost and bounded customer credit without warehouse stock',async t=>{
-  const pantry=await pantryInstallation();t.after(()=>pantry.close());
+  const pantry=await pantryInstallation({revision:'e987ba0a2270a81c62d399c44c6e05d3b504bb07'});t.after(()=>pantry.close());
   await pantry.command('chart.start',{});
   const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find(a=>a.code==='4000');
   let loseCredit=false;
@@ -256,7 +256,7 @@ test('direct dropship demand retains supplier PO, confirmation, tracking, cost a
   assert.equal((await pantry.view('sales')).invoices.length,0,'retaining a credit alone does not authorize posting');
   const posting={dropshipId:drop.id,version:drop.version,creditId:drop.credits[0].id},postingId=randomUUID();loseCredit=true;
   await h.command('dropship.postCredit',posting,{commandId:postingId});
-  s=await h.state();assert.equal(s.bookJobs.find(j=>j.key.startsWith('dropship-credit:')).status,'uncertain');
+  s=await h.state();assert.equal(s.bookJobs.find(j=>j.key.startsWith('dropship-credit:')).status,'uncertain',JSON.stringify(s.bookJobs.filter(j=>j.key.startsWith('dropship-'))));
   await h.command('dropship.postCredit',posting,{commandId:postingId});await h.command('book.sync',{});
   const financial=(await pantry.view('sales')).invoices,invoice=financial.find(i=>i.kind==='invoice'),posted=financial.find(i=>i.kind==='credit');
   assert.equal(financial.length,2);assert.equal(posted.credit_for,invoice.id);assert.equal(posted.total_cents,2000);assert.equal(invoice.open_cents,1000);

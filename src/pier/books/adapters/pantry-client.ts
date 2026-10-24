@@ -33,7 +33,9 @@ export function pantryClient(config: BooksAdapterConfig) {
     if(!doc.attachment) return null;
     const rows=(await request('documents?name='+encodeURIComponent(doc.attachment.name))).documents;
     const found=matching(rows,r=>r.name===doc.attachment!.name);
-    if(found && (found.sha256!==sha256(doc.attachment.content) || (linkedId && found.linked_id!==linkedId))) throw new PantryRefusal('The evidence with this Pier reference differs in Pantry. Review the source and attached document.',409);
+    if(found && found.sha256!==sha256(doc.attachment.content)) throw new PantryRefusal('The evidence bytes with this Pier reference differ in Pantry. Review the retained source and attached document.',409);
+    if(found && linkedId && found.linked_id!==linkedId && found.duplicate_of && !found.duplicate_decision) throw new PantryRefusal('Pantry flagged this evidence as a possible duplicate. In Pantry Documents, review the original invoice and receipt-state evidence and choose Keep both if they are distinct, then sync again.',409);
+    if(found && linkedId && found.linked_id!==linkedId) throw new PantryRefusal('The evidence with this Pier reference is linked to a different Pantry bill. Review its document link before continuing.',409);
     return found;
   };
   const upload=async(doc:BookDocument,linkedId?:string) => {

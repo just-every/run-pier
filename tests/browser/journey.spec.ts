@@ -346,7 +346,7 @@ test('an owner authorizes, runs and pauses recurring demand at 1440 and 390',asy
 })
 
 test('a direct supplier shipment records tracking and posts an explicitly authorized customer credit with unchanged stock at 1440 and 390',async({page,context})=>{
-  const pantry=await pantryInstallation()
+  const pantry=await pantryInstallation({revision:'e987ba0a2270a81c62d399c44c6e05d3b504bb07'})
   try {
   await pantry.command('chart.start',{})
   const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find((a:any)=>a.code==='4000')

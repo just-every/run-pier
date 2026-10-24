@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { installation, basics, buy, receive } from './harness.mjs';
 
-test('BUY-003: quarantine, supplier authority, once-only dispatch, credit/replacement evidence preserve receipt and outstanding PO', async t => {
-  const pantry=await pantryInstallation();t.after(()=>pantry.close());
+test('BUY-003: quarantine, supplier authority, once-only dispatch, credit and replacement evidence preserve receipt and outstanding PO', async t => {
+  const pantry=await pantryInstallation({revision:'e987ba0a2270a81c62d399c44c6e05d3b504bb07'});t.after(()=>pantry.close());
   await pantry.command('chart.start',{});
   const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),freight=await pantry.command('account.save',{code:'5100',name:'Freight and duty',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find(a=>a.code==='4000');
   let loseCredit=false;
@@ -19,7 +19,13 @@ test('BUY-003: quarantine, supplier authority, once-only dispatch, credit/replac
   await h.command('supplierBill.approve',{id:bill.id,version:bill.version,receiptEvidence:bill.match.receiptEvidence});
   const credential=await pantry.command('integration.create',{name:'Pier returns',scopes:['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','vendor-credits:read','vendor-credits:write','post']});
   await h.command('book.connect',{baseUrl:pantry.origin,integrationToken:credential.token,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,landedCostAccountId:freight.id,taxCode:'exempt'});
-  await h.command('book.sync',{});
+  const reviewEvidence=async()=>{
+    const pending=(await pantry.view('documents')).documents.filter(d=>d.duplicate_of&&!d.duplicate_decision);
+    for(const doc of pending)await pantry.command('document.duplicate-decide',{id:doc.id,decision:'keep',reason:'Owner reviewed the original invoice and separate receipt-state snapshot as distinct supporting evidence'});
+    await h.command('book.sync',{});
+  };
+  assert.match((await h.state()).bookJobs.find(j=>j.kind==='bill').reason,/possible duplicate/);
+  await reviewEvidence();assert.equal((await h.state()).bookJobs.find(j=>j.kind==='bill').status,'posted');
   const before = await h.state();
   const original = before.receipts.find(r => r.id === receipt.id), commitment = before.purchaseOrders.find(r => r.id === po.id);
   const payload = { receiptId: receipt.id, reason: 'Three damaged units', lines: [{ receiptLineId: receipt.lines[0].id, quantity: '3' }] };
@@ -64,6 +70,7 @@ test('BUY-003: quarantine, supplier authority, once-only dispatch, credit/replac
   await h.command('supplierReturn.postCredit',post,{commandId:postId});
   state=await h.state();assert.equal(state.bookJobs.find(j=>j.key.startsWith('supplier-credit:')).status,'uncertain');
   await h.command('supplierReturn.postCredit',post,{commandId:postId});await h.command('book.sync',{});await h.command('book.sync',{});
+  await reviewEvidence();
   state=await h.state();returned=state.supplierReturns[0];assert.equal(returned.resolutions[0].posting,'posted');assert.equal(returned.resolutions[0].books.allocated,'0.25');assert.equal(returned.resolutions[0].books.unallocated,'0.00');
   const creditResponse=await fetch(pantry.origin+'/api/pantry/integration/v1/vendor-credits',{headers:{authorization:`Bearer ${credential.token}`}});assert.equal(creditResponse.status,200);
   const credits=(await creditResponse.json()).vendorCredits;assert.equal(credits.length,1);assert.equal(credits[0].amount_cents,25);assert.equal(credits[0].unallocated_cents,0);assert.equal(credits[0].allocations.length,1);

@@ -9,7 +9,7 @@ const screenshots = resolve(process.env.PIER_SCREENSHOTS || join(output, 'screen
 const files = [
   'journey.spec.ts', 'stock.spec.ts', 'open.spec.ts',
   'warehouse-waves.spec.ts', 'warehouse-offline.spec.ts', 'warehouse-returns.spec.ts',
-  'slotting.spec.ts', 'dispatch.spec.ts', 'supplier-bills.spec.ts', 'reorder-list.spec.ts',
+  'slotting.spec.ts', 'dispatch.spec.ts', 'supplier-bills.spec.ts', 'supplier-returns.spec.ts', 'reorder-list.spec.ts',
 ]
 const playwright = join(workspace, 'node_modules/.bin/playwright')
 const listing = JSON.parse(await command(playwright, [
