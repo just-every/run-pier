@@ -1,6 +1,6 @@
 # Pier operations
 
-Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.53 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. The source graph records Base `1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74` (tag `rer-v0.2.22`) separately from the CLI package version. There is no checkout-local copy of the RER CLI.
+Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.79 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. Recorded verbatim Base copies use `4280971d7c0295b8a88c3e1179048efcbbe14f30` (tag `rer-v0.2.79`); adapted components retain their independent comparison origins in `edition.json`. There is no checkout-local copy of the RER CLI.
 
 ## Local start
 
@@ -54,3 +54,9 @@ The edition roles are `owner`, `buyer`, `operator`, `warehouse`, `viewer` and `a
 Trace a position through its append-only movements, source document, actor, reason, command identity and any correction/import link. Retry a response-loss case with the same command identity and same payload. Do not repair a balance by editing a generic record or database row. Receipt reversal, count correction, return restocking and import undo must review downstream dependencies and use linked compensating operations. Already dispatched goods require a real return; restoring a snapshot cannot make them physically available.
 
 The complete operational flows, local proof and remaining boundaries are recorded in [CONTRACT.md](CONTRACT.md) and [ACCEPTANCE.md](ACCEPTANCE.md). This documentation does not claim acceptance of hosted operation, provider integrations, owner export completeness or physical warehouse accuracy.
+
+## Hosted delivery
+
+`packaging.json` declares Pier’s existing build and recovery commands, its D1 migrations and optional provider effects. After the real build, run `pnpm delivery:spec` to write the import specification and `pnpm check:deployment-spec` to verify freshness. `node scripts/delivery/base/cli.mjs package --config packaging.json --output rer-package` produces the hosted descriptor, dispatch-only Managed workflow and artifact. Generated package and artifact folders are private build output.
+
+Managed mail uses the provisioned RER relay. Assisted hosting can select RER, Resend, SendGrid or Cloudflare and must supply that provider’s sender, credential and, where required, account or relay address. Local development continues to suppress authentication mail. Provider configuration does not authorize a stock change or a business send; existing human approvals still apply.

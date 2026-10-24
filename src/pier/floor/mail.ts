@@ -46,7 +46,7 @@ export function summaryText(day: Row, origin: string) {
 
 /** Sends the owner's copy and reports what happened, in words a person can act on. */
 export async function sendSummary(env: Bindings, day: Row, actor: Actor, commandId: string): Promise<{ status: string; detail: string }> {
-  if (env.RER_OWNER_CLAIM_ISSUER && env.RER_DEMO !== "1")
+  if (env.RER_OWNER_CLAIM_ISSUER && env.MAIL_PROVIDER !== "rer" && env.RER_DEMO !== "1")
     return { status: "not available", detail: "Email is not available yet on RER Managed; the summary is kept here." };
   if (env.AUTH_LOCAL === "true" || env.RER_DEMO === "1")
     return { status: "not sent", detail: "This local installation does not send mail; the summary is kept here." };

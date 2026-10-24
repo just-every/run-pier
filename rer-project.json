@@ -3,5 +3,25 @@
   "projectId": "just-every/inventory-pier",
   "name": "Pier",
   "sourceRepository": "https://github.com/just-every/run-pier",
-  "license": "MIT"
+  "license": "MIT",
+  "deployment": {
+    "target": "cloudflare-workers",
+    "artifactFile": "rer-worker-artifact.json"
+  },
+  "operations": {
+    "setup": "pnpm install --frozen-lockfile && pnpm exec rer install",
+    "build": "pnpm run build",
+    "verify": "pnpm run verify && pnpm exec rer check --profile first-party && pnpm check:deployment-spec && node scripts/edition-authoring/cli.mjs check && node scripts/edition-authoring/cli.mjs verify-base --offline",
+    "artifact": "node scripts/delivery/base/cli.mjs artifact --config packaging.json",
+    "recovery": "Follow OPERATIONS.md: stop writes, export a complete installation archive, retain the exact source revision, restore into a fresh empty installation, establish fresh owner authority and compare stock, reservations, documents and audit before resuming. Keep applied migration names and bytes unchanged; reconnect external providers explicitly."
+  },
+  "verification": {
+    "migrationDirectories": [
+      "migrations/core"
+    ]
+  },
+  "setup": {
+    "path": "rer-setup.json",
+    "sha256": "f18ecb9d0fb07cac3f79fb711915ef8854a3a3beeb14b6778648be0e2f6be89c"
+  }
 }

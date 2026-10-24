@@ -19,5 +19,12 @@
     "crons": [
       "* * * * *"
     ]
+  },
+  "vars": {
+    "AUTH_ORIGIN": "",
+    "MAIL_PROVIDER": "",
+    "MAIL_FROM": "",
+    "MAIL_RELAY_URL": "",
+    "MAIL_ACCOUNT_ID": ""
   }
 }
