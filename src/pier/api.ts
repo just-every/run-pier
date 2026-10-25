@@ -1,3 +1,4 @@
+import { stockFeed } from './stock-feed';
 import { purchaseChanges } from './purchase-changes';
 import { purchaseApproval, purchaseApprovalRoute } from './purchase-approval';
 import { customers, customerViews } from './customers';
@@ -343,6 +344,10 @@ export async function pierResponse(
     const stall = await stallLink(request, env);
     if (stall) return stall;
     const actor = await current(request, env);
+    if (['/api/pier/stock-changes','/api/pier/stock-changes/ack'].includes(url.pathname)) {
+      if (request.method === 'POST' && (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin || !request.headers.get('content-type')?.includes('application/json'))) throw new Problem('ORIGIN','Use same-origin JSON acknowledgement.',null,403);
+      return await stockFeed(request,env.DB,actor,await load(env.DB));
+    }
     if (request.method === "GET") {
       const full = await load(env.DB), s = physicalState(full, actor),
         c = { s, actor, commandId: "", now: new Date().toISOString() };

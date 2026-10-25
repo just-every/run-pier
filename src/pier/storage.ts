@@ -1,3 +1,4 @@
+import { stockEvents } from './stock-feed';
 import { auditStatement } from './audit';
 import {
   collections,
@@ -201,6 +202,7 @@ export async function commit(
           m.createdAt,
         ),
     );
+  statements.push(...stockEvents(before, c.s, c.now).map(q => db.prepare(q.sql).bind(...q.params)));
   // Assertion is a CHECK inside this same atomic D1 batch: zero admitted rows cannot leak dependent writes.
   statements.push(
     db
