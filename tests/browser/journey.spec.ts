@@ -963,7 +963,7 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       const suffix = crypto.randomUUID().slice(0,6), tag = `synthetic-pier-${width}-${suffix}`
       const item = await h.command('item.save', {sku:tag,name:tag,barcode:tag,unit:'each',packSize:'1',weight:'1'})
       const second = await h.command('item.save', {sku:tag+'-2',name:tag+'-2',unit:'each',packSize:'1',weight:'3'})
-      const bin = await h.command('location.save', {name:tag,warehouse:tag,kind:'bin'})
+      const bin = await h.command('location.save', {name:tag+' bin',warehouse:tag,kind:'bin'})
       const supplier = await h.command('party.save', {name:tag+' supplier',kind:'supplier'})
       const customer = await h.command('party.save', {name:tag+' customer',kind:'customer'})
       const po = await h.command('po.draft', {supplierId:supplier.id,promiseDate:'2026-11-01',reason:'Reviewed source currency',lines:[{itemId:item.id,quantity:'4',price:'2'},{itemId:second.id,quantity:'2',price:'4'}]})
@@ -987,7 +987,7 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       const bill = await h.command('supplierBill.save',{poId:po.id,reference:tag,date:new Date().toISOString().slice(0,10),quantityTolerancePercent:'0',priceTolerancePercent:'0',lines:po.lines.map((l:any,i:number)=>({poLineId:l.id,quantity:l.quantity,unitPrice:i?'4':'2'}))})
       await h.command('supplierBill.approve',{id:bill.id,version:bill.version,receiptEvidence:bill.match.receiptEvidence})
       const order = await h.command('order.create',{customerId:customer.id,warehouse:tag,lines:[{itemId:item.id,quantity:'2',price:'10'}]})
-      const shipment = await h.command('dispatch.create',{orderId:order.id,shipmentReference:tag,lines:[{orderLineId:order.lines[0].id,quantity:'2'}]})
+      const shipment = await h.command('dispatch.create',{orderId:order.id,shipmentReference:tag+' shipped',lines:[{orderLineId:order.lines[0].id,quantity:'2'}]})
       await h.command('return.scan',{code:item.barcode,shipmentId:shipment.id,shipmentLineId:shipment.lines[0].id,quantity:'1',locationId:bin.id,condition:'sellable',disposition:'restock',reason:'Inspected sellable return'})
       await page.goto(`${h.base}/app#purchasing/${receipt.id}`);await page.reload()
       form = page.locator(`[id="document-${receipt.id}"]`).locator('section.panel').filter({has:page.getByRole('heading',{name:'Approve a late landed-cost bill',exact:true})})

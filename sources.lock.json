@@ -318,7 +318,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "ad9446a603b736d4a6e5d2f5dc83cb3acefb9b8acc90451fcde1d919f4e2e074",
+      "sha256": "93acf60c219d4bee8b9d72dafcd88aff2c8aa45a0de04c8484fc3e26ccf0d3f5",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -330,7 +330,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "a7121a482008f6dc6c7cfec20f64a8fddd67471ebaf924ecfb3548c8be9ccb88",
+      "sha256": "902c24c94c12ecb40c64010df310cec731f76e6f3d8eeaf85bf6827426e8672f",
       "executable": false
     },
     "base-copies.json": {
@@ -346,7 +346,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "e0cdd1dadeb82bcd967ce05b55708d6328c01ef6f63d2f6db1e48fa638fc4e7d",
+      "sha256": "23b979e0fa61ee6c067d28a16439ee17cdaf354672b05dc0da73b20b9142ec43",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "32d07427f650f73db4fb5bffd46b8c0bb1da7224234b7c4e207c873c225394f1",
+      "sha256": "9f134514b22641caf680f931a27b26d0c7534157ece0eee097ee1ef295a31ade",
       "executable": false
     },
     "docs/edi-bridge.md": {
@@ -2998,11 +2998,11 @@
       "executable": false
     },
     "src/pier/books/planning.ts": {
-      "sha256": "d9071a1b9ed3e1dbe1a2eac865540ac655b1d3903c5f32ce9c4694ef3080a924",
+      "sha256": "b4e18eabe25cfdbd52b72faab99b6879bf600ef76b7c599dfe18bc7728191005",
       "executable": false
     },
     "src/pier/books/receipt-closure.ts": {
-      "sha256": "b59365b85689706a09ec24a53d488397c4df255addc5f5f9a30147770d6de0ec",
+      "sha256": "b93fdc6addddc0b4d614103eab13c47652aec6e69e4771e4c19ee13a08f673e5",
       "executable": false
     },
     "src/pier/books/receipt-state.ts": {
@@ -3022,7 +3022,7 @@
       "executable": false
     },
     "src/pier/books/supplier-bills.ts": {
-      "sha256": "fa6f6a25e7f20cd9768d1cb148a22324173c0d4d49e7b23e39b57afe319765ae",
+      "sha256": "17c790053109e205b16bec10fb6bdcc384b2091129b1c368680010d7be29a59a",
       "executable": false
     },
     "src/pier/books/supplier-charges.ts": {
@@ -3395,6 +3395,10 @@
     },
     "src/pier/landed-cost.ts": {
       "sha256": "dc59b0bad6021b566d2ae0eb3ab3f3b56d3ebd54f9b8d1526738238a395ed4de",
+      "executable": false
+    },
+    "src/pier/late-landed-cost.ts": {
+      "sha256": "72b76d5c52ce9c3a1eb078c380a5a0a61eeea2c878a9ba8625876b2e39e88ca9",
       "executable": false
     },
     "src/pier/location-capacity.ts": {
@@ -4518,7 +4522,7 @@
       "executable": false
     },
     "tests/api/books-landed.test.mjs": {
-      "sha256": "db70210b67dc03066c9678876f302dea8f750f9ce15ac8dba12ebdf8e7b43647",
+      "sha256": "67adb1ea23a70c75e456b2cb5d359f0ee98acfaf2b6167236faef690b6e89ce1",
       "executable": false
     },
     "tests/api/books-shop.test.mjs": {
@@ -4714,7 +4718,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "9c62e7d9becd81ce2607d38591f613a23c50b9865992dec889cb9d886463d93c",
+      "sha256": "8ce0610ce134a74feab547f9a58484762e10a28537bfc6336ccfdd3216728989",
       "executable": false
     },
     "tests/browser/open.spec.ts": {

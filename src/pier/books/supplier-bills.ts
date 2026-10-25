@@ -13,7 +13,7 @@ const within = (difference: bigint, basis: bigint, tolerance: string) => absolut
 const approved = (bill: Row) => bill.status === 'approved';
 const billReference = (bill: Row) => `PIER-SB-${bill.id.replaceAll('-', '').slice(0, 24)}`;
 const approvedBills = (s: State, poId: string) => s.supplierBills.filter(b => b.poId === poId && approved(b)).sort((a, b) => a.approval.sequence - b.approval.sequence);
-const legacyReceiptIds = (s: State) => new Set(s.bookJobs.filter(j => j.sourceKind === 'receipt' && j.kind === 'bill' && (j.attempted || j.remoteId) && j.status !== 'skipped').map(j => j.sourceId));
+const legacyReceiptIds = (s: State) => new Set(s.bookJobs.filter(j => j.sourceKind === 'receipt' && j.key === `bill:${j.sourceId}` && j.kind === 'bill' && (j.attempted || j.remoteId) && j.status !== 'skipped').map(j => j.sourceId));
 
 /** Allocations are recomputed in approval order: a later receipt first completes earlier bills. */
 function receiptPool(s: State, poId: string) {

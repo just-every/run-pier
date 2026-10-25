@@ -31,7 +31,7 @@ export function lateLandedCost(c: Context, type: string, p: any): Row | undefine
   planBooks(c);
   if (c.s.bookJobs.some(j => j.kind === 'journal' && !j.document)) fail('COST_REVIEW', 'Resolve the original cost posting reviews before approving a supplemental bill.');
   for (const job of c.s.bookJobs.filter(j => j.kind === 'journal')) job.costBasisPinned = true;
-  const bill = { id: id(), version: 1, reference, reason, supplierId: supplier.id, createdAt: c.now, approvedBy: c.actor.id, total: money(total), landedCost: allocated.landedCost, shares } as Row;
+  const bill = { id: id(), version: 1, reference, reason, supplierId: supplier.id, createdAt: c.now, approvedBy: c.actor.id, total: money(total), landedCost: { ...allocated.landedCost, total: money(total) }, shares } as Row;
   receipt.lateBills ??= [];
   receipt.lateBills.push(bill);
   receipt.version++;

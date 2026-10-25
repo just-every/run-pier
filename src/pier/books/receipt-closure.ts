@@ -15,7 +15,7 @@ export function receiptBookViews(s: State, connected: boolean) {
     const bills = approved.filter(bill => bill.match.lines.some(line => line.receiptAllocations.some(a => a.receiptId === receipt.id)));
     const jobs = bills.map(bill => s.bookJobs.find(job => job.sourceKind === 'supplierBill' && job.sourceId === bill.id && job.kind === 'bill'));
     // Older receipt-generated obligations retain their actual ledger identity.
-    const legacy = s.bookJobs.find(job => job.sourceKind === 'receipt' && job.sourceId === receipt.id && job.kind === 'bill' && job.attempted);
+    const legacy = s.bookJobs.find(job => job.sourceKind === 'receipt' && job.sourceId === receipt.id && job.kind === 'bill' && job.key === `bill:${receipt.id}` && job.attempted);
     if (legacy) { unbilled.length = 0; jobs.push(legacy); }
     const hasReview = invoices.some(bill => bill.poId === receipt.poId && ['review', 'held'].includes(bill.status));
     const lateJobs = s.bookJobs.filter(j => j.sourceKind === 'receipt' && j.sourceId === receipt.id && j.key.startsWith('late-bill:'));

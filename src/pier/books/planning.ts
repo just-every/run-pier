@@ -21,7 +21,7 @@ export function planBooks(c: Context) {
   repairLandedCents(c.s.receipts);
   // Unsent receipt-generated proposals are replaced by reviewed supplier invoices.
   // Already-attempted obligations retain their immutable identity and readback.
-  c.s.bookJobs = c.s.bookJobs.filter(j => !(j.sourceKind === 'receipt' && j.kind === 'bill' && !j.attempted));
+  c.s.bookJobs = c.s.bookJobs.filter(j => !(j.sourceKind === 'receipt' && j.key === `bill:${j.sourceId}` && j.kind === 'bill' && !j.attempted));
   const add = (key: string, kind: string, source: Row, sourceKind: string, reference: string, build: () => BookDocument) => {
     const old = c.s.bookJobs.find(j => j.key === key);
     if (old?.attempted || old?.costBasisPinned || old?.status === 'skipped') return;

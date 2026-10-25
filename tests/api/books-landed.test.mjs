@@ -111,13 +111,17 @@ test('landed receipts and late weight-allocated bills reconcile Pantry after par
     assert.equal(state.bookJobs.find(j => j.key === `late-bill:${late.id}`).status, 'posted');
     const latePayables = (await pantry.view('sales')).bills.filter(b => b.reference === state.bookJobs.find(j => j.key === `late-bill:${late.id}`).reference);
     assert.equal(latePayables.length, 1);
+    assert.equal(state.supplierBills.find(b => b.id === bill.id).match.withinTolerance, true, 'late payables do not consume the original goods receipt allocation');
     assert.equal(latePayables[0].open_cents, 3300);
+    const closure = state.receiptClosures.find(r => r.id === receipt.id);
+    assert.equal(new Set(closure.jobIds).size, closure.jobIds.length);
+    assert.ok(closure.jobIds.includes(state.bookJobs.find(j => j.key === `late-bill:${late.id}`).id));
     await pier.command('receipt.landed', { ...lateInput, version: state.receipts.find(r => r.id === receipt.id).version }, { error: 'DUPLICATE' });
     // Pantry's inventory account equals Pier's landed valuation to the cent.
     await pier.command('book.sync', {});
     state = await pier.state();
     const report = await (await pier.request('/api/pier/reports')).json();
-    const tb = await pantry.view('reports/trial-balance');
+    const tb = await pantry.view('./reports/trial-balance');
     assert.equal(tb.rows.find(r => r.id === inventory.id).net, cents(report.valuation.total));
     assert.equal(tb.rows.find(r => r.id === damage.id).net, cents(returned.writeOffCostTotal) + 200);
     assert.equal(tb.rows.find(r => r.id === purchaseTax.id).net, 250, 'supplier tax posts to the chosen account, never into inventory');
@@ -179,7 +183,7 @@ test('FIFO and moving-average late bill deltas reconcile exact Pantry inventory,
       await pier.command('book.retry', { jobId: job.id, version: job.version });
       await pier.command('book.sync', {});
       state = await pier.state();
-      const report = await (await pier.request('/api/pier/reports')).json(), tb = await pantry.view('reports/trial-balance');
+      const report = await (await pier.request('/api/pier/reports')).json(), tb = await pantry.view('./reports/trial-balance');
       const expected = method === 'fifo' ? { inventory: 2900, netCogs: 700, grossCogs: 800, margin: 3200 } : { inventory: 2700, netCogs: 900, grossCogs: 1200, margin: 2800 };
       assert.equal(cents(report.valuation.reconciliation.openings), 200);
       assert.equal(cents(report.valuation.total), expected.inventory);
