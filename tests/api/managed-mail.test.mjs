@@ -26,6 +26,8 @@ test('Managed supplier mail uses the provisioned relay once after human approval
   assert.equal(calls.length, 1);
   assert.equal(calls[0].to, 'supplier@example.test');
   assert.match(calls[0].text, /12/);
+  assert.equal(sent.documentAttachment, 'unavailable');
+  assert.match(calls[0].text, /retained purchase document has not been delivered/);
   assert.equal(Object.hasOwn(calls[0], 'from'), false);
   assert.equal(Object.hasOwn(calls[0], 'installationId'), false);
   const state = await h.state();

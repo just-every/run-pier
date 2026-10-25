@@ -64,7 +64,7 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
       try {
         const document = message.documentId ? (await load(db)).salesDocuments.find(document => document.id === message.documentId) : undefined;
         if (message.documentId && !document?.pdf) throw new Error('Retained purchase document is unavailable.');
-        mail = businessMessage(env, message, document as { filename: string; pdf: string } | undefined);
+        mail = businessMessage(env, message, message.documentAttachment === 'unavailable' ? undefined : document as { filename: string; pdf: string } | undefined);
       }
       catch { phase = "failed"; error = "The approved email has invalid message fields."; }
     }

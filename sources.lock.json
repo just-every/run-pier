@@ -330,7 +330,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "b4c840f16e391e288b578a9a7b36dc0957694d2cc99fcded80853dbbdb89a5b1",
+      "sha256": "52a2f7372772d42ebfbad00bfb60fa8e8f0015ac9be7c1dac74737284963f83c",
       "executable": false
     },
     "base-copies.json": {
@@ -346,7 +346,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "775408e334ef8390e33f84f83adc6985aa687d6ba46a72d3fd6c9c13990a2008",
+      "sha256": "0681161641d3a6548b77545ca64e34dcfe4306a696ff02e5bfe405ccb05ffb20",
       "executable": false
     },
     "DEMO.md": {
@@ -2942,7 +2942,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "cc918d13b21c4d13ad7d89eda3e6ee77e61f3ed6c5f2bdb3d50ac8fd988009ff",
+      "sha256": "5eb2b553eff0d170fcb260e9a27db9ea2d3594b4863104a21b822ad418195cf9",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3138,7 +3138,7 @@
       "executable": false
     },
     "src/pier/correspondence-delivery.ts": {
-      "sha256": "31375d8f9475ccb7349100b45f0230d0affe2bc0d31ba58263eec97896cee062",
+      "sha256": "f95533d3a36a026aa41da81a2e4f678eff451047ba744a42038033939e3db644",
       "executable": false
     },
     "src/pier/costing.ts": {
@@ -3498,7 +3498,7 @@
       "executable": false
     },
     "src/pier/print/commands.ts": {
-      "sha256": "9a14093dac5e7f48ffb2761156fd28116e735d3a34826fa55344d5fec6aa1915",
+      "sha256": "7002c2efee20a01c3e38c742ba426a4089efe8a3f3297c17e579967646de35ee",
       "executable": false
     },
     "src/pier/print/delivery-events.ts": {
@@ -4602,7 +4602,7 @@
       "executable": false
     },
     "tests/api/managed-mail.test.mjs": {
-      "sha256": "0bd3f7f98c2efbe1329478dc1d082de66b7aff124a09aa8e4c3cf1777cf80421",
+      "sha256": "cd1f71088086ab064a90cb3165e8c7bcb204291a78572e4d4aa4224446092bfb",
       "executable": false
     },
     "tests/api/movein.test.mjs": {

@@ -59,6 +59,7 @@ export async function printedDocuments(c:Context,type:string,p:any,env:Bindings)
     const recipient=text(p.recipient,'Explicitly approved recipient');
     if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient))fail('EMAIL','Enter one valid recipient.');
     if (document.kind === 'purchase-order') {
+      if (env.MAIL_PROVIDER === 'rer') fail('DOCUMENT_MAIL', 'This Managed relay cannot attach PDFs. Configure a supported install mail provider to send this retained document.');
       const po = get(c.s, 'purchaseOrders', document.recordId), profile = c.s.businessProfile.find(b => b.id === 'business');
       if (po.status !== 'committed' || document.recordVersion !== po.version || poMaterial(document.snapshot) !== poMaterial(po) ||
           !profile || document.rendered.company.name !== profile.name || document.rendered.company.address !== profile.address ||

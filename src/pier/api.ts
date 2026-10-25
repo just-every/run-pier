@@ -256,6 +256,10 @@ export async function execute(
     for (const message of s.correspondence.filter(message => message.kind === 'purchase-order' && !message.documentId && !before.correspondence.some(old => old.id === message.id))) {
       const document = await generateDocument(c, { kind: 'purchase-order', sourceId: message.recordId }, undefined, true);
       message.documentId = document.id;
+      if (env.MAIL_PROVIDER === 'rer') {
+        message.documentAttachment = 'unavailable';
+        message.body += '\n\nPDF attachment unavailable: this Managed relay sends the text copy only. The retained purchase document has not been delivered.';
+      }
     }
     enforceStocktakeFreeze(c, before, type, payload);
     reconcileTrace(c, before, payload);
