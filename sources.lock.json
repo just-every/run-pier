@@ -318,7 +318,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "93acf60c219d4bee8b9d72dafcd88aff2c8aa45a0de04c8484fc3e26ccf0d3f5",
+      "sha256": "b1d8edf8dc0e572aa73a8e361f09e6de9bbcf5eda5733eefc45a7330aba4b1f1",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -346,7 +346,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "23b979e0fa61ee6c067d28a16439ee17cdaf354672b05dc0da73b20b9142ec43",
+      "sha256": "fdf53d077494e18f400e16f9917fd13b24e46fb7cfc569cd17bb76f25976e84b",
       "executable": false
     },
     "DEMO.md": {
@@ -3722,7 +3722,7 @@
       "executable": false
     },
     "src/pier/supplier-returns.ts": {
-      "sha256": "c7545b480b57b682e72951982a00d0330b3aa80a7fd2ad00cd1fbca892d5c436",
+      "sha256": "cbd432f63ef104587c256730642bf4fc51a62112327e24635179ddcf11e829f3",
       "executable": false
     },
     "src/pier/trace-core.ts": {
@@ -4686,7 +4686,7 @@
       "executable": false
     },
     "tests/api/supplier-returns.test.mjs": {
-      "sha256": "3e9623b33c280953d28698d70adfd2120ad5e11e679584a6132e15a05531f553",
+      "sha256": "1f5a2e46efbe1a3d030bc9140215d85c4d08bf2d86191003ad180f33ee5d6dc9",
       "executable": false
     },
     "tests/api/trace-fixture.mjs": {

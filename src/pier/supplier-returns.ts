@@ -101,11 +101,11 @@ export function supplierReturns(c: Context, type: string, p: any): Row | undefin
         const entry = entries[index], returned = document.lines.find((l: Row) => l.id === entry.returnLineId);
         const source = original.lines.find((l: Row) => l.id === returned.receiptLineId), line = receipt.lines[index];
         const prior = c.s.supplierReturns.filter(r => r.receiptId === original.id).flatMap(r => r.lines).filter(l => l.receiptLineId === source.id).reduce((n: bigint, l: Row) => n + decimal(l.replaced), 0n);
-        for (const field of ['freight', 'duty']) line[field] = money(share(amount(source[field] ?? '0'), prior + decimal(entry.quantity), decimal(source.quantity)) - share(amount(source[field] ?? '0'), prior, decimal(source.quantity)));
-        line.landedTotal = money(extended(line.quantity, line.cost) + amount(line.freight) + amount(line.duty));
+        for (const field of ['freight', 'duty', 'insurance', 'otherLandedCost']) line[field] = money(share(amount(source[field] ?? '0'), prior + decimal(entry.quantity), decimal(source.quantity)) - share(amount(source[field] ?? '0'), prior, decimal(source.quantity)));
+        line.landedTotal = money(extended(line.quantity, line.cost) + amount(line.freight) + amount(line.duty) + amount(line.insurance) + amount(line.otherLandedCost));
         line.landedUnitCost = money(toCents(amount(line.landedTotal) * 1000000n / decimal(line.quantity)));
       }
-      receipt.landedCost = { ...receipt.landedCost, freight: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.freight), 0n)), duty: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.duty), 0n)), total: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.landedTotal), 0n)) };
+      receipt.landedCost = { ...receipt.landedCost, freight: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.freight), 0n)), duty: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.duty), 0n)), insurance: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.insurance), 0n)), other: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.otherLandedCost), 0n)), total: money(receipt.lines.reduce((n: bigint, l: Row) => n + amount(l.landedTotal), 0n)) };
 
       resolution.receiptId = receipt.id;
     }
