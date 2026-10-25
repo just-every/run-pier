@@ -65,3 +65,7 @@ export function customFieldProjection(value: unknown, actor: {role:string}, priv
   if (Array.isArray(value)) return value.map(v=>customFieldProjection(v,actor,privateFields));
   return Object.fromEntries(Object.entries(value).filter(([key])=>!['customFields','customFieldDefinitions',...(privateFields?['imports']:[])].includes(key)).map(([key,v])=>[key,customFieldProjection(v,actor,privateFields)]));
 }
+
+export function privateFieldCustody(s: State) {
+  return s.customFieldDefinitions.length > 0 || s.imports.some(batch=>batch.source?.records?.some((record:any)=>record.kind==='customFieldDefinitions'));
+}

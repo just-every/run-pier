@@ -123,6 +123,8 @@ test("native exit preserves approved allocation and explicit backorders across a
     await h.command('import.undo',{batchId:replayed.id,version:replayed.version,reason:'Undo the later no-op review first'});
     await h.command('import.undo',{batchId:imported.id,version:imported.version,reason:'Undo unused cutover with typed definitions'});
     const undone=await h.state();assert.equal(undone.customFieldDefinitions.length,0);assert.equal(undone.items.length,0);assert.ok(undone.parties.some(p=>p.id===external.id));
+    const staffAfterUndo=await(await h.request('/api/pier/state',{as:cookie})).json();assert.equal(staffAfterUndo.imports,undefined,'undo cannot expose retained private CSV originals after removing live definitions');assert.equal((await h.request('/api/pier/native-export',{as:cookie})).status,403);
+    const privacyAfterUndo=await(await h.request('/api/pier/privacy?kind=customer&subjectId='+external.id)).json();assert.equal(privacyAfterUndo.allowed,false);assert.ok(privacyAfterUndo.blockers.some(b=>b.reason.includes('Retained typed-field CSV originals')));
 
   } finally {
     await h?.close();

@@ -107,3 +107,5 @@ The positions file includes current sellable and quarantine positions, in base u
 The native allocation round-trip is included in the 18-test Worker/D1 suite passed by current-main Verify. This is behavioral proof for native open-order allocation and explicit backorders, not a promise that the snapshot restores every endpoint field or the complete movement, shipment, receipt-cost and transit history. Use the full `rer export` installation archive when comprehensive history and identity restoration is required; the cutover limits above remain part of the contract.
 
 Books catalogue and valuation snapshots remain as immutable evidence after an otherwise unused cutover is undone. They do not consume stock or create an accounting obligation. Later stock work, reservations and financial documents still block undo. Payment readback alone does not invalidate an unchanged stock preview.
+
+Private typed-field source custody remains owner-only after cutover undo removes the live definitions. Retained CSV originals continue to block unsupported subject erasure; undo is not an erasure operation.

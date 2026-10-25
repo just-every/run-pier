@@ -330,7 +330,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "ff7e7b0e2bc97f0854627effe1a4989723129db2f43904375f8469157cd99567",
+      "sha256": "b8c57cd022aaf2ec2781bca8bb6effe84242a0c8fdf012f7fc14f994956928ea",
       "executable": false
     },
     "base-copies.json": {
@@ -394,7 +394,7 @@
       "executable": false
     },
     "docs/catalogue.md": {
-      "sha256": "8fba004378ec72b9b5de72f6cc0a257070e3634a2b9987e5f41f9adcb4acbfa7",
+      "sha256": "b476c076140221b532294fa0448931ebde80beb28be35d5b6f4d62ec590f3160",
       "executable": false
     },
     "docs/channels.md": {
@@ -518,7 +518,7 @@
       "executable": false
     },
     "IMPORT.md": {
-      "sha256": "3cf7bcafb05aa26c26cefedd4609d7730d1d0850951ab04eb249d4c73b40618f",
+      "sha256": "feb495b18dc78be4182b447c2cbbdd42c1daa53c1ac0ad3a2cf1793790c5b764",
       "executable": false
     },
     "LICENSE": {
@@ -2946,7 +2946,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "f7c66cda3718eed3123a213627886cac62ee2f5ca11c990a8194f532abfc5e1b",
+      "sha256": "bbf91be48104a3c647f3be54d3bbbdd5051fa233116f3bacd202b718cb047d76",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3150,7 +3150,7 @@
       "executable": false
     },
     "src/pier/custom-fields.ts": {
-      "sha256": "d945731dab852869d7fe89c4b2bcaa06ed3274215237ee0ad2254cb3e6527d5e",
+      "sha256": "d8a9b9eaaff26194b49f6c4849d80fd98173cd0d7f4eb92ef5e5ef10d45e0e3d",
       "executable": false
     },
     "src/pier/customers/index.ts": {
@@ -3570,7 +3570,7 @@
       "executable": false
     },
     "src/pier/privacy-plan.ts": {
-      "sha256": "d751df66dc7871fca68c5d98edba1c2379ae5bab5172831109f3d052d0a3958c",
+      "sha256": "c79fea6146db7789d13bbb4ed42089811130e8f5077d3480e7e140df1be235e4",
       "executable": false
     },
     "src/pier/privacy-remote.ts": {
@@ -4626,7 +4626,7 @@
       "executable": false
     },
     "tests/api/native-exit.test.mjs": {
-      "sha256": "c9930e67864d14d41348a6f564c418496dc9796ecd19831efebcf29ad400588c",
+      "sha256": "38820f8d10a8933239b5d3be8527dc6e5cfef962ddeec07386e2f1c3ba209993",
       "executable": false
     },
     "tests/api/open-fixtures.mjs": {

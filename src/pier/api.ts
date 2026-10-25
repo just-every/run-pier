@@ -1,4 +1,4 @@
-import { customFieldCommands, customFieldRead, customFieldProjection } from './custom-fields';
+import { customFieldCommands, customFieldRead, customFieldProjection, privateFieldCustody } from './custom-fields';
 import { stockFeed } from './stock-feed';
 import { purchaseChanges } from './purchase-changes';
 import { purchaseApproval, purchaseApprovalRoute } from './purchase-approval';
@@ -355,7 +355,7 @@ export async function pierResponse(
     if (request.method === "GET") {
       const full = await load(env.DB), s = physicalState(full, actor),
         c = { s, actor, commandId: "", now: new Date().toISOString() };
-      privateFields = full.customFieldDefinitions.length > 0;
+      privateFields = privateFieldCustody(full);
       const gate = authority(actor);
       if (
         !(
@@ -428,7 +428,7 @@ export async function pierResponse(
         try { return new Response(booksExport(s, format), {headers:{"content-type":format === "csv" ? "text/csv; charset=utf-8" : "text/plain; charset=utf-8","content-disposition":`attachment; filename="pier-books.${format}"`,"cache-control":"no-store"}}); } catch(error) { fail("BOOK_EXPORT", error instanceof Error ? error.message : "Review the financial documents before exporting."); }
       }
       if (url.pathname === "/api/pier/native-export") {
-        if (actor.role !== 'owner' && full.customFieldDefinitions.length) throw new Problem('FORBIDDEN','Only an owner can export private custom-field CSV originals.',null,403);
+        if (actor.role !== 'owner' && privateFields) throw new Problem('FORBIDDEN','Only an owner can export private custom-field CSV originals.',null,403);
         return reply(nativeExport(s));
       }
       if (url.pathname === '/api/pier/trace') return reply(traceReport(s, url.searchParams.get('identityId') ?? ''));

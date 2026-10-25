@@ -30,3 +30,5 @@ Typed filters use authenticated `GET /api/pier/custom-fields` with `ownerType`, 
 Conservative default pending ct approval: all arbitrary field content, its imports, filters and field-bearing document generation are owner-only. Wider role responses omit definitions and values. Field attribution and custody erasure are not implemented: subject erasure refuses while typed definitions exist. Native CSV cutover preserves these definitions and values through an owner-only optional definition file and metadata cells; the complete installation archive and owner business JSON export remain the full-history doors.
 
 CAT-001 remains partial: operator field-definition, editing, importing and filtering controls across the four owner types, with desktop and mobile proof, remain. The API journey now proves typed fields and case-pack quote, pick and packing-slip quantities. Physical scanner and printer acceptance remain under SCAN-001 and SCAN-002.
+
+Private typed-field source custody remains owner-only after cutover undo removes the live definitions. Retained CSV originals continue to block unsupported subject erasure; undo is not an erasure operation.
