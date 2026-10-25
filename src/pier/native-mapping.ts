@@ -1,3 +1,5 @@
+import { customFieldCommands, typedFields } from './custom-fields';
+import { nativeMetadata } from './native-catalogue';
 import {
   decimal,
   format,
@@ -15,9 +17,10 @@ import { purchasing } from "./purchasing";
 import { applyReservationImport } from "./native-reservations";
 import { inUsd, usdRate } from "./import-currency";
 const kinds = [
+  "customFieldDefinitions",
+  "parties",
   "items",
   "locations",
-  "parties",
   "positions",
   "orders",
   "purchaseOrders",
@@ -25,6 +28,7 @@ const kinds = [
 ];
 export function materialHash(c: Context) {
   return JSON.stringify({
+    customFieldDefinitions: c.s.customFieldDefinitions,
     items: c.s.items,
     locations: c.s.locations,
     parties: c.s.parties,
@@ -87,8 +91,21 @@ export function applyImport(c: Context, b: Row) {
         { kind: r.kind, key: r.sourceId, previous: prev, proposed: p },
       );
     let result: any;
-    if (["items", "locations", "parties"].includes(r.kind)) {
+    if (r.kind === 'customFieldDefinitions') {
+      let options:any;try{options=JSON.parse(p.options||'[]');}catch{fail('CUSTOM_DEFINITION','Definition options must be a JSON array.');}
+      const existing=c.s.customFieldDefinitions.find(d=>d.ownerType===p.ownerType&&d.key===p.fieldKey);
+      if(existing){
+        if(existing.label!==p.label||existing.type!==p.type||JSON.stringify(existing.options)!==JSON.stringify(options))fail('CUSTOM_DEFINITION','An existing typed definition conflicts with the cutover source.');
+        result=existing;
+      }else result=customFieldCommands(c,'customField.define',{ownerType:p.ownerType,key:p.fieldKey,label:p.label,type:p.type,options});
+    } else if (["items", "locations", "parties"].includes(r.kind)) {
       const old = prev ? get(c.s, r.kind, prev.id) : null;
+      const metadata=nativeMetadata(r.kind,p.metadata);
+      if(r.kind==='items' && Object.hasOwn(metadata,'references')){
+        if(!Array.isArray(metadata.references))fail('NATIVE_METADATA','Item metadata references must be an array.');
+        metadata.references=metadata.references.map((ref:any)=>({...ref,partyId:lookup('parties',ref?.partyId)}));
+      }
+      if(Object.hasOwn(metadata,'archived') && typeof metadata.archived!=='boolean')fail('NATIVE_METADATA','Archived metadata must be a JSON boolean.');
       result = catalogue(
         c,
         (
@@ -98,7 +115,8 @@ export function applyImport(c: Context, b: Row) {
             parties: "party.save",
           } as any
         )[r.kind],
-        { ...p, ...(old ? { id: old.id, version: old.version } : {}) },
+        { ...p, ...metadata,
+          ...(old ? { id: old.id, version: old.version } : {}) },
       );
     } else {
       const itemId = lookup("items", p.itemKey);
@@ -208,7 +226,7 @@ export function applyImport(c: Context, b: Row) {
       id: result.id,
       payload: p,
     });
-    if (!prev && r.kind !== "positions")
+    if (!prev && r.kind !== "positions" && !(r.kind === "customFieldDefinitions" && before.customFieldDefinitions.some(d=>d.id===result.id)))
       created.push({ kind: r.kind, id: result.id });
   }
   for (const group of groups.values()) {
@@ -329,6 +347,11 @@ export function applyImport(c: Context, b: Row) {
         x.lineId = result.lines[n].id;
         if ((lines[n] as any).source) result.lines[n].source = (lines[n] as any).source;
       });
+    }
+    if (group.kind === 'orders') {
+      const metadata=group.rows.map((x:any)=>nativeMetadata('orders',x.p.metadata));
+      if(metadata.some((m:any)=>JSON.stringify(m)!==JSON.stringify(metadata[0])))fail('DOCUMENT_CONFLICT','Grouped order lines must agree on custom metadata.');
+      if(metadata[0].customFields!==undefined){const values=typedFields(c.s,'order',metadata[0].customFields);get(c.s,'orders',result.id).customFields=values;result.customFields=values;}
     }
     for (const x of group.rows) {
       links[x.r.kind + ":" + x.r.sourceId] = result.id;

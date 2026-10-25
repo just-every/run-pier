@@ -346,7 +346,8 @@ export async function pierResponse(
     const stall = await stallLink(request, env);
     if (stall) return stall;
     const actor = await current(request, env);
-    const reply = (body:unknown,status=200) => json(customFieldProjection(body,actor),status);
+    let privateFields = false;
+    const reply = (body:unknown,status=200) => json(customFieldProjection(body,actor,privateFields),status);
     if (['/api/pier/stock-changes','/api/pier/stock-changes/ack'].includes(url.pathname)) {
       if (request.method === 'POST' && (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin || !request.headers.get('content-type')?.includes('application/json'))) throw new Problem('ORIGIN','Use same-origin JSON acknowledgement.',null,403);
       return await stockFeed(request,env.DB,actor,await load(env.DB));
@@ -354,6 +355,7 @@ export async function pierResponse(
     if (request.method === "GET") {
       const full = await load(env.DB), s = physicalState(full, actor),
         c = { s, actor, commandId: "", now: new Date().toISOString() };
+      privateFields = full.customFieldDefinitions.length > 0;
       const gate = authority(actor);
       if (
         !(
@@ -425,8 +427,10 @@ export async function pierResponse(
         const format = url.pathname.endsWith(".iif") ? "iif" : "csv";
         try { return new Response(booksExport(s, format), {headers:{"content-type":format === "csv" ? "text/csv; charset=utf-8" : "text/plain; charset=utf-8","content-disposition":`attachment; filename="pier-books.${format}"`,"cache-control":"no-store"}}); } catch(error) { fail("BOOK_EXPORT", error instanceof Error ? error.message : "Review the financial documents before exporting."); }
       }
-      if (url.pathname === "/api/pier/native-export")
+      if (url.pathname === "/api/pier/native-export") {
+        if (actor.role !== 'owner' && full.customFieldDefinitions.length) throw new Problem('FORBIDDEN','Only an owner can export private custom-field CSV originals.',null,403);
         return reply(nativeExport(s));
+      }
       if (url.pathname === '/api/pier/trace') return reply(traceReport(s, url.searchParams.get('identityId') ?? ''));
       if (url.pathname === "/api/pier/returns/lookup")
         return reply(returnLookup(s, url.searchParams.get("code")));

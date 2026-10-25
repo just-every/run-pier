@@ -27,6 +27,7 @@ import { checkImportCapacity, checkImportRecord } from "./native-capacity";
 import { sha256, canonicalJson, type SourceBundle } from "./import-kit";
 import { conversionRates, currencyCode } from "./import-currency";
 export const headers: Record<string, string[]> = {
+  customFieldDefinitions: ["key", "ownerType", "fieldKey", "label", "type", "options"],
   items: ["key", "sku", "name", "barcode", "unit", "packSize"],
   locations: ["key", "name", "warehouse", "kind"],
   parties: ["key", "name", "kind"],
@@ -83,7 +84,7 @@ export function sourceFor(p: any): SourceBundle {
       name = text(file.name),
       rows = parseCSV(file.csv);
     const header = rows.shift()?.join(","),
-      expected = priced.includes(file.kind) && header === [...base, "currency"].join(",") ? [...base, "currency"] : base;
+      expected = [base, ...(priced.includes(file.kind) ? [[...base,"currency"]] : []), ...(["items","parties","orders"].includes(file.kind) ? [[...base,"metadata"]] : [])].find(columns=>header===columns.join(",")) ?? base;
     if (header !== expected.join(","))
       fail("CSV_HEADERS", "Use the exact native CSV headers.", {
         kind: file.kind,

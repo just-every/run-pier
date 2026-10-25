@@ -77,6 +77,14 @@ test("native exit preserves approved allocation and explicit backorders across a
       proposalId: proposal.id,
       version: proposal.version,
     });
+    const typedOwners=[['item',b.item.id],['customer',b.customer.id],['supplier',b.supplier.id],['order',firstOrder.id]];
+    for(const [ownerType,recordId] of typedOwners){
+      await h.command('customField.define',{ownerType,key:'cutover_value',label:'Cutover value',type:'text'});
+      const state=await h.state(),record=(ownerType==='item'?state.items:ownerType==='order'?state.orders:state.parties).find(r=>r.id===recordId);
+      await h.command('customField.set',{ownerType,recordId,version:record.version,values:{cutover_value:ownerType+' retained'}});
+    }
+    const catalogueItem=(await h.state()).items.find(i=>i.id===b.item.id);
+    await h.command('item.save',{...catalogueItem,caseBarcode:'synthetic-pier-case',variantFamily:'Cutover family',category:'Fasteners',imageUrl:'https://catalogue.example.test/synthetic-pier.png',barcodes:[{code:'synthetic-pier-inner',quantity:'0.25',label:'Inner'}],weight:'1.25',dimensions:{length:'2',width:'3',height:'4',unit:'in'},references:[{partyId:b.supplier.id,code:'synthetic-pier-reference'}]});
     const expected = allocation(await h.invariant());
     const snapshot = await (await h.request("/api/pier/native-export")).json();
     await h.close();
@@ -85,6 +93,8 @@ test("native exit preserves approved allocation and explicit backorders across a
     const malformed = structuredClone(snapshot);
     malformed.files.find((file) => file.kind === "reservations").csv =
       "key,orderLineKey,locationKey,quantity,unit\n";
+    const invalidMetadata=structuredClone(snapshot);invalidMetadata.files.find(file=>file.kind==='items').csv=invalidMetadata.files.find(file=>file.kind==='items').csv.replaceAll('caseBarcode','unsupportedMetadata');
+    const rejectedMetadata=await h.command('import.stage',invalidMetadata);assert.ok(rejectedMetadata.errors.some(error=>error.code==='NATIVE_METADATA'));assert.equal((await h.state()).customFieldDefinitions.length,0,'invalid metadata cannot leak definitions out of preview');
     const incomplete = await h.command("import.stage", malformed);
     assert.ok(
       incomplete.errors.some((error) => error.code === "RESERVATION_PLAN"),
@@ -92,8 +102,13 @@ test("native exit preserves approved allocation and explicit backorders across a
     assert.equal((await h.state()).movements.length, 0);
     const imported = await cutover(h, snapshot);
     assert.deepEqual(allocation(await h.invariant()), expected);
+    const cutoverState=await h.state();assert.equal(cutoverState.customFieldDefinitions.length,4);
+    for(const [ownerType] of typedOwners){const record=(ownerType==='item'?cutoverState.items:ownerType==='order'?cutoverState.orders:cutoverState.parties.filter(p=>p.kind===ownerType)).find(r=>r.customFields?.cutover_value===ownerType+' retained');assert.ok(record,ownerType+' field survived cutover');}
+    const mappedItem=cutoverState.items.find(i=>i.variantFamily==='Cutover family');assert.deepEqual(mappedItem.dimensions,catalogueItem.dimensions??{length:'2',width:'3',height:'4',unit:'in'});assert.equal(mappedItem.caseBarcode,'synthetic-pier-case');assert.equal(mappedItem.weight,'1.25');assert.equal(mappedItem.category,'Fasteners');assert.deepEqual(mappedItem.barcodes,[{code:'synthetic-pier-inner',quantity:'0.25',label:'Inner'}]);assert.equal(mappedItem.imageUrl,'https://catalogue.example.test/synthetic-pier.png');
+    assert.equal(mappedItem.references[0].partyId,cutoverState.parties.find(p=>p.kind==='supplier').id,'party references remap to target IDs');
+    const entered=await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}});const cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');const privateRead=await(await h.request('/api/pier/state',{as:cookie})).json();assert.equal(privateRead.imports,undefined,'private native CSV originals do not leak through staff state');
     const before = await h.state();
-    await cutover(h, snapshot);
+    const replayed = await cutover(h, snapshot);
     const unchanged = await h.invariant();
     assert.deepEqual(unchanged.reservations, before.reservations);
     assert.deepEqual(unchanged.movements, before.movements);
@@ -101,6 +116,14 @@ test("native exit preserves approved allocation and explicit backorders across a
       imported.source.records.filter((r) => r.kind === "reservations").length,
       2,
     );
+    let external=await h.command('party.save',{name:'Unrelated typed customer',kind:'customer'});
+    external=await h.command('customField.set',{ownerType:'customer',recordId:external.id,version:external.version,values:{cutover_value:'A later dependency'}});
+    await h.command('import.undo',{batchId:imported.id,version:imported.version,reason:'Cannot remove a definition used later'},{error:'IMPORT_DEPENDENCY'});
+    await h.command('party.save',{...external,customFields:{}});
+    await h.command('import.undo',{batchId:replayed.id,version:replayed.version,reason:'Undo the later no-op review first'});
+    await h.command('import.undo',{batchId:imported.id,version:imported.version,reason:'Undo unused cutover with typed definitions'});
+    const undone=await h.state();assert.equal(undone.customFieldDefinitions.length,0);assert.equal(undone.items.length,0);assert.ok(undone.parties.some(p=>p.id===external.id));
+
   } finally {
     await h?.close();
   }

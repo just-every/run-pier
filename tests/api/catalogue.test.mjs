@@ -121,10 +121,11 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   await h.command('pack.measure',{waveId:caseWave.id,orderId:caseQuote.id,carton:1,weight:'10',length:'12',width:'8',height:'6'});
   const casePack=await h.command('pack.close',{waveId:caseWave.id,orderId:caseQuote.id});
   const caseLabel=await h.command('print.generate',{kind:'packing-slip',sourceId:casePack.id});assert.match(await pdfText(Buffer.from(caseLabel.pdf,'base64')),/Base quantity: 12 each/);
-  assert.equal((await h.request('/api/pier/native-export')).status,409,'native cutover refuses to discard custom definitions and values');
+  const nativeSnapshot=await(await h.request('/api/pier/native-export')).json();assert.ok(nativeSnapshot.files.some(file=>file.kind==='customFieldDefinitions'));assert.ok(nativeSnapshot.files.find(file=>file.kind==='items').csv.includes('finish'));
   const privacy=await(await h.request('/api/pier/privacy?kind=customer&subjectId='+b.customer.id)).json();assert.equal(privacy.allowed,false);assert.ok(privacy.blockers.some(b=>b.kind==='customFieldDefinitions'));
   const entered=await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}});
   const cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+  assert.equal((await h.request('/api/pier/native-export',{as:cookie})).status,403);
   const read=await(await h.request('/api/pier/state',{as:cookie})).json();assert.equal(read.customFieldDefinitions,undefined);assert.ok(read.items.every(i=>i.customFields===undefined));assert.ok(read.orders.every(o=>o.customFields===undefined));
   await h.command('customField.define',{ownerType:'item',type:'text',key:'forbidden',label:'Forbidden'},{as:cookie,error:'FORBIDDEN'});
   assert.equal((await h.request('/api/pier/custom-fields?ownerType=item&field=finish&value=%22gloss%22',{as:cookie})).status,403);

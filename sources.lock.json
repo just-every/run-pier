@@ -318,7 +318,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "8e71bdf1e523490493ee096df24da72f3b0b388f39e1ed769c16db38043c551c",
+      "sha256": "bdf3f9076021fd350dda78a176c41b70a6a19cbedf4f77d56fc31a0e4a1d6a75",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -330,7 +330,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "c54826bb5cbb7707c6a3541f9db485b5fa4c51bf02e6b990a18d4d81a292bb8d",
+      "sha256": "ff7e7b0e2bc97f0854627effe1a4989723129db2f43904375f8469157cd99567",
       "executable": false
     },
     "base-copies.json": {
@@ -346,7 +346,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "b7bd280080f2b41451d4660276d026cb1b00590bd518a698a8e84a42dfa71512",
+      "sha256": "549314d5b686dd6ae6c9ee41581337fd8cb82c548b71afefad70ba56d1baa68a",
       "executable": false
     },
     "DEMO.md": {
@@ -394,7 +394,7 @@
       "executable": false
     },
     "docs/catalogue.md": {
-      "sha256": "e68fbba38634e50c5b75a246f942c971fd8c8999a60eb8b64b0e7913e9c50999",
+      "sha256": "8fba004378ec72b9b5de72f6cc0a257070e3634a2b9987e5f41f9adcb4acbfa7",
       "executable": false
     },
     "docs/channels.md": {
@@ -518,7 +518,7 @@
       "executable": false
     },
     "IMPORT.md": {
-      "sha256": "d589b9c2fbf840b6b326f964a9ef468b4901e4d85eeb5489a868ad1bdfc0aed4",
+      "sha256": "3cf7bcafb05aa26c26cefedd4609d7730d1d0850951ab04eb249d4c73b40618f",
       "executable": false
     },
     "LICENSE": {
@@ -2946,7 +2946,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "21fdae6fe16e122b23e5a6234f83b81bacd15845362e1b2b17284397fa41ce87",
+      "sha256": "f7c66cda3718eed3123a213627886cac62ee2f5ca11c990a8194f532abfc5e1b",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3150,7 +3150,7 @@
       "executable": false
     },
     "src/pier/custom-fields.ts": {
-      "sha256": "f26d3962bcad257f623b320fae9d2232d07c1a1fe62fa6139209eb3c9e6fe311",
+      "sha256": "d945731dab852869d7fe89c4b2bcaa06ed3274215237ee0ad2254cb3e6527d5e",
       "executable": false
     },
     "src/pier/customers/index.ts": {
@@ -3322,7 +3322,7 @@
       "executable": false
     },
     "src/pier/imports.ts": {
-      "sha256": "1f5faff85d4d3ea9626789603d8779fee7e928c57aa6d4b82f0ba8338c2157d6",
+      "sha256": "9b92b35f5fe34b9dace22df9f57c6bbbc9b47d19f3f30fb061f6789a003077f9",
       "executable": false
     },
     "src/pier/invoices/credits.ts": {
@@ -3425,12 +3425,16 @@
       "sha256": "ca198090b34cc8c3494e9a7abbccaf26a2ce945f9b245ad38e732aafbb30358c",
       "executable": false
     },
+    "src/pier/native-catalogue.ts": {
+      "sha256": "2b02119860a9736f1fe3515ce3bdf68e053e98ea0d62a7d28fd0e21b7b05af44",
+      "executable": false
+    },
     "src/pier/native-dependencies.ts": {
-      "sha256": "df1e8642105e63af126f668505f15b2a0c9fbab47b351bb7a7c24a716885d54d",
+      "sha256": "d8b3320712bf544091398005ce4a49905161cb9691c6d987e58a8d20e866d0e2",
       "executable": false
     },
     "src/pier/native-export.ts": {
-      "sha256": "d236177fc02a1d3d2e08e4ca7a77b046896c1daff6fe0defe0184f055c9f5a25",
+      "sha256": "0e1cb5b158a0bd6041a70f43b0452648d3f276b289c65815b5243d2e8a85b213",
       "executable": false
     },
     "src/pier/native-graph-sql.ts": {
@@ -3438,7 +3442,7 @@
       "executable": false
     },
     "src/pier/native-mapping.ts": {
-      "sha256": "04cf8aa89a49bdd4e44378b9a3cf21600d0f00b8f2102f11d78660e0e5daf1d7",
+      "sha256": "381716f23733c85b9ffb2fb3140fd2d5cc0a5848d00a8f0efbff9dede5f194c1",
       "executable": false
     },
     "src/pier/native-reservations.ts": {
@@ -4558,7 +4562,7 @@
       "executable": false
     },
     "tests/api/catalogue.test.mjs": {
-      "sha256": "68dc78adcc17cb60a4e68c925f9ddfdf37539aa838bd9bbfdee05532016e875d",
+      "sha256": "e7351907cfab16e2b78e9da8a790ec2a546a3d88ef3db8ca6aa8c18400a62d7a",
       "executable": false
     },
     "tests/api/channel-edge.mjs": {
@@ -4622,7 +4626,7 @@
       "executable": false
     },
     "tests/api/native-exit.test.mjs": {
-      "sha256": "193f29b6dabff8ba35e545f1c07e2a3f11ba3015d6247693844e92177ada9b5f",
+      "sha256": "c9930e67864d14d41348a6f564c418496dc9796ecd19831efebcf29ad400588c",
       "executable": false
     },
     "tests/api/open-fixtures.mjs": {

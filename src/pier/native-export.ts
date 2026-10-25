@@ -1,3 +1,4 @@
+import { exitMetadata } from './native-catalogue';
 import { decimal, fail, format, positions, type State } from "./model";
 const csv = (columns: string[], rows: Record<string, unknown>[]) =>
   [columns, ...rows.map((r) => columns.map((k) => r[k] ?? ""))]
@@ -6,7 +7,6 @@ const csv = (columns: string[], rows: Record<string, unknown>[]) =>
     )
     .join("\r\n") + "\r\n";
 export function nativeExport(s: State) {
-  if (s.customFieldDefinitions.length || [...s.items,...s.parties,...s.orders].some(r=>r.customFields && Object.keys(r.customFields).length)) fail('NATIVE_CUSTOM_FIELDS','Native CSV cutover cannot yet preserve typed custom field definitions and values. Use the complete installation archive and owner business JSON export.');
   if(s.dropships?.some(drop=>drop.status!=='cancelled'))fail('NATIVE_DROPSHIP','Native CSV cannot preserve direct supplier commitments, shipments and credits without turning them into warehouse stock. Use the complete archive and owner business JSON export.');
   if(s.items.some(item=>item.tracePolicy&&s.movements.filter(m=>m.itemId===item.id).reduce((n,m)=>n+BigInt(m.quantity),0n)>0n))fail('NATIVE_TRACE','The native CSV shape cannot retain stocked lot/serial identities. Use the complete archive and business JSON export rather than losing traceability.');
   if (s.orders.some(o=>o.lines.some((l:any)=>l.kit && decimal(l.quantity)>decimal(l.dispatched)+decimal(l.cancelled)))) fail('NATIVE_KITS', 'The native CSV shape cannot preserve open kit definitions and component allocations. Use the complete installation archive and business export; do not cut over these orders as single-SKU demand.');
@@ -15,8 +15,8 @@ export function nativeExport(s: State) {
       name: "items.csv",
       kind: "items",
       csv: csv(
-        ["key", "sku", "name", "barcode", "unit", "packSize"],
-        s.items.map((i) => ({ ...i, key: i.id })),
+        ["key", "sku", "name", "barcode", "unit", "packSize", "metadata"],
+        s.items.map((i) => ({ ...i, key: i.id, metadata:exitMetadata("items",i) })),
       ),
     },
     {
@@ -31,8 +31,8 @@ export function nativeExport(s: State) {
       name: "parties.csv",
       kind: "parties",
       csv: csv(
-        ["key", "name", "kind"],
-        s.parties.map((i) => ({ ...i, key: i.id })),
+        ["key", "name", "kind", "metadata"],
+        s.parties.map((i) => ({ ...i, key: i.id, metadata:exitMetadata("parties",i) })),
       ),
     },
     {
@@ -65,6 +65,7 @@ export function nativeExport(s: State) {
           "quantity",
           "unit",
           "promiseDate",
+          "metadata",
         ],
         s.orders.flatMap((o) =>
           o.lines
@@ -85,6 +86,7 @@ export function nativeExport(s: State) {
               ),
               unit: s.items.find((i) => i.id === l.itemId)!.unit,
               promiseDate: o.promiseDate ?? "",
+              metadata:exitMetadata("orders",o),
             })),
         ),
       ),
@@ -163,6 +165,7 @@ export function nativeExport(s: State) {
       ),
     },
   ];
+  if(s.customFieldDefinitions.length)files.unshift({name:'customFieldDefinitions.csv',kind:'customFieldDefinitions',csv:csv(['key','ownerType','fieldKey','label','type','options'],s.customFieldDefinitions.map(d=>({key:d.id,ownerType:d.ownerType,fieldKey:d.key,label:d.label,type:d.type,options:JSON.stringify(d.options)})))});
   return {
     namespace: "pier-exit",
     sourceVersion: "pier-native-v1",

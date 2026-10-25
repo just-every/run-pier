@@ -60,8 +60,8 @@ export function customFieldRead(c: Context, params: URLSearchParams) {
 }
 
 // New arbitrary field content stays private until wider authority is approved.
-export function customFieldProjection(value: unknown, actor: {role:string}): any {
+export function customFieldProjection(value: unknown, actor: {role:string}, privateFields=false): any {
   if (actor.role === 'owner' || value === null || typeof value !== 'object') return value;
-  if (Array.isArray(value)) return value.map(v=>customFieldProjection(v,actor));
-  return Object.fromEntries(Object.entries(value).filter(([key])=>!['customFields','customFieldDefinitions'].includes(key)).map(([key,v])=>[key,customFieldProjection(v,actor)]));
+  if (Array.isArray(value)) return value.map(v=>customFieldProjection(v,actor,privateFields));
+  return Object.fromEntries(Object.entries(value).filter(([key])=>!['customFields','customFieldDefinitions',...(privateFields?['imports']:[])].includes(key)).map(([key,v])=>[key,customFieldProjection(v,actor,privateFields)]));
 }
