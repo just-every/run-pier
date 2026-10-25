@@ -144,6 +144,12 @@
           "label": "Put Pier online",
           "file": "docs/hosting.md",
           "summary": "Deploy to your own Cloudflare account with your real owner address, back up and restore the hosted database, and remove it."
+        },
+        {
+          "slug": "hosted-recovery",
+          "label": "Hosted backup and recovery",
+          "file": "docs/hosted-recovery.md",
+          "summary": "Back up, check and restore Pier\u2019s hosted database, or remove a hosted installation."
         }
       ]
     },

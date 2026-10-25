@@ -55,7 +55,7 @@ export function sitePages({ styles, contract }: SiteContext): SiteBuild {
       { path: '/run', html: runPageHtml(siteIdentity, run, contract) },
       ...(contract ? [{ path: '/contract', html: contractPageHtml(siteIdentity, run, contract) }] : []),
       { path: '/docs', html: document(...docsHead(), <DocsIndex />) },
-      ...docsPages.map(page => ({ path: `/docs/${page.slug}`, html: document(...docsHead(page.slug), <DocsArticle slug={page.slug} />, COPY) })),
+      ...docsPages.filter(page => page.slug !== 'hosting').map(page => ({ path: `/docs/${page.slug}`, html: document(...docsHead(page.slug), <DocsArticle slug={page.slug} />, COPY) })),
       { path: '/404', html: siteNotFoundHtml(siteIdentity, run, contract) },
     ],
     assets: ['rer-theme.css', 'fonts', 'brand', 'site', 'favicon.ico', 'apple-touch-icon.png'],

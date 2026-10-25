@@ -43,7 +43,42 @@
       "source": {
         "kind": "local",
         "paths": [
-          "src/modules/operator-auth"
+          "src/modules/operator-auth/README.md",
+          "src/modules/operator-auth/SCHEDULED-POLICY.md",
+          "src/modules/operator-auth/accounts",
+          "src/modules/operator-auth/branding.mjs",
+          "src/modules/operator-auth/config.mjs",
+          "src/modules/operator-auth/conformance/index.d.mts",
+          "src/modules/operator-auth/conformance/index.mjs",
+          "src/modules/operator-auth/conformance/presentation.mjs",
+          "src/modules/operator-auth/crypto.mjs",
+          "src/modules/operator-auth/csp.mjs",
+          "src/modules/operator-auth/dev-admission.d.mts",
+          "src/modules/operator-auth/dev-admission.mjs",
+          "src/modules/operator-auth/dev-gate.mjs",
+          "src/modules/operator-auth/dev",
+          "src/modules/operator-auth/docs/README.md",
+          "src/modules/operator-auth/docs/native-accounts.md",
+          "src/modules/operator-auth/docs/tanstack-start.md",
+          "src/modules/operator-auth/errors.mjs",
+          "src/modules/operator-auth/http.mjs",
+          "src/modules/operator-auth/icon-head.d.mts",
+          "src/modules/operator-auth/icon-head.mjs",
+          "src/modules/operator-auth/identity",
+          "src/modules/operator-auth/index.d.mts",
+          "src/modules/operator-auth/index.mjs",
+          "src/modules/operator-auth/input.mjs",
+          "src/modules/operator-auth/local-cli.mjs",
+          "src/modules/operator-auth/loopback.mjs",
+          "src/modules/operator-auth/owner-signin-grant.mjs",
+          "src/modules/operator-auth/page.mjs",
+          "src/modules/operator-auth/policy.d.mts",
+          "src/modules/operator-auth/policy.mjs",
+          "src/modules/operator-auth/rejected-response.mjs",
+          "src/modules/operator-auth/routes.mjs",
+          "src/modules/operator-auth/scheduled",
+          "src/modules/operator-auth/service.mjs",
+          "src/modules/operator-auth/signin"
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
@@ -60,7 +95,14 @@
       "source": {
         "kind": "local",
         "paths": [
-          "src/modules/mail"
+          "src/modules/mail/.gitignore",
+          "src/modules/mail/LICENSE",
+          "src/modules/mail/doctor.mjs",
+          "src/modules/mail/index.mjs",
+          "src/modules/mail/live-proof",
+          "src/modules/mail/package.json",
+          "src/modules/mail/pnpm-lock.yaml",
+          "src/modules/mail/src"
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
@@ -145,7 +187,11 @@
       "source": {
         "kind": "local",
         "paths": [
-          "src/modules/import-kit"
+          "src/modules/import-kit/CONTRACT.md",
+          "src/modules/import-kit/FIXTURES.md",
+          "src/modules/import-kit/extraction.json",
+          "src/modules/import-kit/schema",
+          "src/modules/import-kit/src"
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
@@ -162,7 +208,18 @@
       "source": {
         "kind": "local",
         "paths": [
-          "scripts/edition-authoring"
+          "scripts/edition-authoring/base-acknowledgements.mjs",
+          "scripts/edition-authoring/base-copies.mjs",
+          "scripts/edition-authoring/cli.mjs",
+          "scripts/edition-authoring/copy-checkout.mjs",
+          "scripts/edition-authoring/files.mjs",
+          "scripts/edition-authoring/manifest.mjs",
+          "scripts/edition-authoring/offline-git.mjs",
+          "scripts/edition-authoring/parent-comparison.mjs",
+          "scripts/edition-authoring/projection-lock.mjs",
+          "scripts/edition-authoring/release.mjs",
+          "scripts/edition-authoring/sources.mjs",
+          "scripts/edition-authoring/updates.mjs"
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
@@ -232,6 +289,190 @@
           {
             "path": "src/mail.server.mjs",
             "originPath": "foundation/template/src/mail.server.mjs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/pier-adapted-1",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "scripts/edition-authoring/adopt.mjs"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+          "paths": [
+            "edition-authoring/adopt.mjs"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "scripts/edition-authoring/adopt.mjs",
+            "originPath": "edition-authoring/adopt.mjs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/pier-adapted-2",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "scripts/edition-authoring/lock.mjs"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+          "paths": [
+            "edition-authoring/lock.mjs"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "scripts/edition-authoring/lock.mjs",
+            "originPath": "edition-authoring/lock.mjs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/pier-adapted-3",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "scripts/edition-authoring/README.md"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+          "paths": [
+            "edition-authoring/README.md"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "scripts/edition-authoring/README.md",
+            "originPath": "edition-authoring/README.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/pier-adapted-4",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/import-kit/README.md"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+          "paths": [
+            "modules/import-kit/README.md"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/modules/import-kit/README.md",
+            "originPath": "modules/import-kit/README.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/pier-adapted-5",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/mail/README.md"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+          "paths": [
+            "modules/mail/README.md"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/modules/mail/README.md",
+            "originPath": "modules/mail/README.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/pier-adapted-6",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/operator-auth/conformance/README.md"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+          "paths": [
+            "modules/operator-auth/conformance/README.md"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/modules/operator-auth/conformance/README.md",
+            "originPath": "modules/operator-auth/conformance/README.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/pier-adapted-7",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/operator-auth/docs/vite-spa.md"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+          "paths": [
+            "modules/operator-auth/docs/vite-spa.md"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/modules/operator-auth/docs/vite-spa.md",
+            "originPath": "modules/operator-auth/docs/vite-spa.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/pier-adapted-8",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/operator-auth/representation.mjs"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+          "paths": [
+            "modules/operator-auth/representation.mjs"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/modules/operator-auth/representation.mjs",
+            "originPath": "modules/operator-auth/representation.mjs"
           }
         ]
       }
