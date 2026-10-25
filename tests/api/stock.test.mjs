@@ -42,6 +42,8 @@ test('STOCK-001: warehouse and company stock reconcile to exported movements, re
 test('stock consumers resume only acknowledged pages and replay stable events after Worker restart', async t => {
   const h = await installation(); t.after(() => h.close());
   const b = await stockJourney(h);
+  // Upgrade fixture: business stock predates the newly installed journal tables.
+  await h.db.batch([h.db.prepare('DELETE FROM pier_stock_events'),h.db.prepare('DELETE FROM pier_stock_feed_bootstrap')]);
   const page = async (consumer = 'synthetic-pier-1', checkpoint = '', as) => {
     const response = await h.request(`/api/pier/stock-changes?consumer=${consumer}&limit=2${checkpoint ? '&checkpoint='+checkpoint : ''}`, {as});
     assert.equal(response.status,200,await response.clone().text()); return response.json();

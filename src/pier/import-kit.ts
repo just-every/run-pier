@@ -205,6 +205,15 @@ export async function publishImport(
         value.records.find(
           (record) => record.kind === "imports" && record.data.id === batch.id,
         )?.data ?? fail("IMPORT_JOB", "Import publication is incomplete.");
+      // A resumed Base job publishes its retained graph, whose generated IDs
+      // can differ from the freshly recomputed command state after a rollback.
+      const published = structuredClone(before);
+      for (const entry of value.records) {
+        const kind = entry.kind as (typeof collections)[number];
+        published[kind] = [...published[kind].filter(r=>r.id!==entry.data.id),entry.data];
+      }
+      published.movements.push(...value.movements);
+      published.reservations = [...published.reservations.filter(r=>!value.removedReservationIds.includes(r.id)),...value.reservations];
       const out = writeGraph(value);
       const descriptor = {
         publication,
@@ -224,7 +233,7 @@ export async function publishImport(
       );
       out.push(
         ...commandSQL(
-          { ...c, now: publication.at },
+          { ...c, s: published, now: publication.at },
           before,
           digest,
           publishedBatch,

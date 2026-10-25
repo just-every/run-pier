@@ -1,3 +1,4 @@
+import { typedFields } from './custom-fields';
 import { parsePermissions } from './permissions';
 import {
   decimal,
@@ -55,8 +56,10 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
   const old = p.id ? get(c.s, collection, p.id) : undefined;
   if (old) fresh(old, p.version);
   let data: any;
+  if (p.customFields !== undefined) requireRole(c,[]);
   if (type === "item.save") {
     data = {
+      ...(p.customFields === undefined ? old?.customFields ? {customFields:old.customFields} : {} : {customFields:typedFields(c.s,"item",p.customFields)}),
       sku: text(p.sku, "SKU"),
       name: text(p.name, "Name"),
       barcode: p.barcode ? text(p.barcode) : null,
@@ -107,7 +110,8 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       fail("HISTORY", "Used location kind is immutable.");
   }
   if (type === "party.save") {
-    data = { name: text(p.name), kind: p.kind, email: p.email ? text(p.email, "Email") : old?.email ?? null };
+    data = {
+      ...(p.customFields === undefined ? old?.customFields ? {customFields:old.customFields} : {} : {customFields:typedFields(c.s,p.kind,p.customFields)}), name: text(p.name), kind: p.kind, email: p.email ? text(p.email, "Email") : old?.email ?? null };
     if (data.email && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(data.email)) fail("EMAIL", "Enter one valid email address.");
     if (!["supplier", "customer"].includes(p.kind))
       fail("PARTY", "Choose supplier or customer.");

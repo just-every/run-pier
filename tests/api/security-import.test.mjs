@@ -299,6 +299,7 @@ test("empty downstream import undo restores native snapshot and retains custody"
   const interrupted = await h.state();
   assert.equal(interrupted.items.length, 1);
   assert.equal(interrupted.movements.length, 0);
+  assert.equal(await h.db.prepare('SELECT COUNT(*) AS n FROM pier_stock_events').first('n'),0,'failed import publication leaves no stock event');
   assert.equal(interrupted.imports[0].status, "frozen");
   assert.ok(!(await (await h.request('/api/pier/audit')).json()).some(event => event.commandId === commandId), 'failed native publication cannot leave a successful audit event');
   assert.equal(
@@ -350,6 +351,10 @@ test("empty downstream import undo restores native snapshot and retains custody"
   assert.equal(s.movements.length, 1);
   assert.ok(s.parties.some((p) => p.id === unrelated.id));
   assert.equal(s.imports[0].status, "undone");
+  const feed = await (await h.request('/api/pier/stock-changes?consumer=synthetic-pier-undo&limit=100')).json();
+  const corrections = feed.events.filter(event=>event.itemId===importedItem.id);
+  assert.ok(corrections.some(event=>event.quantity!=='0'),'the import emits its committed opening position');
+  assert.ok(corrections.length>=2);assert.equal(corrections.at(-1).quantity,'0','undo emits a visible tombstone even after the imported bin is removed');
   const importHistory = await (await h.request('/api/pier/audit?itemId=' + importedItem.id)).json();
   const undoneEvent = importHistory.find(event => event.type === 'import.undo');
   assert.ok(undoneEvent, 'removed items retain a filterable correction trail');

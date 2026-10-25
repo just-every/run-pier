@@ -1,3 +1,4 @@
+import { customFieldCommands, customFieldRead, customFieldProjection } from './custom-fields';
 import { stockFeed } from './stock-feed';
 import { purchaseChanges } from './purchase-changes';
 import { purchaseApproval, purchaseApprovalRoute } from './purchase-approval';
@@ -215,6 +216,7 @@ export async function execute(
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
+      customFieldCommands,
       purchaseApproval,
       purchaseChanges,
       savedReports,
@@ -344,6 +346,7 @@ export async function pierResponse(
     const stall = await stallLink(request, env);
     if (stall) return stall;
     const actor = await current(request, env);
+    const reply = (body:unknown,status=200) => json(customFieldProjection(body,actor),status);
     if (['/api/pier/stock-changes','/api/pier/stock-changes/ack'].includes(url.pathname)) {
       if (request.method === 'POST' && (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin || !request.headers.get('content-type')?.includes('application/json'))) throw new Problem('ORIGIN','Use same-origin JSON acknowledgement.',null,403);
       return await stockFeed(request,env.DB,actor,await load(env.DB));
@@ -367,10 +370,11 @@ export async function pierResponse(
           null,
           401,
         );
-      if (url.pathname === '/api/pier/questions') return json(liveQuestion(full, actor, url.searchParams));
+      if (url.pathname === '/api/pier/custom-fields') return reply(customFieldRead(c,url.searchParams));
+      if (url.pathname === '/api/pier/questions') return reply(liveQuestion(full, actor, url.searchParams));
       if (scoped(actor)) {
         if (!['/api/pier/state', '/api/pier/scope-export'].includes(url.pathname)) throw new Problem('SCOPE', 'This door requires wider authority; use your scoped stock export.', null, 403);
-        if (url.pathname === '/api/pier/scope-export') return json({ format: 'pier-scoped-stock-v1', ...s });
+        if (url.pathname === '/api/pier/scope-export') return reply({ format: 'pier-scoped-stock-v1', ...s });
       }
       const reportFile = /^\/api\/pier\/report-snapshots\/([^/]+)\.csv$/.exec(url.pathname);
       if (reportFile) {
@@ -381,11 +385,11 @@ export async function pierResponse(
       if (url.pathname === '/api/pier/privacy') {
         if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only an owner can inspect retention and erasure dependencies.', null, 403);
         const kind = url.searchParams.get('kind'), subjectId = url.searchParams.get('subjectId');
-        return json(kind && subjectId ? await privacySubjectPreview(s, kind, subjectId, env) : { policies: s.privacyPolicies, holds: s.privacyHolds, receipts: s.privacyReceipts, reviewDue: s.evidenceDocuments.filter(d => Date.parse(d.createdAt) + (s.privacyPolicies[0]?.reviewAfterDays ?? 36500) * 86400000 <= Date.now()).map(d => d.id), automaticDeletion: false });
+        return reply(kind && subjectId ? await privacySubjectPreview(s, kind, subjectId, env) : { policies: s.privacyPolicies, holds: s.privacyHolds, receipts: s.privacyReceipts, reviewDue: s.evidenceDocuments.filter(d => Date.parse(d.createdAt) + (s.privacyPolicies[0]?.reviewAfterDays ?? 36500) * 86400000 <= Date.now()).map(d => d.id), automaticDeletion: false });
       }
       if (url.pathname === '/api/pier/audit') {
         const events = await auditRows(env.DB);
-        return json(events.filter(event => ['itemId','documentId','userId','connectorId','commandId'].every(key => {
+        return reply(events.filter(event => ['itemId','documentId','userId','connectorId','commandId'].every(key => {
           const value = url.searchParams.get(key);
           return !value || (key === 'itemId' ? event.itemIds.includes(value) : key === 'documentId' ? event.documentIds.includes(value) || event.commandId === value : key === 'userId' ? event.actorId === value : key === 'commandId' ? event.commandId === value : event.connectorId === value);
         })));
@@ -408,7 +412,7 @@ export async function pierResponse(
       if(salesPdf){
         if(actor.role!=='owner')throw new Problem('FORBIDDEN','Only an owner can read retained commercial PDFs.',null,403);
         const doc=s.salesDocuments.find(d=>d.id===salesPdf[1]) ?? fail('NOT_FOUND','Document not found.');
-        if (!doc.pdf && doc.privacyErasedAt) return json({ ok:false, error:{ code:'ERASED', message:'This private document copy was erased.' } },410);
+        if (!doc.pdf && doc.privacyErasedAt) return reply({ ok:false, error:{ code:'ERASED', message:'This private document copy was erased.' } },410);
         return new Response(Uint8Array.from(atob(doc.pdf),ch=>ch.charCodeAt(0)),{headers:{'content-type':'application/pdf','cache-control':'no-store','content-disposition':`inline; filename="${doc.filename}"`,'x-content-type-options':'nosniff'}});
       }
       const packSlip = /^\/api\/pier\/packs\/([^/]+)\/packing-slip$/.exec(url.pathname);
@@ -422,15 +426,15 @@ export async function pierResponse(
         try { return new Response(booksExport(s, format), {headers:{"content-type":format === "csv" ? "text/csv; charset=utf-8" : "text/plain; charset=utf-8","content-disposition":`attachment; filename="pier-books.${format}"`,"cache-control":"no-store"}}); } catch(error) { fail("BOOK_EXPORT", error instanceof Error ? error.message : "Review the financial documents before exporting."); }
       }
       if (url.pathname === "/api/pier/native-export")
-        return json(nativeExport(s));
-      if (url.pathname === '/api/pier/trace') return json(traceReport(s, url.searchParams.get('identityId') ?? ''));
+        return reply(nativeExport(s));
+      if (url.pathname === '/api/pier/trace') return reply(traceReport(s, url.searchParams.get('identityId') ?? ''));
       if (url.pathname === "/api/pier/returns/lookup")
-        return json(returnLookup(s, url.searchParams.get("code")));
-      if (url.pathname === "/api/pier/supplier-performance") return json(supplierPerformance(s));
-      if (url.pathname === '/api/pier/replenishment') return json(forecast(c, [{ itemId: url.searchParams.get('itemId') ?? '', warehouse: url.searchParams.get('warehouse') ?? '', supplierId: url.searchParams.get('supplierId') ?? undefined }]));
-      if (url.pathname === "/api/pier/reports") return json(filteredReports(s, Object.fromEntries(url.searchParams)));
+        return reply(returnLookup(s, url.searchParams.get("code")));
+      if (url.pathname === "/api/pier/supplier-performance") return reply(supplierPerformance(s));
+      if (url.pathname === '/api/pier/replenishment') return reply(forecast(c, [{ itemId: url.searchParams.get('itemId') ?? '', warehouse: url.searchParams.get('warehouse') ?? '', supplierId: url.searchParams.get('supplierId') ?? undefined }]));
+      if (url.pathname === "/api/pier/reports") return reply(filteredReports(s, Object.fromEntries(url.searchParams)));
       if (url.pathname === "/api/pier/dispatch-summary")
-        return json(
+        return reply(
           dispatchSummary(
             s,
             url.searchParams.get("date") ?? "",
@@ -451,7 +455,7 @@ export async function pierResponse(
             "SELECT job_id AS jobId,kind,original_key AS originalKey,name,sha256,size FROM ik_originals ORDER BY job_id,kind,original_key",
           ),
         ]);
-        return json({
+        return reply({
           format: "pier-business-v1",
           currency: "USD",
           precision: 6,
@@ -469,7 +473,7 @@ export async function pierResponse(
         });
       }
       if (url.pathname !== "/api/pier/state")
-        return json(
+        return reply(
           {
             ok: false,
             error: { code: "NOT_FOUND", message: "Unknown endpoint." },
@@ -503,7 +507,7 @@ export async function pierResponse(
         ).all()
       ).results;
       const bookConnections = await bookConnectionViews(env, s);
-      return json({
+      return reply({
         ...s,
         invoices: actor.role==='owner'?s.invoices.map(i=>({...i,balance:nativeBalance(s,i.id)})):[],
         customerProfiles: actor.role === 'owner' ? customerViews(s, c.now) : [],
@@ -545,7 +549,7 @@ export async function pierResponse(
       });
     }
     if (request.method !== "POST" || !["/api/pier/commands", "/api/pier/catalogue/preview"].includes(url.pathname))
-      return json(
+      return reply(
         {
           ok: false,
           error: {
@@ -579,7 +583,7 @@ export async function pierResponse(
       const s = await load(env.DB);
       admitScopedCommand(s, actor, 'catalogue.preview', body);
       const { trial: _trial, ...preview } = previewCatalogue({ s, actor, commandId: "preview", now: new Date().toISOString() }, body.csv);
-      return json(preview);
+      return reply(preview);
     }
     const { commandId, type, payload = {} } = body;
     if (!payload || typeof payload !== "object" || Array.isArray(payload))
@@ -611,16 +615,16 @@ export async function pierResponse(
     }
     if (['shipping.record','shipping.complete'].includes(type)) fail('SHIPPING_INTERNAL', 'Pier records carrier outcomes itself.');
     if (['shipping.verify','shipping.rates','shipping.buy','shipping.reconcile','shipping.email','shipping.track'].includes(type))
-      return json(await performShipping(env, actor, commandId, type, payload));
+      return reply(await performShipping(env, actor, commandId, type, payload));
     if (["edi.send.begin", "edi.send.result", "edi.send.unavailable"].includes(type)) fail("EDI_INTERNAL", "Pier records EDI traffic itself.");
-    if (type === "edi.send") return json(await deliverEdi(env, actor, commandId, payload, execute));
+    if (type === "edi.send") return reply(await deliverEdi(env, actor, commandId, payload, execute));
     if (["itemAgent.begin", "itemAgent.complete", "itemAgent.failed"].includes(type)) fail("AI_INTERNAL", "Pier records AI request outcomes itself.");
     if (['document.begin', 'document.complete', 'document.failed'].includes(type)) fail('DOCUMENT_INTERNAL', 'Pier records paid document request outcomes itself.');
     if (type.startsWith('document.') && actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only an owner can access retained originals and document processing.', null, 403);
     if (['payment.record','payment.begin','payment.complete','payment.apply'].includes(type))fail('PAYMENT_INTERNAL','Pier records verified payment outcomes itself.');
-    if(['payment.checkout','payment.reconcile','payment.expire'].includes(type))return json(await performPayment(env,actor,commandId,type,payload,execute));
-    if (type === 'document.extract') return json(await extractDocument(env, actor, commandId, payload, execute));
-    if (type === "itemAgent.explain") return json(await explainItem(env, actor, commandId, payload, execute));
+    if(['payment.checkout','payment.reconcile','payment.expire'].includes(type))return reply(await performPayment(env,actor,commandId,type,payload,execute));
+    if (type === 'document.extract') return reply(await extractDocument(env, actor, commandId, payload, execute));
+    if (type === "itemAgent.explain") return reply(await explainItem(env, actor, commandId, payload, execute));
     if (["book.plan","book.begin","book.record","book.checked","book.reconcile"].includes(type)) fail("BOOK_INTERNAL","Pier records books traffic itself.");
     if (type === "channel.stallLink") fail("CHANNEL_INTERNAL", "Pier creates Stall keys itself.");
     if (type === "channel.stallKey") {
@@ -628,33 +632,33 @@ export async function pierResponse(
       // The key reaches only this reply; the saved command keeps its hash.
       const key = newStallKey();
       const outcome = await execute(env, actor, commandId, "channel.stallLink", { channelId: payload.channelId, version: payload.version, customerId: payload.customerId, keyHash: stallKeyHash(key) });
-      if (!outcome) return json({ ok: false, error: { code: "BUSY", message: "Retry." } }, 409);
-      return json({ ...outcome, result: { key, origin: new URL(env.AUTH_ORIGIN).origin, customerId: payload.customerId } });
+      if (!outcome) return reply({ ok: false, error: { code: "BUSY", message: "Retry." } }, 409);
+      return reply({ ...outcome, result: { key, origin: new URL(env.AUTH_ORIGIN).origin, customerId: payload.customerId } });
     }
     if (type === "channel.shopifyLocations") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect Shopify.",null,403);
-      try { const state = await load(env.DB); return json({ok:true,result:await providerOperation(env.DB, { actor, commandId, connectorId: 'shopify', operation: 'channel.locations', direction: 'inbound', state, sources: [] }, () => readShopifyLocations(payload)),version:(await load(env.DB)).version}); }
+      try { const state = await load(env.DB); return reply({ok:true,result:await providerOperation(env.DB, { actor, commandId, connectorId: 'shopify', operation: 'channel.locations', direction: 'inbound', state, sources: [] }, () => readShopifyLocations(payload)),version:(await load(env.DB)).version}); }
       catch { fail('CHANNEL_SETUP','Pier could not load Shopify locations. Check the myshopify.com address and read_locations scope. For a new app, check its client ID/secret and that it is installed on a store in the same Shopify organization; for a legacy app, check its Admin API token.'); }
     }
     if (type === "book.accounts") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can connect the books.",null,403);
       const state = await load(env.DB), connected = state.bookConnections.find((row) => row.enabled);
-      return json({ok:true,result:await providerOperation(env.DB, { actor, commandId, connectorId: 'pantry', operation: 'book.accounts', direction: 'inbound', state, sources: connected ? [{ collection: 'bookConnections', row: connected }] : [] }, () => pantryAccounts(env,payload,connected)),version:(await load(env.DB)).version});
+      return reply({ok:true,result:await providerOperation(env.DB, { actor, commandId, connectorId: 'pantry', operation: 'book.accounts', direction: 'inbound', state, sources: connected ? [{ collection: 'bookConnections', row: connected }] : [] }, () => pantryAccounts(env,payload,connected)),version:(await load(env.DB)).version});
     }
     if (type === "book.sync") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can sync the books.",null,403);
-      return json({ok:true,result:await syncBooks(env),version:(await load(env.DB)).version});
+      return reply({ok:true,result:await syncBooks(env),version:(await load(env.DB)).version});
     }
     if (["channel.ingest", "channel.published", "channel.failed"].includes(type)) fail("CHANNEL_INTERNAL", "Pier records channel traffic itself.");
     if (type === "channel.sync") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN", "Only an owner can synchronize external connections.", null, 403);
-      return json({ ok: true, result: await syncChannels(env), version: (await load(env.DB)).version });
+      return reply({ ok: true, result: await syncChannels(env), version: (await load(env.DB)).version });
     }
     if (type === "dispatch.delivered")
       fail("COMMAND", "Pier records mail delivery itself.");
     if (type === 'mail.process') {
       if (!['owner','buyer','operator'].includes(actor.role)) throw new Problem('FORBIDDEN','Your current role cannot send approved correspondence.',null,403);
-      return json({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
+      return reply({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
     }
     if(['order.create','quote.create'].includes(type)&&(Object.hasOwn(payload,'nativeCutover')||payload.fulfilment||payload.channelId||payload.ediPartnerId||payload.routingSource&&payload.routingSource!=='manual'))fail('ROUTING_SOURCE','Public manual orders use the manual source; connector and file sources are assigned by their own intake doors.');
     let outcome;
@@ -663,7 +667,7 @@ export async function pierResponse(
       if (error instanceof Problem) await refusedScan(env.DB, actor, commandId, type, payload, error.code, await load(env.DB));
       throw error;
     }
-    if (outcome && (type === 'replenishment.compare' || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return json(outcome);
+    if (outcome && (type === 'replenishment.compare' || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return reply(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'print.send' && outcome.result.kind === 'purchase-order') await deliverCorrespondence(env, new Date().toISOString(), outcome.result.id, actor);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
@@ -672,13 +676,13 @@ export async function pierResponse(
     }
     if (outcome && type === 'po.sendApproved') await deliverCorrespondence(env, new Date().toISOString(), outcome.result.id, actor);
     if (outcome && ['po.send','slowStock.check','slowStock.flag','order.repromise','order.promisePolicy','po.confirm'].includes(type)) await deliverCorrespondence(env);
-    if (outcome && type === "dispatch.close") return json(await deliver(env, actor, commandId, outcome));
+    if (outcome && type === "dispatch.close") return reply(await deliver(env, actor, commandId, outcome));
     if (outcome) {
       if (execution) execution.waitUntil(Promise.all([syncChannels(env),syncBooks(env)]));
       else await Promise.all([syncChannels(env),syncBooks(env)]);
-      return json(outcome);
+      return reply(outcome);
     }
-    return json(
+    return reply(
       {
         ok: false,
         error: { code: "BUSY", message: "Retry the same command identity." },

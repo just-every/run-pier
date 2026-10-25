@@ -42,6 +42,7 @@ export function subjectPlan(s: State, kind: string, id: string, native?: NativeS
   const holds = s.privacyHolds.filter(h => h.active && ids.has(h.subjectId));
   const blockers: { code: string; kind: string; id: string; reason: string }[] = [];
   const block = (collection: string, record: Row, reason: string) => blockers.push({ code: 'PRIVACY_DEPENDENCY', kind: collection, id: record.id, reason });
+  for (const definition of s.customFieldDefinitions) block('customFieldDefinitions', definition, 'Typed custom-field values, retained command results and document copies require reviewed subject attribution and a dedicated custody erasure operation.');
   // Import custody has additional staged and journal tables: erasing a Pier row
   // alone cannot erase that source. Refuse rather than leave a hidden copy.
   for (const batch of s.imports) if (contains(batch, ids) || kind === 'operator' && contains(batch, new Set([id])) || !['committed','undone'].includes(batch.status)) block('imports', batch, 'Native import originals, staging and journal custody require a dedicated erasure operation.');

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { installation } from './harness.mjs';
 import { catalogueCsv, catalogueJourney } from './catalogue-fixtures.mjs';
 
-test('CAT-001: reviewed variants, references and exact multi-pack barcodes survive public receive/pick/pack/export', async t => {
+test('CAT-001: reviewed variants, references and exact multi-pack barcodes survive public stock work and export', async t => {
   const h = await installation(); t.after(() => h.close());
   h.preview = async csv => {
     const response = await h.request('/api/pier/catalogue/preview', { method: 'POST', body: { csv } });
@@ -77,5 +77,56 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   assert.equal(saved.weight, '0.75');
   assert.equal(exported.items.find(i => i.id === white.id).imageUrl, 'https://catalogue.example.test/white-mug.jpg');
   assert.equal(exported.shipments.find(s => s.orderId === order.id).lines[0].quantity, '4.5');
+  // One typed-field journey crosses all existing owner kinds and public doors.
+  const current=await h.state();
+  const owners=[['item',current.items.find(i=>i.id===blue.id),'text','finish','matte'],['customer',current.parties.find(p=>p.id===b.customer.id),'boolean','priority',false],['supplier',current.parties.find(p=>p.id===b.supplier.id),'number','minimum','1.250000'],['order',current.orders.find(o=>o.id===order.id),'date','delivery_day','2026-11-01']];
+  for (const [ownerType,,type,key] of owners) await h.command('customField.define',{ownerType,type,key,label:key});
+  const initial=await h.state();
+  const rows=owners.map(([ownerType,record,,,value],index)=>({ownerType,recordId:record.id,version:record.version,values:{[owners[index][3]]:value}}));
+  await h.command('customField.import',{stateVersion:initial.version,rows:[...rows.slice(0,3),{...rows[3],values:{delivery_day:'2026-02-30'}}]},{error:'CUSTOM_VALUE'});
+  assert.equal((await h.state()).items.find(i=>i.id===blue.id).customFields,undefined,'a late invalid value refuses the entire import');
+  const imported=await h.command('customField.import',{stateVersion:initial.version,rows});
+  for (const [index,[ownerType,record,,,value]] of owners.entries()) {
+    const expected=index===2?'1.25':value;
+    const filter=await(await h.request(`/api/pier/custom-fields?ownerType=${ownerType}&field=${owners[index][3]}&value=${encodeURIComponent(JSON.stringify(value))}`)).json();
+    assert.deepEqual(filter.records.map(r=>r.id),[record.id]);assert.equal(filter.records[0].customFields[owners[index][3]],expected);
+    assert.equal(imported.records[index].customFields[owners[index][3]],expected);
+  }
+  await h.command('customField.define',{ownerType:'item',type:'number',key:'finish',label:'Wrong reinterpretation'},{error:'CUSTOM_DEFINITION'});
+  await h.command('customField.set',{ownerType:'item',recordId:blue.id,version:blue.version,values:{finish:'gloss'}},{error:'STALE'});
+  const typedCsv='sku,name,unit,packSize,customFields\n'+[blue.sku,'Blue stoneware mug revised','each','12','{"finish":"satin"}'].map(v=>'"'+v.replaceAll('"','""')+'"').join(',')+'\n';
+  const typedPreview=await h.preview(typedCsv);assert.deepEqual(typedPreview.errors,[]);await h.command('catalogue.apply',{csv:typedCsv,stateVersion:typedPreview.stateVersion});
+  await h.command('business.save',{name:'Synthetic Pier Wholesale',address:'1 Synthetic Pier Road',shipTo:{}});
+  const packed=(await h.state()).packs.find(p=>p.orderId===order.id);
+  const document=await h.command('print.generate',{kind:'packing-slip',sourceId:packed.id});
+  const {pdfText}=await import('./pdf-text.mjs');
+  const printed=await pdfText(Buffer.from(document.pdf,'base64'));
+  assert.match(printed,/Finish: satin/);assert.match(printed,/Delivery_day: 2026-11-01/);assert.match(printed,/Priority: false/);assert.match(printed,/Base quantity: 4.5 each/);
+  const supplierDocument=await h.command('print.generate',{kind:'purchase-order',sourceId:po.id});assert.match(await pdfText(Buffer.from(supplierDocument.pdf,'base64')),/Minimum: 1.25/);
+  const fieldsExport=await(await h.request('/api/pier/export')).json();
+  assert.equal(fieldsExport.customFieldDefinitions.length,4);
+  assert.equal(fieldsExport.items.find(i=>i.id===blue.id).customFields.finish,'satin');
+  assert.equal(fieldsExport.orders.find(o=>o.id===order.id).customFields.delivery_day,'2026-11-01');
+  const latestItem=(await h.state()).items.find(i=>i.id===blue.id);
+  await h.command('customField.set',{ownerType:'item',recordId:blue.id,version:latestItem.version,values:{finish:'gloss'}});
+  const retained=Buffer.from(await(await h.request(`/api/pier/sales-documents/${document.id}.pdf`)).arrayBuffer());assert.deepEqual(retained,Buffer.from(document.pdf,'base64'));
+  await h.command('sales.taxTable',{state:'TX',rate:'0',reason:'Synthetic case-pack quote'});
+  let caseQuote=await h.command('quote.create',{customerId:b.customer.id,warehouse:'Dallas',shipTo:{state:'TX',country:'US'},lines:[{itemId:blue.id,quantity:'1',unit:'case',price:'2'}]});
+  caseQuote=await h.command('quote.approve',{orderId:caseQuote.id,version:caseQuote.version,reason:'Approve exactly one 12-unit case'});
+  const caseQuotePdf=await h.command('print.generate',{kind:'quote',sourceId:caseQuote.id});assert.match(await pdfText(Buffer.from(caseQuotePdf.pdf,'base64')),/Base quantity: 12 each/);
+  caseQuote=await h.command('quote.accept',{orderId:caseQuote.id,version:caseQuote.version});
+  let caseWave=await h.command('wave.release',{carrierId:carrier.id,orderIds:[caseQuote.id]});
+  caseWave=await h.command('pick.scan',{waveId:caseWave.id,lineId:caseWave.lines[0].id,binCode:'BIN-A14',itemCode:'10036000291459'});assert.equal(caseWave.lines[0].picked,'12');
+  await h.command('pack.scan',{waveId:caseWave.id,orderId:caseQuote.id,code:'10036000291459'});
+  await h.command('pack.measure',{waveId:caseWave.id,orderId:caseQuote.id,carton:1,weight:'10',length:'12',width:'8',height:'6'});
+  const casePack=await h.command('pack.close',{waveId:caseWave.id,orderId:caseQuote.id});
+  const caseLabel=await h.command('print.generate',{kind:'packing-slip',sourceId:casePack.id});assert.match(await pdfText(Buffer.from(caseLabel.pdf,'base64')),/Base quantity: 12 each/);
+  assert.equal((await h.request('/api/pier/native-export')).status,409,'native cutover refuses to discard custom definitions and values');
+  const privacy=await(await h.request('/api/pier/privacy?kind=customer&subjectId='+b.customer.id)).json();assert.equal(privacy.allowed,false);assert.ok(privacy.blockers.some(b=>b.kind==='customFieldDefinitions'));
+  const entered=await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}});
+  const cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+  const read=await(await h.request('/api/pier/state',{as:cookie})).json();assert.equal(read.customFieldDefinitions,undefined);assert.ok(read.items.every(i=>i.customFields===undefined));assert.ok(read.orders.every(o=>o.customFields===undefined));
+  await h.command('customField.define',{ownerType:'item',type:'text',key:'forbidden',label:'Forbidden'},{as:cookie,error:'FORBIDDEN'});
+  assert.equal((await h.request('/api/pier/custom-fields?ownerType=item&field=finish&value=%22gloss%22',{as:cookie})).status,403);
   await h.invariant();
 });

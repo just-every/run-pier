@@ -1,3 +1,4 @@
+import { businessParticulars } from './display';
 import { queuePurchase } from '../purchasing-workflow';
 import { poMaterial } from '../correspondence-delivery-eligibility';
 import { shipTo } from '../business';
@@ -31,6 +32,11 @@ export async function generateDocument(c:Context,p:any,recipient?:string,purchas
   }
   if(kind==='order-confirmation'&&source.source.documentType==='quote'&&!source.source.acceptedAt)fail('QUOTE_STATE','Accept the quote before confirming it.');
   const fields=[...source.fields];
+  const sourceOrder = source.source.orderId ? c.s.orders.find(o=>o.id===source.source.orderId) : source.sourceKind==='orders'?source.source:null;
+  const partyId = sourceOrder?.customerId ?? source.source.customerId ?? source.source.supplierId ?? (source.sourceKind==='parties'?source.source.id:null);
+  const party = c.s.parties.find(p=>p.id===partyId);
+  if (c.actor.role !== 'owner' && (source.source.customFields || sourceOrder?.customFields || party?.customFields || source.lines.some(l=>l.customFields))) fail('CUSTOM_AUTHORITY','Only an owner can generate documents containing private custom fields.');
+  for (const [label,record] of [['Record fields',source.source],['Order fields',sourceOrder],['Counterparty fields',party]] as const) if(record?.customFields) fields.push({label,value:businessParticulars(record.customFields)});
   if(kind==='bill-of-lading'){
     const freight=p.freight??{};
     for(const [key,label,required]of freightFields)fields.push({label,value:required?text(freight[key],label):String(freight[key]??'').trim()});

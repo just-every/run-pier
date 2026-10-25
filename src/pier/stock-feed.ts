@@ -4,22 +4,26 @@ import { authority } from './storage';
 
 // Committed absolute positions let a consumer upsert by stable event identity.
 // Missing positions become explicit zeroes, including reviewed import undo.
+function eventInsert(events: any[], baseline = false) {
+  return {sql:`INSERT INTO pier_stock_events(id,item_id,location_id,at,data) SELECT json_extract(value,'$.id'),json_extract(value,'$.itemId'),json_extract(value,'$.locationId'),json_extract(value,'$.at'),json_extract(value,'$.data') FROM json_each(?) ${baseline ? 'WHERE NOT EXISTS(SELECT 1 FROM pier_stock_feed_bootstrap)' : ''} ORDER BY CAST(key AS INTEGER)`,params:[JSON.stringify(events)]};
+}
+const event = (data: any, at: string) => ({id:crypto.randomUUID(),itemId:data.itemId,locationId:data.locationId,at,data:JSON.stringify(data)});
 export function stockBootstrap(state: State, at: string) {
-  return [
-    ...positions(state).map(p => ({sql:'INSERT INTO pier_stock_events(id,item_id,location_id,at,data) SELECT ?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM pier_stock_feed_bootstrap)',params:[crypto.randomUUID(),p.itemId,p.locationId,at,JSON.stringify(p)]})),
+  return [eventInsert(positions(state).map(p=>event(p,at)),true),
     {sql:'INSERT INTO pier_stock_feed_bootstrap(id) VALUES(1) ON CONFLICT(id) DO NOTHING',params:[]},
   ];
 }
 export function stockEvents(before: State, after: State, at: string) {
   const index = (s: State) => new Map(positions(s).map(p => [JSON.stringify([p.itemId,p.locationId,p.status]), p]));
   const old = index(before), next = index(after);
-  return [...stockBootstrap(before,at), ...[...new Set([...old.keys(), ...next.keys()])].sort().flatMap(key => {
+  const changes = [...new Set([...old.keys(), ...next.keys()])].sort().flatMap(key => {
     const a = old.get(key), b = next.get(key);
     if (JSON.stringify(a) === JSON.stringify(b)) return [];
     const [itemId,locationId,status] = JSON.parse(key);
     const data = b ?? {itemId,locationId,status,quantity:'0',reserved:'0',held:'0',available:'0',expiredOrBlocked:'0',traceUnavailable:'0'};
-    return [{sql:'INSERT INTO pier_stock_events(id,item_id,location_id,at,data) VALUES(?,?,?,?,?)', params:[crypto.randomUUID(),itemId,locationId,at,JSON.stringify(data)]}];
-  })];
+    return [event(data,at)];
+  });
+  return [...stockBootstrap(before,at), ...(changes.length ? [eventInsert(changes)] : [])];
 }
 const checkpointError = () => { throw new Problem('CHECKPOINT','Checkpoint is stale, foreign or not acknowledged.',null,409); };
 export async function stockFeed(request: Request, db: D1Database, actor: Actor, state: State): Promise<Response> {
@@ -51,7 +55,7 @@ export async function stockFeed(request: Request, db: D1Database, actor: Actor, 
   // A fetched page is only a replay handle. It can never advance the resume frontier.
   if (token && token !== row.checkpoint && token !== pending?.token) return checkpointError();
   if (pending) return respond(pending.response);
-  const rows = (await db.prepare('SELECT * FROM pier_stock_events WHERE sequence>? AND location_id IN (SELECT value FROM json_each(?)) ORDER BY sequence LIMIT ?').bind(row.acknowledged,JSON.stringify(locationIds),Number(pageSize)).all<any>()).results;
+  const rows = (await db.prepare('SELECT * FROM pier_stock_events WHERE sequence>? AND (?=1 OR location_id IN (SELECT value FROM json_each(?))) ORDER BY sequence LIMIT ?').bind(row.acknowledged,scope==='*'?1:0,JSON.stringify(locationIds),Number(pageSize)).all<any>()).results;
   const high = await db.prepare('SELECT COALESCE(MAX(sequence),0) AS value FROM pier_stock_events').first<any>();
   const now = new Date().toISOString(), end = rows.at(-1)?.sequence ?? high.value;
   const pageToken = crypto.randomUUID();

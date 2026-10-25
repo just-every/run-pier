@@ -318,7 +318,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "7f11ef99dd0446b13011ced0f7a3f4b9768d617cff87f64627f9510435c9ee0e",
+      "sha256": "8e71bdf1e523490493ee096df24da72f3b0b388f39e1ed769c16db38043c551c",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -330,7 +330,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "1f1fda50c508a6ba39e180a41e53835fad62d68feb1dcbec99baf250e0b9b434",
+      "sha256": "c54826bb5cbb7707c6a3541f9db485b5fa4c51bf02e6b990a18d4d81a292bb8d",
       "executable": false
     },
     "base-copies.json": {
@@ -346,7 +346,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "f7d605123013abc3339e8bb7d37b9752ebe604e6927f1f6df983b10f40257163",
+      "sha256": "b7bd280080f2b41451d4660276d026cb1b00590bd518a698a8e84a42dfa71512",
       "executable": false
     },
     "DEMO.md": {
@@ -394,7 +394,7 @@
       "executable": false
     },
     "docs/catalogue.md": {
-      "sha256": "cf449c1a365b2afd44af81df6dd6ab1d765f3d15662387daeb44927049541df2",
+      "sha256": "e68fbba38634e50c5b75a246f942c971fd8c8999a60eb8b64b0e7913e9c50999",
       "executable": false
     },
     "docs/channels.md": {
@@ -2946,7 +2946,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "4399181e3d3fe6c036df41cc68d39d3a23d2a3934ed6d9d10737c4d0caefae06",
+      "sha256": "21fdae6fe16e122b23e5a6234f83b81bacd15845362e1b2b17284397fa41ce87",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3046,7 +3046,7 @@
       "executable": false
     },
     "src/pier/catalogue-bulk.ts": {
-      "sha256": "69a2a9bf1ac1ccaa2c54f84e4c31e0195babb457b41abcd7901661a96640d650",
+      "sha256": "0c2f3e41567c163bf7109f0ba916b0d99863b2f3f592738371665159f398812f",
       "executable": false
     },
     "src/pier/catalogue-fields.ts": {
@@ -3054,7 +3054,7 @@
       "executable": false
     },
     "src/pier/catalogue.ts": {
-      "sha256": "4a1c91789f7bdea084198a98a119aadd2705d0dbc677d779b60e3f00ecaf4f1a",
+      "sha256": "28f1b75892a08a2e93247b2b236b8b8877b1516bf4e0f1d8f5d0a5c86dea2103",
       "executable": false
     },
     "src/pier/channel-payment.ts": {
@@ -3147,6 +3147,10 @@
     },
     "src/pier/costing.ts": {
       "sha256": "ac3141f45da011187b525514156c509b5a7c162b9feeb0766d3f071a49eec690",
+      "executable": false
+    },
+    "src/pier/custom-fields.ts": {
+      "sha256": "f26d3962bcad257f623b320fae9d2232d07c1a1fe62fa6139209eb3c9e6fe311",
       "executable": false
     },
     "src/pier/customers/index.ts": {
@@ -3298,7 +3302,7 @@
       "executable": false
     },
     "src/pier/import-kit.ts": {
-      "sha256": "c4714f74f86763c72f65e322a6163d68c714502f79c72a87fc6a26f9898a66ca",
+      "sha256": "4269b240772f7a7b47e63232d3712663cfe22d32f40ca40425f3f6ca48b212cb",
       "executable": false
     },
     "src/pier/import-layouts.ts": {
@@ -3410,7 +3414,7 @@
       "executable": false
     },
     "src/pier/model.ts": {
-      "sha256": "f1e3a84ecac84a97a2958588a1f1f68678f9a08655c9dc0b3f00c380e2801cc8",
+      "sha256": "47a05f9ebff310836b698092adbde75187a8a1ed8149db4f0c78a0e0ada5c189",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -3426,7 +3430,7 @@
       "executable": false
     },
     "src/pier/native-export.ts": {
-      "sha256": "353dc88466141a4a60f33b363de6de7a0b63025bddd38ca63f1aa950361d0461",
+      "sha256": "d236177fc02a1d3d2e08e4ca7a77b046896c1daff6fe0defe0184f055c9f5a25",
       "executable": false
     },
     "src/pier/native-graph-sql.ts": {
@@ -3502,7 +3506,7 @@
       "executable": false
     },
     "src/pier/print/commands.ts": {
-      "sha256": "7002c2efee20a01c3e38c742ba426a4089efe8a3f3297c17e579967646de35ee",
+      "sha256": "1601ad7281f49108996575b956f03c699690b686289b4c880cc2bfddaf855d1f",
       "executable": false
     },
     "src/pier/print/delivery-events.ts": {
@@ -3562,7 +3566,7 @@
       "executable": false
     },
     "src/pier/privacy-plan.ts": {
-      "sha256": "25d0f985bf7fa790ad77299034a8198ce564842e8a24ae913983476de62ba3fd",
+      "sha256": "d751df66dc7871fca68c5d98edba1c2379ae5bab5172831109f3d052d0a3958c",
       "executable": false
     },
     "src/pier/privacy-remote.ts": {
@@ -3710,7 +3714,7 @@
       "executable": false
     },
     "src/pier/stock-feed.ts": {
-      "sha256": "c53fe4bb744508e241792647d6c612d6dd89a5d95cf337c325714e346a10e9ac",
+      "sha256": "3a6aad656517447693fa56579ca170c6a525211c03344e633dedb9e40bb91458",
       "executable": false
     },
     "src/pier/stock-inactivity.ts": {
@@ -4554,7 +4558,7 @@
       "executable": false
     },
     "tests/api/catalogue.test.mjs": {
-      "sha256": "124354a87144dedbf48699240197e048c9dd0ca8a006f36838667ae2e3d40f23",
+      "sha256": "68dc78adcc17cb60a4e68c925f9ddfdf37539aa838bd9bbfdee05532016e875d",
       "executable": false
     },
     "tests/api/channel-edge.mjs": {
@@ -4630,7 +4634,7 @@
       "executable": false
     },
     "tests/api/packing-documents.test.mjs": {
-      "sha256": "bb9f53e5f7188bb771565fa610df13463fe70bd9d9a30203d3ff9cbf3735c37b",
+      "sha256": "3379931bf151c803a0e34b19c31a631739e658a5775d3c89dccbac512ea0560e",
       "executable": false
     },
     "tests/api/pantry-installation.mjs": {
@@ -4638,7 +4642,7 @@
       "executable": false
     },
     "tests/api/pdf-text.mjs": {
-      "sha256": "cbadb981adc73a8dfb8b4cde5974ebd78363d54cbff559427817cf9f0ac7de50",
+      "sha256": "82e6c4f31ada747938146227d47864fe8b77800a11249c2cd353eee1ade2a23c",
       "executable": false
     },
     "tests/api/purchase-send.test.mjs": {
@@ -4662,7 +4666,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "02ee30dc75d2f90e9979eb47804a1deef3f9b74fb172845b88b1300996996495",
+      "sha256": "b1e2e2c6248d3af3fdae2ba568f2f7e9538ab0c055c4cd1964b67597ffa2813d",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {
@@ -4690,7 +4694,7 @@
       "executable": false
     },
     "tests/api/stock.test.mjs": {
-      "sha256": "77bd9d4a98e6c2569f41632e192483befdbcc1a685e32778c56ab9ae38ebdf06",
+      "sha256": "fefcf200eb97e265e98d742113d7ff3c558dbf819ae0af98e848b7636c7ca8f4",
       "executable": false
     },
     "tests/api/supplier-bill-documents.test.mjs": {
