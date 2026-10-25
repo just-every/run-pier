@@ -1,4 +1,4 @@
-import { fail, fresh, get, requireRole, text, type Context } from '../model';
+import { decimal, format, fail, fresh, get, requireRole, text, type Context } from '../model';
 import type { Bindings } from '../../auth.server';
 import { seal } from '../channels/secrets';
 import { PANTRY_CREDENTIAL } from './adapters/pantry-client';
@@ -17,7 +17,17 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
     const url={origin};
     const old=c.s.bookConnections[0];
     if(old&&old.baseUrl!==url.origin&&c.s.bookJobs.some(j=>j.attempted))fail('BOOK_DESTINATION','This installation already posted to another Pantry. Review and migrate that accounting history before changing the destination.');
-    const connection={id:'pantry',version:(old?.version??0)+1,provider:'pantry',baseUrl:url.origin,enabled:true,problem:null,approvedBy:c.actor.id,createdAt:old?.createdAt??c.now,inventoryAccountId:text(p.inventoryAccountId,'Inventory asset account'),cogsAccountId:text(p.cogsAccountId,'Cost of goods expense account'),revenueAccountId:text(p.revenueAccountId,'Sales income account'),writeOffAccountId:p.writeOffAccountId?text(p.writeOffAccountId,'Damaged stock expense account'):old?.writeOffAccountId??null,landedCostAccountId:p.landedCostAccountId?text(p.landedCostAccountId,'Freight and duty account'):old?.landedCostAccountId??null,purchaseTaxAccountId:p.purchaseTaxAccountId?text(p.purchaseTaxAccountId,'Purchase tax account'):old?.purchaseTaxAccountId??null,stripeBankAccountId:p.stripeBankAccountId?text(p.stripeBankAccountId,'Stripe payment account'):old?.stripeBankAccountId??null,taxCode:'exempt',lastSync:old?.lastSync??null};
+    const reasons = structuredClone(old?.writeOffReasons ?? []);
+    if (p.writeOffAccountId) {
+      const code = text(p.writeOffReasonCode || 'damaged', 'Write-off reason code');
+      const accountId = text(p.writeOffAccountId, 'Reason-mapped expense account');
+      if ([p.inventoryAccountId,p.cogsAccountId,p.revenueAccountId].includes(accountId)) fail('BOOK_ACCOUNTS', 'Choose a separate damage expense account for the reason code.');
+      const approvalLimit = format(decimal(p.writeOffApprovalLimit ?? '0'));
+      const index = reasons.findIndex((r: any) => r.code === code);
+      const reason = { code, accountId, approvalLimit, approvedBy: c.actor.id, approvedAt: c.now };
+      if (index < 0) reasons.push(reason); else reasons[index] = reason;
+    }
+    const connection={writeOffReasons:reasons,id:'pantry',version:(old?.version??0)+1,provider:'pantry',baseUrl:url.origin,enabled:true,problem:null,approvedBy:c.actor.id,createdAt:old?.createdAt??c.now,inventoryAccountId:text(p.inventoryAccountId,'Inventory asset account'),cogsAccountId:text(p.cogsAccountId,'Cost of goods expense account'),revenueAccountId:text(p.revenueAccountId,'Sales income account'),writeOffAccountId:p.writeOffAccountId?text(p.writeOffAccountId,'Damaged stock expense account'):old?.writeOffAccountId??null,landedCostAccountId:p.landedCostAccountId?text(p.landedCostAccountId,'Freight and duty account'):old?.landedCostAccountId??null,purchaseTaxAccountId:p.purchaseTaxAccountId?text(p.purchaseTaxAccountId,'Purchase tax account'):old?.purchaseTaxAccountId??null,stripeBankAccountId:p.stripeBankAccountId?text(p.stripeBankAccountId,'Stripe payment account'):old?.stripeBankAccountId??null,taxCode:'exempt',lastSync:old?.lastSync??null};
     if(new Set([connection.inventoryAccountId,connection.cogsAccountId,connection.revenueAccountId]).size!==3)fail('BOOK_ACCOUNTS','Choose separate inventory, cost of goods and sales accounts.');
     if(connection.landedCostAccountId===connection.inventoryAccountId)fail('BOOK_ACCOUNTS','Choose a freight and duty account other than inventory.');
     if(connection.purchaseTaxAccountId&&[connection.inventoryAccountId,connection.cogsAccountId,connection.revenueAccountId].includes(connection.purchaseTaxAccountId))fail('BOOK_ACCOUNTS','Choose a purchase tax account other than inventory, cost of goods or sales.');

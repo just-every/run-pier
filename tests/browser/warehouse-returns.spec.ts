@@ -96,7 +96,7 @@ test('warehouse partial receiving, transfers, counts and authorized or quarantin
       let current = await state()
       expect(current.positions.find((p: any) => p.itemId === item.id && p.locationId === destination.id && p.status === 'sellable').quantity).toBe('2')
       await shot(page, width, 'restocked-one-scan')
-      await page.getByLabel('Condition', { exact: true }).selectOption('damaged'); await page.getByLabel('Disposition', { exact: true }).selectOption('writeoff')
+      await page.getByLabel('Condition', { exact: true }).selectOption('damaged'); await page.getByLabel('Disposition', { exact: true }).selectOption('writeoff'); await page.getByLabel('Approve this write-off above its mapped limit', { exact: true }).check()
       await page.getByLabel('Return reason', { exact: true }).fill('Crushed mug, approved damage write-off')
       await returnedScan.fill(item.barcode); await action(page, 'return.scan', () => returnedScan.press('Enter'))
       current = await state()

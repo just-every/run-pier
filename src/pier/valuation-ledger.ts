@@ -1,6 +1,6 @@
 import { decimal, SCALE, type Movement, type State } from './model';
 import { usdRate } from './import-currency';
-import { allocate, amount, extended, share, toCents } from './money';
+import { allocate, amount, extended, money, share, toCents } from './money';
 
 export type Layer = { quantity: bigint; value: bigint | null; sourceId: string; receivedAt: string; traceId?: string; parts?: (Layer & { itemId: string })[] };
 export type Position = { itemId: string; locationId: string; status: string; layers: Layer[] };
@@ -74,6 +74,7 @@ export function shipmentLayers(consumed: Map<string, Layer[]>, shipment: any, li
 export function valuationLedger(s: State, end: string) {
   const positions = new Map<string, Position>();
   const consumed = new Map<string, Layer[]>();
+  const adjustmentLayers = new Map<string, Layer[]>();
   const supplierReturnLayers = new Map<string, Layer[]>();
   const moved = new Map<string, Layer[]>();
   const kitting = new Map((s.kittingTasks ?? []).map(task => [task.id, task]));
@@ -85,7 +86,10 @@ export function valuationLedger(s: State, end: string) {
   const transfers = new Set(s.transfers.map(row => row.id));
   const returns = new Map(s.returns.map(row => [row.id, row]));
   const receiptLines = new Map<string, any>();
-  for (const receipt of s.receipts) for (const line of receipt.lines) receiptLines.set(line.movementId, { ...line, currency: receipt.currency });
+  for (const receipt of s.receipts) for (const line of receipt.lines) {
+    const extra = (receipt.lateBills ?? []).filter((bill: any) => bill.createdAt <= end).flatMap((bill: any) => bill.shares).filter((share: any) => share.receiptLineId === line.id).reduce((n: bigint, share: any) => n + amount(share.amount), 0n);
+    receiptLines.set(line.movementId, { ...line, currency: receipt.currency, ...(extra ? { landedTotal: money(toCents(line.landedTotal ? amount(line.landedTotal) : extended(line.quantity, line.cost)) + extra) } : {}) });
+  }
   const history = s.costingMethods.filter(row => row.createdAt <= end).sort((a, b) => a.frontier - b.frontier || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
   const totals = { receipts: 0n, openings: 0n, returns: 0n, adjustments: 0n, cogs: 0n };
   const incomplete = new Set<keyof typeof totals>();
@@ -144,6 +148,7 @@ export function valuationLedger(s: State, end: string) {
         } else record('receipts', layers, -1n);
       } else {
         if (s.supplierReturns.some(r => r.id === m.documentId)) supplierReturnLayers.set(m.documentId, [...(supplierReturnLayers.get(m.documentId) ?? []), ...structuredClone(layers)]);
+        adjustmentLayers.set(m.documentId, [...(adjustmentLayers.get(m.documentId) ?? []), ...structuredClone(layers)]);
         record('adjustments', layers, -1n);
       }
     } else if (q > 0n) {
@@ -208,5 +213,5 @@ export function valuationLedger(s: State, end: string) {
     }
   }
   applyMethods(Number.MAX_SAFE_INTEGER);
-  return { positions: [...positions.values()], consumed, supplierReturnLayers, totals, incomplete, method, history, kittingIssues: kitIssues, returnedLayers };
+  return { positions: [...positions.values()], consumed, supplierReturnLayers, adjustmentLayers, totals, incomplete, method, history, kittingIssues: kitIssues, returnedLayers };
 }

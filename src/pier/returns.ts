@@ -3,7 +3,7 @@ import { createReturn, orders } from './orders';
 import { resolve } from './floor/codes';
 import { returnLookup } from './returns-lookup';
 import { valuationLedger } from './valuation-ledger';
-import { money } from './money';
+import { amount, money } from './money';
 import { returnCost } from './returns-cost';
 
 function inspection(p: any) {
@@ -21,12 +21,23 @@ function dispose(c: Context, r: Row, p: any) {
     orders(c, 'return.approve', { returnId: r.id, version: r.version });
     orders(c, 'return.restock', { returnId: r.id, version: r.version });
   } else {
-    const accountId = c.s.bookConnections.find(b => b.enabled)?.writeOffAccountId;
+    const connection = c.s.bookConnections.find(b => b.enabled);
+    const reasons = connection?.writeOffReasons ?? [];
+    const mapping = reasons.find((r: Row) => r.code === (p.reasonCode || (reasons.length === 1 ? reasons[0].code : '')));
+    if (!mapping) fail('WRITE_OFF_REASON', 'Choose an owner-maintained write-off reason code.');
+    const accountId = mapping?.accountId ?? connection?.writeOffAccountId;
     if (!accountId) return fail('BOOK_ACCOUNT', 'An owner must map the damaged-stock expense account in Books before writing stock off. Keep it quarantined until then.');
     r.writeOffAccountId = accountId;
     const sourceIds = new Set(c.s.movements.filter(m => m.documentId === r.id && m.status === 'quarantine' && BigInt(m.quantity) > 0n).map(m => m.id));
     const layers = valuationLedger(c.s, c.now).positions.flatMap(position => position.layers).filter(layer => sourceIds.has(layer.sourceId));
     r.writeOffCostTotal = !layers.length || layers.some(layer => layer.value === null) ? null : money(layers.reduce((n, layer) => n + layer.value!, 0n));
+    if (mapping) {
+      if (r.writeOffCostTotal === null) fail('COST_UNVALUED', 'Review the actual USD cost before writing this stock off.');
+      if (amount(r.writeOffCostTotal) > decimal(mapping.approvalLimit) * 1000000n && (c.actor.role !== 'owner' || p.approveWriteOff !== true)) fail('WRITE_OFF_APPROVAL', 'The mapped reason limit requires explicit owner approval of this exact return version and cost.');
+      r.writeOffReason = structuredClone(mapping);
+      r.writeOffApprovedBy = c.actor.id;
+      r.writeOffApprovedAt = c.now;
+    }
     move(c, { itemId: r.itemId, locationId: r.locationId, status: 'quarantine', quantity: (-decimal(r.quantity)).toString(), reason: `Damaged return write-off: ${review.reason}`, documentId: r.id });
     r.status = 'writtenoff';
     r.version++;

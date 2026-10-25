@@ -18,11 +18,13 @@ export function receiptBookViews(s: State, connected: boolean) {
     const legacy = s.bookJobs.find(job => job.sourceKind === 'receipt' && job.sourceId === receipt.id && job.kind === 'bill' && job.attempted);
     if (legacy) { unbilled.length = 0; jobs.push(legacy); }
     const hasReview = invoices.some(bill => bill.poId === receipt.poId && ['review', 'held'].includes(bill.status));
+    const lateJobs = s.bookJobs.filter(j => j.sourceKind === 'receipt' && j.sourceId === receipt.id && j.key.startsWith('late-bill:'));
+    jobs.push(...lateJobs);
     const receiptJournals = s.bookJobs.filter(job => job.sourceKind === 'receipt' && job.sourceId === receipt.id && job.kind === 'journal');
     const journalsPosted = receiptJournals.every(job => ['posted', 'reconciled'].includes(job.status));
     const postingProblem = [...jobs, ...receiptJournals].some(job => job && ['review', 'uncertain', 'skipped'].includes(job.status));
-    const allPaid = jobs.length > 0 && jobs.every(job => job?.status === 'reconciled' && job.received && job.open === '0.00');
-    const allReady = jobs.length > 0 && jobs.every(job => job && ['posted', 'reconciled'].includes(job.status) && job.received && (job.readyToPay || job.open === '0.00'));
+    const allPaid = jobs.length > 0 && jobs.every(job => job?.status === 'reconciled' && (lateJobs.includes(job) || job.received) && job.open === '0.00');
+    const allReady = jobs.length > 0 && jobs.every(job => job && ['posted', 'reconciled'].includes(job.status) && (lateJobs.includes(job) || job.received) && (lateJobs.includes(job) || job.readyToPay || job.open === '0.00'));
     const status = receipt.status !== 'posted' ? 'reversed' : !connected ? 'connection' : unbilled.length ? hasReview ? 'review' : 'invoice' : postingProblem ? 'review' : bills.some(bill => !bill.received || !bill.match.withinTolerance) ? 'receiving' : allPaid && journalsPosted ? 'closed' : allReady && journalsPosted ? 'payment' : 'sync';
     return { id: receipt.id, poId: receipt.poId, reference: receipt.supplierReference, status, unbilled, invoiceIds: bills.map(bill => bill.id), jobIds: [...jobs.filter(Boolean), ...receiptJournals].map(job => job!.id), checkedAt: jobs.length && jobs.every(job => job?.checkedAt) ? jobs.map(job => job!.checkedAt).sort()[0] : null };
   });

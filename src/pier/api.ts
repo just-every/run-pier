@@ -85,6 +85,7 @@ import { deliverCorrespondence, correspondenceDeliveries } from './correspondenc
 import { purchaseSend, invalidatePurchaseSends } from "./purchase-send";
 import { slowStock, refreshSlowStock } from "./slow-stock";
 import { pricing } from "./pricing";
+import { lateLandedCost } from './late-landed-cost';
 import { costing } from "./costing";
 import { reports } from "./reports";
 import { warehouse, countView } from "./warehouse";
@@ -225,6 +226,7 @@ export async function execute(
       salesQuotes,
       pricing,
       costing,
+      lateLandedCost,
       orders,
       returns,
       purchasing,

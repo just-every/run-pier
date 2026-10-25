@@ -26,7 +26,7 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
     const bill = await pier.command('supplierBill.save', { poId: po.id, reference: 'METALS-RETURN-STOCK', date: new Date().toISOString().slice(0, 10), quantityTolerancePercent: '0', priceTolerancePercent: '0', lines: [{ poLineId: po.lines[0].id, quantity: '12', unitPrice: '0.25' }] });
     await pier.command('supplierBill.approve', { id: bill.id, version: bill.version, receiptEvidence: bill.match.receiptEvidence });
     const credential = await pantry.command('integration.create', { name: 'Pier', scopes: ['contacts:write', 'invoices:write', 'bills:write', 'journals:write', 'documents:write', 'payments:read', 'reports:read', 'post'] });
-    await pier.command('book.connect', { baseUrl: pantry.origin, integrationToken: credential.token, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, writeOffAccountId: damage.id, taxCode: 'exempt' });
+    await pier.command('book.connect', { baseUrl: pantry.origin, integrationToken: credential.token, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, writeOffAccountId: damage.id, writeOffReasonCode: 'damaged', writeOffApprovalLimit: '0.10', taxCode: 'exempt' });
     const order = await pier.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '4', price: '2' }] });
     const shipment = await pier.command('dispatch.create', { orderId: order.id, shipmentReference: 'SYNTHETIC-RETURN-LABEL', lines: [{ orderLineId: order.lines[0].id, quantity: '4' }] });
     const lookup = async code => {
@@ -57,12 +57,19 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
     assert.equal(credit.credit_for, invoice.id); assert.equal(credit.total_cents, 200); assert.equal(credit.status, 'issued');
     assert.equal(invoice.open_cents, 600);
     // An order label needs a deliberate line/quantity confirmation, then posts without a second item scan.
-    const fromLabel = { code: order.reference, shipmentId: shipment.id, shipmentLineId: shipment.lines[0].id, quantity: '1', ...destination, condition: 'damaged', disposition: 'writeoff', reason: 'Crushed in transit' };
+    const fromLabel = { code: order.reference, shipmentId: shipment.id, shipmentLineId: shipment.lines[0].id, quantity: '1', ...destination, condition: 'damaged', disposition: 'writeoff', reasonCode: 'damaged', approveWriteOff: true, reason: 'Crushed in transit' };
     const beforeRefusal = await pier.state();
     await pier.command('return.scan', { ...fromLabel, disposition: 'restock' }, { error: 'RETURN_CONDITION' });
     const refused = await pier.state(); assert.equal(refused.returns.length, beforeRefusal.returns.length); assert.equal(refused.movements.length, beforeRefusal.movements.length);
+    await pier.command('return.scan', { ...fromLabel, reasonCode: 'unknown' }, { error: 'WRITE_OFF_REASON' });
+    await pier.command('return.scan', { ...fromLabel, approveWriteOff: false }, { error: 'WRITE_OFF_APPROVAL' });
+    assert.equal((await pier.state()).movements.length, beforeRefusal.movements.length);
     const writtenoff = await pier.command('return.scan', fromLabel);
     assert.equal(writtenoff.status, 'writtenoff'); assert.equal(writtenoff.writeOffCostTotal, '0.250000000000');
+    assert.equal(writtenoff.writeOffReason.code, 'damaged');
+    assert.equal(writtenoff.writeOffReason.accountId, damage.id);
+    assert.equal(writtenoff.writeOffReason.approvalLimit, '0.1');
+    assert.ok(writtenoff.writeOffApprovedBy);
     await pier.command('return.scan', { ...fromLabel, quantity: '3' }, { error: 'RETURN_LIMIT' });
     // A receiver lacking inspection authority cannot make the same scan sellable.
     const entered = await fetch(`${pier.origin}/auth/dev/enter?as=member`, { redirect: 'manual', headers: { 'x-rer-dev-key': pier.devKey } });

@@ -53,7 +53,7 @@ export function planReturnBooks(c: Context, connection: Row, add: Add, dollars: 
       if (returned.writeOffCostTotal === null || returned.writeOffCostTotal === undefined) throw new Error('The written-off units have no reviewed USD cost. Resolve their valuation before posting.');
       const total = dollars(returned.writeOffCostTotal);
       if (!amount(total)) throw new Error('A zero-cost write-off needs an accountant decision.');
-      return { key: `return-writeoff:${returned.id}`, kind: 'journal', date: returned.dispositionAt.slice(0, 10), reference: reference('WRITEOFF', returned.id), total, lines: [{ description: `Damaged stock: ${returned.inspectionReason}`, quantity: '1', amount: total, account: returned.writeOffAccountId, debit: total }, { description: 'Inventory written off', quantity: '1', amount: total, account: connection.inventoryAccountId, credit: total }] };
+      return { key: `return-writeoff:${returned.id}`, kind: 'journal', date: returned.dispositionAt.slice(0, 10), reference: reference('WRITEOFF', returned.id), total, lines: [{ description: `Damaged stock ${returned.writeOffReason?.code ?? "legacy"}: ${returned.inspectionReason}`, quantity: '1', amount: total, account: returned.writeOffAccountId, debit: total }, { description: 'Inventory written off', quantity: '1', amount: total, account: connection.inventoryAccountId, credit: total }] };
     });
   }
 }

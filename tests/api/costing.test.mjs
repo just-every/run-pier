@@ -98,6 +98,20 @@ test('landed receipts, priced shipments and dated FIFO/average reports reconcile
   assert.equal(past.margin.rows.length, 0);
   assert.equal((await h.request('/api/pier/reports?days=0')).status, 409);
   assert.equal((await h.request('/api/pier/reports', { as: '' })).status, 401);
+  await h.command('item.save', { ...b.item, weight: '1' });
+  await h.command('item.save', { ...slow, weight: '2' });
+  const fxPO = await purchase([{ itemId: b.item.id, quantity: '3', price: '2' }, { itemId: slow.id, quantity: '2', price: '4' }]);
+  const fxInput = { poId: fxPO.id, currency: 'AUD', usdRate: '0.5', supplierReference: 'synthetic-pier-202', landedCost: { freight: '0.05', duty: '0.02', allocation: 'weight' }, lines: fxPO.lines.map((l, i) => ({ poLineId: l.id, locationId: b.source.id, quantity: l.quantity, cost: i ? '8' : '4' })) };
+  const fxReceipt = await h.command('receipt.create', fxInput);
+  assert.equal(fxReceipt.sourceCurrency, 'AUD');
+  assert.equal(fxReceipt.usdRate, '0.5');
+  assert.ok(fxReceipt.rateRecordedBy);
+  assert.deepEqual(fxReceipt.lines.map(l => [l.source.cost, l.source.currency, l.source.usdRate, l.cost, l.freight, l.duty]), [
+    ['4', 'AUD', '0.5', '2', '0.020000000000', '0.010000000000'],
+    ['8', 'AUD', '0.5', '4', '0.030000000000', '0.010000000000'],
+  ]);
+  assert.equal(fxReceipt.landedCost.total, '14.070000000000');
+  assert.equal((await report()).valuation.reconciliation.difference, '0.000000000000');
   await h.invariant();
 });
 

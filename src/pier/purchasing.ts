@@ -16,6 +16,8 @@ import {
   type Row,
 } from "./model";
 import { warehouse } from "./warehouse";
+import { currencyCode, inUsd } from './import-currency';
+import { money, extended } from './money';
 import { landReceipt } from "./landed-cost";
 function lines(c: Context, p: any) {
   if (!Array.isArray(p.lines) || !p.lines.length)
@@ -131,7 +133,10 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
     return po;
   }
   if (type === "receipt.create") {
-    if (p.currency !== undefined && p.currency !== 'USD') fail('CURRENCY', 'Receipts require reviewed USD costs. Foreign-currency conversion is not available yet.');
+    const sourceCurrency = currencyCode(p.currency ?? 'USD', 'Receipt');
+    if (sourceCurrency !== 'USD' && !p.usdRate) fail('CURRENCY', 'Review and enter the receipt USD conversion rate before receiving foreign-currency goods.');
+    const rate = sourceCurrency === 'USD' ? 1000000n : decimal(p.usdRate, true);
+    if (!rate) fail('CONVERSION_RATE', 'The receipt USD conversion rate must be positive.');
     const po = get(c.s, "purchaseOrders", p.poId);
     if(po.dropshipId)fail('DROPSHIP','Direct-to-customer goods are confirmed on the dropship and cannot be received into Pier.');
     if (po.status !== "committed")
@@ -142,6 +147,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       poId: po.id,
       supplierReference: text(p.supplierReference),
       supplierConfirmation: receiptConfirmation(po),
+      sourceCurrency, usdRate: format(rate), rateRecordedBy: c.actor.id, rateRecordedAt: c.now,
       lines: [],
       status: "posted",
     });
@@ -149,7 +155,8 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       const l = po.lines.find((l: any) => l.id === x.poLineId);
       if (!l) fail("LINE", "Receipt line must belong to this PO.");
       const q = decimal(x.quantity, true),
-        cost = decimal(x.cost);
+        sourceCost = format(decimal(x.cost)),
+        cost = decimal(inUsd(sourceCost, rate));
       if (q + decimal(l.received) > decimal(l.quantity))
         fail("RECEIPT_LIMIT", "Receipt exceeds expected quantity.");
       if (get(c.s, "locations", x.locationId).kind !== "bin")
@@ -169,6 +176,8 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         locationId: x.locationId,
         quantity: format(q),
         cost: format(cost),
+        source: { cost: sourceCost, currency: sourceCurrency, usdRate: format(rate), total: money(extended(format(q), sourceCost)) },
+        weight: item(c.s, l.itemId).weight ?? null,
         costTotal:
           ((q * cost) / 1000000000000n).toString() +
           "." +
@@ -210,6 +219,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
   }
   if (receipt.status !== "posted")
     fail("REVERSED", "Receipt is already reversed.");
+  if (receipt.lateBills?.length) fail('DEPENDENCY', 'This receipt has approved late bills. Review their accounting and use a physical-count correction instead of reversing its history.');
   if (receipt.replacementFor || c.s.supplierReturns.some(r => r.receiptId === receipt.id))
     fail("DEPENDENCY", "Receipt has supplier-return history. Use a physical-count correction; do not reverse return or replacement history.");
   const dependencies = c.s.movements.filter(
