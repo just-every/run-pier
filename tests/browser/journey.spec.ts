@@ -1010,7 +1010,7 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       await page.getByLabel('Return bin',{exact:true}).selectOption(bin.id)
       await page.getByLabel('Condition',{exact:true}).selectOption('damaged');await page.getByLabel('Disposition',{exact:true}).selectOption('writeoff')
       await page.getByLabel('Write-off reason code',{exact:true}).selectOption(tag+' damaged')
-      await page.getByLabel('Approve this write-off above its mapped limit',{exact:true}).check()
+      await page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Returns bench',exact:true})}).getByLabel('Approve this write-off above its mapped limit',{exact:true}).check()
       await page.getByLabel('Return reason',{exact:true}).fill('Owner reviewed actual damaged unit')
       const scan=page.getByLabel('Scan order label or returned item',{exact:true});await scan.fill(item.barcode)
       const posted=page.waitForResponse(r=>r.url()===`${h.base}/api/pier/commands`&&r.request().postDataJSON()?.type==='return.scan');await scan.press('Enter');expect((await(await posted).json()).ok).toBe(true)

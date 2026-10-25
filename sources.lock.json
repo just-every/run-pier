@@ -4718,7 +4718,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "8ce0610ce134a74feab547f9a58484762e10a28537bfc6336ccfdd3216728989",
+      "sha256": "b58b50ed39e2ea49f54fe2d6ce199eed4deb9724d5f4682bc6cf7fcec6958d96",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
@@ -4766,7 +4766,7 @@
       "executable": false
     },
     "tests/browser/warehouse-returns.spec.ts": {
-      "sha256": "900aa0eff2ddb17e6c62038a50a7c86993c0c9fceafdc3e6028536770a59b35a",
+      "sha256": "a1c8730630f15452cd0f63efc3cbcefda77d526373ce81a452edeb2a61e7ee6c",
       "executable": false
     },
     "tests/browser/warehouse-waves.spec.ts": {
