@@ -88,3 +88,20 @@ Owners use `workflow.save` with `{name,kind:"inventory-check"|"draft-po"|"report
 
 - `dropship.postCredit`: `{dropshipId, version, creditId}`. Owner only; requires connected Pantry and an unposted retained credit for that dropship. Authorizes its direct shipment invoice and linked native customer credit note, with no stock or cash effect. A repeated command identity recovers its saved outcome; another authorization is refused with `CREDIT`.
 - `supplierReturn.postCredit`: `{returnId, version, reference, supplierBillId}`. Owner only; selects an unposted retained supplier credit and an approved payable whose matching covers the original returned receipt quantities. Posting allocates the credit to that Pantry bill and reads back the allocation. A duplicate authorization, wrong payable or excessive matched credit quantity is refused with `SUPPLIER_CREDIT`. Missing connection is `BOOK_CONNECTION`; stale versions are `STALE`; unauthorized callers get 403 `FORBIDDEN`. Provider scope, period, balance and reconciliation refusals remain visible in Books; an uncertain request is never silently reported posted. Reuse each original command identity after a lost response; changing its body gets 409 `IDEMPOTENCY`.
+
+
+## Purchase approval limits and supplier changes
+
+The owner configures native purchase routing with `purchaseApproval.save`:
+
+```json
+{"version":0,"limits":[{"supplierId":null,"exceptionType":"any","maxSpend":"1000","approverId":"named-current-buyer-id","escalationId":"named-current-owner-id","delegates":[]}]}
+```
+
+Use the saved policy version for each edit. `supplierId: null` is the general scope; a supplier ID restricts that limit. `exceptionType` is `standard`, `minimum-order` or `any`. Each delegate is `{actorId,expiresAt}` with a future ISO UTC timestamp. Limits include supplier tax as well as goods, freight and duty. Supplier specificity wins before exception specificity, then the lowest inclusive covering ceiling wins. There is no fallback past a more specific scope with insufficient spend authority. A policy edit clears previous PO approvals and stops pending send grants. Before any policy exists, the established current-buyer approval door remains in effect.
+
+`po.routeApproval` takes `{poId,version}` and records the current named route; state reads also project it as `approvalRoute` or `approvalRouteError`. `po.escalateApproval` takes `{poId,version,reason}` and requires an owner; it selects the configured escalation approver for the current draft or committed purchase. Neither command approves or sends. Existing `po.approve`, `po.commit`, `po.authorizeSend`, `po.sendApproved`, `po.send` and purchase-order `print.send` enforce current routing. All purchase sends retain and attach a PRINT-001 PDF and share duplicate suppression.
+
+`po.supplierChange` takes `{poId,version,source,body,promiseDate?,destinationWarehouse?,lines:[{poLineId,quantity,price}]}`. Include every original line exactly once, using base quantities and USD prices. It retains the supplier evidence, stops sends and chases and clears approval, leaving committed values unchanged. Further evidence supersedes the pending proposal while preserving earlier intake. `po.reviewSupplierChange` takes `{poId,version,confirm:true}` and requires the current routed human approver. It applies the retained proposal, preserves original commitment history and current receipt totals, and refuses quantities below already received goods. Zeroing every unreceived line cancels the purchase. A changed supplier price can require a higher approval tier. Receipt progress during review is checked again before applying.
+
+`po.confirm` remains the explicit human date-confirmation door; `po.reply` retains acknowledgments. Reviewed supplier ASN intake remains `receiving.notice` followed by the confirmed SSCC receiving command. A timeout or uncertain mail outcome is retained for reconciliation; neither a fresh command identity nor scheduled mail processing silently retries it.

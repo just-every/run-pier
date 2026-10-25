@@ -16,6 +16,7 @@ export type Correspondence = Row & {
   lines?: { orderLineId: string; itemId: string; quantity: string; promiseDate: string }[];
   policyVersion?: number;
   sendPolicyVersion?: number;
+  purchaseApprovalVersion?: number;
   purchaseMessageId?: string;
 };
 
@@ -64,8 +65,14 @@ export function correspondenceEligible(message: Correspondence, source: Row | nu
         });
     }
     if (!["purchase-order", "supplier-chase"].includes(message.kind) ||
-        source.status !== "committed" || typeof message.approvedMaterial !== "string" ||
+        source.pendingSupplierChange || source.status !== "committed" || typeof message.approvedMaterial !== "string" ||
         message.approvedMaterial !== poMaterial(source)) return false;
+    if (message.purchaseApprovalVersion !== source.purchaseApprovalVersion) return false;
+    if (message.purchaseApprovalVersion !== undefined) {
+      const route = source.approvalRoute;
+      if (!route || route.policyVersion !== message.purchaseApprovalVersion ||
+          (route.approverId !== message.approvedBy && !route.delegates.some((delegate: any) => delegate.actorId === message.approvedBy && delegate.expiresAt > now))) return false;
+    }
     if (message.sendPolicyVersion !== undefined &&
         (!source.sendPolicy?.enabled || source.sendPolicy.version !== message.sendPolicyVersion ||
          source.sendPolicy.approvedBy !== message.approvedBy || source.sendPolicy.recipient !== message.recipient ||

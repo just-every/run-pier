@@ -1,3 +1,5 @@
+import { purchaseChanges } from './purchase-changes';
+import { purchaseApproval, purchaseApprovalRoute } from './purchase-approval';
 import { customers, customerViews } from './customers';
 import { releaseBackorders } from './backorder-release';
 import { stocktakes, stocktakeView, enforceStocktakeFreeze } from './stocktakes';
@@ -20,7 +22,7 @@ import { dropships } from './dropships';
 import { routing } from './routing';
 import { salesDocuments } from './sales-documents';
 import { deliverDocument } from './print/mail';
-import { printedDocuments } from './print/commands';
+import { printedDocuments, generateDocument } from './print/commands';
 import { printRead } from './print/routes';
 import { deliveryWebhook } from './print/delivery-events';
 import { invoices, nativeBalance, customerBalance } from './invoices/index';
@@ -212,6 +214,8 @@ export async function execute(
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
+      purchaseApproval,
+      purchaseChanges,
       savedReports,
       workflowRules,
       trace,
@@ -249,6 +253,10 @@ export async function execute(
       if (result !== undefined) break;
     }
     if (result === undefined) fail("COMMAND", "Unknown command type.");
+    for (const message of s.correspondence.filter(message => message.kind === 'purchase-order' && !message.documentId && !before.correspondence.some(old => old.id === message.id))) {
+      const document = await generateDocument(c, { kind: 'purchase-order', sourceId: message.recordId }, undefined, true);
+      message.documentId = document.id;
+    }
     enforceStocktakeFreeze(c, before, type, payload);
     reconcileTrace(c, before, payload);
     validateKitReservations(s);
@@ -503,7 +511,11 @@ export async function pierResponse(
         receiptClosures: receiptBookViews(s, bookConnections.some(row => row.enabled && row.credentialPresent && !row.problem)),
         orders: s.orders.map((o) => ({ ...orderView(c, o),...(actor.role==='owner'?{}:{creditClearance:undefined}), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),
-        purchaseOrders: s.purchaseOrders.map(po => ({ ...po, expectedLandedCost: expectedLandedCost(po) })),
+        purchaseOrders: s.purchaseOrders.map(po => {
+          let approvalRoute = null, approvalRouteError = null;
+          try { approvalRoute = purchaseApprovalRoute(c, po); } catch (error) { approvalRouteError = (error as Error).message; }
+          return { ...po, approvalRoute, approvalRouteError, expectedLandedCost: expectedLandedCost(po) };
+        }),
         forecasts: forecast(c),
         replenishmentProblem: planningScope(c).valid ? null : 'Planning warehouses changed. Save the current planning scope before drafting.',
         deliveries: scoped(actor) ? [] : (await correspondenceDeliveries(env.DB)).filter(d=>actor.role==='owner'||!s.salesDocuments.some(doc=>doc.id===d.correspondenceId)),
@@ -644,6 +656,7 @@ export async function pierResponse(
     }
     if (outcome && (type === 'replenishment.compare' || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return json(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
+    if (outcome && type === 'print.send' && outcome.result.kind === 'purchase-order') await deliverCorrespondence(env, new Date().toISOString(), outcome.result.id, actor);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
       const doc = (await load(env.DB)).ediDocuments.find(d => d.id === outcome.result.acknowledgmentDocumentId);
       if (doc) await deliverEdi(env, actor, `${commandId}-997`, {documentId:doc.id,version:doc.version}, execute);

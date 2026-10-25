@@ -1,3 +1,4 @@
+import { assertPurchaseApproval } from './purchase-approval';
 import { receiptConfirmation } from './supplier-performance';
 import {
   decimal,
@@ -91,6 +92,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       lines: lines(c, p),
       status: "draft",
       approval: null,
+      approvalEscalation: null,
     };
     const minimumValue = d.lines.reduce((highest: bigint, line: any) => { const value = decimal(line.terms?.minimumValue ?? '0'); return value > highest ? value : highest; }, 0n);
     const goodsValue = d.lines.reduce((sum: bigint, line: any) => sum + decimal(line.quantity) * decimal(line.price), 0n);
@@ -119,6 +121,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
     if (po.status !== "draft")
       fail("PO_STATE", "Only a draft can be committed.");
     approveTerms(c, po);
+    assertPurchaseApproval(c, po, type === "po.commit" ? po.approval?.actorId : c.actor.id);
     if (type === "po.approve") {
       po.approval = { actorId: c.actor.id, version: po.version, at: c.now };
       return po;

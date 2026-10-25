@@ -61,7 +61,11 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
     let error: string | null = sender ? null : emailUnavailable;
     let mail: ReturnType<typeof businessMessage> | undefined;
     if (sender) {
-      try { mail = businessMessage(env, message); }
+      try {
+        const document = message.documentId ? (await load(db)).salesDocuments.find(document => document.id === message.documentId) : undefined;
+        if (message.documentId && !document?.pdf) throw new Error('Retained purchase document is unavailable.');
+        mail = businessMessage(env, message, document as { filename: string; pdf: string } | undefined);
+      }
       catch { phase = "failed"; error = "The approved email has invalid message fields."; }
     }
     // Claim and current human authority are one SQL admission. Only unavailable

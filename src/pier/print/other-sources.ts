@@ -1,3 +1,5 @@
+import { expectedLandedCost } from '../purchasing-workflow';
+import { shipTo } from '../business';
 import type { DocumentSource } from "./source";
 import { paymentTerms } from "./display";
 import { fail, get, type Context } from '../model';
@@ -8,7 +10,7 @@ export function otherSource(c:Context,kind:string,sourceId:string):DocumentSourc
   if(kind==='purchase-order'){
     const po=get(c.s,'purchaseOrders',sourceId),supplier=get(c.s,'parties',po.supplierId);
     return {source:po,sourceKind:'purchaseOrders',reference:po.reference,recipient:supplier.name,
-      lines:po.lines.map((l:any)=>itemLine(c,l,supplier.id)),fields:[{label:'Promise date',value:po.promiseDate??''},{label:'Warehouse',value:po.warehouse??''}],totals:[]};
+      lines:po.lines.map((l:any)=>itemLine(c,l,supplier.id)),fields:[{label:'Promise date',value:po.promiseDate??''},{label:'Warehouse',value:po.destinationWarehouse??''},{label:'Ship to',value:shipTo(c.s.businessProfile.find(b=>b.id==='business')!,po.destinationWarehouse)}],totals:[{label:'Goods USD',value:expectedLandedCost(po).goods},{label:'Freight USD',value:po.freight??'0'},{label:'Duty USD',value:po.duty??'0'},{label:'Expected landed total USD',value:expectedLandedCost(po).total}]};
   }
   if(kind==='supplier-return-authorization'){
     const returned=get(c.s,'supplierReturns',sourceId),receipt=get(c.s,'receipts',returned.receiptId),po=get(c.s,'purchaseOrders',receipt.poId),supplier=get(c.s,'parties',po.supplierId);

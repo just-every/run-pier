@@ -66,7 +66,7 @@ test('business PDFs retain every live document kind, Unicode, aliases, packs and
   const docs=[];
   for(const[kind,sourceId]of cases){
     const doc=await h.command('print.generate',{kind,sourceId,...(kind==='bill-of-lading'?{freight:{carrier:'Harbor Freight Lines',scac:'HARB',freightTerms:'Prepaid',packageCount:'1',packageType:'Carton',handlingType:'Pallet',palletSlip:'Y',netWeight:'1.5',commodity:'Brass fittings',nmfc:'12345',proNumber:'HARBOR-PRO-1',pickupDate:'2026-11-01',palletCount:'1',weight:'2',freightClass:'70',accessorials:'None',shipFrom:'30 Dock Road',shipTo:'40 Pier Road'}}:{})});docs.push(doc);
-    const res=await h.request(`/api/pier/sales-documents/${doc.id}.pdf`);assert.equal(res.status,200);const bytes=Buffer.from(await res.arrayBuffer()),text=await pdfText(bytes);
+    const res=await h.request(`/api/pier/sales-documents/${doc.id}.pdf`);assert.equal(res.status,200);const bytes=Buffer.from(await res.arrayBuffer()),text=await pdfText(bytes).catch(error=>{throw new Error(`Cannot read ${kind} PDF: ${error.message}`)});
     assert.match(text,/Harbor Wholesale · Québec/);assert.match(text,/See the source record for agreed terms/);assert.ok(text.includes(doc.rendered.title));
     if(kind==='quote'){assert.match(text,/HH-FITTING/);assert.match(text,/Commercial quantity: 2 case/);assert.match(text,/Base quantity: 24 each/);}
     if(kind==='packing-slip'){assert.match(text,/Carton 1/);assert.match(text,/Base quantity: 2 each/);assert.doesNotMatch(text,/Base quantity: 4 each/);}

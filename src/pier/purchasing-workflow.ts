@@ -1,3 +1,4 @@
+import { assertPurchaseApproval } from './purchase-approval';
 import { longDate, sender, shipTo } from './business';
 import { decimal, format, fresh, get, requireRole, row, text, fail, type Context, type Row } from './model';
 import { money, usdText } from './money';
@@ -73,6 +74,7 @@ export function purchasingWorkflow(c: Context, type: string, p: any): Row | unde
     const reply = { id: crypto.randomUUID(), source: text(p.source, 'Supplier message reference'), body: text(p.body, 'Supplier reply'), recordedBy: c.actor.id, at: c.now };
     po.supplierReplies ??= []; po.supplierReplies.push(reply);
     if (type === 'po.confirm') {
+      assertPurchaseApproval(c, po, c.actor.id);
       const date = text(p.promiseDate, 'Confirmed date');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) fail('DATE', 'Use a valid confirmed date.');
       if (p.confirm !== true) fail('APPROVAL', 'Approve the supplier date and affected customer promise changes.');
@@ -116,6 +118,8 @@ export function refreshPromises(c: Context) {
 }
 
 export function queuePurchase(c: Context, po: Row, p: any, authority: any = {}) {
+  assertPurchaseApproval(c, po, authority.approvedBy ?? c.actor.id);
+  po.purchaseApprovalVersion = c.s.purchaseApprovalPolicies[0]?.version;
   const recipient = email(p.recipient);
   const material = poMaterial(po);
   if (c.s.correspondence.some(m => m.kind === 'purchase-order' && m.recordId === po.id && m.approvedMaterial === material)) fail('ALREADY_SENT', 'This exact purchase order already has an approved send. Inspect its delivery outcome.');
@@ -125,10 +129,10 @@ export function queuePurchase(c: Context, po: Row, p: any, authority: any = {}) 
   const body = `Purchase order ${po.reference} from ${from.name}\nSupplier: ${po.supplierSnapshot.name}\nShip to: ${from.name}${po.destinationWarehouse ? `, ${po.destinationWarehouse}` : ''}\n${shipTo(from, po.destinationWarehouse)}\nRequested delivery: ${longDate(po.promiseDate)}\n` +
     po.lines.map((l: any) => `${l.terms?.code ? `${l.terms.code} (our ${get(c.s, 'items', l.itemId).sku})` : get(c.s, 'items', l.itemId).sku}: ${l.quantity} ${get(c.s, 'items', l.itemId).unit} at ${usdText(l.price)}`).join('\n') +
     `\nGoods ${usdText(cost.goods)}; estimated freight ${usdText(cost.freight)}; duty ${usdText(cost.duty)}; expected landed total ${usdText(cost.total)}.\nPlease reply with confirmation, expected delivery date and our purchase order reference.\n\n${from.name}`;
-  const sent = message(c, 'purchase-order', po, recipient, `${from.name} purchase order ${po.reference}`, body, { approvedMaterial: material, promiseDate: po.promiseDate, ...authority });
+  const sent = message(c, 'purchase-order', po, recipient, `${from.name} purchase order ${po.reference}`, body, { approvedMaterial: material, purchaseApprovalVersion: po.purchaseApprovalVersion, promiseDate: po.promiseDate, ...authority });
   for (let n = 1; n <= count; n++) message(c, 'supplier-chase', po, recipient, `Confirmation requested: ${from.name} ${po.reference}`,
     `Please confirm purchase order ${po.reference} from ${from.name}, requested for ${longDate(po.promiseDate)}. Reply with the expected date and any changes.\n\n${body}`,
-    { dueAt: afterDays(c.now, everyDays * n) + 'T09:00:00.000Z', approvedMaterial: material, promiseDate: po.promiseDate, purchaseMessageId: sent.id, ...authority });
+    { purchaseApprovalVersion: po.purchaseApprovalVersion, dueAt: afterDays(c.now, everyDays * n) + 'T09:00:00.000Z', approvedMaterial: material, promiseDate: po.promiseDate, purchaseMessageId: sent.id, ...authority });
   po.chasePolicy = { enabled: true, approvedBy: authority.approvedBy ?? c.actor.id, recipient, everyDays, maxChases: count, at: c.now };
   return sent;
 }

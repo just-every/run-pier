@@ -1,3 +1,6 @@
+import { queuePurchase } from '../purchasing-workflow';
+import { poMaterial } from '../correspondence-delivery-eligibility';
+import { shipTo } from '../business';
 import type { Bindings } from '../../auth.server';
 import { fail, fresh, get, requireRole, row, text, type Context, type Row } from '../model';
 import { currentQuote } from '../sales-quotes';
@@ -12,8 +15,13 @@ import { mailSettings } from './mail-settings';
 import { nativeBalance } from '../invoices/index';
 import { amount } from '../money';
 
-export async function generateDocument(c:Context,p:any,recipient?:string):Promise<Row> {
-  requireRole(c,[]);const kind=documentKind(p.kind),template=templateFor(c,kind);
+export async function generateDocument(c:Context,p:any,recipient?:string,purchaseSend=false):Promise<Row> {
+  const kind=documentKind(p.kind);
+  if (purchaseSend && kind === 'purchase-order') {
+    requireRole(c, ['buyer', 'agent']);
+    if (c.actor.role === 'agent' && c.purchaseSendAuthority?.poId !== p.sourceId) fail('SEND_AUTHORITY', 'An exact delegated purchase send is required.');
+  } else requireRole(c, []);
+  const template=templateFor(c,kind);
   const profile=c.s.businessProfile.find(b=>b.id==='business')??fail('BUSINESS_PROFILE','Add your business name and address in Purchasing before generating business documents.');
   const company={name:profile.name,address:profile.address,remitTo:template.remitTo};
   const source=orderSource(c,kind,p.sourceId)??otherSource(c,kind,p.sourceId)??fail('DOCUMENT_SOURCE','Choose a live source record.');
@@ -50,6 +58,16 @@ export async function printedDocuments(c:Context,type:string,p:any,env:Bindings)
     const document=get(c.s,'salesDocuments',p.documentId);fresh(document,p.version);
     const recipient=text(p.recipient,'Explicitly approved recipient');
     if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient))fail('EMAIL','Enter one valid recipient.');
+    if (document.kind === 'purchase-order') {
+      const po = get(c.s, 'purchaseOrders', document.recordId), profile = c.s.businessProfile.find(b => b.id === 'business');
+      if (po.status !== 'committed' || document.recordVersion !== po.version || poMaterial(document.snapshot) !== poMaterial(po) ||
+          !profile || document.rendered.company.name !== profile.name || document.rendered.company.address !== profile.address ||
+          !document.rendered.fields.some((field: any) => field.label === 'Ship to' && field.value === shipTo(profile, po.destinationWarehouse)))
+        fail('PO_STATE', 'Generate the current committed purchase document before approving its recipient.');
+      const message = queuePurchase(c, po, { recipient, maxChases: 0 });
+      message.documentId = document.id;
+      return message;
+    }
     if(document.kind==='quote'){const quote=get(c.s,'orders',document.recordId);if(quote.documentType!=='quote'||quote.acceptedAt||quote.version!==document.recordVersion)fail('QUOTE_STATE','Generate the current approved quote version before emailing it.');currentQuote(c,quote);requireQuoteApproval(c,quote);}
     if(['invoice','proforma'].includes(document.kind)&&!document.rendered?.payNowUrl)fail('PAY_LINK','Create the invoice-specific payment link and regenerate this invoice before emailing it.');
     if(document.kind==='customer-statement'&&document.rendered.lines.some((l:any)=>l.invoiceId&&l.total!=='0.000000000000'&&!l.payNowUrl))fail('PAY_LINK','Create each open invoice payment link and regenerate the statement before emailing it.');

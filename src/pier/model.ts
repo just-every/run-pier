@@ -59,6 +59,7 @@ export type Row = {
   [key: string]: any;
 };
 export const collections = [
+  "purchaseApprovalPolicies",
   "savedReports",
   "reportSnapshots",
   "workflowRules",

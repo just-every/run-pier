@@ -1021,3 +1021,49 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
     }
   } finally { await pantry.close() }
 })
+
+test('purchase approval names spend authority and exposes supplier re-approval at 1440 and 390', async ({ page, context }) => {
+  await ownerEntry(page)
+  const command = async (type: string, payload: object) => {
+    const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
+  }
+  const state = async () => (await context.request.get(`${origin}/api/pier/state`)).json()
+  const ownerId = (await state()).actor.id
+  if (shots) await mkdir(shots, { recursive: true })
+  for (const width of [1440, 390]) {
+    const supplier = await command('party.save', { kind: 'supplier', name: `Approval supplier ${width}` })
+    const item = await command('item.save', { sku: `APPROVAL-${width}`, name: `Approval mugs ${width}`, unit: 'each', packSize: '1' })
+    const old = (await state()).purchaseApprovalPolicies[0]
+    await command('purchaseApproval.save', { version: old?.version ?? 0, limits: [
+      { supplierId: null, exceptionType: 'any', maxSpend: '2', approverId: ownerId, escalationId: ownerId },
+      { supplierId: null, exceptionType: 'any', maxSpend: '100', approverId: ownerId, escalationId: ownerId },
+    ] })
+    let po = await command('po.draft', { supplierId: supplier.id, promiseDate: '2026-11-01', reason: 'Reviewed spend route', lines: [{ itemId: item.id, quantity: '10', price: '3' }] })
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto(`${origin}/app#purchasing/${po.id}`); await page.reload()
+    const detail = page.locator(`#document-${po.id}`)
+    await expect(detail.getByText('Required approver', { exact: true })).toBeVisible()
+    await expect(detail.locator('dl').first()).toContainText('Owner')
+    await expect(detail.locator('dl').first()).toContainText('100.00')
+    if (shots) await detail.screenshot({ path: join(shots, `${width}-purchase-approval-route.png`) })
+    await submit(page, detail, `Approve exact version ${po.version}`)
+    await submit(page, detail, 'Commit approved order')
+    po = (await state()).purchaseOrders.find((row: any) => row.id === po.id)
+    po = await command('po.supplierChange', { poId: po.id, version: po.version, source: `synthetic-pier-${width}`, body: 'Supplier price rises and the delivery date changes', promiseDate: '2026-11-20', lines: po.lines.map((line: any) => ({ poLineId: line.id, quantity: line.quantity, price: '4' })) })
+    await page.reload()
+    await expect(detail).toContainText('Re-approval required; sending stopped')
+    const form = section(page, 'Send purchase order to supplier')
+    await form.getByLabel('Supplier email', { exact: true }).fill('supplier@example.test')
+    await form.getByRole('checkbox').check()
+    await submit(page, form, 'Approve recipient and send PO', false)
+    await expect(page.getByRole('alert')).toContainText('Review the retained supplier change')
+    if (shots) await detail.screenshot({ path: join(shots, `${width}-purchase-supplier-review.png`) })
+    po = await command('po.reviewSupplierChange', { poId: po.id, version: po.version, confirm: true })
+    expect(po.lines[0].price).toBe('4')
+    await page.reload()
+    await expect(detail).toContainText('No pending change')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
+    if (shots) await detail.screenshot({ path: join(shots, `${width}-purchase-reapproved.png`) })
+  }
+})

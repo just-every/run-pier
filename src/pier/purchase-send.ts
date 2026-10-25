@@ -1,3 +1,4 @@
+import { assertPurchaseApproval, purchaseSpend } from './purchase-approval';
 import { decimal, fail, fresh, get, requireRole, type Context, type Row } from './model';
 import { email, expectedLandedCost, queuePurchase } from './purchasing-workflow';
 import { poMaterial } from './correspondence-delivery-eligibility';
@@ -40,9 +41,10 @@ export function purchaseSend(c: Context, type: string, p: any): Row | undefined 
     return po;
   }
   if (type === 'po.authorizeSend') {
+    assertPurchaseApproval(c, po, c.actor.id);
     if (p.confirm !== true) fail('APPROVAL', 'Approve this exact purchase, recipient, spend limit and expiry.');
     const recipient = email(p.recipient), maximum = decimal(p.maxSpend);
-    if (amount(expectedLandedCost(po).total) > maximum * 1000000n) fail('SPEND_LIMIT', 'The landed purchase total exceeds this send limit.');
+    if (amount(purchaseSpend(po)) > maximum * 1000000n) fail('SPEND_LIMIT', 'The landed purchase total exceeds this send limit.');
     const parsed = typeof p.expiresAt === 'string' ? Date.parse(p.expiresAt) : NaN;
     const expiresAt = Number.isFinite(parsed) ? new Date(parsed).toISOString() : '';
     if (!expiresAt || expiresAt <= c.now) fail('POLICY', 'Choose a future expiry for this one-purchase authority.');
@@ -59,7 +61,7 @@ export function purchaseSend(c: Context, type: string, p: any): Row | undefined 
   const policy = po.sendPolicy, role = policy && c.automationActors?.[policy.approvedBy];
   if (!policy?.enabled || policy.messageId || policy.expiresAt <= c.now || policy.inputs !== inputs(c, po) || policy.approvedMaterial !== poMaterial(po) ||
       !role || !['owner', 'buyer'].includes(role)) fail('SEND_AUTHORITY', 'This send authority expired, changed or was revoked. Ask a buyer to review it again.');
-  if (amount(expectedLandedCost(po).total) > decimal(policy.maxSpend) * 1000000n) fail('SPEND_LIMIT', 'This purchase exceeds the approved landed spend.');
+  if (amount(purchaseSpend(po)) > decimal(policy.maxSpend) * 1000000n) fail('SPEND_LIMIT', 'This purchase exceeds the approved landed spend.');
   c.purchaseSendAuthority = { poId: po.id, policyVersion: policy.version, actorId: policy.approvedBy, role };
   const result = queuePurchase(c, po, { recipient: policy.recipient, chaseEveryDays: policy.everyDays, maxChases: policy.maxChases },
     { approvedBy: policy.approvedBy, approvalRole: role, sendPolicyVersion: policy.version, requestedBy: c.actor.id, executor: c.backgroundPolicy ? 'Scheduled inventory agent' : c.actor.name });

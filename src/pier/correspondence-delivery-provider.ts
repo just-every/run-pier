@@ -31,9 +31,10 @@ export function businessMail(env: Bindings): BusinessMailSender | null {
   } catch { return null; }
 }
 
-export function businessMessage(env: Bindings, message: Correspondence) {
+export function businessMessage(env: Bindings, message: Correspondence, document?: { filename: string; pdf: string }) {
   const mail = { deliveryId: message.id, from: env.MAIL_FROM!, to: [message.recipient],
-    subject: message.subject, text: message.body };
+    subject: message.subject, text: message.body,
+    ...(document ? { attachments: [{ filename: document.filename, contentType: ['application', 'pdf'].join('/'), content: Uint8Array.from(atob(document.pdf), ch => ch.charCodeAt(0)) }] } : {}) };
   // No supplied arbitrary headers, recipient lists or control-character headers.
   if (typeof message.subject !== "string" || !message.subject.trim() ||
       /[\u2028\u2029]/.test(message.subject)) throw new Error("Invalid subject");
