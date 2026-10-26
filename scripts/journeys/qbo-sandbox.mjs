@@ -54,7 +54,7 @@ try {
   const customerId = (await api('customer', { DisplayName: `${sku}-customer` })).Customer.Id;
   const supplierId = (await api('vendor', { DisplayName: `${sku}-supplier` })).Vendor.Id;
   const itemId = (await api('item', { Name: sku, Sku: sku, Type: 'NonInventory', IncomeAccountRef: { value: revenueAccountId } })).Item.Id;
-  h = await installation({ async outboundService(request) {
+  h = await installation({ built: Boolean(process.env.QBO_SCREENSHOTS), async outboundService(request) {
     const url = new URL(request.url);
     if (![origin, 'https://oauth.platform.intuit.com'].includes(url.origin)) throw new Error('Unexpected sandbox transport destination.');
     return realFetch(request.url, { method: request.method, headers: Object.fromEntries([...request.headers].filter(([name]) => !['host', 'connection', 'content-length', 'transfer-encoding'].includes(name))), redirect: 'manual', ...(request.method === 'GET' ? {} : { body: await request.arrayBuffer() }) });
@@ -73,6 +73,7 @@ try {
   const receipt={ journey: 'ACCOUNT-001 US QBO sandbox public command path', candidate: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), at: new Date().toISOString(), companyCountry: company.Country, rotationsPersisted: rotations, invoice: { id: invoice.Id, total: invoice.TotalAmt, balance: invoice.Balance }, credit: { id: credit.Id, total: credit.TotalAmt },nativeInvoices, jobs: result.state.bookJobs.map(j => ({ kind: j.kind, status: j.status, remoteId: j.remoteId ?? null,total:j.total??null,actual:j.actual??null, reason: j.reason ?? null })) };
   if(process.env.QBO_RECEIPT_PATH)await writeFile(process.env.QBO_RECEIPT_PATH,JSON.stringify(receipt,null,2)+'\n');
   console.log(JSON.stringify(receipt,null,2));
+  if(process.env.QBO_SCREENSHOTS)await (await import('./qbo-screens.mjs')).qboScreens(h,result,process.env.QBO_SCREENSHOTS);
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'QuickBooks sandbox journey failed.'); process.exitCode = 1;
 } finally { if (h) await h.close(); }

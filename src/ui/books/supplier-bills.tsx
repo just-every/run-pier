@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { itemLabel, label, records, type RecordData } from '../api'
 import { Amount, Badge, Empty, Facts, Field, Form, Select, Table, text } from '../controls'
 import { day, words } from '../display'
-import type { BooksProps } from './model'
+import { connections, type BooksProps } from './model'
 import { BillDocumentEditor, BillDocumentReview, type BillSources } from './supplier-bill-documents'
-import { PantryPaymentLink } from './receipt-closure'
+import { LedgerPaymentLink } from './receipt-closure'
 
 type Props = BooksProps & { poId?: string; billId?: string }
 type InvoiceLine = { poLineId: string; quantity: string; unitPrice: string }
@@ -43,6 +43,7 @@ function SupplierBillEditor({ state, run, busy, bill, initialPoId, close }: Prop
 }
 
 function SupplierBillMatch({ state, bill }: Pick<Props, 'state'> & { bill: RecordData }) {
+  const qbo = connections(state).some(connection => connection.provider === 'qbo')
   if (!bill.match) return <Empty>Reload records to review the current receipt evidence.</Empty>
   return <>
     <Facts values={[{ label: 'Invoice total USD', value: <Amount value={bill.total} /> }, { label: 'Quantity tolerance', value: `${bill.quantityTolerancePercent}%` }, { label: 'Price tolerance', value: `${bill.priceTolerancePercent}%` }, { label: 'Freight billed / PO expected USD', value: `${bill.match.charges.freight.billed} / ${bill.match.charges.freight.purchaseOrder} (${bill.match.charges.freight.priorApproved} on earlier approved invoices)` }, { label: 'Tax billed / PO expected USD', value: `${bill.match.charges.tax.billed} / ${bill.match.charges.tax.purchaseOrder} (${bill.match.charges.tax.priorApproved} on earlier approved invoices)` }, { label: 'Receipt state', value: bill.received ? 'Fully matched to receipts' : 'Awaiting receipt quantities' }]} />
@@ -54,13 +55,14 @@ function SupplierBillMatch({ state, bill }: Pick<Props, 'state'> & { bill: Recor
     <BillDocumentReview bill={bill} state={state} />
     {bill.holdReason && <p><strong>Held:</strong> {bill.holdReason}</p>}
     {bill.approval && <p className="muted">Approved {day(bill.approval.at)} by {state.actor.id === bill.approval.actorId ? 'you' : bill.approval.actorId}. The approval retains the exact invoice and evidence reviewed. Current receipt matching above follows later receipts and reversals.</p>}
-    {bill.books?.billId && <p><PantryPaymentLink state={state} />. Find {records(state, 'bookJobs').find(job => job.kind === 'bill' && job.sourceId === bill.id)?.reference} under Bills; record payment under Payments, then Sync now in Pier.</p>}
-    {bill.books && <p>Pantry: {words(bill.books.status)}{bill.books.billId ? ` · ${bill.books.billId}` : ''}. Paid <Amount value={bill.books.paid} unknown="Not checked" /> USD · Open <Amount value={bill.books.open} unknown="Not checked" /> USD.</p>}
+    {bill.books?.billId && <p><LedgerPaymentLink state={state} />. Find {records(state, 'bookJobs').find(job => job.kind === 'bill' && job.sourceId === bill.id)?.reference} under Bills. Record the payment in {qbo ? 'QuickBooks' : 'Pantry'}, then choose Sync now in Pier.</p>}
+    {bill.books && <p>{qbo ? 'QuickBooks' : 'Pantry'}: {words(bill.books.status)}{bill.books.billId ? ` · ${bill.books.billId}` : ''}. Paid <Amount value={bill.books.paid} unknown="Not checked" /> USD · Open <Amount value={bill.books.open} unknown="Not checked" /> USD.</p>}
   </>
 }
 
 export function SupplierBills(props: Props) {
   const { state, run, busy, poId, billId } = props
+  const qbo = connections(state).some(connection => connection.provider === 'qbo')
   const buyer = ['owner', 'buyer'].includes(state.actor.role), preparer = buyer || state.actor.role === 'agent'
   const rows = records(state, 'supplierBills').filter(bill => !poId || bill.poId === poId)
   const [editing, setEditing] = useState<{ bill?: RecordData } | null>(null)
@@ -72,7 +74,7 @@ export function SupplierBills(props: Props) {
   const mutable = bill && ['review', 'held'].includes(bill.status)
   return <>
     <section className="panel" id="supplier-invoices"><div className="page-title"><div><h2>Supplier invoices</h2><p className="muted">Match the invoice to its committed PO and posted goods receipts before approving the payable. Receipt matching and supplier payment are separate states.</p></div>{preparer && <button disabled={busy} onClick={() => setEditing({})}>Record supplier invoice</button>}</div>
-      {!rows.length ? <Empty>No supplier invoices recorded.</Empty> : <Table headings={['Supplier invoice', 'Purchase order', 'Total USD', 'Review', 'Receipt / payment', '']} numeric={[2]}>{rows.map(row => <tr key={row.id}><td>{row.reference}<small>{label(records(state, 'parties'), row.supplierId)} · {day(row.date)}</small></td><td><a href={`#purchasing/${encodeURIComponent(row.poId)}`}>{label(records(state, 'purchaseOrders'), row.poId)}</a></td><td><Amount value={row.total} /></td><td><Badge>{words(row.status)}</Badge></td><td>{row.status === 'paid' ? 'Paid' : row.books?.readyToPay && ['posted', 'reconciled'].includes(row.books.status) ? 'Ready to pay in Pantry' : row.readyToPay ? 'Matched · awaiting Pantry' : row.received ? 'Receipt matched' : 'Awaiting receipt quantities'}</td><td><button disabled={busy} onClick={() => { setSelected(row.id); setHolding(false) }}>Review invoice</button></td></tr>)}</Table>}
+      {!rows.length ? <Empty>No supplier invoices recorded.</Empty> : <Table headings={['Supplier invoice', 'Purchase order', 'Total USD', 'Review', 'Receipt / payment', '']} numeric={[2]}>{rows.map(row => <tr key={row.id}><td>{row.reference}<small>{label(records(state, 'parties'), row.supplierId)} · {day(row.date)}</small></td><td><a href={`#purchasing/${encodeURIComponent(row.poId)}`}>{label(records(state, 'purchaseOrders'), row.poId)}</a></td><td><Amount value={row.total} /></td><td><Badge>{words(row.status)}</Badge></td><td>{row.status === 'paid' ? 'Paid' : qbo ? row.books?.billId ? 'Posted to QuickBooks' : row.received ? 'Receipt matched · awaiting posting' : 'Awaiting receipt quantities' : row.books?.readyToPay && ['posted', 'reconciled'].includes(row.books.status) ? 'Ready to pay in Pantry' : row.readyToPay ? 'Matched · awaiting Pantry' : row.received ? 'Receipt matched' : 'Awaiting receipt quantities'}</td><td><button disabled={busy} onClick={() => { setSelected(row.id); setHolding(false) }}>Review invoice</button></td></tr>)}</Table>}
     </section>
     {editing && <SupplierBillEditor key={`${editing.bill?.id ?? 'new'}-${editing.bill?.version ?? 0}`} {...props} bill={editing.bill} initialPoId={poId} close={() => setEditing(null)} />}
     {bill && <section className="panel" id={`document-${bill.id}`}><h2>Match supplier invoice {bill.reference}</h2><SupplierBillMatch state={state} bill={bill} />

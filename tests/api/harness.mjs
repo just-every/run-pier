@@ -4,12 +4,12 @@ import { unstable_splitSqlQuery } from "wrangler";
 import { build } from "esbuild";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { randomUUID, randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
 export async function installation(edge = {}) {
   const root = await mkdtemp(join(tmpdir(), "pier-api-"));
-  const bundled = await build({
+  const bundled = edge.built ? null : await build({
     entryPoints: ["tests/api/worker.ts"],
     bundle: true,
     write: false,
@@ -20,6 +20,12 @@ export async function installation(edge = {}) {
     external: ["node:*", "cloudflare:*"],
     loader: { ".css": "text", ".svg": "text" },
   });
+  const emitted = edge.built ? JSON.parse(await readFile('dist/server/wrangler.json', 'utf8')) : null;
+  const modules = emitted ? [
+    { type: 'ESModule', path: resolve('tests/api/built-worker.mjs') },
+    ...[emitted.main, ...(await readdir('dist/server/assets')).filter(file => file.endsWith('.js')).map(file => `assets/${file}`)]
+      .map(file => ({ type: 'ESModule', path: resolve('dist/server', file) })),
+  ] : null;
   let origin = edge.production ? "https://localhost" : "http://localhost";
   const setup = randomBytes(32).toString("hex"),
     devKey = randomBytes(32).toString("hex");
@@ -28,10 +34,12 @@ export async function installation(edge = {}) {
       host: "127.0.0.1",
       port,
       ...(edge.production ? { https: true } : {}),
-      modules: true,
-      script: bundled.outputFiles[0].text,
-      compatibilityDate: "2026-09-08",
-      compatibilityFlags: ["nodejs_compat"],
+      ...(emitted ? {
+        modulesRoot: process.cwd(), modules,
+        assets: { directory: resolve('dist/client'), binding: 'ASSETS', run_worker_first: true },
+      } : { modules: true, script: bundled.outputFiles[0].text }),
+      compatibilityDate: emitted?.compatibility_date ?? "2026-09-08",
+      compatibilityFlags: emitted?.compatibility_flags ?? ["nodejs_compat"],
       d1Databases: ["DB"],
       ...(edge.outboundService ? { outboundService: edge.outboundService } : {}),
       bindings: {
@@ -146,6 +154,12 @@ export async function installation(edge = {}) {
       command,
       state,
       invariant,
+      browserCookies() {
+        return cookie.split('; ').map(part => {
+          const index = part.indexOf('=');
+          return { name: part.slice(0, index), value: part.slice(index + 1), url: origin, httpOnly: true, sameSite: 'Lax' };
+        });
+      },
       async restartWithFreshSigningKey() {
         await mf.setOptions(options(Number(address.port)));
         const response=await fetch(origin+'/auth/dev/enter?as=owner',{redirect:'manual',headers:{'x-rer-dev-key':devKey}});

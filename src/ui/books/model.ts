@@ -19,6 +19,11 @@ export const canSkip = (job: BookJob) => job.status === 'review' && job.attempte
 
 export function sourceLink(state: PierState, job: BookJob) {
   const id = encodeURIComponent(job.sourceId)
+  if (['nativeInvoice', 'invoiceCredit', 'invoicePayment'].includes(job.sourceKind)) {
+    const invoiceId = job.sourceKind === 'nativeInvoice' ? job.sourceId : records(state, job.sourceKind === 'invoiceCredit' ? 'invoiceCredits' : 'invoicePayments').find(row => row.id === job.sourceId)?.invoiceId
+    const orderId = records(state, 'invoices').find(row => row.id === invoiceId)?.orderId
+    return orderId ? `#sales/${encodeURIComponent(orderId)}` : '#sales'
+  }
   if (['order', 'orders', 'sales'].includes(job.sourceKind)) return `#sales/${id}`
   if (['receipt', 'receipts', 'purchaseOrder', 'purchaseOrders'].includes(job.sourceKind)) return `#purchasing/${id}`
   if (['shipment', 'shipments'].includes(job.sourceKind)) {
