@@ -9,7 +9,7 @@ import { basics, buy, receive } from '../api/harness.mjs'
 test('QuickBooks settings retain exact mappings and recover a refused connection at 1440 and 390', async ({ page }) => {
   const origin = await ownerEntry(page)
   const command = async (type: string, payload: object) => {
-    const response = await page.request.post(`${origin}/api/pier/commands`, { data: { commandId: crypto.randomUUID(), type, payload } })
+    const response = await page.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
     const body = await response.json(); expect(body.ok, body.error?.message).toBe(true); return body.result
   }
   const h = { command }, b = await basics(h,`QBO-${crypto.randomUUID().slice(0,8)}-`), po = await buy(h, b, '12')

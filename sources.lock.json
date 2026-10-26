@@ -4950,7 +4950,7 @@
       "executable": false
     },
     "tests/browser/qbo.spec.ts": {
-      "sha256": "cdbcec1424c4a1af76b4427fafb6b199025c7c74089c2647c178adcc1f61b285",
+      "sha256": "9642071edeb64fe19f4ec88e881a7656af84ed838980c5f1301495c7e9d88242",
       "executable": false
     },
     "tests/browser/reorder-list.spec.ts": {
