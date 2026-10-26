@@ -428,6 +428,7 @@ export async function pierResponse(
       const ediDownload = ediFile(s, url.pathname);
       if (ediDownload) return ediDownload;
       if (["/api/pier/books/export.csv","/api/pier/books/export.iif"].includes(url.pathname)) {
+        if (actor.role !== 'owner' && s.bookConnections.some(row => row.provider === 'qbo')) throw new Problem('FORBIDDEN', 'Only the owner can export QuickBooks accounting records.', null, 403);
         const format = url.pathname.endsWith(".iif") ? "iif" : "csv";
         try { return new Response(booksExport(s, format), {headers:{"content-type":format === "csv" ? "text/csv; charset=utf-8" : "text/plain; charset=utf-8","content-disposition":`attachment; filename="pier-books.${format}"`,"cache-control":"no-store"}}); } catch(error) { fail("BOOK_EXPORT", error instanceof Error ? error.message : "Review the financial documents before exporting."); }
       }

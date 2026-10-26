@@ -3082,7 +3082,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "952f162555bf394b97bb01dfaaeaaec37ca390c74b87353d2863d021cc79149e",
+      "sha256": "2dd78c4deee02af5f54bf25ac792f8bb11ba2eae3fd7380bd34110c7518240bb",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -4738,7 +4738,7 @@
       "executable": false
     },
     "tests/api/books.test.mjs": {
-      "sha256": "a27e98c5032b6000d777e23485373fd1ac75f86b507982cd2125cad436a00122",
+      "sha256": "a0f8baefd2bd754ccb16efb7161c05b3437692c20ceb369b0a541a7b04b876eb",
       "executable": false
     },
     "tests/api/built-assets.mjs": {
