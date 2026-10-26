@@ -5,6 +5,7 @@ import { connections, type BooksProps } from './model'
 
 export function QboConnectionForm({ state, run, busy }: BooksProps) {
   const saved = connections(state).find(r => r.provider === 'qbo')
+  const keepCredential=Boolean(saved?.enabled&&saved?.credentialPresent)
   const [token, setToken] = useState('')
   const [problem, setProblem] = useState('')
   const items = records(state, 'items'), parties = records(state, 'parties')
@@ -20,14 +21,15 @@ export function QboConnectionForm({ state, run, busy }: BooksProps) {
   const account = (label: string, name: string, required = true) => <Field label={label} name={name} defaultValue={String(saved?.[name] ?? '')} required={required} inputMode="numeric" disabled={busy} />
   return <section className="panel"><h2>Connect QuickBooks Online</h2>
     <p>Use an Intuit app authorized for this US company with the Accounting scope. QuickBooks and its subscription are supplied by Intuit. Pier keeps credentials encrypted; archives omit them. Disconnect here stops Pier; revoke the app in QuickBooks to revoke Intuit authorization.</p>
+    <p>{keepCredential?'Leave authorization fields blank to keep this company’s saved credential.':'Use the refresh token from your explicit Intuit company consent.'}</p>
     <details><summary>Supported posting and review</summary><p>Pier posts explicitly mapped USD, tax-exempt invoices, customer credits, supplier bills and inventory journals. Taxable sales, foreign currencies, channel settlements and automatic ledger changes require further mapping. They remain in review. Pier never changes an existing QuickBooks record to match a local edit.</p></details>
     <form onSubmit={e => { e.preventDefault(); if (!busy) void connect(new FormData(e.currentTarget)) }}>
       <div className="form-grid">
         <label className="field"><span>QuickBooks environment</span><select name="environment" defaultValue={saved?.sandbox === false ? 'production' : 'sandbox'} disabled={busy}><option value="sandbox">Sandbox company</option><option value="production">Production company</option></select></label>
         <Field label="Authorized company ID" name="realmId" defaultValue={String(saved?.realmId ?? '')} inputMode="numeric" disabled={busy} />
-        <Field label="Intuit client ID" name="clientId" autoComplete="off" required={!saved} disabled={busy} />
-        <Field label="Intuit client secret" name="clientSecret" type="password" autoComplete="off" required={!saved} disabled={busy} />
-        <Field label="Authorized refresh token" name="refreshToken" type="password" autoComplete="off" value={token} onChange={setToken} required={!saved} disabled={busy} hint={saved ? 'Leave authorization fields blank to keep this company’s saved credential.' : 'Use the refresh token from your explicit Intuit company consent.'} />
+        <Field label="Intuit client ID" name="clientId" autoComplete="off" required={!keepCredential} disabled={busy} />
+        <Field label="Intuit client secret" name="clientSecret" type="password" autoComplete="off" required={!keepCredential} disabled={busy} />
+        <Field label="Authorized refresh token" name="refreshToken" type="password" autoComplete="off" value={token} onChange={setToken} required={!keepCredential} disabled={busy} />
         <Field label="Approved cutover date" name="cutoverDate" type="date" defaultValue={String(saved?.cutoverDate ?? '')} disabled={busy} />
         <Field label="Reviewed opening inventory USD" name="openingInventoryValue" defaultValue={String(saved?.openingInventoryValue ?? '')} inputMode="decimal" disabled={busy} /><Field label="Reviewed opening cost of goods USD" name="cogsOpeningBalance" defaultValue={String(saved?.cogsOpeningBalance ?? '')} inputMode="decimal" disabled={busy} />
         {account('Inventory asset account ID', 'inventoryAccountId')}{account('Cost of goods account ID', 'cogsAccountId')}{account('Sales income account ID', 'revenueAccountId')}

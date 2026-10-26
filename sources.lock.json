@@ -1146,7 +1146,7 @@
       "executable": false
     },
     "scripts/journeys/qbo-sandbox.mjs": {
-      "sha256": "c8d694774bcbba69a3023998c020b389a7efc46e40e210234ad6bceb818d8087",
+      "sha256": "52fd0bf29d39c8c83a7b956c19653150c0efdda6afe0a4b858b9ddab86821066",
       "executable": false
     },
     "scripts/operations-config.mjs": {
@@ -3161,6 +3161,10 @@
       "sha256": "8a319b103375e7c96cf2db06c8f18154be537b6bc5ef752d5548fb777c945b13",
       "executable": false
     },
+    "src/pier/books/qbo-valuation.ts": {
+      "sha256": "9b6533b0af3e1daea45d63028aa385a9ee6254199cc7913c92dbf0c4cc8dce9b",
+      "executable": false
+    },
     "src/pier/books/receipt-closure.ts": {
       "sha256": "b93fdc6addddc0b4d614103eab13c47652aec6e69e4771e4c19ee13a08f673e5",
       "executable": false
@@ -4182,7 +4186,7 @@
       "executable": false
     },
     "src/ui/books/qbo-connection.tsx": {
-      "sha256": "51a8516d5a103f13f059a3a8fc5887bea3ef6d421526dcadc2873965fee5adbb",
+      "sha256": "04708610729c7bc859c8820a47a7eb1630037db586d2781a48505a3252a2d3a4",
       "executable": false
     },
     "src/ui/books/receipt-closure.tsx": {
