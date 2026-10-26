@@ -3154,7 +3154,7 @@
       "executable": false
     },
     "src/pier/books/qbo-planning.ts": {
-      "sha256": "7b3a174c44d4d3364a72918b00de1d03ebee4b43931940cf35c6fc1122e9852d",
+      "sha256": "5a893733a1a79adc07c1e0833a64ce826f5ba4cc1c750b8a027520b8b21b974a",
       "executable": false
     },
     "src/pier/books/qbo-report.ts": {
@@ -4734,7 +4734,7 @@
       "executable": false
     },
     "tests/api/books.test.mjs": {
-      "sha256": "7774b704805d3f54e7a9dc621a0806bc905989833cbcd550da7276bf253c2f84",
+      "sha256": "0c38474316560cf1a4e9f859111b7782c74adde309e4c5f1b4164b2ee262ede6",
       "executable": false
     },
     "tests/api/built-worker.mjs": {
