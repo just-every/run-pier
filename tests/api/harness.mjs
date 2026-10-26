@@ -66,12 +66,16 @@ export async function installation(edge = {}) {
       req.on("error", reject); if (options.body) req.write(options.body); req.end();
     });
     await mf.setOptions(options(Number(address.port)));
-    const db = await mf.getD1Database("DB");
+    const db = edge.built ? null : await mf.getD1Database("DB");
     for (const file of (await readdir("migrations/core"))
       .filter((n) => n.endsWith(".sql"))
       .sort()) {
       const sql = await readFile("migrations/core/" + file, "utf8");
-      await db.batch(unstable_splitSqlQuery(sql).map((q) => db.prepare(q)));
+      const statements = unstable_splitSqlQuery(sql);
+      if (edge.built) {
+        const response = await fetch(origin + '/__test/schema', { method: 'POST', headers: { 'content-type': 'application/json', 'x-pier-schema-key': devKey }, body: JSON.stringify(statements), signal: AbortSignal.timeout(60000) });
+        assert.equal(response.status, 204, await response.text());
+      } else await db.batch(statements.map((q) => db.prepare(q)));
     }
     let cookie = "";
     const request = (path, { method = "GET", body, as = cookie, headers: extraHeaders = {} } = {}) =>
