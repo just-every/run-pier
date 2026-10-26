@@ -4790,7 +4790,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "7945d2843259249ecd76664671e2c09520ff264f79faee3f4f8580771b0c79fa",
+      "sha256": "0f16b95c3572dc66ae1ec6c4c7362d9dee9451affe3a6e82620d609ce27235da",
       "executable": false
     },
     "tests/api/inbound-asn-fixture.mjs": {

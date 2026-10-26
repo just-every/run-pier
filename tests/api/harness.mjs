@@ -1,3 +1,4 @@
+import { createServer } from "node:net";
 import { request as httpsRequest } from 'node:https';
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { unstable_splitSqlQuery } from "wrangler";
@@ -26,11 +27,19 @@ export async function installation(edge = {}) {
     ...[emitted.main, ...(await readdir('./dist/server/assets')).filter(file => file.endsWith('.js')).map(file => `assets/${file}`)]
       .map(file => ({ type: 'ESModule', path: resolve('./dist/server', file) })),
   ] : null;
-  let origin = edge.production ? "https://localhost" : "http://localhost";
+  let port = 0;
+  if (edge.built) {
+    const socket = createServer();
+    await new Promise(resolve => socket.listen(0, '127.0.0.1', resolve));
+    port = socket.address().port;
+    await new Promise(resolve => socket.close(resolve));
+  }
+  let origin = edge.built ? `http://127.0.0.1:${port}` : edge.production ? "https://localhost" : "http://localhost";
   const setup = randomBytes(32).toString("hex"),
     devKey = randomBytes(32).toString("hex");
   const options = (port) => ({
     ...convertV4MiniflareOptions({
+      ...(edge.built ? { name: "pier-api-built" } : {}),
       host: "127.0.0.1",
       port,
       ...(edge.production ? { https: true } : {}),
@@ -56,7 +65,7 @@ export async function installation(edge = {}) {
     }),
     resourcePersistencePath: root,
   });
-  const mf = new Miniflare(options(0));
+  const mf = new Miniflare(options(port));
   try {
     const address = await mf.ready;
     origin = address.origin;
@@ -70,7 +79,7 @@ export async function installation(edge = {}) {
       });
       req.on("error", reject); if (options.body) req.write(options.body); req.end();
     });
-    await mf.setOptions(options(Number(address.port)));
+    if (!edge.built) await mf.setOptions(options(Number(address.port)));
     const db = await mf.getD1Database("DB");
     for (const file of (await readdir("migrations/core"))
       .filter((n) => n.endsWith(".sql"))
@@ -83,6 +92,7 @@ export async function installation(edge = {}) {
       (edge.production ? localHttps : fetch)(origin + path, {
         method,
         redirect: "manual",
+        ...(edge.built ? { signal: AbortSignal.timeout(60000) } : {}),
         headers: {
           origin,
           "content-type": "application/json",
