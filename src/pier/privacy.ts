@@ -1,3 +1,4 @@
+import { privateFieldCustody, typedErasureRefusal } from './custom-fields';
 import { redactionStatements, invalidateTransfersStatements } from '@runeditrun/rer/modules/portability/journal';
 import type { Bindings } from '../auth.server';
 import { canonicalJson, sha256 } from './import-kit';
@@ -49,7 +50,7 @@ async function eraseSubject(c: Context, p: any, env: Bindings) {
   const preview = { ...plan.preview, planHash: sha256(canonicalJson({ dependencies: plan.preview.planHash, blockers: plan.blockers })) };
   if (p.planHash !== preview.planHash) fail('STALE', 'Dependencies, identity or holds changed. Inspect a fresh erasure preview.');
   if (plan.holds.length) fail('PRIVACY_HOLD', 'Every active legal or accounting hold in these dependencies must be resolved before erasure.');
-  if (!preview.allowed) fail('PRIVACY_DEPENDENCY', 'Resolve the listed source custody or remote dependencies before erasure.', { blockers: plan.blockers });
+  if (!preview.allowed) fail('PRIVACY_DEPENDENCY', privateFieldCustody(c.s) ? typedErasureRefusal : 'Resolve the listed source custody or remote dependencies before erasure.', { blockers: plan.blockers });
   if (native?.id === c.actor.id) fail('PRIVACY_OWNER', 'Another owner must review and confirm erasure of this operator. Self-erasure is unavailable.');
   if (p.confirm !== true) fail('PRIVACY_CONSENT', 'Explicitly confirm irreversible local anonymization, deletion of the listed private copies and cancellation of queued correspondence.');
   const subjectVersion = plan.target.version;

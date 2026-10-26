@@ -129,5 +129,19 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   const read=await(await h.request('/api/pier/state',{as:cookie})).json();assert.equal(read.customFieldDefinitions,undefined);assert.ok(read.items.every(i=>i.customFields===undefined));assert.ok(read.orders.every(o=>o.customFields===undefined));
   await h.command('customField.define',{ownerType:'item',type:'text',key:'forbidden',label:'Forbidden'},{as:cookie,error:'FORBIDDEN'});
   assert.equal((await h.request('/api/pier/custom-fields?ownerType=item&field=finish&value=%22gloss%22',{as:cookie})).status,403);
+
+  for (const type of ['customField.set','customField.import']) await h.command(type, {ownerType:'item',recordId:blue.id,version:1,values:{finish:'denied'},rows:[]},{as:cookie,error:'FORBIDDEN'});
+  for (const [type,payload] of [['print.generate',{kind:'packing-slip',sourceId:packed.id}],['print.reprint',{documentId:document.id}]]) {
+    const response=await h.request('/api/pier/commands',{method:'POST',as:cookie,body:{commandId:crypto.randomUUID(),type,payload}});
+    assert.equal((await response.json()).ok,false,'non-owner field documents refuse');
+  }
+  assert.equal((await h.request('/api/pier/sales-documents/'+document.id+'.pdf',{as:cookie})).status,403);
+  assert.equal((await h.request('/api/pier/export',{as:cookie})).status,403);
+  const refusal=await h.command('privacy.eraseSubject',{kind:'customer',subjectId:b.customer.id,planHash:privacy.planHash,confirm:true},{error:'PRIVACY_DEPENDENCY'});
+  assert.equal(refusal.error.message,privacy.refusal);assert.match(privacy.refusal,/Erasure refused: subject attribution and governed erasure/);
+  const audit=await(await h.request('/api/pier/audit')).json();
+  assert.ok(audit.some(e=>e.type==='privacy.eraseSubject'&&e.outcome==='refused'&&e.reason==='PRIVACY_DEPENDENCY'));
+  assert.ok(audit.some(e=>e.type==='customField.import'&&e.fieldOperation.count===4&&e.fieldOperation.fieldIds.length===4));
+  assert.ok(!JSON.stringify(audit).includes('"gloss"'));assert.ok(!JSON.stringify(audit).includes('"satin"'));
   await h.invariant();
 });

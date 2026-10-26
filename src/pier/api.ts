@@ -194,7 +194,10 @@ export async function execute(
   admitScopedCommand(await load(env.DB), actor, type, payload);
   const digest = sha256(canonicalJson({ type, payload }));
   const previous = await saved(env.DB, commandId, digest, actor);
-  if (previous) return previous;
+  if (previous) {
+    if (actor.role !== 'owner' && (type.startsWith('customField.') || type.startsWith('import.') && privateFieldCustody(await load(env.DB)) || previous.result?.pdf)) throw new Problem('FORBIDDEN', 'Current owner authority is required to recover protected field content, originals or documents.', null, 403);
+    return previous;
+  }
   // A losing optimistic admission is recomputed from current stock. This is
   // database concurrency handling, not a retry of an external effect or model.
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -589,6 +592,7 @@ export async function pierResponse(
       const { trial: _trial, ...preview } = previewCatalogue({ s, actor, commandId: "preview", now: new Date().toISOString() }, body.csv);
       return reply(preview);
     }
+    privateFields = privateFieldCustody(await load(env.DB));
     const { commandId, type, payload = {} } = body;
     if (!payload || typeof payload !== "object" || Array.isArray(payload))
       throw new Problem("INPUT", "Payload must be an object.", null, 400);

@@ -26,7 +26,7 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
     for (const [key, child] of Object.entries(value)) {
       if (key === 'itemId' && typeof child === 'string') itemIds.add(child);
       if (['orderId','poId','documentId','receiptId','shipmentId','subjectId','proposalId'].includes(key) && typeof child === 'string') documents.add(child);
-      if (!['original','raw','source','body','pdf','draft'].includes(key)) references(child);
+      if (!['original','raw','source','body','pdf','draft','customFields'].includes(key)) references(child);
     }
   };
   for (const key of ['poId','orderId','receivingId','waveId','packId','countId','returnId','jobId','documentId','extractionId','subjectId','proposalId','invoiceId','paymentId']) if (typeof p[key] === 'string') documents.add(p[key]);
@@ -66,6 +66,7 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
     connectorId: p.channelId ?? (type.startsWith('book.') ? 'pantry' : modelTraffic ? 'openai' : null), direction: type === 'channel.ingest' ? 'inbound' : type === 'channel.published' ? 'outbound' : modelTraffic ? modelAttempt ? 'outbound' : 'inbound' : null,
     ...(type === 'itemAgent.bulkApply' ? { ordinaryCommand: { type: c.s.proposals.find(plan => plan.id === p.proposalId)?.rows.find((entry: any) => entry.id === p.rowId)?.type, commandId: c.commandId } } : {}),
     ...(modelTraffic ? { phase: modelAttempt ? 'attempt' : 'outcome', attemptId: p.operationId, requestId: p.operationId } : {}),
+    ...(type.startsWith('customField.') ? { fieldOperation: { ownerType: p.ownerType ?? null, recordIds: p.recordId ? [p.recordId] : (p.rows ?? []).map((r: any) => r.recordId), fieldIds: c.s.customFieldDefinitions.filter(d => type === 'customField.define' ? d.id === result?.id : d.ownerType === p.ownerType && Object.hasOwn(p.values ?? {}, d.key) || (p.rows ?? []).some((r: any) => r.ownerType === d.ownerType && Object.hasOwn(r.values ?? {}, d.key))).map(d => d.id), count: type === 'customField.import' ? p.rows?.length ?? 0 : 1 } } : {}),
     itemIds: [...itemIds], documentIds: [...documents], changes, ...(reason ? { reason } : type === 'receiving.link' ? { reason: p.reason } : {}),
     ...(scanTypes.has(type) ? { code: typeof (p.code ?? p.itemCode) === 'string' ? (p.code ?? p.itemCode).slice(0, 200) : '', binCode: typeof p.binCode === 'string' ? p.binCode.slice(0, 200) : null, device: typeof p.device === 'string' ? p.device.slice(0, 120) : 'unspecified input', resolution } : {}),
   };
@@ -74,7 +75,7 @@ export function auditStatement(db: D1Database, event: ReturnType<typeof auditEve
   return db.prepare('INSERT INTO pier_audit(id,at,actor_id,command_id,event_type,outcome,data) VALUES(?,?,?,?,?,?,?)').bind(event.id,event.at,event.actorId,event.commandId,event.type,event.outcome,JSON.stringify(event));
 }
 export async function refusedScan(db: D1Database, actor: Actor, commandId: string, type: string, p: any, reason: string, s: State) {
-  if (!scanTypes.has(type)) return;
+  if (!scanTypes.has(type) && !type.startsWith('customField.') && type !== 'privacy.eraseSubject') return;
   const c: Context = { s, actor, commandId, now: new Date().toISOString() }, event = auditEvent(c, s, type, p, null, 'refused', reason), gate = authority(actor);
   await db.prepare('INSERT INTO pier_audit(id,at,actor_id,command_id,event_type,outcome,data) SELECT ?,?,?,?,?,?,? WHERE (' + gate.sql + ') ON CONFLICT(id) DO NOTHING').bind(event.id,event.at,event.actorId,event.commandId,event.type,event.outcome,JSON.stringify(event),...gate.params).run();
 }

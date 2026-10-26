@@ -27,7 +27,8 @@ export function PrivacyReview({ state, run, busy }: { state: PierState; run: Run
     </div>
     <button disabled={reading || busy || !subjectId} onClick={() => void inspect()}>Inspect erasure dependencies</button>
     {problem && <p role="alert">{problem}</p>}
-    {preview && <div><h3>Erasure dependency review</h3><p>{preview.allowed ? 'Eligible for explicit owner confirmation.' : 'Erasure is blocked by the dependencies listed below.'}</p><Evidence value={{ counts: preview.counts, holds: preview.holds, blockers: preview.blockers }} /><details><summary>Exact dependencies and retained scope</summary><Evidence value={preview} /></details>
+    {preview && <div><h3>Erasure dependency review</h3><p role={preview.refusal ? 'alert' : undefined}>{preview.refusal ?? (preview.allowed ? 'Eligible for explicit owner confirmation.' : 'Erasure is blocked by the dependencies listed below.')}</p><Evidence value={{ counts: preview.counts, holds: preview.holds, blockers: preview.blockers }} /><details><summary>Exact dependencies and retained scope</summary><Evidence value={preview} /></details>
+      {preview.refusal && <button disabled={busy} onClick={() => void run('privacy.eraseSubject', { kind, subjectId, planHash: preview.planHash, confirm: true })}>Record erasure refusal</button>}
       {preview.allowed && <><label className="check"><input type="checkbox" aria-label="Confirm irreversible local erasure" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />Confirm irreversible local erasure and the retained minimum</label>
         <button disabled={busy || !confirmed} onClick={() => void run(kind === 'attachment' ? 'privacy.eraseAttachment' : 'privacy.eraseSubject', { kind, subjectId, documentId: kind === 'attachment' ? subjectId : undefined, planHash: preview.planHash, confirm: confirmed })}>Erase reviewed local data</button></>}
     </div>}

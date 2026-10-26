@@ -114,3 +114,84 @@ test('CAT-001: catalogue references, barcode search, metadata editing and bulk r
   expect(returned[0].quantity).toBe('0.5')
 
 })
+
+test('owner typed-field controls define, edit, import and filter every record type with custody refusal at 1440 and 390', async ({ page, context, browser }) => {
+  const origin = await ownerEntry(page)
+  const command = async (type: string, payload: object) => {
+    const response = await context.request.post(origin + '/api/pier/commands', { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
+  }
+  const item = await command('item.save', { sku: 'synthetic-pier-fields', name: 'Typed field item', unit: 'each', packSize: '1' })
+  const customer = await command('party.save', { kind: 'customer', name: 'Typed field customer' })
+  const supplier = await command('party.save', { kind: 'supplier', name: 'Typed field supplier' })
+  const order = await command('order.create', { customerId: customer.id, warehouse: 'Dallas', promiseDate: '2026-11-01', lines: [{ itemId: item.id, quantity: '1' }] })
+  const shots = process.env.PIER_SCREENSHOTS
+  if (shots) await mkdir(shots, { recursive: true })
+  for (const width of [1440, 390]) {
+    const shot = async (name: string) => { if (shots) await page.screenshot({ path: join(shots, width + '-fields-' + name + '.png'), fullPage: true }) }
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto(origin + '/app#activity'); await page.getByRole('link', { name: 'Custom fields', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Custom fields', exact: true })).toBeVisible()
+    for (const [kind, record, type, value] of [['item', item, 'text', 'synthetic-pier-private'], ['customer', customer, 'boolean', 'false'], ['supplier', supplier, 'number', '1.25'], ['order', order, 'date', '2026-11-02']] as const) {
+      const key = 'field_' + width
+      await page.getByLabel('Record type', { exact: true }).selectOption(kind)
+      await page.getByText('Define a custom field', { exact: true }).click()
+      await page.getByLabel('Field key', { exact: true }).fill(key)
+      await page.getByLabel('Field label', { exact: true }).fill(kind + ' attribute ' + width)
+      await page.getByLabel('Field type', { exact: true }).selectOption(type)
+      await page.getByRole('button', { name: 'Define field', exact: true }).click()
+      await expect(page.getByRole('button', { name: 'Define field', exact: true })).toBeEnabled()
+      await page.getByLabel('Field record', { exact: true }).selectOption(record.id)
+      const input = page.getByLabel(kind + ' attribute ' + width, { exact: true })
+      if (type === 'boolean') await input.selectOption(value); else await input.fill(value)
+      await page.getByRole('button', { name: 'Save field values', exact: true }).click()
+      await expect(input).toHaveValue(value)
+      const saved = await (await context.request.get(origin + '/api/pier/state')).json()
+      const savedRecord = (kind === 'item' ? saved.items : kind === 'order' ? saved.orders : saved.parties).find((r: any) => r.id === record.id)
+      expect(savedRecord.customFields[key]).toBe(type === 'boolean' ? false : value)
+      const definition = saved.customFieldDefinitions.find((d: any) => d.ownerType === kind && d.key === key)
+      await page.getByLabel('Filter field', { exact: true }).selectOption(definition.id)
+      const filter = page.getByLabel('Filter value', { exact: true })
+      if (type === 'boolean') await filter.selectOption(value); else await filter.fill(value)
+      await page.getByRole('button', { name: 'Filter records', exact: true }).click()
+      await expect(page.getByText('1 matching records', { exact: true })).toBeVisible()
+      await shot(kind + '-filtered')
+      const upload = async (content: string) => page.getByLabel('Field JSON file', { exact: true }).setInputFiles({ name: 'synthetic-pier-fields.json', mimeType: 'application/json', buffer: Buffer.from(content) })
+      await upload('{')
+      await expect(page.getByRole('alert')).toBeVisible()
+      const importedValue = type === 'boolean' ? true : type === 'number' ? '2.5' : type === 'date' ? '2026-11-03' : 'synthetic-pier-imported'
+      await upload(JSON.stringify([{ ownerType: kind, recordId: record.id, version: savedRecord.version, values: { [key]: importedValue } }]))
+      await expect(page.getByRole('heading', { name: 'Review field import', exact: true })).toBeVisible()
+      await shot(kind + '-import-review')
+      await page.getByRole('button', { name: 'Approve field import', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'Review field import', exact: true })).toHaveCount(0)
+      await expect(input).toHaveValue(String(importedValue))
+      await page.getByText('Define a custom field', { exact: true }).click()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+    }
+    await page.goto(origin + '/app#activity')
+    await page.getByText('Retention and erasure', { exact: true }).click()
+    await page.getByLabel('Erasure subject kind', { exact: true }).selectOption('customer')
+    await page.getByLabel('Erasure subject', { exact: true }).selectOption(customer.id)
+    await page.getByRole('button', { name: 'Inspect erasure dependencies', exact: true }).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'Erasure refused: subject attribution' })).toBeVisible()
+    await shot('erasure-refusal')
+    await page.getByRole('button', { name: 'Record erasure refusal', exact: true }).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'No content was deleted by this request.' }).first()).toBeVisible()
+    await page.getByLabel('Document identity filter', { exact: true }).fill('')
+    await expect(page.getByRole('table').filter({ hasText: 'Privacy erase subject' })).toContainText('Refused')
+    await shot('activity-refused')
+  }
+  const staff = await browser.newContext()
+  try {
+    const denied = await staff.newPage()
+    await denied.goto(process.env.PIER_OPEN!.replace('as=owner', 'as=member'))
+    await denied.waitForURL(url => url.pathname === '/app' && !url.hash.includes('rer-dev'))
+    for (const width of [1440, 390]) {
+      await denied.setViewportSize({ width, height: 1000 }); await denied.goto(origin + '/app#activity/custom-fields')
+      await expect(denied.getByRole('status').filter({ hasText: 'Only the current owner' })).toBeVisible()
+      await expect(denied.getByLabel('Field record', { exact: true })).toHaveCount(0)
+      if (shots) await denied.screenshot({ path: join(shots, width + '-fields-denied.png'), fullPage: true })
+    }
+  } finally { await staff.close() }
+})

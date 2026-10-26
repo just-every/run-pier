@@ -1,3 +1,4 @@
+import { privateFieldCustody, typedErasureRefusal } from './custom-fields';
 import { collections, fail, get, type State, type Row } from './model';
 import { canonicalJson, sha256 } from './import-kit';
 
@@ -64,6 +65,7 @@ export function subjectPlan(s: State, kind: string, id: string, native?: NativeS
   return { target, ids, nodes, removals, counts, holds, blockers, retained, beyondLocalDeletion,
     preview: { kind, subjectId: id, version: target.version, counts, dependencies, holds: holds.map(h => ({ id:h.id, reason:h.reason, category:h.category })), blockers,
       planHash: sha256(canonicalJson({ kind, id, stateVersion:s.version, native: native ?? null, dependencies:nodes.map(n => [n.kind,n.row.id,n.row.version]), holds, blockers })),
+      refusal: privateFieldCustody(s) ? typedErasureRefusal : null,
       allowed: !holds.length && !blockers.length, retained, beyondLocalDeletion,
       limitation: 'Explicit owner-confirmed local anonymization for the listed dependencies only. Automatic retention deletion remains unavailable; unsupported source custody and unfinished remote work refuse erasure.' } };
 }

@@ -125,6 +125,13 @@ test("native exit preserves approved allocation and explicit backorders across a
     const undone=await h.state();assert.equal(undone.customFieldDefinitions.length,0);assert.equal(undone.items.length,0);assert.ok(undone.parties.some(p=>p.id===external.id));
     const staffAfterUndo=await(await h.request('/api/pier/state',{as:cookie})).json();assert.equal(staffAfterUndo.imports,undefined,'undo cannot expose retained private CSV originals after removing live definitions');assert.equal((await h.request('/api/pier/native-export',{as:cookie})).status,403);
     const privacyAfterUndo=await(await h.request('/api/pier/privacy?kind=customer&subjectId='+external.id)).json();assert.equal(privacyAfterUndo.allowed,false);assert.ok(privacyAfterUndo.blockers.some(b=>b.reason.includes('Retained typed-field CSV originals')));
+    for (const restart of [false,true]) {
+      if(restart) await h.restartWithFreshSigningKey();
+      const plan=await(await h.request('/api/pier/privacy?kind=customer&subjectId='+external.id)).json();
+      const refused=await h.command('privacy.eraseSubject',{kind:'customer',subjectId:external.id,planHash:plan.planHash,confirm:true},{error:'PRIVACY_DEPENDENCY'});
+      assert.equal(refused.error.message,plan.refusal);assert.match(plan.refusal,/No content was deleted/);
+      assert.deepEqual((await h.state()).imports,undone.imports);
+    }
 
   } finally {
     await h?.close();
