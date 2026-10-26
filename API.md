@@ -135,3 +135,17 @@ The owner business JSON export includes `customFieldDefinitions` and each record
 Private typed-field source custody remains owner-only after cutover undo removes the live definitions. Retained CSV originals continue to block unsupported subject erasure; undo is not an erasure operation.
 
 For unsupported typed-field custody, the subject preview returns a `refusal` message naming the missing subject attribution and governed-erasure setup. An explicit erasure request returns that same message and records refusal with blocking custody classes; no content is deleted. Audit records opaque field and record identities, versions, counts, authority and outcomes, never arbitrary field values or document bodies.
+
+## Background movement exports
+
+The owner requests a resumable movement export with same-origin JSON
+`POST /api/pier/movement-exports` and a unique `commandId`. Read progress at
+`GET /api/pier/movement-exports/ID`; after completion, download every numbered
+`GET /api/pier/movement-exports/ID/pages/PAGE` in manifest order.
+[Background movement exports](docs/movement-exports.md) defines exact quantities,
+progress, authority, invalidation and the remaining SCALE-001 boundaries.
+
+The owner can use `GET /api/pier/search?kind=items&q=QUERY&limit=50` or
+`kind=customers` for bounded direct-D1 reads. Exact totals, `hasMore` and
+`nextCursor` expose continuation; stale source revisions refuse rather than
+mixing pages. The same guide defines literal matching and permission boundaries.

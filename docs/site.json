@@ -155,6 +155,12 @@
           "label": "EDI bridge integration",
           "file": "docs/edi-bridge.md",
           "summary": "Connect an authorized EDI network provider to a self-hosted installation with durable document custody."
+        },
+        {
+          "slug": "movement-exports",
+          "label": "Search and movement exports",
+          "file": "docs/movement-exports.md",
+          "summary": "Read bounded search results and prepare complete movement pages with durable progress and current owner authority."
         }
       ]
     },

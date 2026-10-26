@@ -156,3 +156,8 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   assert.ok(!JSON.stringify(afterRevocation).includes('synthetic-pier-revoked'));
   await h.invariant();
 });
+
+test('paged catalogue and customer search returns every literal match with consistent continuation', async () => {
+  const { searchScenario } = await import('./search-scenario.mjs');
+  await searchScenario();
+});

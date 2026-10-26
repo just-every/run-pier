@@ -137,3 +137,9 @@ test("native exit preserves approved allocation and explicit backorders across a
     await h?.close();
   }
 });
+
+// This is a bounded export correctness journey, not PIER-SCALE-1 timing proof.
+test('background movement exports retain exact pages, durable progress and current owner authority', async () => {
+  const { movementExportScenario } = await import('./movement-export-scenario.mjs');
+  await movementExportScenario();
+});

@@ -1,4 +1,5 @@
 import { runWorkflowRules } from './workflow-schedule';
+import { runMovementExports } from './movement-exports';
 import { runRecurringSchedule } from './recurring-schedule';
 import type { Bindings } from '../auth.server';
 import { syncBooks } from './books/sync';
@@ -11,6 +12,7 @@ import { backorderDates } from './backorders';
 
 /** Bounded cron work, always tied to a still-active human's exact policy. */
 export async function runReplenishmentSchedule(env: Bindings, scheduledTime = Date.now()) {
+  await runMovementExports(env);
   await Promise.allSettled([syncChannels(env),syncBooks(env)]);
   const actors = await activeAutomationActors(env.DB), s = await load(env.DB);
   const now = new Date(scheduledTime).toISOString(), slot = Math.floor(Date.parse(now) / 900000);

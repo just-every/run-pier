@@ -75,6 +75,8 @@ import { bookConnectionViews } from './books/connection-state';
 import { readShopifyLocations } from './channels/setup';
 import { newStallKey, stallKeyHash, stallLink } from './channels/stall-link';
 import { syncBooks } from "./books/sync";
+import { movementExportResponse } from './movement-exports';
+import { searchResponse } from './search';
 import { booksExport } from "./books/export";
 import { nativeExport } from "./native-export";
 import { catalogue } from "./catalogue";
@@ -358,6 +360,10 @@ export async function pierResponse(
     const stall = await stallLink(request, env);
     if (stall) return stall;
     const actor = await current(request, env);
+    const search = await searchResponse(request, env, actor);
+    if (search) return search;
+    const movementExport = await movementExportResponse(request, env, actor, execution);
+    if (movementExport) return movementExport;
     let privateFields = false;
     const reply = (body:unknown,status=200) => json(customFieldProjection(commandProjection(body,actor),actor,privateFields),status);
     if (['/api/pier/stock-changes','/api/pier/stock-changes/ack'].includes(url.pathname)) {
