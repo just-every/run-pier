@@ -128,6 +128,10 @@ test('QuickBooks company authorization posts mapped business documents once and 
     if (revoked) return answerWithStatus({ Fault: { Error: [{ code: '3200' }] } }, 401);
     if (url.pathname.includes('/companyinfo/')) return answer({ CompanyInfo: { Country: 'US' } });
     if (url.pathname.includes('/item/')) return answer({ Item: { Id: '101', Name: 'BOLT', Sku: 'BOLT', Type: 'NonInventory', Active: true, IncomeAccountRef: { value: '303' } } });
+    if(path==='ProfitAndLoss'){
+      const value=[...remote].filter(([key])=>key.startsWith('JournalEntry:')).flatMap(([,entity])=>entity.Line).filter(line=>line.JournalEntryLineDetail.AccountRef.value==='302').reduce((n,line)=>n+(line.JournalEntryLineDetail.PostingType==='Debit'?line.Amount:-line.Amount),0);
+      return answer({Header:{ReportBasis:'Accrual',Currency:'USD',StartPeriod:url.searchParams.get('start_date'),EndPeriod:url.searchParams.get('end_date')},Columns:{Column:[{ColType:'Account'},{ColType:'Money'}]},Rows:{Row:[{type:'Section',Rows:{Row:[{type:'Data',ColData:[{id:'302',value:'Cost of goods'},{value:value.toFixed(2)}]}]}}]}});
+    }
     if (url.pathname.includes('/account/')) {
       let inventory = 0;const accountId=path;
       for (const [key, entity] of remote) {
@@ -175,7 +179,14 @@ test('QuickBooks company authorization posts mapped business documents once and 
   const memberState=await(await pier.request('/api/pier/state',{as:member})).json();assert.equal(memberState.bookConnections.length,0);assert.equal(memberState.bookJobs.length,0);
   assert.equal(creates.get('Invoice'), 3); assert.equal(creates.get('CreditMemo'), 1); assert.equal(creates.get('Bill'), 1);
   await pier.command('book.sync', {}); assert.equal(creates.get('Invoice'), 3); assert.equal(creates.get('CreditMemo'), 1);
-  const invoice = [...remote.values()].find(r => r.Id === result.firstRemote); invoice.Line[0].Amount++;
+  const invoice = [...remote.values()].find(r => r.Id === result.firstRemote);
+  const cash=remote.get('Payment:external');remote.delete('Payment:external');invoice.Balance+=13;
+  await pier.command('book.sync',{});
+  let reopened=await pier.state();assert.equal(reopened.invoicePayments.find(p=>p.provider==='qbo').status,'reversed');assert.equal(reopened.customerBalances[result.b.customer.id].USD,'23.000000000000');
+  remote.set('Payment:external',cash);invoice.Balance-=13;
+  await pier.command('book.sync',{});reopened=await pier.state();assert.equal(reopened.customerBalances[result.b.customer.id].USD,'10.000000000000');
+  invoice.Line[0].Amount++;
+
   await pier.command('book.sync', {});
   assert.equal((await pier.state()).bookJobs.find(j => j.remoteId === result.firstRemote).status, 'uncertain');
   assert.equal(creates.get('Invoice'), 3, 'an external edit is never overwritten');

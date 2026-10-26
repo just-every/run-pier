@@ -64,7 +64,15 @@ try {
   const invoice = (await api(`invoice/${result.firstRemote}`)).Invoice;
   const credit = (await api(`creditmemo/${result.creditRemote}`)).CreditMemo;
   assert.equal(invoice.TotalAmt, 23); assert.equal(credit.TotalAmt, 10);
-  console.log(JSON.stringify({ journey: 'ACCOUNT-001 US QBO sandbox public command path', candidate: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), at: new Date().toISOString(), companyCountry: company.Country, rotationsPersisted: rotations, invoice: { id: invoice.Id, total: invoice.TotalAmt, balance: invoice.Balance }, credit: { id: credit.Id, total: credit.TotalAmt }, jobs: result.state.bookJobs.map(j => ({ kind: j.kind, status: j.status, remoteId: j.remoteId ?? null, reason: j.reason ?? null })) }, null, 2));
+  const nativeInvoices=[];
+  for(const job of result.state.bookJobs.filter(j=>j.sourceKind==='nativeInvoice')){
+    const rows=(await api('query?'+new URLSearchParams({query:`select * from Invoice where DocNumber = '${job.reference}' maxresults 2`}))).QueryResponse.Invoice??[];
+    assert.equal(rows.length,1);assert.equal(rows[0].Id,job.remoteId);assert.equal(rows[0].DueDate,job.document.dueDate);
+    nativeInvoices.push({id:rows[0].Id,total:rows[0].TotalAmt,balance:rows[0].Balance,dueDate:rows[0].DueDate});
+  }
+  const receipt={ journey: 'ACCOUNT-001 US QBO sandbox public command path', candidate: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), at: new Date().toISOString(), companyCountry: company.Country, rotationsPersisted: rotations, invoice: { id: invoice.Id, total: invoice.TotalAmt, balance: invoice.Balance }, credit: { id: credit.Id, total: credit.TotalAmt },nativeInvoices, jobs: result.state.bookJobs.map(j => ({ kind: j.kind, status: j.status, remoteId: j.remoteId ?? null,total:j.total??null,actual:j.actual??null, reason: j.reason ?? null })) };
+  if(process.env.QBO_RECEIPT_PATH)await writeFile(process.env.QBO_RECEIPT_PATH,JSON.stringify(receipt,null,2)+'\n');
+  console.log(JSON.stringify(receipt,null,2));
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'QuickBooks sandbox journey failed.'); process.exitCode = 1;
 } finally { if (h) await h.close(); }

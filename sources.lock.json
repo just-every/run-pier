@@ -1146,7 +1146,7 @@
       "executable": false
     },
     "scripts/journeys/qbo-sandbox.mjs": {
-      "sha256": "52fd0bf29d39c8c83a7b956c19653150c0efdda6afe0a4b858b9ddab86821066",
+      "sha256": "2573ca4f4612948065aa1e0e7e8abcb904cbd57d240a1f2c4f9fb25ce7d95d6e",
       "executable": false
     },
     "scripts/operations-config.mjs": {
@@ -3158,7 +3158,7 @@
       "executable": false
     },
     "src/pier/books/qbo-sync.ts": {
-      "sha256": "f843932d636f2d893290bbe8b8fdb996aed77a4ccd159ca145f252c226d42d94",
+      "sha256": "f4ab801d8b336fe9f94ee37eb5b1c0a6488ea2f07b5a5ae88e20329ae5f4529b",
       "executable": false
     },
     "src/pier/books/qbo-valuation.ts": {
@@ -4722,7 +4722,7 @@
       "executable": false
     },
     "tests/api/books.test.mjs": {
-      "sha256": "56ef1c051fe8a14789c7622695d6319d3cd033b06aa83fc49cddf9999e10a10a",
+      "sha256": "4ef21962c19cb6ace5df4f45650926634a43c19fc09faf6a01fed06f1259c037",
       "executable": false
     },
     "tests/api/catalogue-fixtures.mjs": {

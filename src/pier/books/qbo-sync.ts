@@ -2,6 +2,7 @@ import type { Bindings } from '../../auth.server';
 import { execute } from '../api';
 import { activeAutomationActors, load } from '../storage';
 import { providerOperation, type ProviderAudit } from '../provider-audit';
+import { qboCogs } from './qbo-report';
 import { qboValuation } from './qbo-valuation';
 import type { Row, State } from '../model';
 import { applyQboCredit } from './qbo-credit-application';
@@ -93,7 +94,9 @@ export async function syncQboBooks(env: Bindings) {
       try {
         const account=(await qboClient(connection.baseUrl,secret,transport(state)).request(`account/${encodeURIComponent(accountId)}`)).Account;
         if(!account?.Active||account.AccountType!==(metric==='inventory'?'Other Current Asset':'Cost of Goods Sold')||account.CurrentBalance===undefined)throw new Error('Review the mapped QuickBooks account.');
-        await record('book.reconcile',{metric,actual:usd(cents(account.CurrentBalance)),expected:value,through:new Date().toISOString().slice(0,10)});
+        const through=new Date().toISOString().slice(0,10);
+        const actual=metric==='cogs'?await qboCogs(qboClient(connection.baseUrl,secret,transport(state)),accountId,connection.cutoverDate,through):usd(cents(account.CurrentBalance));
+        await record('book.reconcile',{metric,actual,expected:value,through});
       }catch{
         problem='QuickBooks value comparison needs owner review.';
         await record('book.reconcile',{metric,actual:null,expected:value,problem:`QuickBooks ${metric==='inventory'?'inventory':'cost of goods'} could not be verified. Review the mapped account and authorization.`});
