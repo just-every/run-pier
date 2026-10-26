@@ -4226,7 +4226,7 @@
       "executable": false
     },
     "src/ui/floor/receive.tsx": {
-      "sha256": "b36c1c12b7a419f42601493911f4de4d412404e81afbca18f0f56b323eea2f9f",
+      "sha256": "d0b843a6b70673c64643906b54bc39b27340211cd3f72757ae7bc5147cd387eb",
       "executable": false
     },
     "src/ui/floor/returns.tsx": {
