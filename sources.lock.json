@@ -378,7 +378,7 @@
       "executable": false
     },
     "docs/books-developer.md": {
-      "sha256": "625060347ecdf05e85a44ef772463b5ed5c7e9c0843f08c28c507dfbe80bf2f0",
+      "sha256": "2928059a2ab9a531adff4d08fd27ddc659010fdd77a845dd04d548fc42b77c79",
       "executable": false
     },
     "docs/books.md": {
@@ -3162,7 +3162,7 @@
       "executable": false
     },
     "src/pier/books/qbo-report.ts": {
-      "sha256": "c7f07241aa81f6cbc2e5621555577e4915ca331ee5dee68cd0cf793124689f1a",
+      "sha256": "05868ca8283049a4f2b860cf30cffe7206d0297d2271c833fc6a4da8259ac11c",
       "executable": false
     },
     "src/pier/books/qbo-session.ts": {
@@ -4790,7 +4790,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "73189b14aeeee49415352fc8d6b69a58d0b8330f066aee36705ca7d0a547246e",
+      "sha256": "7945d2843259249ecd76664671e2c09520ff264f79faee3f4f8580771b0c79fa",
       "executable": false
     },
     "tests/api/inbound-asn-fixture.mjs": {
@@ -5002,7 +5002,7 @@
       "executable": false
     },
     "tests/fixtures/books/README.md": {
-      "sha256": "64893bbd1c26bff583852ae8896548b57de858a6917134ede651a1d5412622f0",
+      "sha256": "ebd3869bb9e84e89f55692c5755bc0a9c4b3623e782d9d6b0e5ead0297cdbd4e",
       "executable": false
     },
     "tests/fixtures/books/xero.json": {

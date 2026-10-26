@@ -20,11 +20,11 @@ export async function installation(edge = {}) {
     external: ["node:*", "cloudflare:*"],
     loader: { ".css": "text", ".svg": "text" },
   });
-  const emitted = edge.built ? JSON.parse(await readFile('dist/server/wrangler.json', 'utf8')) : null;
+  const emitted = edge.built ? JSON.parse(await readFile('./dist/server/wrangler.json', 'utf8')) : null;
   const modules = emitted ? [
     { type: 'ESModule', path: resolve('tests/api/built-worker.mjs') },
-    ...[emitted.main, ...(await readdir('dist/server/assets')).filter(file => file.endsWith('.js')).map(file => `assets/${file}`)]
-      .map(file => ({ type: 'ESModule', path: resolve('dist/server', file) })),
+    ...[emitted.main, ...(await readdir('./dist/server/assets')).filter(file => file.endsWith('.js')).map(file => `assets/${file}`)]
+      .map(file => ({ type: 'ESModule', path: resolve('./dist/server', file) })),
   ] : null;
   let origin = edge.production ? "https://localhost" : "http://localhost";
   const setup = randomBytes(32).toString("hex"),
@@ -36,7 +36,7 @@ export async function installation(edge = {}) {
       ...(edge.production ? { https: true } : {}),
       ...(emitted ? {
         modulesRoot: process.cwd(), modules,
-        assets: { directory: resolve('dist/client'), binding: 'ASSETS', run_worker_first: true, routerConfig: { has_user_worker: true } },
+        assets: { directory: resolve('./dist/client'), binding: 'ASSETS', run_worker_first: true, routerConfig: { has_user_worker: true } },
       } : { modules: true, script: bundled.outputFiles[0].text }),
       compatibilityDate: emitted?.compatibility_date ?? "2026-09-08",
       compatibilityFlags: emitted?.compatibility_flags ?? ["nodejs_compat"],

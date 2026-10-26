@@ -3,7 +3,7 @@ import { qboClient } from './qbo-session';
 
 /** Expenses have no reliable Account.CurrentBalance; use the accrual report. */
 export async function qboCogs(client: ReturnType<typeof qboClient>, accountId: string, from: string, through: string) {
-  const report = await client.request('reports/ProfitAndLoss?' + new URLSearchParams({ start_date: from, end_date: through, accounting_method: 'Accrual', summarize_column_by: 'Total' }));
+  const report = await client.request('./reports/ProfitAndLoss?' + new URLSearchParams({ start_date: from, end_date: through, accounting_method: 'Accrual', summarize_column_by: 'Total' }));
   if (report.Header?.ReportBasis !== 'Accrual' || report.Header?.Currency !== 'USD' || report.Header?.StartPeriod !== from || report.Header?.EndPeriod !== through) throw new Error('QuickBooks returned a different report basis, currency or period.');
   const columns = report.Columns?.Column;
   if (!Array.isArray(columns)) throw new Error('QuickBooks returned no report columns.');
