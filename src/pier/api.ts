@@ -12,7 +12,10 @@ import { providerOperation } from './provider-audit';
 import { bulkInputDigest } from './item-agent/bulk';
 import { liveQuestion } from './item-agent/questions';
 import { auditEvent, auditRows, refusedScan } from './audit';
-import { admitScopedCommand, physicalState, scoped } from './permissions';
+import { admitScopedCommand, allowedLocations, physicalState, scoped } from './permissions';
+import { admitPhysicalEffects } from './physical-admission';
+import { admitRead, roleState, physicalResult, operationalState, commandProjection } from './role-reads';
+import { admitCommercialCommand } from './role-visibility';
 import { recurringOrders } from './recurring-orders';
 import { documents } from './documents/commands';
 import { extractDocument } from './documents/provider';
@@ -133,6 +136,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
         : "viewer",
     permissionVersion: role ? JSON.parse(role.data).version : 0,
     permissions: role ? JSON.parse(role.data).permissions : undefined,
+    visibility: role ? JSON.parse(role.data).visibility : undefined,
     sessionId: session.id,
     operatorVersion: session.operator.version,
   };
@@ -154,7 +158,7 @@ async function approver(env: Bindings, c: Context, type: string, p: any) {
     .bind(record.approval.actorId)
     .first<any>();
   const role = a?.data
-    ? (JSON.parse(a.data).permissions && JSON.parse(a.data).role !== "owner" ? "viewer" : JSON.parse(a.data).role)
+    ? (JSON.parse(a.data).role !== 'owner' && (JSON.parse(a.data).permissions || JSON.parse(a.data).role === 'buyer' && JSON.parse(a.data).visibility?.costs === false || ['operator', 'sales'].includes(JSON.parse(a.data).role) && JSON.parse(a.data).visibility?.prices === false) ? "viewer" : JSON.parse(a.data).role)
     : a?.role === "owner"
       ? "owner"
       : "viewer";
@@ -169,7 +173,7 @@ async function approver(env: Bindings, c: Context, type: string, p: any) {
             ? ["owner", "buyer"]
             : record.kind === "count-drift"
               ? ["owner", "warehouse"]
-              : ["owner", "operator"];
+              : ["owner", "operator", "sales"];
   if (!a || a.status !== "active" || !allowed.includes(role))
     fail(
       "APPROVER_REVOKED",
@@ -192,11 +196,12 @@ export async function execute(
   if (!(await env.DB.prepare(`SELECT CASE WHEN (${gate.sql}) THEN 1 ELSE 0 END AS ok`).bind(...gate.params).first<any>())?.ok)
     throw new Problem('AUTH', 'Session or role changed. Sign in again.', null, 401);
   admitScopedCommand(await load(env.DB), actor, type, payload);
+  admitCommercialCommand(actor, type);
   const digest = sha256(canonicalJson({ type, payload }));
   const previous = await saved(env.DB, commandId, digest, actor);
   if (previous) {
     if (actor.role !== 'owner' && (type.startsWith('customField.') || type.startsWith('import.') && privateFieldCustody(await load(env.DB)) || previous.result?.pdf)) throw new Problem('FORBIDDEN', 'Current owner authority is required to recover protected field content, originals or documents.', null, 403);
-    return previous;
+    return { ...previous, result: physicalResult(await load(env.DB), actor, previous.result) };
   }
   // A losing optimistic admission is recomputed from current stock. This is
   // database concurrency handling, not a retry of an external effect or model.
@@ -259,6 +264,7 @@ export async function execute(
       if (result !== undefined) break;
     }
     if (result === undefined) fail("COMMAND", "Unknown command type.");
+    if (scoped(actor)) admitPhysicalEffects(before, s, allowedLocations(before, actor));
     for (const message of s.correspondence.filter(message => message.kind === 'purchase-order' && !message.documentId && !before.correspondence.some(old => old.id === message.id))) {
       const document = await generateDocument(c, { kind: 'purchase-order', sourceId: message.recordId }, undefined, true);
       message.documentId = document.id;
@@ -302,12 +308,14 @@ export async function execute(
     }
     invalidatePurchaseSends(c);
     if (type === 'itemAgent.bulkApply') result.sourceDigest = bulkInputDigest(c);
+    const visibleResult = physicalResult(s, actor, result);
     c.audit = auditEvent(c, before, type, payload, result, type.endsWith(".failed") ? "failed" : "accepted");
     try {
-      return await commit(env, c, before, digest, result);
+      const outcome = await commit(env, c, before, digest, result);
+      return { ...outcome, result: visibleResult };
     } catch (error) {
       const replay = await saved(env.DB, commandId, digest, actor);
-      if (replay) return replay;
+      if (replay) return { ...replay, result: physicalResult(await load(env.DB), actor, replay.result) };
       const latest = await load(env.DB);
       if (latest.version !== before.version) {
         if (attempt < 7) continue;
@@ -350,12 +358,13 @@ export async function pierResponse(
     if (stall) return stall;
     const actor = await current(request, env);
     let privateFields = false;
-    const reply = (body:unknown,status=200) => json(customFieldProjection(body,actor,privateFields),status);
+    const reply = (body:unknown,status=200) => json(customFieldProjection(commandProjection(body,actor),actor,privateFields),status);
     if (['/api/pier/stock-changes','/api/pier/stock-changes/ack'].includes(url.pathname)) {
       if (request.method === 'POST' && (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin || !request.headers.get('content-type')?.includes('application/json'))) throw new Problem('ORIGIN','Use same-origin JSON acknowledgement.',null,403);
       return await stockFeed(request,env.DB,actor,await load(env.DB));
     }
     if (request.method === "GET") {
+      admitRead(actor, url);
       const full = await load(env.DB), s = physicalState(full, actor),
         c = { s, actor, commandId: "", now: new Date().toISOString() };
       privateFields = privateFieldCustody(full);
@@ -378,9 +387,10 @@ export async function pierResponse(
       if (url.pathname === '/api/pier/custom-fields') return reply(customFieldRead(c,url.searchParams));
       if (url.pathname === '/api/pier/questions') return reply(liveQuestion(full, actor, url.searchParams));
       if (scoped(actor)) {
-        if (!['/api/pier/state', '/api/pier/scope-export'].includes(url.pathname)) throw new Problem('SCOPE', 'This door requires wider authority; use your scoped stock export.', null, 403);
         if (url.pathname === '/api/pier/scope-export') return reply({ format: 'pier-scoped-stock-v1', ...s });
+        if (url.pathname === '/api/pier/state') return reply(operationalState(full, actor));
       }
+      if (url.pathname === '/api/pier/scope-export') return reply({ format: 'pier-scoped-stock-v1', ...operationalState(full, actor) });
       const reportFile = /^\/api\/pier\/report-snapshots\/([^/]+)\.csv$/.exec(url.pathname);
       if (reportFile) {
         if (actor.role !== 'owner') throw new Problem('FORBIDDEN','Only an owner can export saved report details.',null,403);
@@ -421,9 +431,17 @@ export async function pierResponse(
         return new Response(Uint8Array.from(atob(doc.pdf),ch=>ch.charCodeAt(0)),{headers:{'content-type':'application/pdf','cache-control':'no-store','content-disposition':`inline; filename="${doc.filename}"`,'x-content-type-options':'nosniff'}});
       }
       const packSlip = /^\/api\/pier\/packs\/([^/]+)\/packing-slip$/.exec(url.pathname);
-      if (packSlip) return packDocument(s, packSlip[1]);
+      if (packSlip) {
+        const physical = actor.role !== 'owner' ? operationalState(full, actor) : s;
+        if (!physical.packs.some(pack => pack.id === packSlip[1])) throw new Problem('SCOPE', 'This pack is outside your current warehouse grant.', null, 403);
+        return packDocument(physical, packSlip[1], actor.role !== 'owner');
+      }
       const packingSlip = /^\/api\/pier\/orders\/([^/]+)\/packing-slip$/.exec(url.pathname);
-      if (packingSlip) return kitDocument(s, packingSlip[1]);
+      if (packingSlip) {
+        const physical = actor.role !== 'owner' ? operationalState(full, actor) : s;
+        if (!physical.orders.some(order => order.id === packingSlip[1])) throw new Problem('SCOPE', 'This order is outside your current warehouse grant.', null, 403);
+        return kitDocument(physical, packingSlip[1], actor.role !== 'owner');
+      }
       const ediDownload = ediFile(s, url.pathname);
       if (ediDownload) return ediDownload;
       if (["/api/pier/books/export.csv","/api/pier/books/export.iif"].includes(url.pathname)) {
@@ -514,7 +532,7 @@ export async function pierResponse(
         ).all()
       ).results;
       const bookConnections = await bookConnectionViews(env, s);
-      return reply({
+      return reply(roleState(full, actor, {
         ...s,
         invoices: actor.role==='owner'?s.invoices.map(i=>({...i,balance:nativeBalance(s,i.id)})):[],
         customerProfiles: actor.role === 'owner' ? customerViews(s, c.now) : [],
@@ -553,7 +571,7 @@ export async function pierResponse(
         commands,
         auditEvents: scoped(actor) ? [] : await auditRows(env.DB),
         operators,
-      });
+      }));
     }
     if (request.method !== "POST" || !["/api/pier/commands", "/api/pier/catalogue/preview"].includes(url.pathname))
       return reply(
@@ -608,6 +626,7 @@ export async function pierResponse(
         400,
       );
     admitScopedCommand(await load(env.DB), actor, type, payload);
+    admitCommercialCommand(actor, type);
     if (type === "role.set") {
       const target = await env.DB.prepare(
         "SELECT role FROM oa_operators WHERE id=?",

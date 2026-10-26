@@ -4,6 +4,10 @@ import { randomUUID, generateKeyPairSync, sign } from "node:crypto";
 import { documentOriginal } from './document-original.mjs';
 import { readFile } from 'node:fs/promises';
 import { installation, basics, buy, receive } from "./harness.mjs";
+import { scopedWarehouseWork, commercialRoleMatrix } from './role-scenarios.mjs';
+
+test('scoped warehouse receipts, picks, packs, slips and dispatch retain physical authority after revocation', scopedWarehouseWork);
+test('commercial role reads, downloads and recovered results enforce current cost and price restrictions', commercialRoleMatrix);
 const native = (quantity = "1") => ({
   namespace: "sheet",
   sourceVersion: "v1",

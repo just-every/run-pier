@@ -1,5 +1,6 @@
 import { typedFields } from './custom-fields';
 import { parsePermissions } from './permissions';
+import { parseVisibility } from './role-visibility';
 import {
   decimal,
   format,
@@ -20,7 +21,7 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
   if (type === "role.set") {
     requireRole(c, []);
     if (
-      !["buyer", "operator", "warehouse", "viewer", "agent", "owner"].includes(
+      !["buyer", "operator", "sales", "finance", "warehouse", "viewer", "agent", "owner"].includes(
         p.role,
       )
     )
@@ -29,14 +30,16 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       fail("ROLE", "Use native owner management to change your own authority.");
     if (p.role === "owner" && p.permissions !== undefined) fail("ROLE", "Owner authority cannot be restricted by a physical stock grant. Choose a staff role.");
     const permissions = parsePermissions(p.permissions, c.s);
+    const visibility = parseVisibility(p.visibility, p.role);
     const old = c.s.roles.find((r) => r.id === p.operatorId);
     if (old) {
       old.role = p.role;
       old.permissions = permissions;
+      old.visibility = visibility;
       old.version++;
       return old;
     }
-    return row(c, "roles", { id: text(p.operatorId), role: p.role, permissions });
+    return row(c, "roles", { id: text(p.operatorId), role: p.role, permissions, visibility });
   }
   if (
     !["item.save", "location.save", "party.save", "supplierItem.save"].includes(

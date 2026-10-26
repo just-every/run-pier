@@ -180,6 +180,7 @@ export type Actor = {
   operatorVersion: number;
   permissionVersion?: number;
   permissions?: import("./permissions").Permissions;
+  visibility?: import("./role-visibility").Visibility;
 };
 export type Context = {
   s: State;
@@ -212,7 +213,8 @@ export function fresh(row: Row, version: unknown) {
     });
 }
 export function requireRole(c: Context, roles: string[]) {
-  if (!roles.includes(c.actor.role) && c.actor.role !== "owner")
+  const role = c.actor.role === 'sales' ? 'operator' : c.actor.role;
+  if (!roles.includes(role) && !roles.includes(c.actor.role) && c.actor.role !== "owner")
     (() => {
       throw new Problem(
         "FORBIDDEN",

@@ -8,7 +8,7 @@ export function quoteApprovalPolicy(s: State) {
 export function saveQuoteApprovalPolicy(c: Context, p: any): Row {
   requireRole(c, []);
   // Only human commercial roles can approve. ACCESS may extend this list.
-  if (!['owner', 'operator', 'buyer'].includes(p.role))
+  if (!['owner', 'operator', 'sales', 'buyer'].includes(p.role))
     fail('APPROVER_ROLE', 'Choose Owner, Sales operator or Buyer.');
   const old = c.s.salesPolicies.find(r => r.kind === 'quote-approval');
   if (old) fresh(old, p.version);
@@ -30,7 +30,7 @@ export function requireQuoteApproval(c: Context, q: Row) {
   if ((approval.policyVersion ?? 0) !== policy.version)
     fail('QUOTE_APPROVAL', 'Quote approval policy changed. Obtain renewed approval.');
   const role = c.automationActors?.[approval.actorId];
-  if (!role || role !== approval.role || !['owner', policy.role].includes(role))
+  if (!role || role !== approval.role || !['owner', policy.role, ...(policy.role === 'operator' ? ['sales'] : [])].includes(role))
     fail('APPROVER_REVOKED', 'Quote approval authority was revoked. Obtain renewed approval.');
   c.approver = { id: approval.actorId, role: role! };
 }
