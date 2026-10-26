@@ -483,8 +483,11 @@ try {
     assert.ok(final.auditEvents.some(event=>event.type==='privacy.eraseSubject'&&event.outcome==='refused'&&event.custody?.classes.includes('imports')));
     const member=await running.request('/auth/dev/enter?as=member');
     assert.equal(member.status,303);
-    const memberCookie=member.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+    const memberCookies=new Map(running.sessionCookie().split(';').map(part=>{const value=part.trim(),index=value.indexOf('=');return [value.slice(0,index),value.slice(index+1)];}));
+    for(const header of member.headers.getSetCookie()){const value=header.split(';')[0],index=value.indexOf('=');memberCookies.set(value.slice(0,index),value.slice(index+1));}
+    const memberCookie=[...memberCookies].map(([name,value])=>name+'='+value).join('; ');
     const privateState=await(await running.request('/api/pier/state','GET',undefined,memberCookie)).json();
+    assert.equal(privateState.actor.role,'viewer');
     assert.equal(privateState.imports,undefined);
     assert.equal((await running.request('/api/pier/native-export','GET',undefined,memberCookie)).status,403);
     assert.ok(!JSON.stringify(final.auditEvents).includes('synthetic-pier-private-'));
