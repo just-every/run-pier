@@ -43,15 +43,20 @@ export async function qboScreens(h, result, directory) {
       await expect(page.getByRole('heading', { name: 'Connect QuickBooks Online', exact: true })).toBeVisible();
       await expect(page.getByLabel('Authorized refresh token', { exact: true })).toHaveValue('');
       await page.screenshot({ path: join(directory, `${width}-qbo-saved-settings.png`), fullPage: true, mask: ['Authorized company ID', 'Intuit client ID', 'Intuit client secret', 'Authorized refresh token'].map(label => page.getByLabel(label, { exact: true })) });
-      await context.clearCookies();
-      await page.reload();
-      await page.evaluate(() => window.scrollTo(0, 0));
-      assert.equal((await page.request.get(h.origin + '/api/pier/state')).status(), 401);
-      await expect(page.getByRole('heading', { name: /sign in/i }).or(page.getByRole('link', { name: /sign in/i })).or(page.getByRole('button', { name: /sign in/i })).first()).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Connect QuickBooks Online', exact: true })).toHaveCount(0);
-      await page.screenshot({ path: join(directory, `${width}-qbo-session-denied.png`), fullPage: true });
+      await qboSessionDenied(page, context, h, directory, width);
       await context.addCookies(h.browserCookies());
     }
     await context.close();
   } finally { await browser.close(); }
+}
+
+export async function qboSessionDenied(page, context, h, directory, width) {
+  await context.clearCookies();
+  await page.reload();
+  await page.waitForURL(url => url.pathname === '/signin');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  assert.equal((await page.request.get(h.origin + '/api/pier/state')).status(), 401);
+  await expect(page.getByRole('heading', { name: /sign in/i }).or(page.getByRole('link', { name: /sign in/i })).or(page.getByRole('button', { name: /sign in/i })).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Connect QuickBooks Online', exact: true })).toHaveCount(0);
+  await page.screenshot({ path: join(directory, `${width}-qbo-session-denied.png`), fullPage: true });
 }

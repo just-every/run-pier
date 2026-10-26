@@ -458,7 +458,7 @@
       "executable": false
     },
     "docs/proofs/qbo-sandbox-2026-10-26.json": {
-      "sha256": "ab7236adc81a3e9782981ac2f41b923a2a93db5a0ac024c0dbb832561cdcf548",
+      "sha256": "bfec2eb31821678fcf0c6b96ff65c84acf7aedf6049bb4f65ae68fd8e8ad89b3",
       "executable": false
     },
     "docs/replenishment.md": {
@@ -1154,7 +1154,7 @@
       "executable": false
     },
     "scripts/journeys/qbo-screens.mjs": {
-      "sha256": "01717ad8fa1133e7f548e3aa9019d70031e891bce6947bed979ec3e0a144b6b8",
+      "sha256": "d3716f1d3f5fce2e9ecaa315d0bae38bd458354df2ac5ef430c6cd843514bee0",
       "executable": false
     },
     "scripts/operations-config.mjs": {

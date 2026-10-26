@@ -1,34 +1,34 @@
 {
   "journey": "ACCOUNT-001 US QBO sandbox public command path",
-  "candidate": "549e4256aebada143b2a0b51ad3c6c88e7dfc293",
-  "at": "2026-10-26T07:25:17.337Z",
+  "candidate": "61ec2f93f053806c958f230c0b8ff96d72dd0739",
+  "at": "2026-10-26T09:43:08.013Z",
   "companyCountry": "US",
   "rotationsPersisted": 2,
   "invoice": {
-    "id": "162",
+    "id": "251",
     "total": 23,
     "balance": 0
   },
   "credit": {
-    "id": "165",
+    "id": "255",
     "total": 10
   },
   "nativeInvoices": [
     {
-      "id": "158",
-      "total": 0,
-      "balance": 0,
-      "dueDate": "2026-11-25"
-    },
-    {
-      "id": "160",
+      "id": "248",
       "total": 10,
       "balance": 10,
       "dueDate": "2026-10-26"
     },
     {
-      "id": "162",
+      "id": "251",
       "total": 23,
+      "balance": 0,
+      "dueDate": "2026-11-25"
+    },
+    {
+      "id": "252",
+      "total": 0,
       "balance": 0,
       "dueDate": "2026-11-25"
     }
@@ -36,32 +36,56 @@
   "jobs": [
     {
       "kind": "invoice",
-      "status": "reconciled",
-      "remoteId": "158",
-      "total": "12.00",
+      "status": "posted",
+      "remoteId": "248",
+      "total": "10.00",
       "actual": null,
-      "reason": "QuickBooks confirmed the unpaid invoice void."
+      "reason": ""
+    },
+    {
+      "kind": "journal",
+      "status": "posted",
+      "remoteId": "249",
+      "total": "0.25",
+      "actual": null,
+      "reason": ""
     },
     {
       "kind": "bill",
       "status": "posted",
-      "remoteId": "159",
+      "remoteId": "250",
       "total": "3.00",
       "actual": null,
       "reason": ""
     },
     {
       "kind": "invoice",
+      "status": "reconciled",
+      "remoteId": "251",
+      "total": "23.00",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "invoice",
+      "status": "reconciled",
+      "remoteId": "252",
+      "total": "12.00",
+      "actual": null,
+      "reason": "QuickBooks confirmed the unpaid invoice void."
+    },
+    {
+      "kind": "journal",
       "status": "posted",
-      "remoteId": "160",
-      "total": "10.00",
+      "remoteId": "253",
+      "total": "0.50",
       "actual": null,
       "reason": ""
     },
     {
       "kind": "item",
       "status": "posted",
-      "remoteId": "21",
+      "remoteId": "28",
       "total": "0.00",
       "actual": null,
       "reason": ""
@@ -69,31 +93,7 @@
     {
       "kind": "journal",
       "status": "posted",
-      "remoteId": "161",
-      "total": "0.25",
-      "actual": null,
-      "reason": ""
-    },
-    {
-      "kind": "invoice",
-      "status": "reconciled",
-      "remoteId": "162",
-      "total": "23.00",
-      "actual": null,
-      "reason": ""
-    },
-    {
-      "kind": "journal",
-      "status": "posted",
-      "remoteId": "163",
-      "total": "0.50",
-      "actual": null,
-      "reason": ""
-    },
-    {
-      "kind": "journal",
-      "status": "posted",
-      "remoteId": "164",
+      "remoteId": "254",
       "total": "0.25",
       "actual": null,
       "reason": ""
@@ -101,7 +101,7 @@
     {
       "kind": "credit",
       "status": "posted",
-      "remoteId": "165",
+      "remoteId": "255",
       "total": "10.00",
       "actual": null,
       "reason": ""
@@ -109,7 +109,7 @@
     {
       "kind": "journal",
       "status": "posted",
-      "remoteId": "168",
+      "remoteId": "258",
       "total": "0.25",
       "actual": null,
       "reason": ""
