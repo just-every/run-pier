@@ -26,6 +26,7 @@ export async function syncQboBooks(env: Bindings) {
     const transport = (state: State, job?: Row): typeof fetch => async (input, init) => {
       const source: ProviderAudit = { actor, policy, commandId: crypto.randomUUID(), connectorId: 'qbo', operation: 'book.qboRequest', direction: (init?.method ?? 'GET') === 'GET' ? 'inbound' : 'outbound', state,
         sources: [{ collection: 'bookConnections', row: connection }, ...(job ? [{ collection: 'bookJobs' as const, row: job }] : [])], requestId: job?.key, externalIds: job?.remoteId ? [job.remoteId] : [] };
+      if(job){for(const collection of ['invoices','invoiceCredits','supplierBills','receipts'] as const){const record=state[collection].find(r=>r.id===job.sourceId);if(record)source.sources.push({collection,row:record});}}
       return providerOperation(env.DB, source, () => fetch(input, init), response => ({ outcome: response.ok ? 'accepted' : response.status < 500 ? 'refused' : 'uncertain' }));
     };
     let secret: Record<string, string>;

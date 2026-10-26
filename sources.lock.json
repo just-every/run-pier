@@ -3158,7 +3158,7 @@
       "executable": false
     },
     "src/pier/books/qbo-sync.ts": {
-      "sha256": "80ef67fd95272034a4afdabe68daf8794900d957bb256d58e2a448b4f2563ad9",
+      "sha256": "f843932d636f2d893290bbe8b8fdb996aed77a4ccd159ca145f252c226d42d94",
       "executable": false
     },
     "src/pier/books/qbo-valuation.ts": {
