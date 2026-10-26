@@ -112,14 +112,15 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
 });
 
 test('customer terms, currency aging and invoice representatives retain their own source history', async t => {
-  const h = await installation(); t.after(() => h.close());
+  const now = '2026-10-15T12:00:00Z';
+  const h = await installation({ now }); t.after(() => h.close());
   const b = await basics(h);
   const rep = await h.command('salesRep.save', { name: 'synthetic-pier-outside-rep', kind: 'outside' });
   const nextRep = await h.command('salesRep.save', { name: 'synthetic-pier-next-rep', kind: 'outside' });
   let customer = await h.command('customer.profile', { customerId: b.customer.id, version: b.customer.version, contacts: ['Accounts contact'], addresses: ['Synthetic delivery address'], paymentTerms: { kind: 'net30' }, reason: 'Reviewed customer terms' });
   customer = await h.command('customer.rep', { customerId: customer.id, version: customer.version, salesRepId: rep.id, reason: 'Assigned outside representative' });
   await h.command('sales.taxTable', { state: 'CA', rate: '0', reason: 'Reviewed synthetic no-tax table' });
-  const today = new Date().toISOString().slice(0, 10), day = n => new Date(Date.parse(today) - n * 86400000).toISOString().slice(0, 10);
+  const today = now.slice(0, 10), day = n => new Date(Date.parse(today) - n * 86400000).toISOString().slice(0, 10);
   const invoices = [], orders = [];
   for (const days of [0, 1, 31, 61, 91]) {
     let order = await h.command('order.create', { customerId: customer.id, warehouse: 'North', shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '1', price: '10' }] });

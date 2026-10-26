@@ -27,7 +27,7 @@ export function operationalState(full: State, actor: Actor) {
   const s = physicalState(full, physicalActor);
   const c = { s, actor, commandId: '', now: new Date().toISOString() };
   return { ...s, actor, ...floorState(c), positions: positions(s), ...stockPosition(s),
-    commands: [], operators: [], people: [], bookConnections: [], receiptClosures: [], deliveries: [], auditEvents: [], forecasts: [], reorder: [], tracePositions: [] };
+    commands: [], operators: [], people: [], bookConnections: [], receiptClosures: [], deliveries: [], auditEvents: [], forecasts: [], reorder: [], tracePositions: [], customerProfiles: [], customerBalances: {} };
 }
 
 /** A finite collection matrix; new collection classes remain private. */

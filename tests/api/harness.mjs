@@ -78,6 +78,7 @@ export async function installation(edge = {}) {
         headers: {
           origin,
           "content-type": "application/json",
+          ...(edge.now ? { 'x-pier-test-now': edge.now } : {}),
           ...(as ? { cookie: as } : {}),
           ...extraHeaders,
         },

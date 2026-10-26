@@ -3678,7 +3678,7 @@
       "executable": false
     },
     "src/pier/role-reads.ts": {
-      "sha256": "760a823aa795b6d041cdae07d8aed7bbdf87e8a7617c4c14b6d488ff4140030f",
+      "sha256": "d9c0dc948f8e02277caa25d5945499e41419af99d783c1fa9fb3b97169be461e",
       "executable": false
     },
     "src/pier/role-visibility.ts": {
@@ -4634,7 +4634,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "01ef89455a08ba83e43f99a709a309c81eb9b7b713b33ce158e20863f90339b7",
+      "sha256": "e016accb947e219fcb46e31911408ca65721cd99adcf5083cad4b7a92abbaae7",
       "executable": false
     },
     "tests/api/inbound-asn-fixture.mjs": {
@@ -4694,7 +4694,7 @@
       "executable": false
     },
     "tests/api/returns.test.mjs": {
-      "sha256": "6b33977c6d604198a585d96a44758831c1e8b62daf92f4ffedd967fea6744278",
+      "sha256": "6be77947024203696eef4a9cf0815b48f7e35ae7c4411f2d470e5211f410094a",
       "executable": false
     },
     "tests/api/role-scenarios.mjs": {
