@@ -192,6 +192,7 @@ export async function execute(
   if (!(await env.DB.prepare(`SELECT CASE WHEN (${gate.sql}) THEN 1 ELSE 0 END AS ok`).bind(...gate.params).first<any>())?.ok)
     throw new Problem('AUTH', 'Session or role changed. Sign in again.', null, 401);
   admitScopedCommand(await load(env.DB), actor, type, payload);
+  if(type.startsWith('book.')&&actor.role!=='owner')throw new Problem('FORBIDDEN','Current owner authority is required for books commands and recovered results.',null,403);
   const digest = sha256(canonicalJson({ type, payload }));
   const previous = await saved(env.DB, commandId, digest, actor);
   if (previous) {
@@ -513,7 +514,7 @@ export async function pierResponse(
           "SELECT id,display_name AS name FROM oa_operators",
         ).all()
       ).results;
-      const bookConnections = await bookConnectionViews(env, s);
+      const bookConnections = (await bookConnectionViews(env, s)).filter(row=>actor.role==='owner'||row.provider!=='qbo');
       return reply({
         ...s,
         invoices: actor.role==='owner'?s.invoices.map(i=>({...i,balance:nativeBalance(s,i.id)})):[],
@@ -528,6 +529,7 @@ export async function pierResponse(
         actor,
         people,
         bookConnections,
+        bookJobs:actor.role!=='owner'&&s.bookConnections.some(r=>r.provider==='qbo')?[]:s.bookJobs,
         receiptClosures: receiptBookViews(s, bookConnections.some(row => row.enabled && row.credentialPresent && !row.problem)),
         orders: s.orders.map((o) => ({ ...orderView(c, o),...(actor.role==='owner'?{}:{creditClearance:undefined}), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),
@@ -608,6 +610,7 @@ export async function pierResponse(
         400,
       );
     admitScopedCommand(await load(env.DB), actor, type, payload);
+  if(type.startsWith('book.')&&actor.role!=='owner')throw new Problem('FORBIDDEN','Current owner authority is required for books commands and recovered results.',null,403);
     if (type === "role.set") {
       const target = await env.DB.prepare(
         "SELECT role FROM oa_operators WHERE id=?",

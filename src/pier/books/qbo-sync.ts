@@ -56,6 +56,7 @@ export async function syncQboBooks(env: Bindings) {
         }
         let result = await remote.read(doc);
         if (!result && job.attempted && !job.resend) {
+          if(job.status==='review')continue;
           await record('book.record', { jobId: job.id, result: { status: 'uncertain', reason: 'QuickBooks has no matching record for this attempted posting. The owner must retry after checking the company.', fix: 'Check QuickBooks, then choose Retry. Pier keeps the original request identity.' } }); continue;
         }
         if (!result || doc.payment && !result.paymentCurrent) {

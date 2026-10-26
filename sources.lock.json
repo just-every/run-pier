@@ -3074,7 +3074,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "de6048775fc9630488dd2daff218b5797e7d084ff6886187b6a31947732a5159",
+      "sha256": "952f162555bf394b97bb01dfaaeaaec37ca390c74b87353d2863d021cc79149e",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3122,7 +3122,7 @@
       "executable": false
     },
     "src/pier/books/connection-state.ts": {
-      "sha256": "dd50406e71a419f3613a87cca87d12ac3e746126468a0b9fe90eba5598a79f25",
+      "sha256": "b6f2b6117feb3f00cc5b3d87c94172a196d0d33e7c00968d04de0534628c0156",
       "executable": false
     },
     "src/pier/books/export.ts": {
@@ -3158,7 +3158,7 @@
       "executable": false
     },
     "src/pier/books/qbo-sync.ts": {
-      "sha256": "8a319b103375e7c96cf2db06c8f18154be537b6bc5ef752d5548fb777c945b13",
+      "sha256": "80ef67fd95272034a4afdabe68daf8794900d957bb256d58e2a448b4f2563ad9",
       "executable": false
     },
     "src/pier/books/qbo-valuation.ts": {
@@ -4722,7 +4722,7 @@
       "executable": false
     },
     "tests/api/books.test.mjs": {
-      "sha256": "5f630f69a22d3d258c689bb7abdfe6b734d5b064a8d0c68b8961bf2efb17ce83",
+      "sha256": "56ef1c051fe8a14789c7622695d6319d3cd033b06aa83fc49cddf9999e10a10a",
       "executable": false
     },
     "tests/api/catalogue-fixtures.mjs": {

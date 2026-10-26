@@ -7,6 +7,6 @@ export async function bookConnectionViews(env: Bindings, state: State) {
   const secret = await credentials(env, 'books:pantry').catch(() => ({} as Record<string, string>));
   const credentialPresent = PANTRY_CREDENTIAL.test(secret.integrationToken ?? '');
   const qbo = await credentials(env, 'books:qbo').catch(() => ({} as Record<string,string>));
-  return state.bookConnections.map(connection => connection.provider==='qbo' ? ({...connection, enabled:Boolean(connection.enabled), credentialPresent:Boolean(qbo.refreshToken), ...(connection.enabled&&!qbo.refreshToken?{problem:'Reconnect QuickBooks. Restored archives carry no credentials.'}:{})}) : ({ ...connection, enabled: Boolean(connection.enabled), credentialPresent,
+  return state.bookConnections.map(connection => connection.provider==='qbo' ? ({...connection, provider:connection.provider, enabled:Boolean(connection.enabled), credentialPresent:Boolean(qbo.refreshToken), ...(connection.enabled&&!qbo.refreshToken?{problem:'Reconnect QuickBooks. Restored archives carry no credentials.'}:{})}) : ({ ...connection, provider:connection.provider, enabled: Boolean(connection.enabled), credentialPresent,
     ...(connection.enabled && !credentialPresent ? { problem: 'Pier holds no Pantry credential. Restored backups never carry connection credentials. Choose Reconnect Pantry and paste a new integration credential from Pantry.' } : {}) }));
 }
