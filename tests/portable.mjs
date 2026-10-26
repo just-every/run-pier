@@ -470,7 +470,7 @@ try {
   undoBatch=await running.cmd('import.commit',{batchId:undoBatch.id,version:undoBatch.version});
   await running.cmd('import.undo',{batchId:undoBatch.id,version:undoBatch.version,reason:'Remove all eligible imported live definitions'});
   const unrelated=await running.cmd('party.save',{kind:'customer',name:'Unrelated custody subject'});
-  const refusalProof=async()=>{
+  const refusalProof=async(restored=false)=>{
     const current=await(await running.request('/api/pier/export')).json();
     assert.equal(current.customFieldDefinitions.length,0);
     assert.ok(current.imports.some(batch=>batch.status==='undone'&&batch.source.records.some(r=>r.kind==='customFieldDefinitions')));
@@ -481,7 +481,17 @@ try {
     const final=await(await running.request('/api/pier/export')).json();
     assert.deepEqual(final.imports,current.imports);
     assert.ok(final.auditEvents.some(event=>event.type==='privacy.eraseSubject'&&event.outcome==='refused'&&event.custody?.classes.includes('imports')));
-    const member=await running.request('/auth/dev/enter?as=member');
+    let member=await running.request('/auth/dev/enter?as=member');
+    if(restored){
+      assert.equal(member.status,403,'restore does not reactivate the prior staff identity');
+      const state=await(await running.request('/api/pier/state')).json();
+      assert.equal(state.actor.role,'owner');
+      const inactive=state.operators.filter(operator=>operator.role!=='owner'&&operator.status==='inactive');
+      assert.equal(inactive.length,1);
+      const reactivated=await running.request('/auth/operator/status','POST',{operatorId:inactive[0].id,status:'active'});
+      assert.equal(reactivated.status,200,'fresh owner explicitly reactivates this staff identity');
+      member=await running.request('/auth/dev/enter?as=member');
+    }
     assert.equal(member.status,303);
     const memberCookies=new Map(running.sessionCookie().split(';').map(part=>{const value=part.trim(),index=value.indexOf('=');return [value.slice(0,index),value.slice(index+1)];}));
     for(const header of member.headers.getSetCookie()){const value=header.split(';')[0],index=value.indexOf('=');memberCookies.set(value.slice(0,index),value.slice(index+1));}
@@ -505,7 +515,7 @@ try {
   await command(undoRoot,['setup','--owner-email','owner@example.test','--non-interactive','--port',String(undoPort)]);
   running=await start(undoRoot,undoPort);
   assert.equal((await running.request('/api/pier/state','GET',undefined,undoSession)).status,401);
-  const undoAfter=await refusalProof();
+  const undoAfter=await refusalProof(true);
   assert.deepEqual(undoAfter.imports,undoBefore.imports);
   assert.deepEqual(undoAfter.importJournal,undoBefore.importJournal);
   await running.close();running=null;
