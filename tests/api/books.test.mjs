@@ -120,14 +120,14 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
 });
 
 test('QuickBooks company authorization posts mapped business documents once and exposes external conflicts and expiry', async t => {
-  const remote = new Map(), creates = new Map(); let next = 1000, revoked = false, closed = false;
+  const remote = new Map(), creates = new Map(); let next = 1000, revoked = false, closed = false, inventoryItem = false;
   const answer = body => Response.json(body);
   const pier = await installation({ async outboundService(request) {
     const url = new URL(request.url), path = url.pathname.split('/').at(-1);
     if (url.hostname === 'oauth.platform.intuit.com') return answer({ access_token: 'synthetic-pier-2', refresh_token: 'synthetic-pier-3', expires_in: 3600 });
     if (revoked) return answerWithStatus({ Fault: { Error: [{ code: '3200' }] } }, 401);
     if (url.pathname.includes('/companyinfo/')) return answer({ CompanyInfo: { Country: 'US' } });
-    if (url.pathname.includes('/item/')) return answer({ Item: { Id: '101', Name: 'BOLT', Sku: 'BOLT', Type: 'NonInventory', Active: true, IncomeAccountRef: { value: '303' } } });
+    if (url.pathname.includes('/item/')) return answer({ Item: { Id: '101', Name: 'BOLT', Sku: 'BOLT', Type: inventoryItem ? 'Inventory' : 'NonInventory', Active: true, IncomeAccountRef: { value: '303' } } });
     if(path==='ProfitAndLoss'){
       const value=[...remote].filter(([key])=>key.startsWith('JournalEntry:')).flatMap(([,entity])=>entity.Line).filter(line=>line.JournalEntryLineDetail.AccountRef.value==='302').reduce((n,line)=>n+(line.JournalEntryLineDetail.PostingType==='Debit'?line.Amount:-line.Amount),0);
       return answer({Header:{ReportBasis:'Accrual',Currency:'USD',StartPeriod:url.searchParams.get('start_date'),EndPeriod:url.searchParams.get('end_date')},Columns:{Column:[{ColType:'Account'},{ColType:'Money'}]},Rows:{Row:[{type:'Section',Rows:{Row:[{type:'Data',ColData:[{id:'302',value:'Cost of goods'},{value:value.toFixed(2)}]}]}}]}});
@@ -195,10 +195,14 @@ test('QuickBooks company authorization posts mapped business documents once and 
   await testPier.command('book.sync', {});
   assert.equal((await pier.state()).bookJobs.find(j => j.remoteId === result.firstRemote).status, 'uncertain');
   assert.equal(creates.get('Invoice'), 3, 'an external edit is never overwritten');
-  closed=true;
+  inventoryItem=true;
   let replacement=(await pier.state()).invoices.find(i=>i.shipmentId===result.secondInvoice.shipmentId&&i.status==='draft');
   replacement=await testPier.command('invoice.review',{invoiceId:replacement.id,version:replacement.version});
   await testPier.command('invoice.authorize',{invoiceId:replacement.id,version:replacement.version});
+  let blocked=(await pier.state()).bookJobs.find(j=>j.sourceId===replacement.id&&j.kind==='invoice');
+  assert.equal(blocked.status,'review');assert.match(blocked.reason,/non-inventory/);assert.equal(blocked.attempted,false);
+  assert.equal(creates.get('Invoice'),3,'an inventory item must not create duplicate ledger quantity or cost postings');
+  inventoryItem=false;closed=true;
   await testPier.command('book.sync',{});
   const held=(await pier.state()).bookJobs.find(j=>j.sourceId===replacement.id&&j.kind==='invoice');
   assert.equal(held.status,'review');assert.match(held.reason,/HTTP 400/);assert.equal(creates.get('Invoice'),3,'a closed period never creates a financial document');

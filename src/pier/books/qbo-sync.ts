@@ -40,6 +40,7 @@ export async function syncQboBooks(env: Bindings) {
       return { processed };
     }
     await record('book.plan', {});
+    const checkedItems = new Map<string, Promise<void>>();
     const snapshots = (await load(env.DB)).bookJobs.filter(j => j.connectionId === connection.id && j.document && j.status !== 'skipped').sort((a, b) => Number(a.kind === 'credit') - Number(b.kind === 'credit'));
     for (const snapshot of snapshots) {
       if (Date.now() - start > 20000) break;
@@ -49,6 +50,16 @@ export async function syncQboBooks(env: Bindings) {
       let creating = false;
       const doc = { ...job.document, ...(job.remoteId ? { remoteId: job.remoteId } : {}) } as BookDocument;
       try {
+        if (doc.kind === 'invoice' || doc.kind === 'credit') {
+          for (const id of new Set(doc.lines.map(line => line.itemId))) {
+            if (!id) throw new Error('Map every QuickBooks sales item before posting.');
+            if (!checkedItems.has(id)) checkedItems.set(id, (async () => {
+              const item = (await qboClient(connection.baseUrl, secret, transport(state, job)).request(`item/${encodeURIComponent(id)}`)).Item;
+              if (item?.Id !== id || item.Active === false || item.Type !== 'NonInventory' || item.IncomeAccountRef?.value !== connection.revenueAccountId) throw new Error('QuickBooks sales items must be active non-inventory items with the mapped income account. Review the item mapping before posting.');
+            })());
+            await checkedItems.get(id);
+          }
+        }
         let remote = createQboAdapter({ baseUrl: connection.baseUrl, credentials: secret, fetch: transport(state, job) });
         const nativeInvoice=job.sourceKind==='nativeInvoice'?state.invoices.find(r=>r.id===job.sourceId):null;
         if(nativeInvoice?.status==='voided'){

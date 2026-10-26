@@ -3170,7 +3170,7 @@
       "executable": false
     },
     "src/pier/books/qbo-sync.ts": {
-      "sha256": "b5088a7aa9211e013e0a5d769043b73a8af54b09100e4ca8b1a776d86035baa3",
+      "sha256": "f99d6ce777ac6702ccde2f9f89f55a903be59fae743b544f65b8bf1953ed5f00",
       "executable": false
     },
     "src/pier/books/qbo-valuation.ts": {
@@ -4738,7 +4738,7 @@
       "executable": false
     },
     "tests/api/books.test.mjs": {
-      "sha256": "0c38474316560cf1a4e9f859111b7782c74adde309e4c5f1b4164b2ee262ede6",
+      "sha256": "a27e98c5032b6000d777e23485373fd1ac75f86b507982cd2125cad436a00122",
       "executable": false
     },
     "tests/api/built-worker.mjs": {
