@@ -653,11 +653,11 @@ Evidence paths are relative to this repository at main’s head. Existing test b
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 12 | 0 | 0 | 12 |
-| Target | 17 | 32 | 6 | 55 |
+| Target | 18 | 31 | 6 | 55 |
 | Push further | 2 | 4 | 0 | 6 |
-| All | 31 | 36 | 6 | 73 |
+| All | 32 | 35 | 6 | 73 |
 
-**73 clauses: 31 done, 36 partial, 6 missing.**
+**73 clauses: 32 done, 35 partial, 6 missing.**
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
