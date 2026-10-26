@@ -49,7 +49,7 @@ export function settleScan(scan: ScanLink | undefined, success: boolean) {
 }
 
 export const floorCommand = (type: string) => /^(receiving|wave|pick|pack)\./.test(type)
-export const durableCommand = (type: string) => !['channel.save', 'book.connect', 'ai.save', 'shipping.save'].includes(type)
+export const durableCommand = (type: string) => !['channel.save', 'book.connect', 'book.qboConnect', 'ai.save', 'shipping.save'].includes(type)
 
 /** Conservative frontier: any warehouse inventory/document change requires a new physical review. */
 export async function floorFrontier(state: PierState) {

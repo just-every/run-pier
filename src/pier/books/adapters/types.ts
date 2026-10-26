@@ -2,6 +2,7 @@ export type BookDocument = {
   key: string;
   kind: 'item' | 'invoice' | 'credit' | 'bill' | 'journal' | 'receipt';
   date: string;
+  dueDate?: string;
   reference: string;
   party?: { id: string; name: string; kind: 'customer' | 'supplier' };
   lines: {
@@ -71,6 +72,7 @@ export function usd(value: bigint): string {
 }
 export function validateDocument(document: BookDocument): void {
   if (!document.key || !document.reference || !/^\d{4}-\d{2}-\d{2}$/.test(document.date)) throw new Error('Books document requires identity, reference and date');
+  if (document.dueDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(document.dueDate)) throw new Error('Books due date must use YYYY-MM-DD');
   numeric(document.total);
   if (document.kind === 'receipt') {
     if (!document.remoteId || !document.attachment?.name || !document.attachment.content) throw new Error('Receipt evidence requires an existing bill ID and UTF-8 attachment');

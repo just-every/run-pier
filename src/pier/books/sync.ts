@@ -1,3 +1,4 @@
+import { syncQboBooks } from './qbo-sync';
 import type { Bindings } from '../../auth.server';
 import { withReceiptState } from './receipt-state';
 import { execute } from '../api';
@@ -22,6 +23,7 @@ import type { Row, State } from '../model';
 const BUDGET=20000,LEASE=60000;
 /** Serialize dispatch, persist intent before sending, and never repeat an unknown create. */
 export async function syncBooks(env:Bindings){
+  if((await load(env.DB)).bookConnections.some(r=>r.enabled&&r.provider==='qbo'))return syncQboBooks(env);
   const token=crypto.randomUUID(),start=Date.now();
   const lease=await env.DB.prepare('INSERT INTO pier_book_locks(id,token,expires_at) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET token=excluded.token,expires_at=excluded.expires_at WHERE expires_at<?').bind(token,start+LEASE,start).run();
   if(!lease.meta.changes)return {busy:true};

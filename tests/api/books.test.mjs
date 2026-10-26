@@ -118,3 +118,65 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await exerciseBooksFixtures();
   }finally{await pier?.close();await pantry.close();}
 });
+
+test('QuickBooks company authorization posts mapped business documents once and exposes external conflicts and expiry', async t => {
+  const remote = new Map(), creates = new Map(); let next = 1000, revoked = false, closed = false;
+  const answer = body => Response.json(body);
+  const pier = await installation({ async outboundService(request) {
+    const url = new URL(request.url), path = url.pathname.split('/').at(-1);
+    if (url.hostname === 'oauth.platform.intuit.com') return answer({ access_token: 'synthetic-pier-2', refresh_token: 'synthetic-pier-3', expires_in: 3600 });
+    if (revoked) return answerWithStatus({ Fault: { Error: [{ code: '3200' }] } }, 401);
+    if (url.pathname.includes('/companyinfo/')) return answer({ CompanyInfo: { Country: 'US' } });
+    if (url.pathname.includes('/item/')) return answer({ Item: { Id: '101', Name: 'BOLT', Sku: 'BOLT', Type: 'NonInventory', Active: true, IncomeAccountRef: { value: '303' } } });
+    if (url.pathname.includes('/account/')) {
+      let inventory = 0;
+      for (const [key, entity] of remote) {
+        if (key.startsWith('Bill:')) inventory += entity.Line.filter(l => l.AccountBasedExpenseLineDetail?.AccountRef.value === '301').reduce((n, l) => n + l.Amount, 0);
+        if (key.startsWith('JournalEntry:')) inventory += entity.Line.filter(l => l.JournalEntryLineDetail?.AccountRef.value === '301').reduce((n, l) => n + (l.JournalEntryLineDetail.PostingType === 'Debit' ? l.Amount : -l.Amount), 0);
+      }
+      return answer({ Account: { Id: path, Active: true, AccountType: 'Other Current Asset', CurrentBalance: inventory } });
+    }
+    if (path === 'query') {
+      const sql = url.searchParams.get('query'), type = /from (\w+)/i.exec(sql)?.[1], value = /(?:DocNumber|PaymentRefNum) = '([^']+)'/.exec(sql)?.[1];
+      const customer = /CustomerRef = '([^']+)'/.exec(sql)?.[1];
+      return answer({ QueryResponse: { [type]: [...remote].filter(([key, row]) => key.startsWith(type + ':') && (customer ? row.CustomerRef?.value === customer : row.DocNumber === value || row.PaymentRefNum === value)).map(([, row]) => row) } });
+    }
+    const type = { invoice: 'Invoice', bill: 'Bill', journalentry: 'JournalEntry', creditmemo: 'CreditMemo', payment: 'Payment' }[path];
+    if (request.method === 'POST' && type) {
+      if (closed) return answerWithStatus({ Fault: { Error: [{ code: '6210' }] } }, 400);
+      const body = await request.json();
+      if(url.searchParams.get('operation')==='void'){
+        const invoice=[...remote.values()].find(r=>r.Id===body.Id);invoice.TotalAmt=0;invoice.Balance=0;invoice.PrivateNote='Voided';return answer({Invoice:invoice});
+      }
+      const key = type + ':' + (body.DocNumber ?? body.PaymentRefNum);
+      if (!remote.has(key)) {
+        const total = type === 'Payment' ? body.TotalAmt : type === 'JournalEntry' ? body.Line.filter(l => l.JournalEntryLineDetail.PostingType === 'Debit').reduce((n, l) => n + l.Amount, 0) : body.Line.reduce((n, l) => n + l.Amount, 0);
+        remote.set(key, { ...body, Id: String(next++), SyncToken: '0', TotalAmt: total, Balance: total }); creates.set(type, (creates.get(type) ?? 0) + 1);
+        if(type==='Payment')for(const line of body.Line)for(const linked of line.LinkedTxn){
+          const target=[...remote.values()].find(r=>r.Id===linked.TxnId);
+          if(linked.TxnType==='Invoice')target.Balance-=line.Amount;
+          if(linked.TxnType==='CreditMemo')target.RemainingCredit=0;
+        }
+      }
+      return answer({ [type]: remote.get(key) });
+    }
+    const parts = url.pathname.split('/'), entityType = { invoice: 'Invoice', bill: 'Bill', journalentry: 'JournalEntry', creditmemo: 'CreditMemo', payment: 'Payment' }[parts.at(-2)];
+    const entity = [...remote.values()].find(r => r.Id === path);
+    if (entityType && entity) return answer({ [entityType]: entity });
+    throw new Error('Unexpected QBO network edge request');
+  } });
+  t.after(() => pier.close());
+  const { qboScenario } = await import('./qbo-scenario.mjs');
+  const result = await qboScenario(pier, { clientId: 'synthetic-pier-4', clientSecret: 'synthetic-pier-5', refreshToken: 'synthetic-pier-6', realmId: '123456', inventoryAccountId: '301', cogsAccountId: '302', revenueAccountId: '303', clearingAccountId: '304', chargeItemId: '101', itemId: '101', customerId: '201', supplierId: '202' });
+  assert.equal(creates.get('Invoice'), 1); assert.equal(creates.get('CreditMemo'), 1); assert.equal(creates.get('Bill'), 1);
+  await pier.command('book.sync', {}); assert.equal(creates.get('Invoice'), 1); assert.equal(creates.get('CreditMemo'), 1);
+  const invoice = [...remote.values()].find(r => r.Id === result.firstRemote); invoice.Line[0].Amount++;
+  await pier.command('book.sync', {});
+  assert.equal((await pier.state()).bookJobs.find(j => j.remoteId === result.firstRemote).status, 'uncertain');
+  assert.equal(creates.get('Invoice'), 1, 'an external edit is never overwritten');
+  revoked = true; await pier.command('book.sync', {});
+  assert.match((await pier.state()).bookConnections[0].problem, /authorization|verification/i);
+  await pier.command('book.disconnect', {});
+  assert.equal((await pier.state()).bookConnections[0].credentialPresent, false);
+});
+function answerWithStatus(body, status) { return Response.json(body, { status }); }

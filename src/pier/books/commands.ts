@@ -1,4 +1,7 @@
-import { decimal, format, fail, fresh, get, requireRole, text, type Context } from '../model';
+import { connectQbo } from './qbo-connection';
+import { expireLinks } from '../invoices/state';
+import { planQboBooks } from './qbo-planning';
+import { decimal, format, fail, fresh, get, requireRole, text, type Context, row } from '../model';
 import type { Bindings } from '../../auth.server';
 import { seal } from '../channels/secrets';
 import { PANTRY_CREDENTIAL } from './adapters/pantry-client';
@@ -8,6 +11,7 @@ import { amount, money, toCents, usdText } from '../money';
 export async function books(c:Context,type:string,p:any,env:Bindings):Promise<any> {
   if(!type.startsWith('book.'))return;
   requireRole(c,['owner']);
+  if(type==='book.qboConnect')return connectQbo(c,p,env);
   if(type==='book.connect'){
     const origin=pantryOrigin(p.baseUrl,env);
     if(p.taxCode!=='exempt')fail('BOOK_TAX','Explicitly confirm tax-exempt wholesale invoices. Taxable sales need reviewed tax mapping before this connector can post them.');
@@ -37,8 +41,8 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
   }
   const connection=c.s.bookConnections[0];
   if(!connection)fail('BOOK_CONNECTION','Connect Pantry before syncing the books.');
-  if(type==='book.disconnect'){connection.enabled=false;connection.version++;c.channelSecrets=[{channelId:'books:pantry',secret:await seal(env,'books:pantry',{})}];return connection;}
-  if(type==='book.plan'){planBooks(c);return {jobs:c.s.bookJobs.length};}
+  if(type==='book.disconnect'){connection.enabled=false;connection.version++;const key=connection.provider==='qbo'?'books:qbo':'books:pantry';c.channelSecrets=[{channelId:key,secret:await seal(env,key,{})}];return connection;}
+  if(type==='book.plan'){if(connection.provider==='qbo')planQboBooks(c);else planBooks(c);return {jobs:c.s.bookJobs.length};}
   if(type==='book.retry'||type==='book.resolve'){
     const job=get(c.s,'bookJobs',p.jobId);fresh(job,p.version);
     if(p.action==='skip'){
@@ -53,6 +57,22 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
   if(type==='book.record'){
     const job=get(c.s,'bookJobs',p.jobId);
     Object.assign(job,p.result,{resend:false,version:job.version+1,checkedAt:c.now});
+    if(connection.provider==='qbo'){const source=(job.sourceKind==='nativeInvoice'?c.s.invoices:job.sourceKind==='invoiceCredit'?c.s.invoiceCredits:[]).find(r=>r.id===job.sourceId);if(source)source.ledger={provider:'qbo',status:job.status,remoteId:job.remoteId,paid:job.paid,open:job.open,checkedAt:c.now,reason:job.reason};}
+    if(connection.provider==='qbo'&&job.sourceKind==='nativeInvoice'&&Array.isArray(p.result.payments)){
+      const invoice=c.s.invoices.find(r=>r.id===job.sourceId)!;
+      const seen=new Set<string>();
+      for(const payment of p.result.payments){
+        const importedId=`qbo:${connection.realmId}:${payment.id}:${invoice.id}`;seen.add(importedId);
+        const native=c.s.bookJobs.find(j=>j.sourceKind==='invoicePayment'&&payment.source===`Pier source ${j.document?.payment?.sourceReference}; allocation ${j.document?.payment?.reference}`);
+        if(native)continue;
+        const old=c.s.invoicePayments.find(r=>r.id===importedId);
+        const fields={invoiceId:invoice.id,customerId:invoice.customerId,provider:'qbo',providerPaymentId:payment.id,status:'succeeded',amount:money(amount(payment.amount)),currency:'USD',paidAt:payment.date,ledger:{status:'reconciled',remoteId:payment.id}};
+        if(old)Object.assign(old,fields,{version:old.version+1});else row(c,'invoicePayments',{id:importedId,...fields});
+      }
+      for(const payment of c.s.invoicePayments.filter(r=>r.invoiceId===invoice.id&&r.provider==='qbo'&&!seen.has(r.id))){payment.status='reversed';payment.version++;}
+      if(c.s.invoicePayments.some(r=>r.invoiceId===invoice.id&&r.status==='succeeded'))expireLinks(c,invoice.id,'paid');
+      delete job.payments;
+    }
     for(const order of c.s.orders){
       const invoices=c.s.bookJobs.filter(j=>j.sourceKind==='order'&&j.sourceId===order.id&&j.kind==='invoice');
       const returnIds=new Set(c.s.returns.filter(r=>c.s.shipments.some(sh=>sh.id===r.shipmentId&&sh.orderId===order.id)).map(r=>r.id));
@@ -89,7 +109,7 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
     let job=c.s.bookJobs.find(j=>j.key==='inventory-reconciliation');
     if(!job){job={id:crypto.randomUUID(),version:0,key:'inventory-reconciliation',kind:'valuation',sourceKind:'valuation',sourceId:'',reference:'Inventory value reconciliation',currency:'USD',createdAt:c.now,attempted:false};c.s.bookJobs.push(job);}
     const agrees=p.expected!==null&&p.actual!==null&&amount(p.expected)===amount(p.actual);
-    Object.assign(job,{version:job.version+1,status:agrees?'reconciled':'review',through:p.through??null,total:p.expected,actual:p.actual,reason:agrees?'':p.problem??`Pier inventory value is ${p.expected===null?'unvalued':usdText(money(toCents(amount(p.expected))))}; Pantry through ${p.through??'the comparison date'} holds ${p.actual===null?'an unknown amount':usdText(money(toCents(amount(p.actual))))}. Review missing costs, reversed receipts, returns or other ledger adjustments.`,fix:'Open Reports and the Pantry inventory account, reconcile the difference with your accountant, then sync again.',checkedAt:c.now});
+    Object.assign(job,{version:job.version+1,status:agrees?'reconciled':'review',through:p.through??null,total:p.expected,actual:p.actual,reason:agrees?'':p.problem??`Pier inventory value is ${p.expected===null?'unvalued':usdText(money(toCents(amount(p.expected))))}; ${connection.provider==='qbo'?'QuickBooks':'Pantry'} through ${p.through??'the comparison date'} holds ${p.actual===null?'an unknown amount':usdText(money(toCents(amount(p.actual))))}. Review missing costs, reversed receipts, returns or other ledger adjustments.`,fix:`Open Reports and the ${connection.provider==='qbo'?'QuickBooks':'Pantry'} inventory account, reconcile the difference with your accountant, then sync again.`,checkedAt:c.now});
     return job;
   }
   if(type==='book.checked'){connection.lastSync=c.now;connection.problem=p.problem??null;return connection;}

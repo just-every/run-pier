@@ -3,7 +3,7 @@
   "provider": "qbo",
   "baseUrl": "https://synthetic-qbo.example.invalid",
   "credentials": {
-    "accessToken": "synthetic-test-token-not-valid",
+    "accessToken": "synthetic-pier-1",
     "realmId": "991000000001"
   },
   "cases": [
@@ -1018,6 +1018,918 @@
           "status": "attached",
           "received": true
         }
+      }
+    },
+    {
+      "name": "invoice-with-source-payment",
+      "document": {
+        "key": "fixture-pier-qbo-shop-payment-v1",
+        "kind": "invoice",
+        "date": "2026-10-17",
+        "dueDate": "2026-11-16",
+        "reference": "SYN-INV-PAY-01",
+        "lines": [
+          {
+            "description": "Synthetic widget",
+            "quantity": "10",
+            "unitPrice": "12.55",
+            "amount": "125.50",
+            "account": "79",
+            "itemId": "910001"
+          }
+        ],
+        "total": "125.50",
+        "party": {
+          "id": "910901",
+          "name": "Synthetic Trading Co",
+          "kind": "customer"
+        },
+        "payment": {
+          "reference": "stripe:synthetic-pier-7:SYN-INV-PAY-01",
+          "sourceReference": "synthetic-pier-7",
+          "amount": "125.50",
+          "date": "2026-10-17",
+          "bankAccountId": "910050"
+        }
+      },
+      "post": {
+        "runs": [
+          [
+            {
+              "request": {
+                "method": "GET",
+                "path": "/v3/company/991000000001/query",
+                "query": {
+                  "query": "select * from Invoice where DocNumber = 'SYN-INV-PAY-01' maxresults 2"
+                }
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "QueryResponse": {}
+                }
+              }
+            },
+            {
+              "request": {
+                "method": "POST",
+                "path": "/v3/company/991000000001/invoice",
+                "query": {
+                  "requestid": "356f31f75360c2c5ac1c28af22337169286f024e1016f7a5"
+                },
+                "json": {
+                  "TxnDate": "2026-10-17",
+                  "DueDate": "2026-11-16",
+                  "DocNumber": "SYN-INV-PAY-01",
+                  "CurrencyRef": {
+                    "value": "USD"
+                  },
+                  "CustomerRef": {
+                    "value": "910901"
+                  },
+                  "Line": [
+                    {
+                      "Description": "Synthetic widget",
+                      "Amount": 125.5,
+                      "DetailType": "SalesItemLineDetail",
+                      "SalesItemLineDetail": {
+                        "ItemRef": {
+                          "value": "910001"
+                        },
+                        "Qty": 10,
+                        "UnitPrice": 12.55,
+                        "TaxCodeRef": {
+                          "value": "NON"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "Invoice": {
+                    "TxnDate": "2026-10-17",
+                    "DueDate": "2026-11-16",
+                    "DocNumber": "SYN-INV-PAY-01",
+                    "CurrencyRef": {
+                      "value": "USD"
+                    },
+                    "CustomerRef": {
+                      "value": "910901"
+                    },
+                    "Line": [
+                      {
+                        "Description": "Synthetic widget",
+                        "Amount": 125.5,
+                        "DetailType": "SalesItemLineDetail",
+                        "SalesItemLineDetail": {
+                          "ItemRef": {
+                            "value": "910001"
+                          },
+                          "Qty": 10,
+                          "UnitPrice": 12.55,
+                          "TaxCodeRef": {
+                            "value": "NON"
+                          }
+                        }
+                      }
+                    ],
+                    "Id": "910006",
+                    "SyncToken": "0",
+                    "TotalAmt": 125.5,
+                    "Balance": 125.5
+                  }
+                }
+              }
+            },
+            {
+              "request": {
+                "method": "GET",
+                "path": "/v3/company/991000000001/query",
+                "query": {
+                  "query": "select * from Payment where PaymentRefNum = '1664ba0e495164d24c7eb' maxresults 2"
+                }
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "QueryResponse": {}
+                }
+              }
+            },
+            {
+              "request": {
+                "method": "POST",
+                "path": "/v3/company/991000000001/payment",
+                "query": {
+                  "requestid": "98fcbcb02d2981cfdcd04f8935592c0f20e44a13891bb113"
+                },
+                "json": {
+                  "TxnDate": "2026-10-17",
+                  "TotalAmt": 125.5,
+                  "PaymentRefNum": "1664ba0e495164d24c7eb",
+                  "CustomerRef": {
+                    "value": "910901"
+                  },
+                  "DepositToAccountRef": {
+                    "value": "910050"
+                  },
+                  "Line": [
+                    {
+                      "Amount": 125.5,
+                      "LinkedTxn": [
+                        {
+                          "TxnId": "910006",
+                          "TxnType": "Invoice"
+                        }
+                      ]
+                    }
+                  ],
+                  "PrivateNote": "Pier source synthetic-pier-7; allocation stripe:synthetic-pier-7:SYN-INV-PAY-01"
+                }
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "Payment": {
+                    "Id": "910007",
+                    "PaymentRefNum": "1664ba0e495164d24c7eb",
+                    "TxnDate": "2026-10-17",
+                    "CustomerRef": {
+                      "value": "910901"
+                    },
+                    "DepositToAccountRef": {
+                      "value": "910050"
+                    },
+                    "TotalAmt": 125.5,
+                    "Line": [
+                      {
+                        "Amount": 125.5,
+                        "LinkedTxn": [
+                          {
+                            "TxnId": "910006",
+                            "TxnType": "Invoice"
+                          }
+                        ]
+                      }
+                    ],
+                    "PrivateNote": "Pier source synthetic-pier-7; allocation stripe:synthetic-pier-7:SYN-INV-PAY-01"
+                  }
+                }
+              }
+            },
+            {
+              "request": {
+                "method": "GET",
+                "path": "/v3/company/991000000001/invoice/910006"
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "Invoice": {
+                    "TxnDate": "2026-10-17",
+                    "DueDate": "2026-11-16",
+                    "DocNumber": "SYN-INV-PAY-01",
+                    "CurrencyRef": {
+                      "value": "USD"
+                    },
+                    "CustomerRef": {
+                      "value": "910901"
+                    },
+                    "Line": [
+                      {
+                        "Description": "Synthetic widget",
+                        "Amount": 125.5,
+                        "DetailType": "SalesItemLineDetail",
+                        "SalesItemLineDetail": {
+                          "ItemRef": {
+                            "value": "910001"
+                          },
+                          "Qty": 10,
+                          "UnitPrice": 12.55,
+                          "TaxCodeRef": {
+                            "value": "NON"
+                          }
+                        }
+                      }
+                    ],
+                    "Id": "910006",
+                    "SyncToken": "1",
+                    "TotalAmt": 125.5,
+                    "Balance": 0
+                  }
+                }
+              }
+            }
+          ],
+          [
+            {
+              "request": {
+                "method": "GET",
+                "path": "/v3/company/991000000001/query",
+                "query": {
+                  "query": "select * from Invoice where DocNumber = 'SYN-INV-PAY-01' maxresults 2"
+                }
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "QueryResponse": {
+                    "Invoice": [
+                      {
+                        "TxnDate": "2026-10-17",
+                        "DueDate": "2026-11-16",
+                        "DocNumber": "SYN-INV-PAY-01",
+                        "CurrencyRef": {
+                          "value": "USD"
+                        },
+                        "CustomerRef": {
+                          "value": "910901"
+                        },
+                        "Line": [
+                          {
+                            "Description": "Synthetic widget",
+                            "Amount": 125.5,
+                            "DetailType": "SalesItemLineDetail",
+                            "SalesItemLineDetail": {
+                              "ItemRef": {
+                                "value": "910001"
+                              },
+                              "Qty": 10,
+                              "UnitPrice": 12.55,
+                              "TaxCodeRef": {
+                                "value": "NON"
+                              }
+                            }
+                          }
+                        ],
+                        "Id": "910006",
+                        "SyncToken": "1",
+                        "TotalAmt": 125.5,
+                        "Balance": 0
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "request": {
+                "method": "GET",
+                "path": "/v3/company/991000000001/query",
+                "query": {
+                  "query": "select * from Payment where PaymentRefNum = '1664ba0e495164d24c7eb' maxresults 2"
+                }
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "QueryResponse": {
+                    "Payment": [
+                      {
+                        "Id": "910007",
+                        "PaymentRefNum": "1664ba0e495164d24c7eb",
+                        "TxnDate": "2026-10-17",
+                        "CustomerRef": {
+                          "value": "910901"
+                        },
+                        "DepositToAccountRef": {
+                          "value": "910050"
+                        },
+                        "TotalAmt": 125.5,
+                        "Line": [
+                          {
+                            "Amount": 125.5,
+                            "LinkedTxn": [
+                              {
+                                "TxnId": "910006",
+                                "TxnType": "Invoice"
+                              }
+                            ]
+                          }
+                        ],
+                        "PrivateNote": "Pier source synthetic-pier-7; allocation stripe:synthetic-pier-7:SYN-INV-PAY-01"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "request": {
+                "method": "GET",
+                "path": "/v3/company/991000000001/invoice/910006"
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "Invoice": {
+                    "TxnDate": "2026-10-17",
+                    "DueDate": "2026-11-16",
+                    "DocNumber": "SYN-INV-PAY-01",
+                    "CurrencyRef": {
+                      "value": "USD"
+                    },
+                    "CustomerRef": {
+                      "value": "910901"
+                    },
+                    "Line": [
+                      {
+                        "Description": "Synthetic widget",
+                        "Amount": 125.5,
+                        "DetailType": "SalesItemLineDetail",
+                        "SalesItemLineDetail": {
+                          "ItemRef": {
+                            "value": "910001"
+                          },
+                          "Qty": 10,
+                          "UnitPrice": 12.55,
+                          "TaxCodeRef": {
+                            "value": "NON"
+                          }
+                        }
+                      }
+                    ],
+                    "Id": "910006",
+                    "SyncToken": "1",
+                    "TotalAmt": 125.5,
+                    "Balance": 0
+                  }
+                }
+              }
+            }
+          ]
+        ]
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-qbo-shop-payment-v1",
+          "kind": "invoice",
+          "date": "2026-10-17",
+          "dueDate": "2026-11-16",
+          "reference": "SYN-INV-PAY-01",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "10",
+              "unitPrice": "12.55",
+              "amount": "125.50",
+              "account": "79",
+              "itemId": "910001"
+            }
+          ],
+          "total": "125.50",
+          "party": {
+            "id": "910901",
+            "name": "Synthetic Trading Co",
+            "kind": "customer"
+          },
+          "remoteId": "910006",
+          "payment": {
+            "reference": "stripe:synthetic-pier-7:SYN-INV-PAY-01",
+            "sourceReference": "synthetic-pier-7",
+            "amount": "125.50",
+            "date": "2026-10-17",
+            "bankAccountId": "910050"
+          }
+        },
+        "requests": [
+          {
+            "request": {
+              "method": "GET",
+              "path": "/v3/company/991000000001/query",
+              "query": {
+                "query": "select * from Payment where PaymentRefNum = '1664ba0e495164d24c7eb' maxresults 2"
+              }
+            },
+            "response": {
+              "status": 200,
+              "body": {
+                "QueryResponse": {
+                  "Payment": [
+                    {
+                      "Id": "910007",
+                      "PaymentRefNum": "1664ba0e495164d24c7eb",
+                      "TxnDate": "2026-10-17",
+                      "CustomerRef": {
+                        "value": "910901"
+                      },
+                      "DepositToAccountRef": {
+                        "value": "910050"
+                      },
+                      "TotalAmt": 125.5,
+                      "Line": [
+                        {
+                          "Amount": 125.5,
+                          "LinkedTxn": [
+                            {
+                              "TxnId": "910006",
+                              "TxnType": "Invoice"
+                            }
+                          ]
+                        }
+                      ],
+                      "PrivateNote": "Pier source synthetic-pier-7; allocation stripe:synthetic-pier-7:SYN-INV-PAY-01"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "request": {
+              "method": "GET",
+              "path": "/v3/company/991000000001/invoice/910006"
+            },
+            "response": {
+              "status": 200,
+              "body": {
+                "Invoice": {
+                  "TxnDate": "2026-10-17",
+                  "DueDate": "2026-11-16",
+                  "DocNumber": "SYN-INV-PAY-01",
+                  "CurrencyRef": {
+                    "value": "USD"
+                  },
+                  "CustomerRef": {
+                    "value": "910901"
+                  },
+                  "Line": [
+                    {
+                      "Description": "Synthetic widget",
+                      "Amount": 125.5,
+                      "DetailType": "SalesItemLineDetail",
+                      "SalesItemLineDetail": {
+                        "ItemRef": {
+                          "value": "910001"
+                        },
+                        "Qty": 10,
+                        "UnitPrice": 12.55,
+                        "TaxCodeRef": {
+                          "value": "NON"
+                        }
+                      }
+                    }
+                  ],
+                  "Id": "910006",
+                  "SyncToken": "1",
+                  "TotalAmt": 125.5,
+                  "Balance": 0
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "post": {
+          "id": "910006",
+          "status": "posted",
+          "paid": "125.50",
+          "open": "0.00",
+          "paymentCurrent": true
+        },
+        "read": {
+          "id": "910006",
+          "status": "posted",
+          "paid": "125.50",
+          "open": "0.00",
+          "paymentCurrent": true
+        }
+      }
+    },
+    {
+      "name": "customer-credit-for-invoice",
+      "document": {
+        "key": "fixture-pier-qbo-credit-v1",
+        "kind": "credit",
+        "date": "2026-10-20",
+        "reference": "SYN-CREDIT-01",
+        "creditForReference": "SYN-INV-0001",
+        "party": {
+          "id": "910901",
+          "name": "Synthetic Trading Co",
+          "kind": "customer"
+        },
+        "lines": [
+          {
+            "description": "Synthetic widget returned",
+            "quantity": "2",
+            "unitPrice": "12.55",
+            "amount": "25.10",
+            "account": "79",
+            "itemId": "910001"
+          }
+        ],
+        "total": "25.10"
+      },
+      "post": {
+        "requests": [
+          {
+            "request": {
+              "method": "GET",
+              "path": "/v3/company/991000000001/query",
+              "query": {
+                "query": "select * from Invoice where DocNumber = 'SYN-INV-0001' maxresults 2"
+              }
+            },
+            "response": {
+              "status": 200,
+              "body": {
+                "QueryResponse": {
+                  "Invoice": [
+                    {
+                      "TxnDate": "2026-10-17",
+                      "DocNumber": "SYN-INV-0001",
+                      "CurrencyRef": {
+                        "value": "USD"
+                      },
+                      "CustomerRef": {
+                        "value": "910901"
+                      },
+                      "Line": [
+                        {
+                          "Description": "Synthetic widget",
+                          "Amount": 125.5,
+                          "DetailType": "SalesItemLineDetail",
+                          "SalesItemLineDetail": {
+                            "ItemRef": {
+                              "value": "910001"
+                            },
+                            "Qty": 10,
+                            "UnitPrice": 12.55,
+                            "TaxCodeRef": {
+                              "value": "NON"
+                            }
+                          }
+                        }
+                      ],
+                      "Id": "910002",
+                      "SyncToken": "0",
+                      "TotalAmt": 125.5,
+                      "Balance": 100.25
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "request": {
+              "method": "POST",
+              "path": "/v3/company/991000000001/creditmemo",
+              "query": {
+                "requestid": "2e2b16dfe2bf62e8c8ebf09fdd9b0389e4e39445d448b6e8"
+              },
+              "json": {
+                "TxnDate": "2026-10-20",
+                "DocNumber": "SYN-CREDIT-01",
+                "CurrencyRef": {
+                  "value": "USD"
+                },
+                "CustomerRef": {
+                  "value": "910901"
+                },
+                "PrivateNote": "Pier credit for invoice SYN-INV-0001 (910002)",
+                "Line": [
+                  {
+                    "Description": "Synthetic widget returned",
+                    "Amount": 25.1,
+                    "DetailType": "SalesItemLineDetail",
+                    "SalesItemLineDetail": {
+                      "ItemRef": {
+                        "value": "910001"
+                      },
+                      "Qty": 2,
+                      "UnitPrice": 12.55,
+                      "TaxCodeRef": {
+                        "value": "NON"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "response": {
+              "status": 200,
+              "body": {
+                "CreditMemo": {
+                  "TxnDate": "2026-10-20",
+                  "DocNumber": "SYN-CREDIT-01",
+                  "CurrencyRef": {
+                    "value": "USD"
+                  },
+                  "CustomerRef": {
+                    "value": "910901"
+                  },
+                  "PrivateNote": "Pier credit for invoice SYN-INV-0001 (910002)",
+                  "Line": [
+                    {
+                      "Description": "Synthetic widget returned",
+                      "Amount": 25.1,
+                      "DetailType": "SalesItemLineDetail",
+                      "SalesItemLineDetail": {
+                        "ItemRef": {
+                          "value": "910001"
+                        },
+                        "Qty": 2,
+                        "UnitPrice": 12.55,
+                        "TaxCodeRef": {
+                          "value": "NON"
+                        }
+                      }
+                    }
+                  ],
+                  "Id": "910008",
+                  "SyncToken": "0",
+                  "TotalAmt": 25.1
+                }
+              }
+            }
+          }
+        ]
+      },
+      "read": {
+        "document": {
+          "key": "fixture-pier-qbo-credit-v1",
+          "kind": "credit",
+          "date": "2026-10-20",
+          "reference": "SYN-CREDIT-01",
+          "creditForReference": "SYN-INV-0001",
+          "party": {
+            "id": "910901",
+            "name": "Synthetic Trading Co",
+            "kind": "customer"
+          },
+          "lines": [
+            {
+              "description": "Synthetic widget returned",
+              "quantity": "2",
+              "unitPrice": "12.55",
+              "amount": "25.10",
+              "account": "79",
+              "itemId": "910001"
+            }
+          ],
+          "total": "25.10",
+          "remoteId": "910008"
+        },
+        "requests": [
+          {
+            "request": {
+              "method": "GET",
+              "path": "/v3/company/991000000001/creditmemo/910008"
+            },
+            "response": {
+              "status": 200,
+              "body": {
+                "CreditMemo": {
+                  "TxnDate": "2026-10-20",
+                  "DocNumber": "SYN-CREDIT-01",
+                  "CurrencyRef": {
+                    "value": "USD"
+                  },
+                  "CustomerRef": {
+                    "value": "910901"
+                  },
+                  "PrivateNote": "Pier credit for invoice SYN-INV-0001 (910002)",
+                  "Line": [
+                    {
+                      "Description": "Synthetic widget returned",
+                      "Amount": 25.1,
+                      "DetailType": "SalesItemLineDetail",
+                      "SalesItemLineDetail": {
+                        "ItemRef": {
+                          "value": "910001"
+                        },
+                        "Qty": 2,
+                        "UnitPrice": 12.55,
+                        "TaxCodeRef": {
+                          "value": "NON"
+                        }
+                      }
+                    }
+                  ],
+                  "Id": "910008",
+                  "SyncToken": "0",
+                  "TotalAmt": 25.1
+                }
+              }
+            }
+          },
+          {
+            "request": {
+              "method": "GET",
+              "path": "/v3/company/991000000001/query",
+              "query": {
+                "query": "select * from Invoice where DocNumber = 'SYN-INV-0001' maxresults 2"
+              }
+            },
+            "response": {
+              "status": 200,
+              "body": {
+                "QueryResponse": {
+                  "Invoice": [
+                    {
+                      "TxnDate": "2026-10-17",
+                      "DocNumber": "SYN-INV-0001",
+                      "CurrencyRef": {
+                        "value": "USD"
+                      },
+                      "CustomerRef": {
+                        "value": "910901"
+                      },
+                      "Line": [
+                        {
+                          "Description": "Synthetic widget",
+                          "Amount": 125.5,
+                          "DetailType": "SalesItemLineDetail",
+                          "SalesItemLineDetail": {
+                            "ItemRef": {
+                              "value": "910001"
+                            },
+                            "Qty": 10,
+                            "UnitPrice": 12.55,
+                            "TaxCodeRef": {
+                              "value": "NON"
+                            }
+                          }
+                        }
+                      ],
+                      "Id": "910002",
+                      "SyncToken": "0",
+                      "TotalAmt": 125.5,
+                      "Balance": 100.25
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "post": {
+          "id": "910008",
+          "status": "posted"
+        },
+        "read": {
+          "id": "910008",
+          "status": "posted"
+        }
+      }
+    },
+    {
+      "name": "void-unpaid-invoice",
+      "void": {
+        "document": {
+          "key": "fixture-pier-qbo-invoice-void-v1",
+          "kind": "invoice",
+          "date": "2026-10-17",
+          "reference": "SYN-INV-0001",
+          "lines": [
+            {
+              "description": "Synthetic widget",
+              "quantity": "10",
+              "unitPrice": "12.55",
+              "amount": "125.50",
+              "account": "79",
+              "itemId": "910001"
+            }
+          ],
+          "total": "125.50",
+          "party": {
+            "id": "910901",
+            "name": "Synthetic Trading Co",
+            "kind": "customer"
+          },
+          "remoteId": "910002"
+        },
+        "expected": {
+          "id": "910002",
+          "status": "voided"
+        },
+        "runs": [
+          [
+            {
+              "request": {
+                "method": "GET",
+                "path": "/v3/company/991000000001/invoice/910002"
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "Invoice": {
+                    "Id": "910002",
+                    "SyncToken": "0",
+                    "DocNumber": "SYN-INV-0001",
+                    "CustomerRef": {
+                      "value": "910901"
+                    },
+                    "TotalAmt": 125.5,
+                    "Balance": 125.5
+                  }
+                }
+              }
+            },
+            {
+              "request": {
+                "method": "POST",
+                "path": "/v3/company/991000000001/invoice",
+                "query": {
+                  "operation": "void",
+                  "requestid": "64c4525fa27f5e8e211d902acc1deac0fe8b510a1c099d8a"
+                },
+                "json": {
+                  "Id": "910002",
+                  "SyncToken": "0"
+                }
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "Invoice": {
+                    "Id": "910002",
+                    "SyncToken": "1",
+                    "DocNumber": "SYN-INV-0001",
+                    "CustomerRef": {
+                      "value": "910901"
+                    },
+                    "TotalAmt": 0,
+                    "Balance": 0,
+                    "PrivateNote": "Voided"
+                  }
+                }
+              }
+            }
+          ],
+          [
+            {
+              "request": {
+                "method": "GET",
+                "path": "/v3/company/991000000001/invoice/910002"
+              },
+              "response": {
+                "status": 200,
+                "body": {
+                  "Invoice": {
+                    "Id": "910002",
+                    "SyncToken": "1",
+                    "DocNumber": "SYN-INV-0001",
+                    "CustomerRef": {
+                      "value": "910901"
+                    },
+                    "TotalAmt": 0,
+                    "Balance": 0,
+                    "PrivateNote": "Voided"
+                  }
+                }
+              }
+            }
+          ]
+        ]
       }
     }
   ],

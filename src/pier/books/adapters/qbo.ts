@@ -1,8 +1,13 @@
 import { cents, numeric, providerJson, requestJson, required, usd, validateDocument } from './types';
 import type { BookDocument, BookResult, BooksAdapter, BooksAdapterConfig } from './types';
+import { creditMemoPayload, creditMemoResult, paymentPayload, paymentReference, paymentResult } from './qbo-money';
 
-const entities = { item: 'Item', invoice: 'Invoice', bill: 'Bill', journal: 'JournalEntry', receipt: 'Attachable' } as const;
+const entities = { item: 'Item', invoice: 'Invoice', credit: 'CreditMemo', bill: 'Bill', journal: 'JournalEntry', receipt: 'Attachable' } as const;
 const quote = (value: string) => `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+async function requestIdentity(identity: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(identity));
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('').slice(0, 48);
+}
 
 function payload(document: BookDocument): object {
   const first = document.lines[0];
@@ -16,7 +21,7 @@ function payload(document: BookDocument): object {
     };
   }
   if (document.reference.length > 21) throw new Error('QBO transaction reference exceeds its 21-character DocNumber limit; map an explicit ledger reference');
-  const base = { TxnDate: document.date, DocNumber: document.reference, CurrencyRef: { value: 'USD' } };
+  const base = { TxnDate: document.date, DueDate: document.dueDate, DocNumber: document.reference, CurrencyRef: { value: 'USD' } };
   if (document.kind === 'journal') return {
     ...base,
     Line: document.lines.map(line => ({
@@ -39,6 +44,7 @@ function payload(document: BookDocument): object {
       })),
     };
   }
+  if (document.kind === 'credit') throw new Error('QBO credit memo requires its resolved invoice');
   if (document.party?.kind !== 'supplier') throw new Error('QBO bill requires a supplier');
   return {
     ...base, VendorRef: { value: party },
@@ -89,6 +95,51 @@ export function createQboAdapter(config: BooksAdapterConfig): BooksAdapter {
     const url = new URL('query', root); url.searchParams.set('query', sql);
     return request(url);
   };
+  const invoiceByReference = async (reference: string, remoteId?: string) => {
+    if (remoteId) {
+      const body = await request(new URL(`invoice/${encodeURIComponent(remoteId)}`, root), {}, true);
+      return body?.Invoice ?? null;
+    }
+    const body = await query(`select * from Invoice where DocNumber = ${quote(reference)} maxresults 2`);
+    if (!body.QueryResponse || typeof body.QueryResponse !== 'object') throw new Error('QBO returned malformed invoice query response');
+    const rows = body.QueryResponse.Invoice ?? [];
+    if (!Array.isArray(rows)) throw new Error('QBO returned malformed invoice collection');
+    if (rows.length > 1) throw new Error('Ambiguous QBO invoice reference requires reconciliation');
+    return rows[0] ?? null;
+  };
+  const paymentRead = async (document: BookDocument): Promise<BookResult | null> => {
+    const payment = document.payment!;
+    const body = await query(`select * from Payment where PaymentRefNum = ${quote(await paymentReference(payment))} maxresults 2`);
+    if (!body.QueryResponse || typeof body.QueryResponse !== 'object') throw new Error('QBO returned malformed payment query response');
+    const rows = body.QueryResponse.Payment ?? [];
+    if (!Array.isArray(rows)) throw new Error('QBO returned malformed payment collection');
+    if (rows.length > 1) throw new Error('Ambiguous QBO payment source identity requires reconciliation');
+    const entity = rows[0];
+    if (!entity) return null;
+    const invoice = await invoiceByReference(document.reference, document.remoteId);
+    if (!invoice) throw new Error('QBO payment invoice is missing; reconcile before continuing');
+    return await paymentResult(entity, document, invoice);
+  };
+  const creditRead = async (document: BookDocument): Promise<BookResult | null> => {
+    if (!document.creditForReference || document.party?.kind !== 'customer') throw new Error('QBO credit memo requires its original customer invoice');
+    let entity: any;
+    if (document.remoteId) {
+      const body = await request(new URL(`creditmemo/${encodeURIComponent(document.remoteId)}`, root), {}, true);
+      if (!body) return null;
+      entity = body.CreditMemo;
+    } else {
+      const body = await query(`select * from CreditMemo where DocNumber = ${quote(document.reference)} maxresults 2`);
+      if (!body.QueryResponse || typeof body.QueryResponse !== 'object') throw new Error('QBO returned malformed credit memo query response');
+      const rows = body.QueryResponse.CreditMemo ?? [];
+      if (!Array.isArray(rows)) throw new Error('QBO returned malformed credit memo collection');
+      if (rows.length > 1) throw new Error('Ambiguous QBO credit reference requires reconciliation');
+      entity = rows[0];
+      if (!entity) return null;
+    }
+    const invoice = await invoiceByReference(document.creditForReference!, undefined);
+    if (!invoice) throw new Error('QBO credit memo invoice is missing; reconcile before continuing');
+    return creditMemoResult(entity, document, invoice);
+  };
   const receiptRows = (body: any, document: BookDocument): any[] => {
     const rows = body?.QueryResponse?.Attachable ?? body?.AttachableResponse?.map((entry: any) => entry.Attachable);
     if (!Array.isArray(rows)) throw new Error('QBO returned malformed attachment response');
@@ -97,12 +148,10 @@ export function createQboAdapter(config: BooksAdapterConfig): BooksAdapter {
   };
   return {
     async post(document) {
-      if (document.kind === 'credit') throw new Error('Return credit posting is supported by the Pantry connector; QBO credit mapping requires separate acceptance.');
       validateDocument(document);
       // A deterministic digest fits the provider request-ID field even when a
       // durable Pier command key is long or contains arbitrary Unicode.
-      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(document.key));
-      const requestId = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('').slice(0, 48);
+      const requestId = await requestIdentity(document.key);
       if (document.kind === 'receipt') {
         const file = document.attachment!;
         const metadata = {
@@ -117,13 +166,37 @@ export function createQboAdapter(config: BooksAdapterConfig): BooksAdapter {
         if (receiptRows(body, document).length !== 1) throw new Error('QBO did not confirm the receipt attachment on its bill');
         return { id: document.remoteId!, status: 'attached', received: true };
       }
+      if (document.kind === 'credit') {
+        if (!document.creditForReference || document.party?.kind !== 'customer') throw new Error('QBO credit memo requires its original customer invoice');
+        const invoice = await invoiceByReference(document.creditForReference);
+        if (!invoice || invoice.CustomerRef?.value !== document.party.id) throw new Error('QBO credit memo invoice customer differs; reconcile before continuing');
+        const url = new URL('creditmemo', root); url.searchParams.set('requestid', requestId);
+        const body = await request(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: providerJson(creditMemoPayload(document, invoice)) });
+        return creditMemoResult(body.CreditMemo, document, invoice);
+      }
+      if (document.kind === 'invoice' && document.payment) {
+        const url = new URL('invoice', root); url.searchParams.set('requestid', requestId);
+        const existing = await invoiceByReference(document.reference, document.remoteId);
+        const invoice = existing ?? (await request(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: providerJson(payload(document)) })).Invoice;
+        const id = required(invoice?.Id, 'QBO response ID');
+        result(invoice, document);
+        const prior = await paymentRead({ ...document, remoteId: id });
+        if (prior) return prior;
+        if (cents(invoice.Balance) < cents(document.payment.amount)) throw new Error('QBO invoice has insufficient open balance for its mapped payment');
+        const paymentUrl = new URL('payment', root); paymentUrl.searchParams.set('requestid', await requestIdentity(`${document.key}:payment:${document.payment.reference}`));
+        const paymentBody = await request(paymentUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: providerJson(await paymentPayload(document, id)) });
+        const currentInvoice = await invoiceByReference(document.reference, id);
+        if (!currentInvoice) throw new Error('QBO payment invoice disappeared after posting');
+        if (cents(invoice.Balance) - cents(currentInvoice.Balance) !== cents(document.payment.amount)) throw new Error('QBO invoice balance does not reflect the exact mapped payment');
+        return await paymentResult(paymentBody.Payment, document, currentInvoice);
+      }
       const entity = entities[document.kind];
       const url = new URL(entity.toLowerCase(), root); url.searchParams.set('requestid', requestId);
       const body = await request(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: providerJson(payload(document)) });
       return result(body[entity], document);
     },
     async read(document) {
-      if (document.kind === 'credit') throw new Error('Return credit posting is supported by the Pantry connector; QBO credit mapping requires separate acceptance.');
+      if (document.kind === 'credit') { validateDocument(document); return creditRead(document); }
       if (document.kind === 'receipt') {
         validateDocument(document);
         const body = await query(`select * from Attachable where AttachableRef.EntityRef.value = ${quote(document.remoteId!)} and AttachableRef.EntityRef.type = 'Bill'`);
@@ -133,6 +206,7 @@ export function createQboAdapter(config: BooksAdapterConfig): BooksAdapter {
         if (rows.length > 1) throw new Error('Ambiguous QBO receipt attachments require reconciliation');
         return rows.length ? { id: document.remoteId!, status: 'attached', received: true } : null;
       }
+      if (document.kind === 'invoice' && document.payment) { validateDocument(document); return paymentRead(document); }
       const entity = entities[document.kind];
       if (document.remoteId) {
         const body = await request(new URL(`${entity.toLowerCase()}/${encodeURIComponent(document.remoteId)}`, root), {}, true);
@@ -146,4 +220,42 @@ export function createQboAdapter(config: BooksAdapterConfig): BooksAdapter {
       return rows.length ? result(rows[0], document) : null;
     },
   };
+}
+
+/** Void only an entirely unpaid QBO invoice and confirm the provider's zeroed transaction. */
+export async function voidQboInvoice(config: BooksAdapterConfig, document: BookDocument): Promise<BookResult> {
+  if (document.kind !== 'invoice' || document.payment || document.party?.kind !== 'customer') throw new Error('QBO void requires an invoice without a pending payment');
+  validateDocument(document);
+  const token = required(config.credentials.accessToken, 'QBO accessToken');
+  const realm = required(config.credentials.realmId, 'QBO realmId');
+  const root = `${config.baseUrl.replace(/\/$/, '')}/v3/company/${encodeURIComponent(realm)}/`;
+  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+  const request = (url: URL, init: RequestInit = {}) => requestJson(config, 'QBO', url, { ...init, headers: { ...headers, ...init.headers } });
+  let invoice: any;
+  if (document.remoteId) {
+    const body = await request(new URL(`invoice/${encodeURIComponent(document.remoteId)}`, root));
+    invoice = body.Invoice;
+  } else {
+    const url = new URL('query', root);
+    url.searchParams.set('query', `select * from Invoice where DocNumber = ${quote(document.reference)} maxresults 2`);
+    const body = await request(url);
+    const rows = body.QueryResponse?.Invoice ?? [];
+    if (!Array.isArray(rows) || rows.length > 1) throw new Error('Ambiguous QBO invoice reference requires reconciliation');
+    invoice = rows[0];
+  }
+  if (!invoice || invoice.DocNumber !== document.reference || invoice.CustomerRef?.value !== document.party.id
+    || (document.remoteId && invoice.Id !== document.remoteId)) throw new Error('QBO invoice identity differs; reconcile before continuing');
+  const id = required(invoice.Id, 'QBO invoice ID');
+  if (cents(invoice.TotalAmt) === 0n && cents(invoice.Balance) === 0n && String(invoice.PrivateNote ?? '').includes('Voided')) return { id, status: 'voided' };
+  if (cents(invoice.TotalAmt) !== cents(document.total)) throw new Error('QBO invoice total differs from its Pier document; reconcile before voiding');
+  if (cents(invoice.TotalAmt) !== cents(invoice.Balance)) throw new Error('QBO invoice has an applied payment or credit and cannot be safely voided');
+  const syncToken = required(invoice.SyncToken, 'QBO invoice SyncToken');
+  const url = new URL('invoice', root); url.searchParams.set('operation', 'void'); url.searchParams.set('requestid', await requestIdentity(`${document.key}:void`));
+  const body = await request(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: providerJson({ Id: id, SyncToken: syncToken }) });
+  const voided = body.Invoice;
+  if (voided?.Id !== id || voided.DocNumber !== document.reference || voided.CustomerRef?.value !== document.party.id
+    || cents(voided.TotalAmt) !== 0n || cents(voided.Balance) !== 0n || !String(voided.PrivateNote ?? '').includes('Voided')) {
+    throw new Error('QBO did not confirm the invoice void; reconcile before continuing');
+  }
+  return { id, status: 'voided' };
 }

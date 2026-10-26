@@ -92,11 +92,11 @@ export function BookConnections({ state, run, busy, edit }: BooksProps & { edit:
   return <section className="panel"><h2>Ledger connection</h2>
     {!rows.length && <p>Connect Pantry to send accounting documents and check their posted state.</p>}
     {rows.map(row => <div className="record" key={row.id}>
-      <h3>Pantry · {!row.enabled ? 'Disconnected' : row.problem ? 'Connection broken' : 'Connected'}</h3>
-      <p>{row.baseUrl}</p><p className="muted">Credential: Pantry integration credential, kept encrypted · revoke it in Pantry to stop Pier</p>
+      <h3>{row.provider === 'qbo' ? 'QuickBooks Online' : 'Pantry'} · {!row.enabled ? 'Disconnected' : row.problem ? 'Connection broken' : 'Connected'}</h3>
+      <p>{row.baseUrl}</p><p className="muted">Credential kept encrypted · revoke it in {row.provider === 'qbo' ? 'QuickBooks' : 'Pantry'} to stop Pier</p>
       <p className="muted">{row.lastSync ? `Last checked: ${when(row.lastSync)}` : 'Not checked yet.'}</p>
       {row.problem && <p className="error">{row.problem}</p>}
-      {owner && <div className="actions"><button className={row.problem ? 'primary' : undefined} disabled={busy} onClick={() => edit(row)}>Reconnect Pantry</button>{row.enabled && <button disabled={busy} onClick={() => void run('book.disconnect', {})}>Disconnect</button>}</div>}
+      {owner && <div className="actions"><button className={row.problem ? 'primary' : undefined} disabled={busy} onClick={() => edit(row)}>Reconnect {row.provider === 'qbo' ? 'QuickBooks' : 'Pantry'}</button>{row.enabled && <button disabled={busy} onClick={() => void run('book.disconnect', {})}>Disconnect</button>}</div>}
     </div>)}
     {owner && !rows.length && <button disabled={busy} onClick={() => edit()}>Connect Pantry</button>}
   </section>
