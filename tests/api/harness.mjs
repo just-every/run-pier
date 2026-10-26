@@ -1,4 +1,5 @@
 import { createServer } from "node:net";
+import { builtAsset } from "./built-assets.mjs";
 import { request as httpsRequest } from 'node:https';
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { unstable_splitSqlQuery } from "wrangler";
@@ -45,7 +46,7 @@ export async function installation(edge = {}) {
       ...(edge.production ? { https: true } : {}),
       ...(emitted ? {
         modulesRoot: process.cwd(), modules,
-        assets: { directory: resolve('./dist/client'), binding: 'ASSETS', run_worker_first: true, routerConfig: { has_user_worker: true } },
+        serviceBindings: { ASSETS: builtAsset },
       } : { modules: true, script: bundled.outputFiles[0].text }),
       compatibilityDate: emitted?.compatibility_date ?? "2026-09-08",
       compatibilityFlags: emitted?.compatibility_flags ?? ["nodejs_compat"],
@@ -65,11 +66,9 @@ export async function installation(edge = {}) {
     }),
     resourcePersistencePath: root,
   });
-  if(edge.built)console.error("Built host: starting");
   const mf = new Miniflare(options(port));
   try {
     const address = await mf.ready;
-    if(edge.built)console.error("Built host: ready");
     origin = address.origin;
     // Use the real HTTP listener so URL, Host and Origin all describe this
     // installation. HTTPS production-auth tests trust only their disposable
@@ -83,14 +82,12 @@ export async function installation(edge = {}) {
     });
     if (!edge.built) await mf.setOptions(options(Number(address.port)));
     const db = await mf.getD1Database("DB");
-    if(edge.built)console.error("Built host: database acquired");
     for (const file of (await readdir("migrations/core"))
       .filter((n) => n.endsWith(".sql"))
       .sort()) {
       const sql = await readFile("migrations/core/" + file, "utf8");
       await db.batch(unstable_splitSqlQuery(sql).map((q) => db.prepare(q)));
     }
-    if(edge.built)console.error("Built host: migrations applied");
     let cookie = "";
     const request = (path, { method = "GET", body, as = cookie, headers: extraHeaders = {} } = {}) =>
       (edge.production ? localHttps : fetch)(origin + path, {
@@ -109,7 +106,6 @@ export async function installation(edge = {}) {
       method: "POST",
       body: { token: setup, displayName: "Owner" },
     });
-    if(edge.built)console.error("Built host: bootstrap returned",boot.status);
     assert.equal(boot.status, 303, await boot.text());
     cookie = boot.headers
       .getSetCookie()
@@ -187,7 +183,6 @@ export async function installation(edge = {}) {
       },
     };
   } catch (error) {
-    if(edge.built)console.error("Built host initialization failed",error.message);
     await mf.dispose().catch(() => {});
     await rm(root, { recursive: true, force: true }).catch(() => {});
     throw error;
