@@ -9,6 +9,7 @@ export function readState(value: unknown): PierState {
   if (!object(value) || !Number.isSafeInteger(value.version) || Number(value.version) < 0 || !object(actor) || !['id', 'name', 'role'].every(key => typeof actor[key] === 'string')) throw new Error('The server returned an invalid stock-state envelope. Reload records or sign in again.')
   for (const key of collections) {
     const rows = value[key]
+    if (key === 'imports' && actor.role !== 'owner' && rows === undefined) continue
     if (!Array.isArray(rows) || !rows.every((row: unknown) => object(row) && typeof row.id === 'string')) throw new Error(`The server returned invalid ${key} records. Reload before taking an action.`)
   }
   if (!Array.isArray(value.positions) || !value.positions.every((position: unknown) => object(position) && ['itemId', 'locationId', 'status', 'quantity', 'reserved', 'available'].every(key => typeof position[key] === 'string'))) throw new Error('The server returned invalid stock positions. Reload records before proceeding.')

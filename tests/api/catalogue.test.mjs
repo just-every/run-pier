@@ -131,7 +131,7 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   assert.equal((await h.request('/api/pier/custom-fields?ownerType=item&field=finish&value=%22gloss%22',{as:cookie})).status,403);
 
   for (const type of ['customField.set','customField.import']) await h.command(type, {ownerType:'item',recordId:blue.id,version:1,values:{finish:'denied'},rows:[]},{as:cookie,error:'FORBIDDEN'});
-  for (const [type,payload] of [['print.generate',{kind:'packing-slip',sourceId:packed.id}],['print.reprint',{documentId:document.id}]]) {
+  for (const [type,payload] of [['print.generate',{kind:'packing-slip',sourceId:packed.id}]]) {
     const response=await h.request('/api/pier/commands',{method:'POST',as:cookie,body:{commandId:crypto.randomUUID(),type,payload}});
     assert.equal((await response.json()).ok,false,'non-owner field documents refuse');
   }

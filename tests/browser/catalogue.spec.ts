@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ownerEntry } from './session'
 // @ts-expect-error Fixtures create records only through authenticated HTTP.
@@ -134,18 +134,19 @@ test('owner typed-field controls define, edit, import and filter every record ty
     await page.setViewportSize({ width, height: 1000 })
     await page.goto(origin + '/app#activity'); await page.getByRole('link', { name: 'Custom fields', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Custom fields', exact: true })).toBeVisible()
-    for (const [kind, record, type, value] of [['item', item, 'text', 'synthetic-pier-private'], ['customer', customer, 'boolean', 'false'], ['supplier', supplier, 'number', '1.25'], ['order', order, 'date', '2026-11-02']] as const) {
-      const key = 'field_' + width + '_' + suffix
+    for (const [kind, record, type, value] of [['item', item, 'text', 'synthetic-pier-private'], ['customer', customer, 'boolean', 'false'], ['supplier', supplier, 'number', '1.25'], ['order', order, 'date', '2026-11-02'], ['item', item, 'choice', 'blue']] as const) {
+      const key = 'field_' + width + '_' + type + '_' + suffix
       await page.getByLabel('Record type', { exact: true }).selectOption(kind)
       await page.getByText('Define a custom field', { exact: true }).click()
       await page.getByLabel('Field key', { exact: true }).fill(key)
-      await page.getByLabel('Field label', { exact: true }).fill(kind + ' attribute ' + width)
+      await page.getByLabel('Field label', { exact: true }).fill(kind + ' ' + type + ' attribute ' + width + ' ' + suffix)
       await page.getByLabel('Field type', { exact: true }).selectOption(type)
+      if (type === 'choice') await page.getByLabel('Choices (one per line)', { exact: true }).fill('blue\ngreen')
       await page.getByRole('button', { name: 'Define field', exact: true }).click()
       await expect(page.getByRole('button', { name: 'Define field', exact: true })).toBeEnabled()
       await page.getByLabel('Field record', { exact: true }).selectOption(record.id)
-      const input = page.getByLabel(kind + ' attribute ' + width, { exact: true })
-      if (type === 'boolean') await input.selectOption(value); else await input.fill(value)
+      const input = page.getByLabel(kind + ' ' + type + ' attribute ' + width + ' ' + suffix, { exact: true })
+      if (type === 'boolean' || type === 'choice') await input.selectOption(value); else await input.fill(value)
       await page.getByRole('button', { name: 'Save field values', exact: true }).click()
       await expect(page.getByRole('button', { name: 'Save field values', exact: true })).toBeEnabled()
       await expect(input).toHaveValue(value)
@@ -155,20 +156,23 @@ test('owner typed-field controls define, edit, import and filter every record ty
       const definition = saved.customFieldDefinitions.find((d: any) => d.ownerType === kind && d.key === key)
       await page.getByLabel('Filter field', { exact: true }).selectOption(definition.id)
       const filter = page.getByLabel('Filter value', { exact: true })
-      if (type === 'boolean') await filter.selectOption(value); else await filter.fill(value)
+      if (type === 'boolean' || type === 'choice') await filter.selectOption(value); else await filter.fill(value)
       await page.getByRole('button', { name: 'Filter records', exact: true }).click()
       await expect(page.getByText('1 matching records', { exact: true })).toBeVisible()
       await shot(kind + '-filtered')
       const upload = async (content: string) => page.getByLabel('Field JSON file', { exact: true }).setInputFiles({ name: 'synthetic-pier-fields.json', mimeType: 'application/json', buffer: Buffer.from(content) })
       await upload('{')
       await expect(page.getByRole('alert')).toBeVisible()
-      const importedValue = type === 'boolean' ? true : type === 'number' ? '2.5' : type === 'date' ? '2026-11-03' : 'synthetic-pier-imported'
+      const importedValue = type === 'boolean' ? true : type === 'number' ? '2.5' : type === 'date' ? '2026-11-03' : type === 'choice' ? 'green' : 'synthetic-pier-imported'
       await upload(JSON.stringify([{ ownerType: kind, recordId: record.id, version: savedRecord.version, values: { [key]: importedValue } }]))
       await expect(page.getByRole('heading', { name: 'Review field import', exact: true })).toBeVisible()
       await shot(kind + '-import-review')
       await page.getByRole('button', { name: 'Approve field import', exact: true }).click()
       await expect(page.getByRole('heading', { name: 'Review field import', exact: true })).toHaveCount(0)
       await expect(input).toHaveValue(String(importedValue))
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download field records', exact: true }).click()])
+      const downloaded = JSON.parse(await readFile((await download.path())!, 'utf8'))
+      expect(downloaded.find((r: any) => r.recordId === record.id).values[key]).toBe(importedValue)
       await page.getByText('Define a custom field', { exact: true }).click()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     }

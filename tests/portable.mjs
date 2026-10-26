@@ -460,6 +460,46 @@ try {
   assert.ok(fencedExport.workflowRules.every(rule => !rule.enabled));
   assert.equal((await running.request('/api/pier/documents/' + before.evidenceDocuments[0].id + '/original')).status, 404);
   await running.close(); running = null;
+  // A separate fresh installation proves retained custody with no live definitions.
+  const undoRoot=await copy('typed-undo'), undoPort=await port();
+  await command(undoRoot,['setup','--owner-email','owner@example.test','--non-interactive','--port',String(undoPort)]);
+  running=await start(undoRoot,undoPort);
+  let undoBatch=await running.cmd('import.stage',{...importInput,namespace:'typed-undo'});
+  assert.deepEqual(undoBatch.errors,[]);
+  for(const stage of ['mapped','reconciled','shadow','frozen']) undoBatch=await running.cmd('import.review',{batchId:undoBatch.id,version:undoBatch.version,stage,reason:'Review independent typed custody'});
+  undoBatch=await running.cmd('import.commit',{batchId:undoBatch.id,version:undoBatch.version});
+  await running.cmd('import.undo',{batchId:undoBatch.id,version:undoBatch.version,reason:'Remove all eligible imported live definitions'});
+  const unrelated=await running.cmd('party.save',{kind:'customer',name:'Unrelated custody subject'});
+  const refusalProof=async()=>{
+    const current=await(await running.request('/api/pier/export')).json();
+    assert.equal(current.customFieldDefinitions.length,0);
+    assert.ok(current.imports.some(batch=>batch.status==='undone'&&batch.source.records.some(r=>r.kind==='customFieldDefinitions')));
+    const plan=await(await running.request('/api/pier/privacy?kind=customer&subjectId='+unrelated.id)).json();
+    assert.match(plan.refusal,/Erasure refused: subject attribution/);
+    const result=await running.request('/api/pier/commands','POST',{commandId:randomUUID(),type:'privacy.eraseSubject',payload:{kind:'customer',subjectId:unrelated.id,planHash:plan.planHash,confirm:true}});
+    assert.equal((await result.json()).error.message,plan.refusal);
+    const final=await(await running.request('/api/pier/export')).json();
+    assert.deepEqual(final.imports,current.imports);
+    assert.ok(final.auditEvents.some(event=>event.type==='privacy.eraseSubject'&&event.outcome==='refused'));
+    assert.ok(!JSON.stringify(final.auditEvents).includes('synthetic-pier-private-'));
+    return final;
+  };
+  await refusalProof();
+  await running.close();running=null;
+  running=await start(undoRoot,undoPort);
+  const undoBefore=await refusalProof(), undoSession=running.sessionCookie();
+  await running.close();running=null;
+  const undoArchive=join(parent,'typed-undo.rer');
+  await command(undoRoot,['export','--output',undoArchive]);
+  await command(undoRoot,['reset','--yes']);
+  await command(undoRoot,['import','--input',undoArchive,'--yes']);
+  await command(undoRoot,['setup','--owner-email','owner@example.test','--non-interactive','--port',String(undoPort)]);
+  running=await start(undoRoot,undoPort);
+  assert.equal((await running.request('/api/pier/state','GET',undefined,undoSession)).status,401);
+  const undoAfter=await refusalProof();
+  assert.deepEqual(undoAfter.imports,undoBefore.imports);
+  assert.deepEqual(undoAfter.importJournal,undoBefore.importJournal);
+  await running.close();running=null;
   console.log(
     "Fresh rer export/import retained business identity and exact history; a new native session continued receipt to 0.3.",
   );
