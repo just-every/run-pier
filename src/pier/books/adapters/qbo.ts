@@ -66,7 +66,7 @@ function result(entity: any, document: BookDocument): BookResult {
     if (entity.Name !== document.reference || entity.Type !== 'NonInventory' || entity.IncomeAccountRef?.value !== document.lines[0]?.account) mismatch();
     return { id, status: entity.Active === false ? 'inactive' : 'active' };
   }
-  if (entity.DocNumber !== document.reference || entity.TxnDate !== document.date || entity.CurrencyRef?.value !== 'USD') mismatch();
+  if (entity.DocNumber !== document.reference || entity.TxnDate !== document.date || entity.CurrencyRef?.value !== 'USD' || document.dueDate !== undefined && entity.DueDate !== document.dueDate) mismatch();
   const detail = kind === 'invoice' ? 'SalesItemLineDetail' : kind === 'bill' ? 'AccountBasedExpenseLineDetail' : 'JournalEntryLineDetail';
   const lines = entity.Line?.filter((line: any) => line.DetailType === detail);
   if (!Array.isArray(lines) || lines.length !== document.lines.length) mismatch();

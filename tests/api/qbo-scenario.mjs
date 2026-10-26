@@ -11,7 +11,9 @@ export async function qboScenario(h, mapping, options = {}) {
   const date = options.date ?? '2026-10-26';
   let bill = await h.command('supplierBill.save', { poId: po.id, reference: 'synthetic-pier-1', date, quantityTolerancePercent: '0', priceTolerancePercent: '0', lines: [{ poLineId: po.lines[0].id, quantity: '12', unitPrice: '0.25' }] });
   bill = await h.command('supplierBill.approve', { id: bill.id, version: bill.version, receiptEvidence: bill.match.receiptEvidence });
-  const order = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '4', price: '10' }] });
+  let order = await h.command('quote.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '4', price: '10' }] });
+  order=await h.command('quote.approve',{orderId:order.id,version:order.version,reason:'Reviewed wholesale price and stock cost'});
+  order=await h.command('quote.accept',{orderId:order.id,version:order.version});
   await h.command('invoice.policy', { orderId: order.id, mode: 'shipment', terms: { kind: 'net30' }, reason: 'Invoice each physical shipment' });
   const first = await h.command('dispatch.create', { orderId: order.id, shipmentReference: 'synthetic-pier-2', lines: [{ orderLineId: order.lines[0].id, quantity: '2' }] });
   const authorize = async invoice => {

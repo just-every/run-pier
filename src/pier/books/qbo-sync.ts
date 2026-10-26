@@ -93,7 +93,7 @@ export async function syncQboBooks(env: Bindings) {
     for(const [metric,accountId,value] of [['inventory',connection.inventoryAccountId,expected.inventory],['cogs',connection.cogsAccountId,expected.cogs]] as const){
       try {
         const account=(await qboClient(connection.baseUrl,secret,transport(state)).request(`account/${encodeURIComponent(accountId)}`)).Account;
-        if(!account?.Active||account.AccountType!==(metric==='inventory'?'Other Current Asset':'Cost of Goods Sold')||account.CurrentBalance===undefined)throw new Error('Review the mapped QuickBooks account.');
+        if(!account?.Active||account.AccountType!==(metric==='inventory'?'Other Current Asset':'Cost of Goods Sold')||(metric==='inventory'&&account.CurrentBalance===undefined))throw new Error('Review the mapped QuickBooks account.');
         const through=new Date().toISOString().slice(0,10);
         const actual=metric==='cogs'?await qboCogs(qboClient(connection.baseUrl,secret,transport(state)),accountId,connection.cutoverDate,through):usd(cents(account.CurrentBalance));
         await record('book.reconcile',{metric,actual,expected:value,through});
