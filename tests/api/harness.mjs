@@ -1,4 +1,3 @@
-import { createServer } from "node:net";
 import { builtAsset } from "./built-assets.mjs";
 import { request as httpsRequest } from 'node:https';
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
@@ -6,13 +5,13 @@ import { unstable_splitSqlQuery } from "wrangler";
 import { build } from "esbuild";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { randomUUID, randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
 export async function installation(edge = {}) {
   const root = await mkdtemp(join(tmpdir(), "pier-api-"));
-  const bundled = edge.built ? null : await build({
-    entryPoints: ["tests/api/worker.ts"],
+  const bundled = await build({
+    entryPoints: [edge.built ? "tests/api/built-worker.mjs" : "tests/api/worker.ts"],
     bundle: true,
     write: false,
     format: "esm",
@@ -23,19 +22,7 @@ export async function installation(edge = {}) {
     loader: { ".css": "text", ".svg": "text" },
   });
   const emitted = edge.built ? JSON.parse(await readFile('./dist/server/wrangler.json', 'utf8')) : null;
-  const modules = emitted ? [
-    { type: 'ESModule', path: resolve('tests/api/built-worker.mjs') },
-    ...[emitted.main, ...(await readdir('./dist/server/assets')).filter(file => file.endsWith('.js')).map(file => `assets/${file}`)]
-      .map(file => ({ type: 'ESModule', path: resolve('./dist/server', file) })),
-  ] : null;
-  let port = 0;
-  if (edge.built) {
-    const socket = createServer();
-    await new Promise(resolve => socket.listen(0, '127.0.0.1', resolve));
-    port = socket.address().port;
-    await new Promise(resolve => socket.close(resolve));
-  }
-  let origin = edge.built ? `http://127.0.0.1:${port}` : edge.production ? "https://localhost" : "http://localhost";
+  let origin = edge.production ? "https://localhost" : "http://localhost";
   const setup = randomBytes(32).toString("hex"),
     devKey = randomBytes(32).toString("hex");
   const options = (port) => ({
@@ -43,10 +30,9 @@ export async function installation(edge = {}) {
       host: "127.0.0.1",
       port,
       ...(edge.production ? { https: true } : {}),
-      ...(emitted ? {
-        modulesRoot: process.cwd(), modules,
-        serviceBindings: { ASSETS: builtAsset },
-      } : { modules: true, script: bundled.outputFiles[0].text }),
+      modules: true,
+      script: bundled.outputFiles[0].text,
+      ...(edge.built ? { serviceBindings: { ASSETS: builtAsset } } : {}),
       compatibilityDate: emitted?.compatibility_date ?? "2026-09-08",
       compatibilityFlags: emitted?.compatibility_flags ?? ["nodejs_compat"],
       d1Databases: edge.built ? { DB: "pier-api-built" } : ["DB"],
@@ -65,7 +51,7 @@ export async function installation(edge = {}) {
     }),
     resourcePersistencePath: root,
   });
-  const mf = new Miniflare(options(port));
+  const mf = new Miniflare(options(0));
   try {
     const address = await mf.ready;
     origin = address.origin;
@@ -80,16 +66,13 @@ export async function installation(edge = {}) {
       req.on("error", reject); if (options.body) req.write(options.body); req.end();
     });
     await mf.setOptions(options(Number(address.port)));
-    if(edge.built)console.error("Built host: binding acquisition");
     const db = await mf.getD1Database("DB");
-    if(edge.built)console.error("Built host: applying migrations");
     for (const file of (await readdir("migrations/core"))
       .filter((n) => n.endsWith(".sql"))
       .sort()) {
       const sql = await readFile("migrations/core/" + file, "utf8");
       await db.batch(unstable_splitSqlQuery(sql).map((q) => db.prepare(q)));
     }
-    if(edge.built)console.error("Built host: claiming owner");
     let cookie = "";
     const request = (path, { method = "GET", body, as = cookie, headers: extraHeaders = {} } = {}) =>
       (edge.production ? localHttps : fetch)(origin + path, {
@@ -185,7 +168,6 @@ export async function installation(edge = {}) {
       },
     };
   } catch (error) {
-    if(edge.built)console.error("Built host initialization:",error.message);
     await mf.dispose().catch(() => {});
     await rm(root, { recursive: true, force: true }).catch(() => {});
     throw error;
