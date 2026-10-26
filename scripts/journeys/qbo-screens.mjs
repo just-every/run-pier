@@ -10,6 +10,12 @@ export async function qboScreens(h, result, directory) {
     const context = await browser.newContext();
     await context.addCookies(h.browserCookies());
     const page = await context.newPage();
+    await page.goto(`${h.origin}/app`);
+    if (new URL(page.url()).pathname === '/setup') {
+      await page.getByRole('checkbox').check();
+      await page.getByRole('button', { name: 'Finish setup', exact: true }).click();
+      await page.waitForURL(url => url.pathname === '/app');
+    }
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 });
       await page.goto(`${h.origin}/app#books`);
@@ -34,7 +40,7 @@ export async function qboScreens(h, result, directory) {
       await page.screenshot({ path: join(directory, `${width}-qbo-saved-settings.png`), fullPage: true, mask: ['Authorized company ID', 'Intuit client ID', 'Intuit client secret', 'Authorized refresh token'].map(label => page.getByLabel(label, { exact: true })) });
       await context.clearCookies();
       await page.goto(`${h.origin}/app#books/settings`);
-      assert.equal(new URL(page.url()).pathname, '/sign-in');
+      assert.equal(new URL(page.url()).pathname, '/signin');
       await page.screenshot({ path: join(directory, `${width}-qbo-session-denied.png`), fullPage: true });
       await context.addCookies(h.browserCookies());
     }

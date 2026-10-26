@@ -457,6 +457,10 @@
       "sha256": "952333314e374a9a20651a6232579d61ac1e03b961d8a2ec65d4b3a765b26d06",
       "executable": false
     },
+    "docs/proofs/qbo-sandbox-2026-10-26.json": {
+      "sha256": "ab7236adc81a3e9782981ac2f41b923a2a93db5a0ac024c0dbb832561cdcf548",
+      "executable": false
+    },
     "docs/replenishment.md": {
       "sha256": "60b2aedb344934c78c8f9dc64adda463ea5b8f96a1019a27c3c5855a8877ccc3",
       "executable": false
@@ -1150,7 +1154,7 @@
       "executable": false
     },
     "scripts/journeys/qbo-screens.mjs": {
-      "sha256": "5401ebddfcf58d516e5a4b177a55aac5ed773acc0299be912edca55173de2c88",
+      "sha256": "59814e15da6a05a7cb0dfb8a583bf2248107c2ad1f048a3122894a3e80332224",
       "executable": false
     },
     "scripts/operations-config.mjs": {
@@ -4786,7 +4790,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "a6926140fbce20f57db28fded48c916097c4d5e19b0a44c798b3b1a258822205",
+      "sha256": "73189b14aeeee49415352fc8d6b69a58d0b8330f066aee36705ca7d0a547246e",
       "executable": false
     },
     "tests/api/inbound-asn-fixture.mjs": {
