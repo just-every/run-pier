@@ -1,3 +1,4 @@
+import { privateFieldCustody } from './custom-fields';
 import { collections, type Context, type State, type Actor } from './model';
 import { resolve } from './floor/codes';
 import { authority } from './storage';
@@ -14,6 +15,9 @@ function image(kind: string, row: any): any {
   return Object.fromEntries(Object.entries(row).filter(([key]) => businessFields.has(key) && !(key === 'name' && kind !== 'items' && kind !== 'locations')).map(([key, value]) => [key, image(kind, value)]));
 }
 export function auditEvent(c: Context, before: State, type: string, p: any, result: any, outcome = 'accepted', reason?: string) {
+  if (type.startsWith('customField.')) p = { ownerType:p.ownerType, recordId:p.recordId, rows:p.rows, values:p.values };
+  const fieldRows = Array.isArray(p.rows) ? p.rows.filter((entry: any) => entry && typeof entry === 'object' && !Array.isArray(entry)) : [];
+  const knownFieldRecords = new Set([...c.s.items,...c.s.parties,...c.s.orders].map(record=>record.id));
   const modelTraffic = ['itemAgent.begin','itemAgent.complete','itemAgent.failed','document.begin','document.complete','document.failed'].includes(type);
   const modelAttempt = modelTraffic && type.endsWith('.begin');
   if (modelAttempt) outcome = 'uncertain';
@@ -66,7 +70,8 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
     connectorId: p.channelId ?? (type.startsWith('book.') ? 'pantry' : modelTraffic ? 'openai' : null), direction: type === 'channel.ingest' ? 'inbound' : type === 'channel.published' ? 'outbound' : modelTraffic ? modelAttempt ? 'outbound' : 'inbound' : null,
     ...(type === 'itemAgent.bulkApply' ? { ordinaryCommand: { type: c.s.proposals.find(plan => plan.id === p.proposalId)?.rows.find((entry: any) => entry.id === p.rowId)?.type, commandId: c.commandId } } : {}),
     ...(modelTraffic ? { phase: modelAttempt ? 'attempt' : 'outcome', attemptId: p.operationId, requestId: p.operationId } : {}),
-    ...(type.startsWith('customField.') ? { fieldOperation: { ownerType: p.ownerType ?? null, recordIds: p.recordId ? [p.recordId] : (p.rows ?? []).map((r: any) => r.recordId), fieldIds: c.s.customFieldDefinitions.filter(d => type === 'customField.define' ? d.id === result?.id : d.ownerType === p.ownerType && Object.hasOwn(p.values ?? {}, d.key) || (p.rows ?? []).some((r: any) => r.ownerType === d.ownerType && Object.hasOwn(r.values ?? {}, d.key))).map(d => d.id), count: type === 'customField.import' ? p.rows?.length ?? 0 : 1 } } : {}),
+    ...(type === 'privacy.eraseSubject' && outcome === 'refused' && privateFieldCustody(c.s) ? { custody: { classes: [c.s.customFieldDefinitions.length ? 'customFieldDefinitions' : null, c.s.imports.some(batch=>batch.source?.records?.some((record:any)=>record.kind==='customFieldDefinitions')) ? 'imports' : null, c.s.salesDocuments.some(document=>document.typedFieldCustody) ? 'salesDocuments' : null].filter(Boolean), setupRequired: 'subject-attribution-and-governed-erasure' } } : {}),
+    ...(type.startsWith('customField.') ? { fieldOperation: { ownerType: ['item','customer','supplier','order'].includes(p.ownerType) ? p.ownerType : null, recordIds: (p.recordId ? [p.recordId] : fieldRows.map((r: any) => r.recordId)).filter((id: string)=>knownFieldRecords.has(id)), fieldIds: c.s.customFieldDefinitions.filter(d => type === 'customField.define' ? d.id === result?.id : d.ownerType === p.ownerType && Object.hasOwn(p.values ?? {}, d.key) || fieldRows.some((r: any) => r.ownerType === d.ownerType && Object.hasOwn(r.values ?? {}, d.key))).map(d => d.id), count: type === 'customField.import' ? fieldRows.length : 1 } } : {}),
     itemIds: [...itemIds], documentIds: [...documents], changes, ...(reason ? { reason } : type === 'receiving.link' ? { reason: p.reason } : {}),
     ...(scanTypes.has(type) ? { code: typeof (p.code ?? p.itemCode) === 'string' ? (p.code ?? p.itemCode).slice(0, 200) : '', binCode: typeof p.binCode === 'string' ? p.binCode.slice(0, 200) : null, device: typeof p.device === 'string' ? p.device.slice(0, 120) : 'unspecified input', resolution } : {}),
   };

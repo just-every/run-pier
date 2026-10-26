@@ -480,7 +480,13 @@ try {
     assert.equal((await result.json()).error.message,plan.refusal);
     const final=await(await running.request('/api/pier/export')).json();
     assert.deepEqual(final.imports,current.imports);
-    assert.ok(final.auditEvents.some(event=>event.type==='privacy.eraseSubject'&&event.outcome==='refused'));
+    assert.ok(final.auditEvents.some(event=>event.type==='privacy.eraseSubject'&&event.outcome==='refused'&&event.custody?.classes.includes('imports')));
+    const member=await running.request('/auth/dev/enter?as=member');
+    assert.equal(member.status,303);
+    const memberCookie=member.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+    const privateState=await(await running.request('/api/pier/state','GET',undefined,memberCookie)).json();
+    assert.equal(privateState.imports,undefined);
+    assert.equal((await running.request('/api/pier/native-export','GET',undefined,memberCookie)).status,403);
     assert.ok(!JSON.stringify(final.auditEvents).includes('synthetic-pier-private-'));
     return final;
   };

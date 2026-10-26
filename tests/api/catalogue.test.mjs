@@ -85,6 +85,7 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   const rows=owners.map(([ownerType,record,,,value],index)=>({ownerType,recordId:record.id,version:record.version,values:{[owners[index][3]]:value}}));
   await h.command('customField.import',{stateVersion:initial.version,rows:[...rows.slice(0,3),{...rows[3],values:{delivery_day:'2026-02-30'}}]},{error:'CUSTOM_VALUE'});
   assert.equal((await h.state()).items.find(i=>i.id===blue.id).customFields,undefined,'a late invalid value refuses the entire import');
+  await h.command('customField.import',{stateVersion:initial.version,rows:'invalid'},{error:'CUSTOM_IMPORT'});
   const imported=await h.command('customField.import',{stateVersion:initial.version,rows});
   for (const [index,[ownerType,record,,,value]] of owners.entries()) {
     const expected=index===2?'1.25':value;
@@ -140,7 +141,7 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   const refusal=await h.command('privacy.eraseSubject',{kind:'customer',subjectId:b.customer.id,planHash:privacy.planHash,confirm:true},{error:'PRIVACY_DEPENDENCY'});
   assert.equal(refusal.error.message,privacy.refusal);assert.match(privacy.refusal,/Erasure refused: subject attribution and governed erasure/);
   const audit=await(await h.request('/api/pier/audit')).json();
-  assert.ok(audit.some(e=>e.type==='privacy.eraseSubject'&&e.outcome==='refused'&&e.reason==='PRIVACY_DEPENDENCY'));
+  assert.ok(audit.some(e=>e.type==='privacy.eraseSubject'&&e.outcome==='refused'&&e.reason==='PRIVACY_DEPENDENCY'&&e.custody.classes.includes('customFieldDefinitions')));
   assert.ok(audit.some(e=>e.type==='customField.import'&&e.fieldOperation.count===4&&e.fieldOperation.fieldIds.length===4));
   assert.ok(!JSON.stringify(audit).includes('"gloss"'));assert.ok(!JSON.stringify(audit).includes('"satin"'));
 

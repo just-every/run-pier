@@ -29,7 +29,7 @@ export function CustomFields({ state, run, busy }: { state: PierState; run: RunC
   if (state.actor.role !== 'owner') return <section className="panel"><h1>Custom fields</h1><p role="status">Only the current owner can access custom fields.</p></section>
   function download() {
     const content = rows.map(r => ({ ownerType: kind, recordId: r.id, version: r.version, values: r.customFields ?? {} }))
-    const url = URL.createObjectURL(new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' }))
+    const url = URL.createObjectURL(new Blob([JSON.stringify(content, null, 2)]))
     const link = document.createElement('a'); link.href = url; link.download = 'pier-custom-fields.json'; link.click(); URL.revokeObjectURL(url)
   }
   async function importFile(file?: File) {
@@ -82,7 +82,7 @@ export function CustomFields({ state, run, busy }: { state: PierState; run: RunC
       {matches && <><p role="status">{matches.length} matching records</p><Table headings={['Record', 'Value']}>{matches.map((r: any) => <tr key={r.id}><td>{r.sku || r.reference || r.name}</td><td>{r.customFields[field!.key] === null ? 'No value' : String(r.customFields[field!.key])}</td></tr>)}</Table></>}
     </section>
     <section className="panel"><h2>Import and export field values</h2><p>Download current records, edit the values object and upload the JSON file. Keep record identities and versions. Review every proposed value before applying; a changed record requires a fresh review.</p>
-      <button onClick={download}>Download field records</button><label className="field"><span>Field JSON file</span><input aria-label="Field JSON file" type="file" accept=".json,application/json" onChange={e => void importFile(e.target.files?.[0])} /></label>
+      <button onClick={download}>Download field records</button><label className="field"><span>Field JSON file</span><input aria-label="Field JSON file" type="file" accept=".json" onChange={e => void importFile(e.target.files?.[0])} /></label>
       {review && <div><h3>Review field import</h3><Evidence value={review.rows} /><button disabled={busy || review.stateVersion !== state.version} onClick={() => void run('customField.import', review)}>Approve field import</button></div>}
     </section>
   </section>

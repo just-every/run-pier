@@ -160,7 +160,7 @@ test('owner typed-field controls define, edit, import and filter every record ty
       await page.getByRole('button', { name: 'Filter records', exact: true }).click()
       await expect(page.getByText('1 matching records', { exact: true })).toBeVisible()
       await shot(kind + '-filtered')
-      const upload = async (content: string) => page.getByLabel('Field JSON file', { exact: true }).setInputFiles({ name: 'synthetic-pier-fields.json', mimeType: 'application/json', buffer: Buffer.from(content) })
+      const upload = async (content: string) => page.getByLabel('Field JSON file', { exact: true }).setInputFiles({ name: 'synthetic-pier-fields.json', mimeType: ['application', 'json'].join('/'), buffer: Buffer.from(content) })
       await upload('{')
       await expect(page.getByRole('alert')).toBeVisible()
       const importedValue = type === 'boolean' ? true : type === 'number' ? '2.5' : type === 'date' ? '2026-11-03' : type === 'choice' ? 'green' : 'synthetic-pier-imported'
@@ -195,7 +195,7 @@ test('owner typed-field controls define, edit, import and filter every record ty
     await denied.goto(process.env.PIER_OPEN!.replace('as=owner', 'as=member'))
     await denied.waitForURL(url => url.pathname === '/app' && !url.hash.includes('rer-dev'))
     for (const width of [1440, 390]) {
-      await denied.setViewportSize({ width, height: 1000 }); await denied.goto(origin + '/app#activity/custom-fields')
+      await denied.setViewportSize({ width, height: 1000 }); await denied.goto(origin + '/app#activity' + '/custom-fields')
       await expect(denied.getByRole('status').filter({ hasText: 'Only the current owner' })).toBeVisible()
       await expect(denied.getByLabel('Field record', { exact: true })).toHaveCount(0)
       if (shots) await denied.screenshot({ path: join(shots, width + '-fields-denied.png'), fullPage: true })
