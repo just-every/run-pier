@@ -40,7 +40,6 @@ export async function installation(edge = {}) {
     devKey = randomBytes(32).toString("hex");
   const options = (port) => ({
     ...convertV4MiniflareOptions({
-      ...(edge.built ? { name: "pier-api-built" } : {}),
       host: "127.0.0.1",
       port,
       ...(edge.production ? { https: true } : {}),
@@ -50,7 +49,7 @@ export async function installation(edge = {}) {
       } : { modules: true, script: bundled.outputFiles[0].text }),
       compatibilityDate: emitted?.compatibility_date ?? "2026-09-08",
       compatibilityFlags: emitted?.compatibility_flags ?? ["nodejs_compat"],
-      d1Databases: ["DB"],
+      d1Databases: edge.built ? { DB: "pier-api-built" } : ["DB"],
       ...(edge.outboundService ? { outboundService: edge.outboundService } : {}),
       bindings: {
         AUTH_LOCAL: "true",
@@ -80,14 +79,17 @@ export async function installation(edge = {}) {
       });
       req.on("error", reject); if (options.body) req.write(options.body); req.end();
     });
-    if (!edge.built) await mf.setOptions(options(Number(address.port)));
+    await mf.setOptions(options(Number(address.port)));
+    if(edge.built)console.error("Built host: binding acquisition");
     const db = await mf.getD1Database("DB");
+    if(edge.built)console.error("Built host: applying migrations");
     for (const file of (await readdir("migrations/core"))
       .filter((n) => n.endsWith(".sql"))
       .sort()) {
       const sql = await readFile("migrations/core/" + file, "utf8");
       await db.batch(unstable_splitSqlQuery(sql).map((q) => db.prepare(q)));
     }
+    if(edge.built)console.error("Built host: claiming owner");
     let cookie = "";
     const request = (path, { method = "GET", body, as = cookie, headers: extraHeaders = {} } = {}) =>
       (edge.production ? localHttps : fetch)(origin + path, {
@@ -183,6 +185,7 @@ export async function installation(edge = {}) {
       },
     };
   } catch (error) {
+    if(edge.built)console.error("Built host initialization:",error.message);
     await mf.dispose().catch(() => {});
     await rm(root, { recursive: true, force: true }).catch(() => {});
     throw error;

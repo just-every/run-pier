@@ -4741,6 +4741,10 @@
       "sha256": "a27e98c5032b6000d777e23485373fd1ac75f86b507982cd2125cad436a00122",
       "executable": false
     },
+    "tests/api/built-assets.mjs": {
+      "sha256": "c80678737209cf61eb7cef14b9bd5c1158ca6a61ebed297431502c03f0f37bd9",
+      "executable": false
+    },
     "tests/api/built-worker.mjs": {
       "sha256": "8ac9297dd2b6a99e691fb1d2f814fbce338107cff4a58931a3274a1b224976aa",
       "executable": false
@@ -4790,7 +4794,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "dcdda9fa997d63127a8bd1662249471e3d904174477959b88b59355ae0ad6155",
+      "sha256": "290e6f8023dc193e5c0d378fc3f62d877d13973867ca66998b7d65c4e6fa0592",
       "executable": false
     },
     "tests/api/inbound-asn-fixture.mjs": {
