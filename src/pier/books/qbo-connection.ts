@@ -1,5 +1,7 @@
 import type { Bindings } from '../../auth.server';
 import { fail, text, type Context } from '../model';
+import { cents } from './adapters/types';
+import { isoDay } from '../sales-quotes';
 import { seal } from '../channels/secrets';
 import { QBO_SECRET, qboOrigin } from './qbo-session';
 
@@ -24,16 +26,18 @@ export async function connectQbo(c: Context, p: any, env: Bindings) {
   const itemMappings = mappings(p.itemMappings, 'item'), partyMappings = mappings(p.partyMappings, 'customer and supplier');
   for (const m of itemMappings) if (!c.s.items.some(r => r.id === m.sourceId)) fail('BOOK_MAPPING', 'An item mapping names an unknown Pier item.');
   for (const m of partyMappings) if (!c.s.parties.some(r => r.id === m.sourceId)) fail('BOOK_MAPPING', 'A party mapping names an unknown Pier party.');
+  for(const value of [p.openingInventoryValue,p.cogsOpeningBalance])if(typeof value!=='string'||!/^(-?)(0|[1-9]\d*)\.\d{2}$/.test(value))fail('BOOK_CUTOVER','Review each opening balance in USD with two decimal places.');
+  if(cents(p.openingInventoryValue)<0n)fail('BOOK_CUTOVER','Opening inventory value cannot be negative.');
   const connection = { id: 'qbo', version: (old?.version ?? 0) + 1, provider: 'qbo', baseUrl, realmId, sandbox: p.sandbox, enabled: true,
     approvedBy: c.actor.id, createdAt: old?.createdAt ?? c.now, approvedAt: c.now, problem: null, lastSync: old?.lastSync ?? null,
     inventoryAccountId: account('inventoryAccountId'), cogsAccountId: account('cogsAccountId'), revenueAccountId: account('revenueAccountId'),
     landedCostAccountId: p.landedCostAccountId ? account('landedCostAccountId') : null, purchaseTaxAccountId: p.purchaseTaxAccountId ? account('purchaseTaxAccountId') : null,
     chargeItemId: p.chargeItemId ? account('chargeItemId') : null, clearingAccountId: p.clearingAccountId ? account('clearingAccountId') : null,
-    itemMappings, partyMappings, taxCode: 'exempt', cutoverDate: text(p.cutoverDate, 'Cutover date') };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(connection.cutoverDate) || !Number.isFinite(Date.parse(connection.cutoverDate))) fail('BOOK_CUTOVER', 'Choose a valid cutover date.');
+    itemMappings, partyMappings, openingInventoryValue:p.openingInventoryValue,cogsOpeningBalance:p.cogsOpeningBalance,taxCode: 'exempt', cutoverDate: isoDay(p.cutoverDate, 'Cutover date') };
   if (new Set([connection.inventoryAccountId, connection.cogsAccountId, connection.revenueAccountId]).size !== 3) fail('BOOK_MAPPING', 'Choose separate inventory, cost of goods and revenue accounts.');
   const keep = old?.provider === 'qbo' && old.enabled && old.realmId === realmId && old.baseUrl === baseUrl && !p.refreshToken;
   if (!keep) c.channelSecrets = [{ channelId: QBO_SECRET, secret: await seal(env, QBO_SECRET, { clientId: text(p.clientId, 'Intuit client ID'), clientSecret: text(p.clientSecret, 'Intuit client secret'), refreshToken: text(p.refreshToken, 'Authorized refresh token'), realmId }) }];
+  if(old&&old.provider!=='qbo')c.s.bookJobs=c.s.bookJobs.filter(j=>j.attempted);
   c.s.bookConnections = [connection];
   return connection;
 }

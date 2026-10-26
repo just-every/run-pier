@@ -20,13 +20,19 @@ export async function qboScenario(h, mapping, options = {}) {
   };
   const invoice = await authorize(await h.command('invoice.draft', { orderId: order.id, shipmentId: first.id, invoiceDate: date, charges: [{ kind: 'freight', amount: '3', taxable: false }] }));
   assert.equal(invoice.total, '23.000000000000');
-  const connection = { ...mapping, sandbox: true, consent: true, cutoverDate: date, itemMappings: [{ sourceId: b.item.id, remoteId: mapping.itemId }], partyMappings: [{ sourceId: b.customer.id, remoteId: mapping.customerId }, { sourceId: b.supplier.id, remoteId: mapping.supplierId }] };
+  const second=await h.command('dispatch.create',{orderId:order.id,shipmentReference:'synthetic-pier-4',lines:[{orderLineId:order.lines[0].id,quantity:'1'}]});
+  let secondInvoice=await authorize(await h.command('invoice.draft',{orderId:order.id,shipmentId:second.id,invoiceDate:date,charges:[{kind:'freight',amount:'2',taxable:false}]}));
+  assert.equal(secondInvoice.total,'12.000000000000');
+  const prepay=await h.command('order.create',{customerId:b.customer.id,shipTo:{state:'CA',country:'US'},lines:[{itemId:b.item.id,quantity:'1',price:'10'}]});
+  await h.command('invoice.policy',{orderId:prepay.id,mode:'prepay',reason:'Payment before shipment'});
+  const prepayInvoice=await authorize(await h.command('invoice.draft',{orderId:prepay.id,invoiceDate:date}));
+  const connection = { ...mapping, sandbox: true, consent: true, cutoverDate: date,openingInventoryValue:'0.00',cogsOpeningBalance:'0.00', itemMappings: [{ sourceId: b.item.id, remoteId: mapping.itemId }], partyMappings: [{ sourceId: b.customer.id, remoteId: mapping.customerId }, { sourceId: b.supplier.id, remoteId: mapping.supplierId }] };
   await h.command('book.qboConnect', { ...connection, consent: false }, { error: 'BOOK_CONSENT' });
   await h.command('book.qboConnect', connection);
   await h.command('book.sync', {});
   let state = await h.state();
   const posting = (sourceId, kind) => state.bookJobs.find(j => j.sourceId === sourceId && j.kind === kind);
-  for (const [source, kind] of [[invoice.id, 'invoice'], [bill.id, 'bill']]) {
+  for (const [source, kind] of [[invoice.id, 'invoice'], [secondInvoice.id,'invoice'],[prepayInvoice.id,'invoice'],[bill.id, 'bill']]) {
     const job = posting(source, kind); assert.ok(['posted', 'reconciled'].includes(job?.status), JSON.stringify(job)); assert.ok(job.remoteId);
   }
   const firstRemote = posting(invoice.id, 'invoice').remoteId;
@@ -37,18 +43,31 @@ export async function qboScenario(h, mapping, options = {}) {
   credit = await h.command('invoice.credit.authorize', { creditId: credit.id, version: credit.version });
   await h.command('book.sync', {}); state = await h.state();
   const remoteCredit = posting(credit.id, 'credit'); assert.equal(remoteCredit?.status, 'posted', JSON.stringify(remoteCredit));
-  assert.equal(state.customerBalances[b.customer.id].USD, '13.000000000000');
+  assert.equal(state.customerBalances[b.customer.id].USD, '35.000000000000');
   if(options.externalPayment){
     await options.externalPayment(firstRemote,13);
     await h.command('book.sync',{});state=await h.state();
-    assert.equal(state.customerBalances[b.customer.id].USD,'0.000000000000');
+    assert.equal(state.customerBalances[b.customer.id].USD,'22.000000000000');
     assert.equal(state.invoicePayments.filter(p=>p.invoiceId===invoice.id&&p.status==='succeeded').length,1);
     await h.command('book.sync',{});state=await h.state();
     assert.equal(state.invoicePayments.filter(p=>p.invoiceId===invoice.id&&p.status==='succeeded').length,1);
     const paid=state.invoices.find(r=>r.id===invoice.id);
     await h.command('invoice.void',{invoiceId:paid.id,version:paid.version,reason:'Paid void refused'},{error:'INVOICE_PAID'});
   }
+  secondInvoice=state.invoices.find(r=>r.id===secondInvoice.id);
+  await h.command('invoice.void',{invoiceId:secondInvoice.id,version:secondInvoice.version,reason:'Reviewed unpaid source correction'});
+  await h.command('book.sync',{});state=await h.state();
+  const voided=state.invoices.find(r=>r.id===secondInvoice.id);
+  assert.equal(voided.status,'voided');assert.equal(voided.ledger.status,'reconciled');assert.deepEqual(voided.original.lines,secondInvoice.original.lines);
+  await h.command('book.sync',{});
+  const replacement=await h.command('invoice.draft',{orderId:order.id,shipmentId:second.id,invoiceDate:date});
+  assert.equal(replacement.lines[0].quantity,'1');
+  await h.command('dispatch.create',{orderId:prepay.id,shipmentReference:'synthetic-pier-5',lines:[{orderLineId:prepay.lines[0].id,quantity:'1'}]});
+  await h.command('book.sync',{});state=await h.state();
+  assert.equal(state.invoices.filter(r=>r.orderId===prepay.id).length,1);
+  assert.equal(state.bookJobs.filter(j=>j.sourceId===prepayInvoice.id&&j.kind==='invoice').length,1);
+  for(const key of ['inventory-reconciliation','cogs-reconciliation']){const comparison=state.bookJobs.find(j=>j.key===key);assert.equal(comparison?.status,'reconciled',JSON.stringify(comparison));}
   const serialized = JSON.stringify(state);
   for (const value of [mapping.clientSecret,mapping.refreshToken]) assert.equal(serialized.includes(value), false, 'connection secrets stay outside state');
-  return { b, po, bill, order, invoice, credit, firstRemote, creditRemote: remoteCredit.remoteId, state };
+  return { b, po, bill, order, invoice, secondInvoice, prepayInvoice, credit, firstRemote, creditRemote: remoteCredit.remoteId, state };
 }

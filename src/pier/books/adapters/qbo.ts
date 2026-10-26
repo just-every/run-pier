@@ -81,7 +81,7 @@ function result(entity: any, document: BookDocument): BookResult {
   if (entity[kind === 'invoice' ? 'CustomerRef' : 'VendorRef']?.value !== document.party?.id || cents(entity.TotalAmt) !== cents(document.total)) mismatch();
   const total = cents(entity.TotalAmt), balance = cents(entity.Balance);
   if (total < 0n || balance < 0n || balance > total) throw new Error('QBO returned inconsistent transaction balances');
-  return { id, status: balance === 0n ? 'paid' : balance === total ? 'open' : 'partial', paid: usd(total - balance) };
+  return { id, status: balance === 0n ? 'paid' : balance === total ? 'open' : 'partial', paid: usd(total - balance), open: usd(balance) };
 }
 
 /** Actual QBO Accounting API transport; connection admission belongs to Pier. */

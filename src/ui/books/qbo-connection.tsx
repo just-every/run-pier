@@ -13,7 +13,7 @@ export function QboConnectionForm({ state, run, busy }: BooksProps) {
     const itemMappings = items.map(r => ({ sourceId: r.id, remoteId: text(data, `item-${r.id}`) })).filter(r => r.remoteId)
     const partyMappings = parties.map(r => ({ sourceId: r.id, remoteId: text(data, `party-${r.id}`) })).filter(r => r.remoteId)
     const ok = await run('book.qboConnect', { sandbox: text(data, 'environment') === 'sandbox', consent: data.get('consent') === 'on', realmId: text(data, 'realmId'), clientId: text(data, 'clientId'), clientSecret: text(data, 'clientSecret'), refreshToken: token,
-      cutoverDate: text(data, 'cutoverDate'), inventoryAccountId: text(data, 'inventoryAccountId'), cogsAccountId: text(data, 'cogsAccountId'), revenueAccountId: text(data, 'revenueAccountId'), landedCostAccountId: text(data, 'landedCostAccountId'), purchaseTaxAccountId: text(data, 'purchaseTaxAccountId'), chargeItemId: text(data, 'chargeItemId'), clearingAccountId: text(data, 'clearingAccountId'), itemMappings, partyMappings })
+      cutoverDate: text(data, 'cutoverDate'),openingInventoryValue:text(data,'openingInventoryValue'),cogsOpeningBalance:text(data,'cogsOpeningBalance'), inventoryAccountId: text(data, 'inventoryAccountId'), cogsAccountId: text(data, 'cogsAccountId'), revenueAccountId: text(data, 'revenueAccountId'), landedCostAccountId: text(data, 'landedCostAccountId'), purchaseTaxAccountId: text(data, 'purchaseTaxAccountId'), chargeItemId: text(data, 'chargeItemId'), clearingAccountId: text(data, 'clearingAccountId'), itemMappings, partyMappings })
     if (ok) { setToken(''); window.location.hash = 'books' }
     else setProblem('Connection was not saved. Check the error above and keep your current field values while correcting it.')
   }
@@ -29,6 +29,7 @@ export function QboConnectionForm({ state, run, busy }: BooksProps) {
         <Field label="Intuit client secret" name="clientSecret" type="password" autoComplete="off" required={!saved} disabled={busy} />
         <Field label="Authorized refresh token" name="refreshToken" type="password" autoComplete="off" value={token} onChange={setToken} required={!saved} disabled={busy} hint={saved ? 'Leave authorization fields blank to keep this company’s saved credential.' : 'Use the refresh token from your explicit Intuit company consent.'} />
         <Field label="Approved cutover date" name="cutoverDate" type="date" defaultValue={String(saved?.cutoverDate ?? '')} disabled={busy} />
+        <Field label="Reviewed opening inventory USD" name="openingInventoryValue" defaultValue={String(saved?.openingInventoryValue ?? '')} inputMode="decimal" disabled={busy} /><Field label="Reviewed opening cost of goods USD" name="cogsOpeningBalance" defaultValue={String(saved?.cogsOpeningBalance ?? '')} inputMode="decimal" disabled={busy} />
         {account('Inventory asset account ID', 'inventoryAccountId')}{account('Cost of goods account ID', 'cogsAccountId')}{account('Sales income account ID', 'revenueAccountId')}
         {account('Freight and duty account ID', 'landedCostAccountId', false)}{account('Supplier tax account ID', 'purchaseTaxAccountId', false)}{account('Sales charge item ID', 'chargeItemId', false)}{account('Captured payment clearing account ID', 'clearingAccountId', false)}
       </div>

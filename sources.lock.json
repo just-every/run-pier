@@ -1145,6 +1145,10 @@
       "sha256": "0e2a59220194f6c3f6dc4132cf6cc2faf4af237f4ed1dfeffc51a8a3271afa5e",
       "executable": false
     },
+    "scripts/journeys/qbo-sandbox.mjs": {
+      "sha256": "c8d694774bcbba69a3023998c020b389a7efc46e40e210234ad6bceb818d8087",
+      "executable": false
+    },
     "scripts/operations-config.mjs": {
       "sha256": "decbd8619e40c741708b49639d54282bd19edc4581a782b240d96a423ad47f01",
       "executable": false
@@ -3097,8 +3101,12 @@
       "sha256": "398b1ad9919d09b943a79e5fe297d8820432a8dbdd6520d7233967117b79092d",
       "executable": false
     },
+    "src/pier/books/adapters/qbo-money.ts": {
+      "sha256": "95770ad27297266d012696495c4437a68e5c5011cf02491dddb9fa3c20cf4044",
+      "executable": false
+    },
     "src/pier/books/adapters/qbo.ts": {
-      "sha256": "b99e6d74d1e3b963431b95a8c09acf43d63c9866b1ec78dd1fad5b0feb8c28cc",
+      "sha256": "70ded55cf0494031b1133d14e21ff2a32eba357d17be1afc842c7d0f3c3ccd90",
       "executable": false
     },
     "src/pier/books/adapters/types.ts": {
@@ -3110,7 +3118,7 @@
       "executable": false
     },
     "src/pier/books/commands.ts": {
-      "sha256": "6463a26228ba348bec2d4610a05e1698d3c9081912f56c10ec162e77fa5942aa",
+      "sha256": "ffbc2fbbeee6f005172261cc00a70913846a568984c4b4230a06bbe247a35523",
       "executable": false
     },
     "src/pier/books/connection-state.ts": {
@@ -3127,6 +3135,30 @@
     },
     "src/pier/books/planning.ts": {
       "sha256": "b4e18eabe25cfdbd52b72faab99b6879bf600ef76b7c599dfe18bc7728191005",
+      "executable": false
+    },
+    "src/pier/books/qbo-connection.ts": {
+      "sha256": "275c3b54f2d4d33f94631e24e939334da9d3152ef6c632e6b0740fa3fcd1a44c",
+      "executable": false
+    },
+    "src/pier/books/qbo-credit-application.ts": {
+      "sha256": "384fc10cfe674d2f61382136a5ae374f357adf601ec0347823747e2a70736e84",
+      "executable": false
+    },
+    "src/pier/books/qbo-payments.ts": {
+      "sha256": "4e3892acee2ebaf6b3f0a0e75828c052901c6d8cd7a7f6f0be4bc5842d0d48b3",
+      "executable": false
+    },
+    "src/pier/books/qbo-planning.ts": {
+      "sha256": "795a474347b9915e777b7c7e80ba650dd8ab5b4e13dde57457a16a5accd7a6f5",
+      "executable": false
+    },
+    "src/pier/books/qbo-session.ts": {
+      "sha256": "ad182590de4c3c28825cf556af3103ab4adfcbcb318a65f1abcf1608d6e3316f",
+      "executable": false
+    },
+    "src/pier/books/qbo-sync.ts": {
+      "sha256": "8a319b103375e7c96cf2db06c8f18154be537b6bc5ef752d5548fb777c945b13",
       "executable": false
     },
     "src/pier/books/receipt-closure.ts": {
@@ -4142,11 +4174,15 @@
       "executable": false
     },
     "src/ui/books/model.ts": {
-      "sha256": "e5e3c4f776f14cca10a1e1122a5dc7c90e07d7efe02e8d2513c6816f175b40e9",
+      "sha256": "ffb038e65093cc4b235be7d8eeef8c3a32d7fa83f0c6eb6a6a5ec923ef53a117",
       "executable": false
     },
     "src/ui/books/pantry-lookup.ts": {
       "sha256": "8067b1e7bdb899ac9b8648e0fdb63e1e5c463ea7a3f7e77c183c850b0d953fed",
+      "executable": false
+    },
+    "src/ui/books/qbo-connection.tsx": {
+      "sha256": "51a8516d5a103f13f059a3a8fc5887bea3ef6d421526dcadc2873965fee5adbb",
       "executable": false
     },
     "src/ui/books/receipt-closure.tsx": {
@@ -4682,7 +4718,7 @@
       "executable": false
     },
     "tests/api/books.test.mjs": {
-      "sha256": "55a61ae8186c4edab23a3babfe07ec192b12eefffae4710c74f238e66bff6072",
+      "sha256": "5f630f69a22d3d258c689bb7abdfe6b734d5b064a8d0c68b8961bf2efb17ce83",
       "executable": false
     },
     "tests/api/catalogue-fixtures.mjs": {
@@ -4730,7 +4766,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "01ef89455a08ba83e43f99a709a309c81eb9b7b713b33ce158e20863f90339b7",
+      "sha256": "720d6e9c71ce091f3da0526bd85f426dd36239809672e2f6f1c3f753fe9deacf",
       "executable": false
     },
     "tests/api/inbound-asn-fixture.mjs": {
@@ -4779,6 +4815,10 @@
     },
     "tests/api/purchase-send.test.mjs": {
       "sha256": "ac043ddf34dead462fd504f6a71269988534980c5f7cb5ad9575aaeefa9aa530",
+      "executable": false
+    },
+    "tests/api/qbo-scenario.mjs": {
+      "sha256": "00a844e8e1322fc1ebe804a0fd051b0d1de3da4dacdb7ac29f15c956ee94e916",
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
@@ -4881,6 +4921,10 @@
       "sha256": "1f40f60a6898b262258fc54b45c0da5e31c44e98ff0ce497052c2129e1bdc3ad",
       "executable": false
     },
+    "tests/browser/qbo.spec.ts": {
+      "sha256": "cdbcec1424c4a1af76b4427fafb6b199025c7c74089c2647c178adcc1f61b285",
+      "executable": false
+    },
     "tests/browser/reorder-list.spec.ts": {
       "sha256": "73419b9b380e864e83058051e7d29d53595a9a85d65c84a85e5f7ce1ed7db6cc",
       "executable": false
@@ -4930,7 +4974,7 @@
       "executable": false
     },
     "tests/fixtures/books/qbo.json": {
-      "sha256": "0780e5bda5d0cb04ee0cae5020e8089b1968012e077484b15edf1c26ff4c46cc",
+      "sha256": "0173fe1731af112ecda61d41b71ab22c729616b74818c6b04725d75696c36965",
       "executable": false
     },
     "tests/fixtures/books/README.md": {

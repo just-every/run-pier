@@ -129,12 +129,12 @@ test('QuickBooks company authorization posts mapped business documents once and 
     if (url.pathname.includes('/companyinfo/')) return answer({ CompanyInfo: { Country: 'US' } });
     if (url.pathname.includes('/item/')) return answer({ Item: { Id: '101', Name: 'BOLT', Sku: 'BOLT', Type: 'NonInventory', Active: true, IncomeAccountRef: { value: '303' } } });
     if (url.pathname.includes('/account/')) {
-      let inventory = 0;
+      let inventory = 0;const accountId=path;
       for (const [key, entity] of remote) {
-        if (key.startsWith('Bill:')) inventory += entity.Line.filter(l => l.AccountBasedExpenseLineDetail?.AccountRef.value === '301').reduce((n, l) => n + l.Amount, 0);
-        if (key.startsWith('JournalEntry:')) inventory += entity.Line.filter(l => l.JournalEntryLineDetail?.AccountRef.value === '301').reduce((n, l) => n + (l.JournalEntryLineDetail.PostingType === 'Debit' ? l.Amount : -l.Amount), 0);
+        if (accountId==='301'&&key.startsWith('Bill:')) inventory += entity.Line.filter(l => l.AccountBasedExpenseLineDetail?.AccountRef.value === accountId).reduce((n, l) => n + l.Amount, 0);
+        if (key.startsWith('JournalEntry:')) inventory += entity.Line.filter(l => l.JournalEntryLineDetail?.AccountRef.value === accountId).reduce((n, l) => n + (l.JournalEntryLineDetail.PostingType === 'Debit' ? l.Amount : -l.Amount), 0);
       }
-      return answer({ Account: { Id: path, Active: true, AccountType: 'Other Current Asset', CurrentBalance: inventory } });
+      return answer({ Account: { Id: path, Active: true, AccountType: accountId==='302'?'Cost of Goods Sold':'Other Current Asset', CurrentBalance: inventory } });
     }
     if (path === 'query') {
       const sql = url.searchParams.get('query'), type = /from (\w+)/i.exec(sql)?.[1], value = /(?:DocNumber|PaymentRefNum) = '([^']+)'/.exec(sql)?.[1];
@@ -167,13 +167,14 @@ test('QuickBooks company authorization posts mapped business documents once and 
   } });
   t.after(() => pier.close());
   const { qboScenario } = await import('./qbo-scenario.mjs');
-  const result = await qboScenario(pier, { clientId: 'synthetic-pier-4', clientSecret: 'synthetic-pier-5', refreshToken: 'synthetic-pier-6', realmId: '123456', inventoryAccountId: '301', cogsAccountId: '302', revenueAccountId: '303', clearingAccountId: '304', chargeItemId: '101', itemId: '101', customerId: '201', supplierId: '202' });
-  assert.equal(creates.get('Invoice'), 1); assert.equal(creates.get('CreditMemo'), 1); assert.equal(creates.get('Bill'), 1);
-  await pier.command('book.sync', {}); assert.equal(creates.get('Invoice'), 1); assert.equal(creates.get('CreditMemo'), 1);
+  const testPier={...pier,command:(type,payload,opts={})=>pier.command(type,payload,{headers:{'x-pier-test-now':'2026-10-26T12:00:00Z'},...opts})};
+  const result = await qboScenario(testPier, { clientId: 'synthetic-pier-1004', clientSecret: 'synthetic-pier-1005', refreshToken: 'synthetic-pier-1006', realmId: '123456', inventoryAccountId: '301', cogsAccountId: '302', revenueAccountId: '303', clearingAccountId: '304', chargeItemId: '101', itemId: '101', customerId: '201', supplierId: '202' },{externalPayment:async(invoiceId,amount)=>{const invoice=[...remote.values()].find(r=>r.Id===invoiceId);remote.set('Payment:external',{Id:String(next++),TxnDate:'2026-10-26',TotalAmt:amount,CustomerRef:{value:'201'},Line:[{Amount:amount,LinkedTxn:[{TxnId:invoiceId,TxnType:'Invoice'}]}]});invoice.Balance-=amount;}});
+  assert.equal(creates.get('Invoice'), 3); assert.equal(creates.get('CreditMemo'), 1); assert.equal(creates.get('Bill'), 1);
+  await pier.command('book.sync', {}); assert.equal(creates.get('Invoice'), 3); assert.equal(creates.get('CreditMemo'), 1);
   const invoice = [...remote.values()].find(r => r.Id === result.firstRemote); invoice.Line[0].Amount++;
   await pier.command('book.sync', {});
   assert.equal((await pier.state()).bookJobs.find(j => j.remoteId === result.firstRemote).status, 'uncertain');
-  assert.equal(creates.get('Invoice'), 1, 'an external edit is never overwritten');
+  assert.equal(creates.get('Invoice'), 3, 'an external edit is never overwritten');
   revoked = true; await pier.command('book.sync', {});
   assert.match((await pier.state()).bookConnections[0].problem, /authorization|verification/i);
   await pier.command('book.disconnect', {});

@@ -7,6 +7,7 @@ export const QBO_SECRET = 'books:qbo';
 
 /** Called only while the books lease is held. Persist rotation before using access. */
 export async function qboSession(env: Bindings, transport: typeof fetch = fetch) {
+  const stored = await env.DB.prepare('SELECT secret FROM pier_channel_secrets WHERE channel_id=?').bind(QBO_SECRET).first<{secret:string}>();
   const saved = await credentials(env, QBO_SECRET);
   if (saved.accessToken && Number(saved.expiresAt) > Date.now() + 60000) return saved;
   if (!saved.clientId || !saved.clientSecret || !saved.refreshToken || !saved.realmId) throw new Error('Reconnect QuickBooks with current company authorization. Restored archives carry no credentials.');
@@ -18,7 +19,8 @@ export async function qboSession(env: Bindings, transport: typeof fetch = fetch)
   const body: any = await response.json();
   if (typeof body.refresh_token !== 'string' || !body.refresh_token || typeof body.access_token !== 'string' || !body.access_token || !Number.isFinite(body.expires_in) || body.expires_in <= 0) throw new Error('QuickBooks returned incomplete authorization. Reconnect before posting.');
   const next = { ...saved, refreshToken: body.refresh_token, accessToken: body.access_token, expiresAt: String(Date.now() + body.expires_in * 1000) };
-  await env.DB.prepare('UPDATE pier_channel_secrets SET secret=? WHERE channel_id=?').bind(await seal(env, QBO_SECRET, next), QBO_SECRET).run();
+  const updated = await env.DB.prepare('UPDATE pier_channel_secrets SET secret=? WHERE channel_id=? AND secret=?').bind(await seal(env, QBO_SECRET, next), QBO_SECRET, stored?.secret ?? '').run();
+  if(!updated.meta.changes)throw new Error('QuickBooks authority changed while renewing authorization. Reconnect explicitly.');
   return next;
 }
 

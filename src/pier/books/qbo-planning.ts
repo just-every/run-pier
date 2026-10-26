@@ -11,12 +11,14 @@ export function planQboBooks(c: Context) {
   const connection = c.s.bookConnections.find(r => r.enabled && r.provider === 'qbo');
   if (!connection) return;
   planBooks(c);
+  c.s.bookJobs=c.s.bookJobs.filter(j=>!(j.sourceKind==='return'&&j.kind==='credit'&&!j.attempted&&c.s.returns.some(r=>r.id===j.sourceId&&c.s.shipments.some(sh=>sh.id===r.shipmentId&&c.s.invoices.some(i=>i.orderId===sh.orderId)))));
+
   const add = (key: string, kind: string, source: Row, sourceKind: string, build: () => BookDocument) => {
     const old = c.s.bookJobs.find(r => r.key === key);
     if (old?.attempted || old?.status === 'skipped') return;
     let document: BookDocument | null = null, reason = '';
     try { document = build(); } catch (error) { reason = error instanceof Error ? error.message : 'Review this source.'; }
-    const fields = { kind, sourceKind, sourceId: source.id, connectionId: connection.id, reference: qboReference(key), document, total: document?.total ?? null, currency: 'USD', status: reason ? 'review' : 'pending', reason, fix: 'Review the source and explicit QuickBooks mappings in Books settings, then retry.' };
+    const fields = { kind, sourceKind, sourceId: source.id, connectionId: connection.id, reference: qboReference(key), document, total: kind==='payment'?document?.payment?.amount ?? null:document?.total ?? null, currency: 'USD', status: reason ? 'review' : 'pending', reason, fix: 'Review the source and explicit QuickBooks mappings in Books settings, then retry.' };
     if (old) { if (JSON.stringify(old.document) !== JSON.stringify(document) || old.reason !== reason) Object.assign(old, fields, { version: old.version + 1 }); }
     else c.s.bookJobs.push({ id: crypto.randomUUID(), key, version: 1, createdAt: c.now, attempted: false, ...fields });
   };
@@ -36,7 +38,7 @@ export function planQboBooks(c: Context) {
     if (invoice.status === 'authorized' || c.s.bookJobs.some(j => j.key === key && j.attempted)) add(key, 'invoice', invoice, 'nativeInvoice', () => invoiceDocument(invoice, key));
     for (const payment of c.s.invoicePayments.filter(p => p.invoiceId === invoice.id && p.status === 'succeeded' && p.provider !== 'qbo')) {
       const paymentKey = `invoicePayment:${payment.id}`;
-      add(paymentKey, 'invoice', payment, 'invoicePayment', () => {
+      add(paymentKey, 'payment', payment, 'invoicePayment', () => {
         if (!connection.clearingAccountId) throw new Error('Choose the QuickBooks clearing account before posting captured payments.');
         return { ...invoiceDocument(invoice, key), payment: { reference: qboReference(paymentKey), sourceReference: qboReference(paymentKey), amount: dollars(payment.amount), date: payment.createdAt.slice(0, 10), bankAccountId: connection.clearingAccountId } };
       });

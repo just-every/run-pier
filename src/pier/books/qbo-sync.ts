@@ -2,8 +2,7 @@ import type { Bindings } from '../../auth.server';
 import { execute } from '../api';
 import { activeAutomationActors, load } from '../storage';
 import { providerOperation, type ProviderAudit } from '../provider-audit';
-import { valuationLedger } from '../valuation-ledger';
-import { money } from '../money';
+import { qboValuation } from './qbo-valuation';
 import type { Row, State } from '../model';
 import { applyQboCredit } from './qbo-credit-application';
 import { qboPayments } from './qbo-payments';
@@ -73,7 +72,7 @@ export async function syncQboBooks(env: Bindings) {
         }
         const creditIds=state.bookJobs.filter(j=>j.sourceKind==='invoiceCredit'&&state.invoiceCredits.some(cr=>cr.id===j.sourceId&&cr.invoiceId===job.sourceId)).map(j=>j.remoteId).filter(Boolean);
         const payments=job.sourceKind==='nativeInvoice'?await qboPayments(qboClient(connection.baseUrl,secret,transport(state,job)),doc,result.id,creditIds):undefined;
-        await record('book.record', { jobId: job.id, result: { ...(payments?{payments}:{}),remoteId: result.id, status: result.status === 'paid' || result.open === '0.00' ? 'reconciled' : 'posted', paid: result.paid ?? null, open: result.open ?? null, reason: '', fix: '' } });
+        await record('book.record', { jobId: job.id, result: { ...(payments?{payments}:{}),remoteId: result.id, status: result.status === 'paid' || result.open === '0.00' ? 'reconciled' : 'posted', paid: payments ? usd(payments.reduce((n,p)=>n+cents(p.amount),0n)) : result.paid ?? null, open: result.open ?? null, reason: '', fix: '' } });
         processed++;
       } catch (error) {
         const status = creating || job.attempted ? 'uncertain' : 'review';
@@ -86,17 +85,19 @@ export async function syncQboBooks(env: Bindings) {
         }
       }
     }
-    const state = await load(env.DB), layers = valuationLedger(state, new Date().toISOString()).positions.flatMap(p => p.layers).filter(l => l.quantity > 0n);
-    const expected = layers.some(l => l.value === null) ? null : money(layers.reduce((n, l) => n + l.value!, 0n));
-    try {
-      const account = (await qboClient(connection.baseUrl, secret, transport(state)).request(`account/${encodeURIComponent(connection.inventoryAccountId)}`)).Account;
-      if (!account?.Active || account.AccountType !== 'Other Current Asset' || account.CurrentBalance === undefined) throw new Error('Review the mapped active QuickBooks inventory asset account.');
-      await record('book.reconcile', { actual: usd(cents(account.CurrentBalance)), expected, through: new Date().toISOString().slice(0, 10) });
-      await record('book.checked', { problem: null });
-    } catch {
-      await record('book.reconcile', { actual: null, expected, problem: 'QuickBooks inventory value could not be verified. Review its mapped asset account and authorization.' });
-      await record('book.checked', { problem: 'QuickBooks inventory comparison needs owner review.' });
+    const state = await load(env.DB), expected = qboValuation(state, connection, new Date().toISOString());
+    let problem:string|null=null;
+    for(const [metric,accountId,value] of [['inventory',connection.inventoryAccountId,expected.inventory],['cogs',connection.cogsAccountId,expected.cogs]] as const){
+      try {
+        const account=(await qboClient(connection.baseUrl,secret,transport(state)).request(`account/${encodeURIComponent(accountId)}`)).Account;
+        if(!account?.Active||account.AccountType!==(metric==='inventory'?'Other Current Asset':'Cost of Goods Sold')||account.CurrentBalance===undefined)throw new Error('Review the mapped QuickBooks account.');
+        await record('book.reconcile',{metric,actual:usd(cents(account.CurrentBalance)),expected:value,through:new Date().toISOString().slice(0,10)});
+      }catch{
+        problem='QuickBooks value comparison needs owner review.';
+        await record('book.reconcile',{metric,actual:null,expected:value,problem:`QuickBooks ${metric==='inventory'?'inventory':'cost of goods'} could not be verified. Review the mapped account and authorization.`});
+      }
     }
+    await record('book.checked',{problem});
     return { processed };
   } finally { await env.DB.prepare('DELETE FROM pier_book_locks WHERE id=1 AND token=?').bind(token).run(); }
 }

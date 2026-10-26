@@ -167,35 +167,35 @@ export function parse(v) {
   const [a, b = ""] = v.split(".");
   return BigInt(a) * 1000000n + BigInt(b.padEnd(6, "0"));
 }
-export async function basics(h) {
+export async function basics(h, prefix = '') {
   const item = await h.command("item.save", {
-    sku: "BOLT",
+    sku: prefix + "BOLT",
     name: "Brass bolt",
     unit: "each",
-    barcode: "10001",
+    barcode: prefix + "10001",
     packSize: "0.5",
   });
   const source = await h.command("location.save", {
-      name: "A1",
+      name: prefix + "A1",
       warehouse: "North",
       kind: "bin",
     }),
     destination = await h.command("location.save", {
-      name: "B1",
+      name: prefix + "B1",
       warehouse: "South",
       kind: "bin",
     }),
     transit = await h.command("location.save", {
-      name: "Van",
+      name: prefix + "Van",
       warehouse: "Between warehouses",
       kind: "transit",
     }),
     supplier = await h.command("party.save", {
-      name: "Metals",
+      name: prefix + "Metals",
       kind: "supplier",
     }),
     customer = await h.command("party.save", {
-      name: "Workshop",
+      name: prefix + "Workshop",
       kind: "customer",
     });
   const customerPolicy=await h.command('customer.splitPolicy',{customerId:customer.id,version:customer.version,allowSplit:true,reason:'Fixture permits split warehouse fulfilment'});

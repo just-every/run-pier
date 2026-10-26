@@ -330,12 +330,14 @@
         "post": {
           "id": "910002",
           "status": "open",
-          "paid": "0.00"
+          "paid": "0.00",
+          "open": "125.50"
         },
         "read": {
           "id": "910002",
           "status": "partial",
-          "paid": "25.25"
+          "paid": "25.25",
+          "open": "100.25"
         }
       },
       "lookup": {
@@ -558,12 +560,14 @@
         "post": {
           "id": "910003",
           "status": "open",
-          "paid": "0.00"
+          "paid": "0.00",
+          "open": "74.25"
         },
         "read": {
           "id": "910003",
           "status": "paid",
-          "paid": "74.25"
+          "paid": "74.25",
+          "open": "0.00"
         }
       },
       "lookup": {

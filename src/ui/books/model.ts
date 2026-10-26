@@ -6,7 +6,7 @@ export type BookConnection = RecordData & {
   credentialPresent?: boolean; stripeBankAccountId?: string | null; lastSync?: string | null; problem?: string | null; writeOffAccountId?: string; purchaseTaxAccountId?: string | null; landedCostAccountId?: string | null
 }
 export type BookJob = {
-  id: string; kind: 'item' | 'invoice' | 'credit' | 'bill' | 'journal' | 'receipt' | 'valuation'
+  id: string; kind: 'item' | 'invoice' | 'credit' | 'bill' | 'journal' | 'receipt' | 'valuation' | 'payment'
   reference: string; sourceId: string; sourceKind: string; total?: string | null; currency: 'USD'
   status: 'pending' | 'posted' | 'review' | 'uncertain' | 'reconciled' | 'skipped'
   remoteId?: string | null; paid?: string | null; open?: string | null; reason?: string | null; fix?: string | null
