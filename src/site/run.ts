@@ -6,9 +6,7 @@ export const run: RunData = {
   name: 'Pier',
   repository: links.source,
   clone: 'npx -y @runeditrun/rer dev just-every/run-pier',
-  folder: 'run-pier',
-  requirements: 'Runs on macOS, Linux or Windows with WSL2, with git. The installer brings Node when it is missing, and rer brings pnpm.',
   licence: 'MIT',
   docs: true,
-  hosted: [],
+  paths: { product: 'run-pier' },
 }
