@@ -77,10 +77,19 @@ jobs:
         if: runner.environment == 'github-hosted' && runner.os == 'Linux'
         shell: bash
         run: |
+          set -euo pipefail
           # rer dev and preview require 15 GiB free. This disposable JavaScript job
           # does not use Android, .NET or Haskell; preserve Node, browsers and caches.
           df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
-          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
+          for toolchain in /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup; do
+            if df -Pk "$GITHUB_WORKSPACE" "$RUNNER_TEMP" | awk '
+              NR > 1 && $4 < 20 * 1024 * 1024 { insufficient = 1 }
+              END { exit insufficient }
+            '; then
+              break
+            fi
+            sudo rm -rf -- "$toolchain"
+          done
           df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
       - uses: actions/setup-node@v4
         with:
