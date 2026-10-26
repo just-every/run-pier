@@ -56,7 +56,7 @@ function GlobalSearch({ state }: { state: PierState }) {
  * each retailer EDI connection and when its last purchase order arrived. */
 function SyncLine({ state }: { state: PierState }) {
   const channels = connections(state).filter(row => row.enabled), books = records(state, 'bookConnections').filter(row => row.enabled)
-  const sources = [...channels.map(row => ({ name: row.name || providerName(row.provider), at: row.lastReceivedAt, problem: row.problem })), ...books.map(row => ({ name: 'Pantry', at: row.lastSync, problem: row.problem }))]
+  const sources = [...channels.map(row => ({ name: row.name || providerName(row.provider), at: row.lastReceivedAt, problem: row.problem })), ...books.map(row => ({ name: row.provider === 'qbo' ? 'QuickBooks' : 'Pantry', at: row.lastSync, problem: row.problem }))]
   const edi = records(state, 'ediPartners').filter(row => row.enabled !== false).map(row => ({ name: `${row.name} EDI`, at: records(state, 'ediOrders').filter(order => order.partnerId === row.id).map(order => String(order.receivedAt)).sort().at(-1) }))
   const problem = sources.find(row => row.problem), latest = sources.map(row => row.at).filter(Boolean).sort().at(-1)
   const lastEdi = edi.map(row => row.at).filter(Boolean).sort().at(-1)
