@@ -43,14 +43,17 @@ test('QuickBooks settings retain exact mappings and recover a refused connection
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     expect(await page.evaluate(() => sessionStorage.getItem('pier.pending-command'))).toBeNull()
     const mask = [page.getByLabel('Intuit client ID', { exact: true }), page.getByLabel('Intuit client secret', { exact: true }), page.getByLabel('Authorized refresh token', { exact: true })]
+    await page.evaluate(() => window.scrollTo(0, 0))
     if (screenshots) await page.screenshot({ path: join(screenshots, `${width}-qbo-settings-refusal.png`), fullPage: true, mask })
     await page.getByLabel('Inventory asset account ID', { exact: true }).fill('301')
     await expect(page.getByLabel('Authorized refresh token', { exact: true })).toHaveValue('synthetic-pier-3')
+    await page.evaluate(() => window.scrollTo(0, 0))
     if (screenshots) await page.screenshot({ path: join(screenshots, `${width}-qbo-settings-recovery.png`), fullPage: true, mask })
     await page.getByRole('link', { name: 'Back to Books', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Books', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Supplier invoices', exact: true })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.evaluate(() => window.scrollTo(0, 0))
     if (screenshots) await page.screenshot({ path: join(screenshots, `${width}-qbo-books.png`), fullPage: true })
   }
 })
