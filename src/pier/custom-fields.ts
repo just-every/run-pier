@@ -67,7 +67,7 @@ export function customFieldProjection(value: unknown, actor: {role:string}, priv
 }
 
 export function privateFieldCustody(s: State) {
-  return s.customFieldDefinitions.length > 0 || s.imports.some(batch=>batch.source?.records?.some((record:any)=>record.kind==='customFieldDefinitions'));
+  return s.customFieldDefinitions.length > 0 || s.salesDocuments.some(document=>document.typedFieldCustody) || s.imports.some(batch=>batch.source?.records?.some((record:any)=>record.kind==='customFieldDefinitions'));
 }
 
 export const typedErasureRefusal = 'Erasure refused: subject attribution and governed erasure for arbitrary custom-field content and retained copies are not configured. Owner setup is required before Pier can identify and erase this subject’s content. No content was deleted by this request.';

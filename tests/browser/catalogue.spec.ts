@@ -121,7 +121,9 @@ test('owner typed-field controls define, edit, import and filter every record ty
     const response = await context.request.post(origin + '/api/pier/commands', { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
     const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
   }
-  const item = await command('item.save', { sku: 'synthetic-pier-fields', name: 'Typed field item', unit: 'each', packSize: '1' })
+  const suffix = crypto.randomUUID().slice(0,8)
+  await command('location.save', { name: 'Typed fields ' + suffix, warehouse: 'Dallas', kind: 'bin' })
+  const item = await command('item.save', { sku: 'synthetic-pier-fields-' + suffix, name: 'Typed field item', unit: 'each', packSize: '1' })
   const customer = await command('party.save', { kind: 'customer', name: 'Typed field customer' })
   const supplier = await command('party.save', { kind: 'supplier', name: 'Typed field supplier' })
   const order = await command('order.create', { customerId: customer.id, warehouse: 'Dallas', promiseDate: '2026-11-01', lines: [{ itemId: item.id, quantity: '1' }] })
@@ -133,7 +135,7 @@ test('owner typed-field controls define, edit, import and filter every record ty
     await page.goto(origin + '/app#activity'); await page.getByRole('link', { name: 'Custom fields', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Custom fields', exact: true })).toBeVisible()
     for (const [kind, record, type, value] of [['item', item, 'text', 'synthetic-pier-private'], ['customer', customer, 'boolean', 'false'], ['supplier', supplier, 'number', '1.25'], ['order', order, 'date', '2026-11-02']] as const) {
-      const key = 'field_' + width
+      const key = 'field_' + width + '_' + suffix
       await page.getByLabel('Record type', { exact: true }).selectOption(kind)
       await page.getByText('Define a custom field', { exact: true }).click()
       await page.getByLabel('Field key', { exact: true }).fill(key)
@@ -145,6 +147,7 @@ test('owner typed-field controls define, edit, import and filter every record ty
       const input = page.getByLabel(kind + ' attribute ' + width, { exact: true })
       if (type === 'boolean') await input.selectOption(value); else await input.fill(value)
       await page.getByRole('button', { name: 'Save field values', exact: true }).click()
+      await expect(page.getByRole('button', { name: 'Save field values', exact: true })).toBeEnabled()
       await expect(input).toHaveValue(value)
       const saved = await (await context.request.get(origin + '/api/pier/state')).json()
       const savedRecord = (kind === 'item' ? saved.items : kind === 'order' ? saved.orders : saved.parties).find((r: any) => r.id === record.id)
@@ -179,7 +182,7 @@ test('owner typed-field controls define, edit, import and filter every record ty
     await page.getByRole('button', { name: 'Record erasure refusal', exact: true }).click()
     await expect(page.getByRole('alert').filter({ hasText: 'No content was deleted by this request.' }).first()).toBeVisible()
     await page.getByLabel('Document identity filter', { exact: true }).fill('')
-    await expect(page.getByRole('table').filter({ hasText: 'Privacy erase subject' })).toContainText('Refused')
+    await expect(page.getByRole('table').filter({ hasText: 'Privacy.eraseSubject' })).toContainText('Refused')
     await shot('activity-refused')
   }
   const staff = await browser.newContext()

@@ -143,5 +143,15 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   assert.ok(audit.some(e=>e.type==='privacy.eraseSubject'&&e.outcome==='refused'&&e.reason==='PRIVACY_DEPENDENCY'));
   assert.ok(audit.some(e=>e.type==='customField.import'&&e.fieldOperation.count===4&&e.fieldOperation.fieldIds.length===4));
   assert.ok(!JSON.stringify(audit).includes('"gloss"'));assert.ok(!JSON.stringify(audit).includes('"satin"'));
+
+  const staffActor=(await(await h.request('/api/pier/state',{as:cookie})).json()).actor;
+  await h.command('role.set',{operatorId:staffActor.id,role:'owner'});
+  const staffRecord=(await h.state()).items.find(r=>r.id===blue.id);
+  const recoveredPayload={ownerType:'item',recordId:blue.id,version:staffRecord.version,values:{finish:'synthetic-pier-revoked'}}, recoveryId=crypto.randomUUID();
+  await h.command('customField.set',recoveredPayload,{as:cookie,commandId:recoveryId});
+  await h.command('role.set',{operatorId:staffActor.id,role:'viewer'});
+  await h.command('customField.set',recoveredPayload,{as:cookie,commandId:recoveryId,error:'FORBIDDEN'});
+  const afterRevocation=await(await h.request('/api/pier/state',{as:cookie})).json();
+  assert.ok(!JSON.stringify(afterRevocation).includes('synthetic-pier-revoked'));
   await h.invariant();
 });

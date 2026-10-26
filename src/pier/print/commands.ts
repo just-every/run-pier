@@ -35,7 +35,8 @@ export async function generateDocument(c:Context,p:any,recipient?:string,purchas
   const sourceOrder = source.source.orderId ? c.s.orders.find(o=>o.id===source.source.orderId) : source.sourceKind==='orders'?source.source:null;
   const partyId = sourceOrder?.customerId ?? source.source.customerId ?? source.source.supplierId ?? (source.sourceKind==='parties'?source.source.id:null);
   const party = c.s.parties.find(p=>p.id===partyId);
-  if (c.actor.role !== 'owner' && (source.source.customFields || sourceOrder?.customFields || party?.customFields || source.lines.some(l=>l.customFields))) fail('CUSTOM_AUTHORITY','Only an owner can generate documents containing private custom fields.');
+  const typedFieldCustody = !!(source.source.customFields || sourceOrder?.customFields || party?.customFields || source.lines.some(l=>l.customFields));
+  if (c.actor.role !== 'owner' && typedFieldCustody) fail('CUSTOM_AUTHORITY','Only an owner can generate documents containing private custom fields.');
   for (const [label,record] of [['Record fields',source.source],['Order fields',sourceOrder],['Counterparty fields',party]] as const) if(record?.customFields) fields.push({label,value:businessParticulars(record.customFields)});
   if(kind==='bill-of-lading'){
     const freight=p.freight??{};
@@ -49,7 +50,7 @@ export async function generateDocument(c:Context,p:any,recipient?:string,purchas
   let pdf:string;
   try{pdf=await(kind==='bill-of-lading'?billOfLadingPDF(input):businessPDF(input));}catch(error){fail((error as any).code??'DOCUMENT_RENDER',(error as Error).message||'The business PDF could not be generated.');}
   const filename=`${String(source.reference).replace(/[^a-zA-Z0-9_-]/g,'-')}-v${source.source.version}-${kind}.pdf`;
-  return row(c,'salesDocuments',{kind,recordId:source.source.id,recordVersion:source.source.version,sourceKind:source.sourceKind,
+  return row(c,'salesDocuments',{kind,typedFieldCustody,recordId:source.source.id,recordVersion:source.source.version,sourceKind:source.sourceKind,
     templateId:template.id,templateVersion:template.version,snapshot:structuredClone(source.source),rendered:input,pdf:pdf!,filename,
     recipient:recipient??null,subject:mergeText(template.emailSubject,merged),body:mergeText(template.emailBody,merged)+(kind==='customer-statement'?'\n'+source.lines.filter(l=>l.payNowUrl).map(l=>`${l.description}: ${l.payNowUrl}`).join('\n'):''),
     createdBy:c.actor.id,...(recipient?{approvedBy:c.actor.id,approvedAt:c.now}:{})});

@@ -241,6 +241,13 @@ try {
       },
     ],
   };
+  const csv = cells => cells.map(row => row.map(value => '"' + String(value).replaceAll('"','""') + '"').join(',')).join('\n') + '\n';
+  importInput.files[0].csv=csv([['key','sku','name','barcode','unit','packSize','metadata'],['i','RESTORE-IMPORT','Restore import','','each','1',JSON.stringify({customFields:{private_value:'synthetic-pier-private-item'}})]]);
+  importInput.files.push(
+    {kind:'customFieldDefinitions',name:'fields.csv',csv:csv([['key','ownerType','fieldKey','label','type','options'],...['item','customer','supplier','order'].map(kind=>[kind,kind,'private_value','Private value','text','[]'])])},
+    {kind:'parties',name:'parties.csv',csv:csv([['key','name','kind','metadata'],['typed-customer','Typed customer','customer',JSON.stringify({customFields:{private_value:'synthetic-pier-private-customer'}})],['typed-supplier','Typed supplier','supplier',JSON.stringify({customFields:{private_value:'synthetic-pier-private-supplier'}})]])},
+    {kind:'orders',name:'orders.csv',csv:csv([['key','orderKey','customerKey','itemKey','quantity','unit','promiseDate','metadata'],['typed-line','typed-order','typed-customer','i','0.1','each','2026-11-01',JSON.stringify({customFields:{private_value:'synthetic-pier-private-order'}})]])}
+  );
   let imported = await running.cmd("import.stage", importInput);
   for (const stage of ["mapped", "reconciled", "shadow", "frozen"])
     imported = await running.cmd("import.review", {
@@ -291,7 +298,14 @@ try {
   await running.cmd('document.configure', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-2', consent: true });
   await running.cmd('ai.save', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-3', consent: true });
   await running.cmd('channel.save', { name: 'Portable channel', provider: 'woocommerce', baseUrl: 'https://synthetic-pier.example', warehouse: 'Main', enabled: false, credentials: { consumerKey: 'synthetic-pier-4', consumerSecret: 'synthetic-pier-5' } });
+  const typedState=await(await running.request('/api/pier/state')).json();
+  await running.cmd('business.save',{name:'Synthetic portable business',address:'1 Synthetic Pier Road',shipTo:{}});
+  const typedPurchase=await running.cmd('po.draft',{supplierId:typedState.parties.find(p=>p.customFields?.private_value==='synthetic-pier-private-supplier').id,promiseDate:'2026-11-01',reason:'Typed PDF custody',lines:[{itemId:typedState.items.find(i=>i.sku==='RESTORE-IMPORT').id,quantity:'1',price:'1'}]});
+  const typedDocument=await running.cmd('print.generate',{kind:'purchase-order',sourceId:typedPurchase.id});
   const before = await (await running.request("/api/pier/export")).json();
+  assert.equal(before.customFieldDefinitions.length,4);
+  assert.equal(typedDocument.typedFieldCustody,true);
+
   const oldSession = running.sessionCookie();
   assert.ok(before.importJournal.jobs.length > 0);
   assert.ok(
@@ -356,6 +370,15 @@ try {
     );
   }
   assert.equal(after.evidenceDocuments[0].original, original.toString('base64'));
+  assert.equal(after.salesDocuments.find(d=>d.id===typedDocument.id).pdf,typedDocument.pdf);
+  const typedPlan=await(await running.request('/api/pier/privacy?kind=customer&subjectId='+customer.id)).json();
+  assert.match(typedPlan.refusal,/Erasure refused: subject attribution/);
+  const typedRefusal=await running.request('/api/pier/commands','POST',{commandId:randomUUID(),type:'privacy.eraseSubject',payload:{kind:'customer',subjectId:customer.id,planHash:typedPlan.planHash,confirm:true}});
+  assert.equal((await typedRefusal.json()).error.message,typedPlan.refusal);
+  const restoredAudit=await(await running.request('/api/pier/audit')).json();
+  assert.ok(restoredAudit.some(e=>e.type==='privacy.eraseSubject'&&e.outcome==='refused'));
+  assert.ok(!JSON.stringify(restoredAudit).includes('synthetic-pier-private-'));
+
   for (const field of ['documentSettings', 'aiSettings', 'channels', 'replenishmentPolicies', 'workflowRules'])
     assert.ok(after[field].every(r => r.enabled !== true && r.autoDraft !== true && r.restorePaused), field + ' paused');
   assert.equal((await running.request('/api/pier/documents/' + after.evidenceDocuments[0].id + '/original')).status, 200);
