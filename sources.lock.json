@@ -1154,7 +1154,7 @@
       "executable": false
     },
     "scripts/journeys/qbo-screens.mjs": {
-      "sha256": "59814e15da6a05a7cb0dfb8a583bf2248107c2ad1f048a3122894a3e80332224",
+      "sha256": "9024fa248b682f979ee634e5478df73895d0ac44f037b292ebdb977e60779c8b",
       "executable": false
     },
     "scripts/operations-config.mjs": {
@@ -4182,7 +4182,7 @@
       "executable": false
     },
     "src/ui/books/documents.tsx": {
-      "sha256": "45e23bae23043dd3418131b0d3448ff2b3dca34d2fc18af0d5b96ed06f352223",
+      "sha256": "caec1f4ddd830a22ddb510a8bb0fb04272aa3840cc59278bd8e984a9cb720acc",
       "executable": false
     },
     "src/ui/books/index.tsx": {
