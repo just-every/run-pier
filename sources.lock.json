@@ -378,15 +378,15 @@
       "executable": false
     },
     "docs/books-developer.md": {
-      "sha256": "a19a09b70f91364b83546c1814b0e9c5bcb88e1151732a231653fc8b00260616",
+      "sha256": "625060347ecdf05e85a44ef772463b5ed5c7e9c0843f08c28c507dfbe80bf2f0",
       "executable": false
     },
     "docs/books.md": {
-      "sha256": "e5dd043663878f56daf6ef45180ebc6b4418b7ce8e74b7581fd177f1b890aafc",
+      "sha256": "166276797d628a045313431de262cc6df9485bb30592a72c069fe8c242ae61a5",
       "executable": false
     },
     "docs/business-documents.md": {
-      "sha256": "fe151c4e4d1fc4c93d553ea8d3a42528ce9b2c31182e5417b253f78b5bf1d28e",
+      "sha256": "ec99b6ff42f879aad8b3c10e0ce8d3c956c196f0dc8edf7e626cc8187260b6a1",
       "executable": false
     },
     "docs/buying.md": {
@@ -4982,7 +4982,7 @@
       "executable": false
     },
     "tests/fixtures/books/README.md": {
-      "sha256": "b0fffc20409e5d5fe66eebc100297887ca7eb6cd30dcb645b9c31ac4c16c3f04",
+      "sha256": "64893bbd1c26bff583852ae8896548b57de858a6917134ede651a1d5412622f0",
       "executable": false
     },
     "tests/fixtures/books/xero.json": {
