@@ -318,7 +318,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "809b315916e05e7de92aa3498749da96889087dcf9118e970eb7d624d5adedf4",
+      "sha256": "16109dff34c28ac45340ccd1141244f5b1856dc2fbd5ff35bf189bcab2043cf4",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -346,7 +346,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "775b10060bb362c492b01f9ac692ecef56e239ca3ef9c6e3336cd8dbdd480325",
+      "sha256": "f7acbffbbe983cf25a126aaa52ad3740f7b1b2ce4cbc4361a6ea90329d035639",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "f7f41150df985af543d62c73839afb6375a6fddf41ade01099f2fda9fb3a69a0",
+      "sha256": "39aa9f50b0a5dd8f75d4f844544ac5ea4ff9c6e1c4fec7282847857339a02c83",
       "executable": false
     },
     "docs/edi-bridge.md": {

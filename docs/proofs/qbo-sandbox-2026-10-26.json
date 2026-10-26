@@ -1,0 +1,134 @@
+{
+  "journey": "ACCOUNT-001 US QBO sandbox public command path",
+  "candidate": "549e4256aebada143b2a0b51ad3c6c88e7dfc293",
+  "at": "2026-10-26T07:25:17.337Z",
+  "companyCountry": "US",
+  "rotationsPersisted": 2,
+  "invoice": {
+    "id": "162",
+    "total": 23,
+    "balance": 0
+  },
+  "credit": {
+    "id": "165",
+    "total": 10
+  },
+  "nativeInvoices": [
+    {
+      "id": "158",
+      "total": 0,
+      "balance": 0,
+      "dueDate": "2026-11-25"
+    },
+    {
+      "id": "160",
+      "total": 10,
+      "balance": 10,
+      "dueDate": "2026-10-26"
+    },
+    {
+      "id": "162",
+      "total": 23,
+      "balance": 0,
+      "dueDate": "2026-11-25"
+    }
+  ],
+  "jobs": [
+    {
+      "kind": "invoice",
+      "status": "reconciled",
+      "remoteId": "158",
+      "total": "12.00",
+      "actual": null,
+      "reason": "QuickBooks confirmed the unpaid invoice void."
+    },
+    {
+      "kind": "bill",
+      "status": "posted",
+      "remoteId": "159",
+      "total": "3.00",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "invoice",
+      "status": "posted",
+      "remoteId": "160",
+      "total": "10.00",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "item",
+      "status": "posted",
+      "remoteId": "21",
+      "total": "0.00",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "journal",
+      "status": "posted",
+      "remoteId": "161",
+      "total": "0.25",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "invoice",
+      "status": "reconciled",
+      "remoteId": "162",
+      "total": "23.00",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "journal",
+      "status": "posted",
+      "remoteId": "163",
+      "total": "0.50",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "journal",
+      "status": "posted",
+      "remoteId": "164",
+      "total": "0.25",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "credit",
+      "status": "posted",
+      "remoteId": "165",
+      "total": "10.00",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "journal",
+      "status": "posted",
+      "remoteId": "168",
+      "total": "0.25",
+      "actual": null,
+      "reason": ""
+    },
+    {
+      "kind": "valuation",
+      "status": "reconciled",
+      "remoteId": null,
+      "total": "2.250000000000",
+      "actual": "2.25",
+      "reason": ""
+    },
+    {
+      "kind": "valuation",
+      "status": "reconciled",
+      "remoteId": null,
+      "total": "0.750000000000",
+      "actual": "0.75",
+      "reason": ""
+    }
+  ]
+}
