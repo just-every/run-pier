@@ -43,6 +43,11 @@ export async function scopedWarehouseWork(t) {
   await run('receiving.start', { poId: south.id, locationId: b.source.id }, { error: 'SCOPE' });
   await run('receiving.start', { poId: north.id, locationId: b.destination.id }, { error: 'SCOPE' });
   assert.deepEqual(await exportBusiness(h), before);
+  const misdirected = await committed(h, b, 'North');
+  await h.command('receiving.start', { poId: misdirected.id, locationId: b.destination.id });
+  const outsideTally = await exportBusiness(h);
+  await run('receiving.start', { poId: misdirected.id, locationId: b.source.id }, { error: 'SCOPE' });
+  assert.deepEqual(await exportBusiness(h), outsideTally, 'an existing outside tally cannot write a successful command result');
   let receiving = await run('receiving.start', { poId: north.id, locationId: b.source.id });
   const tallyBefore = await exportBusiness(h);
   for (const code of [b.destination.name, second.barcode]) await run('receiving.scan', { receivingId: receiving.id, code }, { error: 'SCOPE' });
@@ -54,6 +59,9 @@ export async function scopedWarehouseWork(t) {
   assert.equal(receipt.lines[0].quantity, '8');
   assert.equal(receipt.lines[0].cost, undefined);
   assert.deepEqual(await run('receiving.post', payload, { commandId }), receipt);
+  const recovered = await (await get('/api/pier/state?commandId=' + commandId)).json();
+  assert.ok(recovered.commands.some(command => command.id === commandId));
+  assert.ok(recovered.commands.every(command => command.actorId === staff.id && !('result' in command)), 'recovery metadata discloses neither other people nor result bodies');
   assert.equal((await h.state()).receipts.find(row => row.id === receipt.id).lines[0].cost, '19.37');
   await fixedRoute(h, 'North');
   const order = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '3', price: '71.29' }] });

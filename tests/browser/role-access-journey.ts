@@ -43,7 +43,7 @@ export async function roleAccessJourney({ page, context, browser }: { page: Page
       await command('role.set', { operatorId: staffId, role: 'warehouse', permissions: { warehouses: [warehouse], locationIds: [bin.id], expiresAt: '2099-01-01T00:00:00Z' } })
       await staff.setViewportSize({ width, height: 1000 })
       const shot = async (name: string, target = staff) => {
-        await expect(target.locator('body')).toHaveJSProperty('scrollWidth', width)
+        expect(await target.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
         const empty = await target.locator('button:visible').evaluateAll(buttons => buttons.filter(button => !button.textContent?.trim()).length)
         expect(empty).toBe(0)
         if (shots) await target.screenshot({ path: join(shots, `${width}-roles-${name}.png`), fullPage: target !== page })

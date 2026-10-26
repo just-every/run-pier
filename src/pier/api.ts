@@ -16,6 +16,7 @@ import { admitScopedCommand, allowedLocations, physicalState, scoped } from './p
 import { admitPhysicalEffects } from './physical-admission';
 import { admitRead, roleState, physicalResult, operationalState, commandProjection } from './role-reads';
 import { admitCommercialCommand } from './role-visibility';
+import { commandIdentities } from './command-identities';
 import { recurringOrders } from './recurring-orders';
 import { documents } from './documents/commands';
 import { extractDocument } from './documents/provider';
@@ -388,7 +389,7 @@ export async function pierResponse(
       if (url.pathname === '/api/pier/questions') return reply(liveQuestion(full, actor, url.searchParams));
       if (scoped(actor)) {
         if (url.pathname === '/api/pier/scope-export') return reply({ format: 'pier-scoped-stock-v1', ...s });
-        if (url.pathname === '/api/pier/state') return reply(operationalState(full, actor));
+        if (url.pathname === '/api/pier/state') return reply({ ...operationalState(full, actor), commands: await commandIdentities(env.DB, actor, url.searchParams.get('commandId')) });
       }
       if (url.pathname === '/api/pier/scope-export') return reply({ format: 'pier-scoped-stock-v1', ...operationalState(full, actor) });
       const reportFile = /^\/api\/pier\/report-snapshots\/([^/]+)\.csv$/.exec(url.pathname);
@@ -505,18 +506,7 @@ export async function pierResponse(
           },
           404,
         );
-      const commands = scoped(actor) ? [] : (
-        await env.DB.prepare(
-          "SELECT id,actor_id AS actorId,created_at AS createdAt FROM pier_commands ORDER BY created_at DESC LIMIT 100",
-        ).all()
-      ).results;
-      const commandId = url.searchParams.get("commandId");
-      if (commandId && !commands.some(command => command.id === commandId)) {
-        const ownCommand = await env.DB.prepare(
-          "SELECT id,actor_id AS actorId,created_at AS createdAt FROM pier_commands WHERE id=? AND actor_id=?",
-        ).bind(commandId, actor.id).first();
-        if (ownCommand) commands.push(ownCommand);
-      }
+      const commands = await commandIdentities(env.DB, actor, url.searchParams.get('commandId'));
       const operators =
         actor.role === "owner"
           ? (

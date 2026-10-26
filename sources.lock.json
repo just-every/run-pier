@@ -2950,7 +2950,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "acefcf25fa5170062f5aad39cba7e8402e369319c6ca78a78fd128275a93fdcc",
+      "sha256": "01a9c0fa1eee3378510d65a0e93fe45b37d65baab60a80966a05e55b06e5cd4f",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3135,6 +3135,10 @@
     },
     "src/pier/channels/webhook.ts": {
       "sha256": "a805af71623ed1ef7ce13bfcbfbbbd2051b71e507c0b20b0da6413da88c792e5",
+      "executable": false
+    },
+    "src/pier/command-identities.ts": {
+      "sha256": "3a3d57274520db5cf2fb0c5ad98c8886406ca509624e2c729b973b5a1ce20b7d",
       "executable": false
     },
     "src/pier/correspondence-delivery-eligibility.ts": {
@@ -4694,7 +4698,7 @@
       "executable": false
     },
     "tests/api/role-scenarios.mjs": {
-      "sha256": "7d9d1c72e50c525349fc47c47db0efc29bf56b893f2814bd15f0845b09f8c204",
+      "sha256": "11623125e58281dbf936e1c750af465dcd2ba04b58d42aadfda8de2fbc193a15",
       "executable": false
     },
     "tests/api/sales-workbook.mjs": {
@@ -4790,7 +4794,7 @@
       "executable": false
     },
     "tests/browser/role-access-journey.ts": {
-      "sha256": "15de79a33f9f87f96bb0213a7d60597de85bc922da1d401e063a7de61e9b6b17",
+      "sha256": "d629ae0ee0e7bd684ae173f01dd94733bd37bf76b5a9569d298863513d624f8e",
       "executable": false
     },
     "tests/browser/run.mjs": {
