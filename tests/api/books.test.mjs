@@ -179,6 +179,11 @@ test('QuickBooks company authorization posts mapped business documents once and 
   const memberState=await(await pier.request('/api/pier/state',{as:member})).json();assert.equal(memberState.bookConnections.length,0);assert.equal(memberState.bookJobs.length,0);
   assert.equal(creates.get('Invoice'), 3); assert.equal(creates.get('CreditMemo'), 1); assert.equal(creates.get('Bill'), 1);
   await pier.command('book.sync', {}); assert.equal(creates.get('Invoice'), 3); assert.equal(creates.get('CreditMemo'), 1);
+  const unapproved = await pier.command('order.create', { customerId: result.b.customer.id, lines: [{ itemId: result.b.item.id, quantity: '1', price: '10' }] });
+  await pier.command('dispatch.create', { orderId: unapproved.id, shipmentReference: 'synthetic-pier-1007', lines: [{ orderLineId: unapproved.lines[0].id, quantity: '1' }] });
+  await pier.command('book.sync', {});
+  assert.equal(creates.get('Invoice'), 3, 'dispatch never authorizes a QuickBooks customer invoice');
+  assert.match((await pier.state()).bookJobs.find(job => job.sourceId === unapproved.id && job.kind === 'invoice').reason, /Authorize the native customer invoice/);
   const invoice = [...remote.values()].find(r => r.Id === result.firstRemote);
   const cash=remote.get('Payment:external');remote.delete('Payment:external');invoice.Balance+=13;
   await pier.command('book.sync',{});

@@ -12,6 +12,11 @@ export function planQboBooks(c: Context) {
   if (!connection) return;
   planBooks(c);
   c.s.bookJobs=c.s.bookJobs.filter(j=>!(j.sourceKind==='return'&&j.kind==='credit'&&!j.attempted&&c.s.returns.some(r=>r.id===j.sourceId&&c.s.shipments.some(sh=>sh.id===r.shipmentId&&c.s.invoices.some(i=>i.orderId===sh.orderId)))));
+  for (const job of c.s.bookJobs.filter(job => !job.attempted && ['invoice', 'credit'].includes(job.kind))) {
+    job.document = null; job.status = 'review';
+    job.reason = 'Authorize the native customer invoice or linked credit before posting to QuickBooks.';
+    job.fix = 'Review and authorize the customer document in Sales. Shipping alone never authorizes an accounting invoice.';
+  }
 
   const add = (key: string, kind: string, source: Row, sourceKind: string, build: () => BookDocument) => {
     const old = c.s.bookJobs.find(r => r.key === key);
