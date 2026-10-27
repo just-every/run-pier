@@ -40,7 +40,8 @@ test('hosted preflight refuses missing account inputs before building or contact
   const result = spawnSync(join(root, 'node_modules/.bin/rer'), ['deploy', '--dry-run'], { cwd: root, env, encoding: 'utf8' });
   const output = result.stdout + result.stderr;
   assert.equal(result.status, 3, output);
-  assert.match(output, /Nothing was uploaded/);
+  for (const name of JSON.parse(readFileSync(join(root, 'OPERATIONS.json'), 'utf8')).requiredEnvironment)
+    assert.ok(output.includes(name), 'preflight must name every declared hosting input');
   assert.match(output, /rer deploy --dry-run --env-file/);
   assert.doesNotMatch(output, /vite v|transforming|Uploading|https:\/\/api.cloudflare.com/);
 });

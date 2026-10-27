@@ -16,7 +16,7 @@ export function hostedPreflight(deploy) {
     ];
     const absent = inputs.filter(([name]) => !(supplied[name] ?? process.env[name])?.trim());
     if (absent.length) {
-      for (const [name, purpose] of inputs) store.report(`${name}: ${purpose}.`);
+      for (const [name, purpose] of inputs) store.report(`- ${name} (${purpose}).`);
       store.report('For hosted sign-in, also set your owner email, a mail provider, its verified sender and its API key as described at https://run-pier.com/docs/hosting.');
       throw missing('Hosting settings are incomplete. Nothing was uploaded. Add the listed inputs to your private hosting settings file, then run rer deploy --dry-run --env-file ~/pier-deploy.env.');
     }
