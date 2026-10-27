@@ -23,6 +23,7 @@ export function inactiveRecord(kind, record) {
     remember(key, r[key]); r[key] = { ...r[key], enabled: false };
   }
   if (kind === 'channels' && r.stallLink) { remember('stallLink', { ...r.stallLink, keyHash: undefined }); r.stallLink = null; }
+  if (kind === 'channels' && r.tradeBuyers) r.tradeBuyers = r.tradeBuyers.map(buyer => ({ ...buyer, enabled: false, keyHash: null, followupConsent: null, carts: buyer.carts.map(cart => ({ ...cart, status: 'restore-paused' })) }));
   if (kind === 'correspondence') r.restorePaused = true;
   if (kind === 'invoicePayLinks') { r.status = 'revoked'; r.url = null; }
   if (kind === 'invoicePaymentSessions') { r.checkoutUrl = null; r.verificationUrl = null; }

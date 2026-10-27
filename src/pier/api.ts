@@ -1,3 +1,4 @@
+import { trade, tradeResponse } from './trade';
 import { customFieldCommands, customFieldRead, customFieldProjection, privateFieldCustody } from './custom-fields';
 import { stockFeed } from './stock-feed';
 import { purchaseChanges } from './purchase-changes';
@@ -225,6 +226,7 @@ export async function execute(
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
+      trade,
       customFieldCommands,
       purchaseApproval,
       purchaseChanges,
@@ -297,7 +299,7 @@ export async function execute(
       return outcome;
     }
     // Retaining and reviewing untrusted evidence never triggers unrelated plans.
-    if (!['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && type !== 'replenishment.compare' && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
+    if (!type.startsWith('trade.') && !['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && type !== 'replenishment.compare' && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -355,6 +357,8 @@ export async function pierResponse(
     if (carrierWebhook) return carrierWebhook;
     const webhook = await channelWebhook(request, env);
     if (webhook) return webhook;
+    const tradeReply = await tradeResponse(request, env);
+    if (tradeReply) return tradeReply;
     const stall = await stallLink(request, env);
     if (stall) return stall;
     const actor = await current(request, env);
@@ -684,7 +688,7 @@ export async function pierResponse(
       if (error instanceof Problem) await refusedScan(env.DB, actor, commandId, type, payload, error.code, await load(env.DB));
       throw error;
     }
-    if (outcome && (type === 'replenishment.compare' || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return reply(outcome);
+    if (outcome && (type.startsWith('trade.') || type === 'replenishment.compare' || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return reply(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'print.send' && outcome.result.kind === 'purchase-order') await deliverCorrespondence(env, new Date().toISOString(), outcome.result.id, actor);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {

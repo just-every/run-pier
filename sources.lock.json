@@ -318,7 +318,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "df0a67599e0120cb3e5eefda98a57fb9c13b2db0f5796107c7bd1d7026a04bbe",
+      "sha256": "3e0c63d5c35dfb5cdeaa126d63203a24b6dd99ece986b8348c64a14acdc64909",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -346,7 +346,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "ded781141afa1171951ed6961550fbe7a964512b90c95b717ec3ed0d4fa096a1",
+      "sha256": "4cbcbb9375939d2f0ac8c4b560bf03e90945628b315aae588f85499a18d66a80",
       "executable": false
     },
     "DEMO.md": {
@@ -497,6 +497,10 @@
       "sha256": "a7022dd7cfa0dfc3543643c692a686ae9dbf2507b8b36fb962ec9131f810f842",
       "executable": false
     },
+    "docs/trade-api.md": {
+      "sha256": "454155e0f9750ef4c12a18038ca21c547374bdf7cf1571d04281136b50c1193e",
+      "executable": false
+    },
     "docs/warehouse-placement.md": {
       "sha256": "ce6c5bc79cc0d151640334e325e34906dcd9887991bc6e64afb0ad07a8ec0952",
       "executable": false
@@ -530,7 +534,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "f99344fdf5ddb2c477331fc366edb778192cb632b8f9c77ba4da54e96ce01e29",
+      "sha256": "2f7dbb90709a0c789866cc3372d62f5b6e774b1823dedeff38bb02e6b6ac34e0",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -1102,7 +1106,7 @@
       "executable": false
     },
     "scripts/installer/archive-policy.mjs": {
-      "sha256": "4a81683467028fb3dbfe770d5a0be0a1807e63aa73d3daf3de8b8ce437ce7213",
+      "sha256": "cf7d7f301d48174be8e4af7aaca92bc2ce5b893094860bb765f19ee4ebf34df2",
       "executable": false
     },
     "scripts/installer/local.mjs": {
@@ -2954,7 +2958,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "01a9c0fa1eee3378510d65a0e93fe45b37d65baab60a80966a05e55b06e5cd4f",
+      "sha256": "7ac8485f86564c850949891777c1bc86e5641d7923b076649cb2aabb325eb460",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3785,6 +3789,10 @@
       "sha256": "926837c0af02780bfe5ad4eb3eebbcb8ce230480c76646d2fd488a593dd39984",
       "executable": false
     },
+    "src/pier/trade.ts": {
+      "sha256": "1b40d0b404ac3132a19d722c6dd96e5d709b99d5900ecdcd1b675eda066b713c",
+      "executable": false
+    },
     "src/pier/valuation-ledger.ts": {
       "sha256": "827c3b68bccfbccd9d535b2ed846fc68aad4700b845c8f818ec099bf554fbd8c",
       "executable": false
@@ -4606,7 +4614,7 @@
       "executable": false
     },
     "tests/api/channels.test.mjs": {
-      "sha256": "e06e2303d4229bfd34e8c4738f8c0cac6d212731cd1a5dfbaec2ed328a997ad9",
+      "sha256": "e663c5b9b8c4322027376379cb3df0c67cb46daa9674341ab7b90e4594f9d54a",
       "executable": false
     },
     "tests/api/costing.test.mjs": {

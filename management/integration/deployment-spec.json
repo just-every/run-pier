@@ -132,6 +132,12 @@
       "name": "0020_dependency_keys_sealed.sql",
       "sha256": "9c8fa5f94c48a230f326cd4d666cbc2bd1e7d5a18327b89e65b339ac6a533d9a",
       "sql": "ALTER TABLE rer_dependency_installation ADD COLUMN keys_sealed INTEGER NOT NULL DEFAULT 0 CHECK(keys_sealed IN (0,1));\n-- Nonsecret version history lets restored rows name an unavailable retired key\n-- without confusing ciphertext tampering or a wrong current secret with restore.\nALTER TABLE rer_dependency_installation ADD COLUMN key_ids TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(key_ids) AND json_type(key_ids)='array');\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0021_stock_feed.sql",
+      "sha256": "9ffa1483ebb7bd65cb5555ddf121b158e8b6230b1b870ad473c7a0701501996f",
+      "sql": "CREATE TABLE pier_stock_feed_bootstrap (id INTEGER PRIMARY KEY CHECK(id=1));\nCREATE TABLE pier_stock_events (\n sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n id TEXT NOT NULL UNIQUE,\n item_id TEXT NOT NULL,\n location_id TEXT NOT NULL,\n at TEXT NOT NULL,\n data TEXT NOT NULL CHECK(json_valid(data))\n);\nCREATE TABLE pier_stock_consumers (\n id TEXT PRIMARY KEY,\n actor_id TEXT NOT NULL,\n grant_version INTEGER NOT NULL,\n scope TEXT NOT NULL,\n acknowledged INTEGER NOT NULL DEFAULT 0,\n checkpoint TEXT,\n pending TEXT CHECK(pending IS NULL OR json_valid(pending))\n);\n"
     }
   ],
   "compatibilityDate": "2026-09-08",
