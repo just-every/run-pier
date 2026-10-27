@@ -246,7 +246,7 @@ test('trade buyers read only approved customer prices, routed stock, terms and n
   assert.deepEqual(view.orders[0].lines, [{ itemId: b.item.id, quantity: '2', price: '4.25', dispatched: '1', cancelled: '0' }]);
   assert.equal(view.orders[0].shipments[0].id, shipment.id);
   assert.equal(JSON.stringify(view).includes('priceSnapshot'), false);
-  assert.equal(view.orders[0].total, own.total);
+  assert.equal(view.orders[0].total, '8.500000000000');
   for (const secret of [hidden.id, mixed.id, hiddenOnly.id]) assert.equal(JSON.stringify(view).includes(secret), false);
   const forged = await (await read(keys[0], '/api/pier/trade/catalog?customerId=' + second.id + '&itemIds=' + hidden.id + '&postalCode=10001')).json();
   assert.deepEqual(forged, view, 'request parameters cannot widen customer, item or destination authority');
@@ -255,8 +255,9 @@ test('trade buyers read only approved customer prices, routed stock, terms and n
   ch = await h.command('trade.grant', { channelId: ch.id, version: ch.version, buyerId: 'first', customerId: b.customer.id, keyHash: createHash('sha256').update('pier-trade-buyer\0' + keys[0]).digest('hex'), itemIds: [b.item.id, hidden.id], shipTo: { country: 'US', postalCode: '94107' } });
   const expanded = await (await read(keys[0])).json();
   assert.deepEqual(expanded.orders.map(o => o.id).sort(), [own.id, mixed.id, hiddenOnly.id].sort());
-  assert.equal(expanded.orders.find(o => o.id === mixed.id).total, mixed.total);
+  assert.equal(expanded.orders.find(o => o.id === mixed.id).total, '103.250000000000');
   ch = await grant('first', b.customer.id, keys[0], { country: 'US', postalCode: '94107' });
+  assert.deepEqual(await (await read(keys[0])).json(), view, 'narrowing the grant removes mixed history immediately');
   const secondView = await (await read(keys[1])).json();
   assert.deepEqual(secondView.items.map(i => [i.availability, i.prices[0].price]), [['0', '8.5']]);
   assert.deepEqual(secondView.orders.map(o => o.id), [other.id]);
@@ -300,6 +301,9 @@ test('trade cart intake is idempotent, consent gated and permanently suppressed 
     assert.equal(res.status, expected, await res.clone().text()); return res.json();
   };
   assert.equal((await event('e1', 'c1', 'abandoned')).cart.status, 'no-consent');
+  await h.command('trade.grant', { ...grant, version: ch.version, followupConsent: { recipient: 'buyer@example.test', source: 'synthetic-pier-8', at: '2026-10-26T12:00:00.000Z' } }, { error: 'INPUT' });
+  await h.command('trade.grant', { ...grant, version: ch.version, followupConsent: { recipient: 'invalid-recipient', purpose: 'One abandoned wholesale cart reminder', source: 'synthetic-pier-8', at: '2026-10-26T12:00:00.000Z' } }, { error: 'TRADE_CONSENT' });
+  assert.equal((await h.state()).channels.find(row => row.id === ch.id).version, ch.version, 'refused consent does not edit the grant');
   ch = await h.command('trade.grant', { ...grant, version: ch.version, followupConsent: { recipient: 'buyer@example.test', purpose: 'One abandoned wholesale cart reminder', source: 'synthetic-pier-8', at: '2026-10-26T12:00:00.000Z' } });
   const first = await event('e2', 'c2', 'abandoned');
   assert.deepEqual(first, { ok: true, cart: { cartId: 'c2', status: 'pending-owner-review' }, reminderSent: false });
