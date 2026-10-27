@@ -282,3 +282,97 @@ test('owner priority ranks dated supply and reviewed receipt releases preserve a
 
   await h.invariant();
 });
+
+test('captured channel demand retains stockout exposure, reviewed seasonal bounds and a held-out backtest', async t => {
+  const now = '2026-10-31T00:00:00.000Z';
+  const h = await installation({ now, outboundService: async request => {
+    const url = new URL(request.url);
+    assert.equal(url.hostname, 'forecast.example.test');
+    if (request.method === 'PUT') return Response.json({ id: 1, ...await request.json() });
+    return Response.json(url.pathname.endsWith('/products') ? [{ id: 1, name: 'Brass bolt', type: 'simple', sku: 'BOLT' }]
+      : [{ id: 1, number: 'synthetic-pier-forecast-1', status: 'processing', currency: 'USD', billing: { first_name: 'Buyer', last_name: '' }, refunds: [], line_items: [{ id: 1, sku: 'BOLT', quantity: 30, price: 8 }] }]);
+  } }); t.after(() => h.close());
+  const b = await basics(h);
+  const at = date => ({ headers: { 'x-pier-test-now': date } });
+  const oldPo = await buy(h, b, '30');
+  await h.command('receipt.create', { poId: oldPo.id, supplierReference: 'synthetic-pier-forecast-2', lines: [{ poLineId: oldPo.lines[0].id, locationId: b.source.id, quantity: '30', cost: '2' }] }, at('2026-10-01T00:00:00.000Z'));
+  await h.command('channel.save', { name: 'Forecast source', provider: 'woocommerce', baseUrl: 'https://forecast.example.test', warehouse: 'North', credentials: { consumerKey: 'synthetic-pier-forecast-3', consumerSecret: 'synthetic-pier-forecast-4' } }, at('2026-10-06T00:00:00.000Z'));
+  const captured = await h.state(), source = captured.channelOrders[0], order = captured.orders.find(o => o.id === source.orderId);
+  assert.ok(order);
+  await h.command('dispatch.create', { orderId: order.id, shipmentReference: 'synthetic-pier-forecast-5', lines: [{ orderLineId: order.lines[0].id, quantity: '30' }] }, at('2026-10-11T00:00:00.000Z'));
+  await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: 'synthetic-pier-forecast-6', packSize: '6', minimum: '12', price: '2', leadDays: 6 });
+  const config = { version: 0, itemId: b.item.id, warehouse: 'North', supplierId: b.supplier.id, method: 'fixed', safetyStock: '0', leadDays: 6, windowDays: 30, reviewDays: 10, reorderPoint: '20', reorderQuantity: '30', freight: '0', duty: '0' };
+  const factors = { seasonality: { low: '1', expected: '1.5', high: '2', source: 'Buyer seasonal plan, synthetic-pier-forecast-7' }, promotion: { low: '1', expected: '2', high: '3', source: 'Approved promotion, synthetic-pier-forecast-8' } };
+  const entered = await fetch(`${h.origin}/auth/dev/enter?as=member`, { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
+  const viewer = entered.headers.getSetCookie().map(v => v.split(';')[0]).join('; ');
+  await h.command('replenishment.save', { ...config, forecastAssumptions: factors }, { as: viewer, error: 'FORBIDDEN' });
+  await h.command('replenishment.compare', { itemId: b.item.id, warehouse: 'North', cashCeiling: '120' }, { as: viewer, error: 'FORBIDDEN' });
+  const invalid = { ...factors, seasonality: { ...factors.seasonality, low: '2' } };
+  await h.command('replenishment.save', { ...config, forecastAssumptions: invalid }, { error: 'FORECAST_ASSUMPTIONS' });
+  const policy = await h.command('replenishment.save', { ...config, forecastAssumptions: factors });
+  const request = { itemId: b.item.id, warehouse: 'North', cashCeiling: '120' };
+  const before = await h.state();
+  const comparison = await h.command('replenishment.compare', request), forecast = comparison.optimization.forecast;
+  assert.equal(forecast.observed, '30'); assert.equal(forecast.correctedWindowDemand, '90');
+  assert.equal(forecast.availability.availableMs, 10 * 86400000); assert.equal(forecast.availability.stockoutMs, 20 * 86400000);
+  assert.deepEqual([forecast.low, forecast.expected, forecast.high], ['30', '270', '540']);
+  assert.deepEqual([forecast.backtest.trainingActual, forecast.backtest.predicted, forecast.backtest.actual, forecast.backtest.absoluteError], ['30', '30', '0', '30']);
+  assert.deepEqual(comparison.optimization.realizedMargin.shipmentIds, [(await h.state()).shipments[0].id]);
+  assert.deepEqual([comparison.optimization.realizedMargin.revenue, comparison.optimization.realizedMargin.cost, comparison.optimization.realizedMargin.margin], ['240.000000000000', '60.000000000000', '180.000000000000']);
+  const ranked = comparison.optimization.rankings;
+  assert.equal(ranked.cash.length, 1); assert.equal(ranked.service.length, 1);
+  assert.equal(ranked.cash[0].quantity, '60'); assert.equal(ranked.cash[0].expectedLandedCost, '120.000000000000');
+  assert.equal(ranked.service[0].quantity, '468');
+  const after = await h.state(); assert.deepEqual(after.movements, before.movements); assert.deepEqual(after.purchaseOrders, before.purchaseOrders);
+  const unaffordable = await h.command('replenishment.compare', { ...request, cashCeiling: '1' });
+  assert.deepEqual(unaffordable.optimization.rankings.cash, []);
+  await h.command('replenishment.save', { ...config, id: policy.id, version: policy.version, forecastAssumptions: null });
+  assert.equal((await h.command('replenishment.compare', request)).optimization.forecast.expected, '90');
+  const fresh = await h.command('item.save', { sku: 'synthetic-pier-forecast-9', name: 'Unobserved item', unit: 'each', packSize: '1' });
+  await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: fresh.id, code: 'synthetic-pier-forecast-10', packSize: '1', minimum: '1', price: '2', leadDays: 6 });
+  await h.command('replenishment.save', { ...config, itemId: fresh.id });
+  const missing = (await h.command('replenishment.compare', { ...request, itemId: fresh.id })).optimization;
+  assert.equal(missing.forecast.correctedWindowDemand, null); assert.equal(missing.forecast.correctionStatus, 'insufficient exposure history');
+  assert.equal(missing.realizedMargin.unitRevenue, null);
+  const member = (await (await h.request('/auth/session', { as: viewer })).json()).operator;
+  await h.command('role.set', { operatorId: member.id, role: 'buyer' });
+  const restricted = (await h.command('replenishment.compare', request, { as: viewer })).optimization;
+  assert.equal(restricted.realizedMargin.revenue, null); assert.equal(restricted.realizedMargin.margin, null);
+  assert.deepEqual(restricted.realizedMargin.shipmentIds, []);
+  assert.ok(restricted.alternatives.length > 0); assert.ok(restricted.alternatives.every(option => option.expectedContribution === null));
+  await h.command('role.set', { operatorId: member.id, role: 'buyer', visibility: { costs: false } });
+  await h.command('replenishment.compare', request, { as: viewer, error: 'VISIBILITY' });
+  await h.command('replenishment.review', { poId: oldPo.id }, { as: viewer, error: 'VISIBILITY' });
+  await h.invariant();
+});
+
+test('supplier delays and realized contribution rank bounded purchases while transfer comparisons protect source demand', async t => {
+  const h = await installation({ now: '2026-10-31T00:00:00.000Z' }); t.after(() => h.close()); const b = await basics(h);
+  const at = date => ({ headers: { 'x-pier-test-now': date } });
+  const alternate = await h.command('party.save', { kind: 'supplier', name: 'synthetic-pier-alternate-1' });
+  const receiveAt = async (supplier, location, quantity, due, arrived) => {
+    let po = await h.command('po.draft', { supplierId: supplier.id, destinationWarehouse: location.warehouse, promiseDate: due, reason: 'Retained supplier evidence', lines: [{ itemId: b.item.id, quantity, price: '2' }] });
+    await h.command('po.approve', { poId: po.id, version: po.version }); po = await h.command('po.commit', { poId: po.id, version: po.version });
+    await h.command('receipt.create', { poId: po.id, supplierReference: `synthetic-pier-${supplier.id}-${location.id}`, lines: [{ poLineId: po.lines[0].id, locationId: location.id, quantity, cost: '2' }] }, at(arrived));
+    return po;
+  };
+  const late = await receiveAt(b.supplier, b.source, '30', '2026-10-01', '2026-10-06T00:00:00.000Z');
+  await receiveAt(alternate, b.destination, '40', '2026-10-01', '2026-10-01T00:00:00.000Z');
+  const order = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '30', price: '8' }] });
+  await h.command('dispatch.create', { orderId: order.id, shipmentReference: 'synthetic-pier-ranking-1', lines: [{ orderLineId: order.lines[0].id, quantity: '30' }] });
+  for (const [supplier, price] of [[b.supplier, '2'], [alternate, '3']]) await h.command('supplierItem.save', { supplierId: supplier.id, itemId: b.item.id, code: `synthetic-pier-${supplier.id}`, packSize: '1', minimum: '1', price, leadDays: 6 });
+  const config = { version: 0, itemId: b.item.id, supplierId: b.supplier.id, method: 'fixed', safetyStock: '0', leadDays: 6, windowDays: 30, reviewDays: 10, reorderPoint: '20', reorderQuantity: '30' };
+  await h.command('replenishment.save', { ...config, warehouse: 'North' });
+  await h.command('replenishment.save', { ...config, warehouse: 'South', safetyStock: '5' });
+  const result = (await h.command('replenishment.compare', { itemId: b.item.id, warehouse: 'North', cashCeiling: '60' })).optimization;
+  assert.deepEqual(result.rankings.cash.map(o => o.supplierId), [b.supplier.id, alternate.id]);
+  assert.deepEqual(result.rankings.service.map(o => o.supplierId), [alternate.id, b.supplier.id]);
+  assert.equal(result.rankings.cash[0].reliability.delayDays, 5); assert.equal(result.rankings.cash[0].leadDays, 11);
+  assert.equal(result.rankings.cash[0].reliability.samples[0].poId, late.id);
+  assert.equal(result.transfers.length, 1); assert.equal(result.transfers[0].quantity, '26'); assert.equal(result.transfers[0].available, true); assert.equal(result.transfers[0].executable, false); assert.equal(result.transfers[0].protectedSafetyStock, '5');
+  const demand = await h.command('order.create', { customerId: b.customer.id, warehouse: 'South', lines: [{ itemId: b.item.id, quantity: '38', price: '8' }] });
+  assert.equal(demand.lines[0].reserved, '38');
+  const blocked = (await h.command('replenishment.compare', { itemId: b.item.id, warehouse: 'North', cashCeiling: '60' })).optimization;
+  assert.equal(blocked.transfers[0].quantity, '0'); assert.equal(blocked.transfers[0].available, false); assert.equal(blocked.transfers[0].executable, false);
+  await h.invariant();
+});

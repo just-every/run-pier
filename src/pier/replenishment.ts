@@ -1,3 +1,6 @@
+import { replenishmentFollowThrough } from './replenishment-follow-through';
+import { optimization } from './replenishment-optimization';
+import { adjustedForecast, forecastAssumptions } from './replenishment-forecast';
 import { compareReplenishment } from './replenishment-alternatives';
 import { kitDefinition } from './kits';
 import { decimal, fail, format, fresh, get, item, MAX, requireRole, row, SCALE, text, type Context, type Row } from './model';
@@ -84,12 +87,17 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
   const settings = scopeCommand(c, type, p);
   if (settings) return settings;
   if (type === 'replenishment.check') { requireRole(c, ['buyer']); refreshReorderExceptions(c); return { id: c.commandId, version: 1 }; }
+  if (type === 'replenishment.review') {
+    requireRole(c, ['buyer', 'agent']);
+    const po = get(c.s, 'purchaseOrders', p.poId);
+    return { id: c.commandId, version: 1, followThrough: replenishmentFollowThrough(c, po) };
+  }
   if (type === 'replenishment.compare') {
     requireRole(c, ['buyer', 'agent']);
     const f = forecast(c, [{ itemId: p.itemId, warehouse: p.warehouse, supplierId: p.supplierId }]).find(f => f.itemId === p.itemId && f.warehouse === p.warehouse)
       ?? fail('NOT_FOUND', 'Choose an active item in the current planning scope.');
     return { id: c.commandId, version: 1, stateVersion: c.s.version + 1, itemId: f.itemId, warehouse: f.warehouse,
-      supplierId: f.supplierId, ...compareReplenishment(f, p.cashCeiling) };
+      supplierId: f.supplierId, ...compareReplenishment(f, p.cashCeiling), optimization: optimization(c, f, p.cashCeiling) };
   }
   if (!['replenishment.save', 'replenishment.plan'].includes(type)) return;
   requireRole(c, ['buyer']);
@@ -118,6 +126,7 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
     windowDays: days(p.windowDays, 'Sales window', 30, true), reviewDays: days(p.reviewDays, 'Review period', 30, true),
     companyReorderPoint: optionalQuantity(p.companyReorderPoint), reorderPoint: optionalQuantity(p.reorderPoint), reorderQuantity: optionalQuantity(p.reorderQuantity), maximum: optionalQuantity(p.maximum),
     autoDraft: p.autoDraft === true, freight: format(decimal(p.freight ?? '0')), duty: format(decimal(p.duty ?? '0')),
+    forecastAssumptions: p.forecastAssumptions === undefined ? old?.forecastAssumptions ?? null : forecastAssumptions(p.forecastAssumptions),
     approvedBy: c.actor.id, approvalRole: c.actor.role, approvedAt: c.now,
   };
   if (p.applyLearned) {
@@ -177,6 +186,8 @@ export function draftReplenishment(c: Context, options: { policyId?: string; aut
     draft.replenishment = { plannedAt: c.now, policyVersions: group.map(f => ({ policyId: f.policyId, version: f.policyVersion })),
       evidence: group.map(f => ({ itemId: f.itemId, warehouse: f.warehouse, windowDays: f.windowDays,
         observedSold: f.observedSold, position: f.position, quantity: f.suggestedQuantity,
+        demandWarehouses: f.scope === 'company' ? f.includedWarehouses : [f.warehouse],
+        forecast: adjustedForecast(c, { ...f, includedWarehousesForDemand: f.scope === 'company' ? f.includedWarehouses : [f.warehouse] }),
         shipmentIds: f.windows.find(window => window.days === f.windowDays)!.shipmentIds,
         channelOrderIds: f.windows.find(window => window.days === f.windowDays)!.channelOrderIds })),
       approvedBy: null, currency: 'USD', expectedLandedCost: money(group.reduce((sum, f) => sum + decimal(f.suggestedQuantity) * decimal(f.unitPrice!) + (decimal(f.freight) + decimal(f.duty)) * SCALE, 0n)) };
