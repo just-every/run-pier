@@ -38,7 +38,7 @@ export function policyAuthority(c: Pick<Context, "actor" | "backgroundPolicy">) 
   const p = c.backgroundPolicy!;
   const path = p.collection === 'purchaseOrders' ? '$.sendPolicy.version' : p.collection === 'orders' ? '$.promisePolicy.version' : '$.version';
   const approver = p.collection === 'purchaseOrders' ? '$.sendPolicy.approvedBy' : p.collection === 'orders' ? '$.promisePolicy.approvedBy' : '$.approvedBy';
-  const enabled = p.collection === 'purchaseOrders' ? '$.sendPolicy.enabled' : p.collection === 'orders' ? '$.promisePolicy.enabled' : ['channels','bookConnections','shippingSettings','slowStockPolicies','recurringOrders','paymentConnections','workflowRules'].includes(p.collection) ? '$.enabled' : '$.autoDraft';
+  const enabled = p.collection === 'purchaseOrders' ? '$.sendPolicy.enabled' : p.collection === 'orders' ? '$.promisePolicy.enabled' : ['channels','bookConnections','shippingSettings','operationalExceptionPolicies','slowStockPolicies','recurringOrders','paymentConnections','workflowRules'].includes(p.collection) ? '$.enabled' : '$.autoDraft';
   return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer','operator')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind=? AND id=? AND json_extract(data,?)=? AND json_extract(data,?)=? AND json_extract(data,?)=1)`,
     params: [c.actor.id, c.actor.role, p.collection, p.id, path, p.version, approver, c.actor.id, enabled] };
 }
@@ -131,6 +131,10 @@ export async function commit(
     ...a.params,
     before.version,
   ]);
+  if (c.s.operationalExceptions.some(record => record.status === 'closed' && before.operationalExceptions.find(old => old.id === record.id)?.status !== 'closed')) {
+    const connection = c.s.bookConnections.find(connection => connection.enabled && !connection.problem) ?? fail('EXCEPTION_EVIDENCE', 'Current Pantry authority is required.');
+    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}='owner')`, [connection.approvedBy]);
+  }
   if (c.approver) {
     guard(
       `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END=?)`,

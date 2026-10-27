@@ -93,6 +93,7 @@ import { backorderDates } from './backorders';
 import { purchasingWorkflow, expectedLandedCost, refreshPromises } from './purchasing-workflow';
 import { deliverCorrespondence, correspondenceDeliveries } from './correspondence-delivery';
 import { purchaseSend, invalidatePurchaseSends } from "./purchase-send";
+import { operationalExceptions, refreshOperationalExceptions, operationalEvidence } from "./operational-exceptions";
 import { slowStock, refreshSlowStock } from "./slow-stock";
 import { pricing } from "./pricing";
 import { lateLandedCost } from './late-landed-cost';
@@ -255,6 +256,7 @@ export async function execute(
       purchasingWorkflow,
       purchaseSend,
       slowStock,
+      operationalExceptions,
       replenishment,
       warehouse,
       stocktakes,
@@ -311,6 +313,7 @@ export async function execute(
     refreshSlowStock(c, backgroundPolicy?.collection === "slowStockPolicies");
     markChannelPending(c, before);
     }
+    refreshOperationalExceptions(c, backgroundPolicy?.collection === "operationalExceptionPolicies");
     invalidatePurchaseSends(c);
     if (type === 'itemAgent.bulkApply') result.sourceDigest = bulkInputDigest(c);
     const visibleResult = physicalResult(s, actor, result);
@@ -373,7 +376,7 @@ export async function pierResponse(
     if (request.method === "GET") {
       admitRead(actor, url);
       const full = await load(env.DB), s = physicalState(full, actor),
-        c = { s, actor, commandId: "", now: new Date().toISOString() };
+        c = { s, actor, commandId: "", now: new Date().toISOString(), automationActors: await activeAutomationActors(env.DB) };
       privateFields = privateFieldCustody(full);
       const gate = authority(actor);
       if (
@@ -542,6 +545,7 @@ export async function pierResponse(
         actor,
         people,
         bookConnections,
+        operationalExceptions: actor.role === "owner" ? s.operationalExceptions.map(record => ({ ...record, evidence: operationalEvidence(c, record) })) : [],
         receiptClosures: receiptBookViews(s, bookConnections.some(row => row.enabled && row.credentialPresent && !row.problem)),
         orders: s.orders.map((o) => ({ ...orderView(c, o),...(actor.role==='owner'?{}:{creditClearance:undefined}), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),

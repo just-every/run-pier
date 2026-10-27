@@ -15,21 +15,32 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     const cogs=await pantry.command('account.save',{code:'5000',name:'Cost of Goods Sold',type:'expense',subtype:'other'});
     const lookups=await pantry.view('state'),revenue=lookups.accounts.find(a=>a.code==='4000');
     const bank=await pantry.command('bank-account.save',{name:'Operating checking',institution:'Synthetic bank',accountId:lookups.accounts.find(a=>a.code==='1000').id,numberLast4:'4242',routing:'',openingDate:'2026-01-01',openingBalance:'0.00'});
-    pier=await installation({async outboundService(request){
+    const edge={now:'2026-10-27T12:00:00.000Z',async outboundService(request){
       assert.equal(new URL(request.url).origin,pantry.origin);
       if(echoFailure)return Response.json({error:request.headers.get('authorization')+' synthetic-pier-private-response'},{status:400});
       const response=await fetch(request.url,{method:request.method,headers:Object.fromEntries([...request.headers].filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),redirect:'manual',...(request.method==='GET'?{}:{body:await request.arrayBuffer()})});
       if(loseJournalResponse&&request.method==='POST'&&request.url.endsWith('/integration/v1/journals')){loseJournalResponse=false;await response.text();throw new Error('Synthetic response loss after Pantry saved the journal');}
       return response;
-    }});
+    }};
+    pier=await installation(edge);
     const b=await basics(pier);
     await pier.command('supplierItem.save',{supplierId:b.supplier.id,itemId:b.item.id,code:'synthetic-pier-closure-1',packSize:'1',minimum:'1',price:'0.25',leadDays:6});
     await pier.command('replenishment.save',{version:0,itemId:b.item.id,warehouse:'North',supplierId:b.supplier.id,method:'fixed',safetyStock:'0',reorderPoint:'0',reorderQuantity:'12',windowDays:30,reviewDays:10});
     const planned=await pier.command('replenishment.plan',{lines:[{itemId:b.item.id,warehouse:'North',quantity:'12'}]});
     let po=planned.drafts[0];
+    po=await pier.command('po.revise',{poId:po.id,version:po.version,supplierId:po.supplierId,destinationWarehouse:po.destinationWarehouse,promiseDate:'2026-10-26',reason:'Buyer reviewed overdue requested delivery',lines:po.lines.map(line=>({itemId:line.itemId,quantity:line.quantity,price:line.price}))});
     await pier.command('po.approve',{poId:po.id,version:po.version});
     po=await pier.command('po.commit',{poId:po.id,version:po.version});
+    const ownerId=(await pier.state()).actor.id;
+    await pier.command('exception.policy',{version:0,enabled:true,assigneeId:ownerId,escalationOwnerId:ownerId,dueHours:1});
+    edge.now='2026-10-27T12:05:00.000Z';
+    await pier.command('exception.check',{});
+    let cases=(await pier.state()).operationalExceptions;
+    assert.deepEqual(cases.map(r=>[r.kind,r.sourceId,r.status]),[['overdue-po-confirmation',po.id,'open']]);
+    const poCaseId=cases[0].id;
+    await pier.command('exception.resolve',{exceptionId:poCaseId,version:cases[0].version},{error:'EXCEPTION_EVIDENCE'});
     const receipt=await receive(pier,b,po,'11');
+    assert.equal((await pier.state()).operationalExceptions.find(r=>r.id===poCaseId).status,'open','partial receipt cannot close overdue confirmation');
     const ALL=['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','post'];
     const narrow=await pantry.command('integration.create',{name:'Pier, bills only',scopes:['bills:write']});
     const refused=await pier.command('book.accounts',{baseUrl:pantry.origin,integrationToken:narrow.token},{error:'BOOK_SCOPES'});
@@ -73,11 +84,15 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     assert.equal(receiptStates.length,2,'the final receipt updates linked evidence on the existing payable');
     const confirmed=await Promise.all(receiptStates.map(async d=>JSON.parse(await (await fetch(pantry.origin+'/api/pantry/integration/v1/documents/'+d.id,{headers:{authorization:`Bearer ${credential.token}`}})).text())));
     assert.ok(confirmed.some(d=>d.received===true&&d.readyToPay===true));
-    const order=await pier.command('order.create',{customerId:b.customer.id,lines:[{itemId:b.item.id,quantity:'4',price:'2'}]});
+    const order=await pier.command('order.create',{customerId:b.customer.id,promiseDate:'2026-10-25',lines:[{itemId:b.item.id,quantity:'4',price:'2'}]});
+    await pier.command('exception.check',{});
+    cases=(await pier.state()).operationalExceptions;
+    assert.deepEqual(cases.map(r=>r.kind).sort(),['late-customer-delivery','overdue-po-confirmation']);
+    const orderCaseId=cases.find(r=>r.sourceId===order.id).id;
     loseJournalResponse=true;
     const dispatchId=randomUUID(),dispatchPayload={orderId:order.id,shipmentReference:'SYNTHETIC-BOOKS-1',lines:[{orderLineId:order.lines[0].id,quantity:'4'}]};
     await pier.command('dispatch.create',dispatchPayload,{commandId:dispatchId});
-    state=await pier.state();assert.equal(state.bookJobs.find(j=>j.kind==='journal').status,'uncertain');
+    state=await pier.state();assert.equal(state.bookJobs.find(j=>j.kind==='journal').status,'uncertain');assert.equal(state.operationalExceptions.find(r=>r.id===orderCaseId).status,'open','uncertain ledger work cannot close a delivery case');
     await pier.command('dispatch.create',dispatchPayload,{commandId:dispatchId});
     await pier.command('book.sync',{});
     state=await pier.state();assert.equal(state.bookJobs.find(j=>j.kind==='journal').status,'posted');
@@ -89,15 +104,18 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await pier.command('book.sync',{});await pier.command('book.sync',{});
     state=await pier.invariant();assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).status,'paid');assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).books.open,'0.00');assert.equal(state.orders.find(o=>o.id===order.id).books.status,'reconciled');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').paid,'8.00');assert.equal(state.bookJobs.find(j=>j.kind==='bill').status,'reconciled');assert.equal(state.bookJobs.find(j=>j.kind==='bill').readyToPay,false);
     assert.ok(state.receiptClosures.every(r=>r.status==='closed'));
+    assert.deepEqual(state.operationalExceptions.map(r=>[r.kind,r.status]).sort(),[['late-customer-delivery','closed'],['overdue-po-confirmation','closed']]);
+    assert.deepEqual(state.operationalExceptions.find(r=>r.id===poCaseId).closure.receiptIds.sort(),state.receipts.map(r=>r.id).sort());
+    assert.equal(state.operationalExceptions.find(r=>r.id===orderCaseId).closure.shipmentIds.length,1);
     await pantry.command('journal.reverse',{id:supplierPayment.journal_id,date:new Date().toISOString().slice(0,10),memo:'Supplier payment returned by bank'});
     await pier.command('book.sync',{});state=await pier.state();
     assert.ok(state.receiptClosures.every(r=>r.status==='payment'),'supplier payment reversal reopens each affected receipt: '+JSON.stringify({closures:state.receiptClosures,jobs:state.bookJobs.filter(j=>j.kind==='bill').map(({status,received,readyToPay,paid,open,reason})=>({status,received,readyToPay,paid,open,reason}))}));
-    assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).books.open,'3.00');
+    assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).books.open,'3.00');assert.equal(state.operationalExceptions.find(r=>r.id===poCaseId).status,'open','payment reversal reopens the purchase case');
     assert.equal((await pier.command('replenishment.review',{poId:po.id})).followThrough.status,'open','a reversed payment reopens the forecast follow-through');
     await pantry.command('payment.record',{direction:'paid',contactId:sales.bills[0].vendor_id,date:new Date().toISOString().slice(0,10),amount:'3.00',bankAccountId:bank.id,reference:'SYNTHETIC-REPLACEMENT-BILL-PAYMENT',allocations:[{targetId:sales.bills[0].id,amount:'3.00'}]});
     await pier.command('book.sync',{});state=await pier.state();assert.ok(state.receiptClosures.every(r=>r.status==='closed'));
     await pantry.command('journal.reverse',{id:payment.journal_id,date:new Date().toISOString().slice(0,10),memo:'Synthetic bank payment was reversed'});
-    await pier.command('book.sync',{});state=await pier.state();assert.equal(state.orders.find(o=>o.id===order.id).books.status,'open');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').paid,'0.00');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').open,'8.00');
+    await pier.command('book.sync',{});state=await pier.state();assert.equal(state.orders.find(o=>o.id===order.id).books.status,'open');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').paid,'0.00');assert.equal(state.bookJobs.find(j=>j.kind==='invoice').open,'8.00');assert.equal(state.operationalExceptions.find(r=>r.id===orderCaseId).status,'open','customer payment reversal reopens the delivery case');
     await pantry.command('payment.record',{direction:'received',contactId:sales.invoices[0].customer_id,date:new Date().toISOString().slice(0,10),amount:'8.00',bankAccountId:bank.id,reference:'SYNTHETIC-REPLACEMENT-PAYMENT',allocations:[{targetId:sales.invoices[0].id,amount:'8.00'}]});
     await pier.command('book.sync',{});state=await pier.state();assert.equal(state.orders.find(o=>o.id===order.id).books.status,'reconciled');
     const tb=await pantry.view('reports/trial-balance');
@@ -116,6 +134,7 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await pier.command('book.sync',{});
     state=await pier.state();assert.match(state.bookConnections[0].problem,/revoked or replaced in Pantry.*Reconnect Pantry/);
     assert.ok(state.receiptClosures.every(r=>r.status==='connection'),'revoked credentials cannot claim current receipt closure');
+    assert.ok(state.operationalExceptions.every(r=>r.status==='open'),'lost current Pantry authority reopens both operational cases');
     assert.equal((await pier.command('replenishment.review',{poId:po.id})).followThrough.status,'open','a revoked ledger connection cannot retain forecast closure');
     assert.equal(state.bookJobs.filter(j=>j.status==='review'&&j.kind!=='valuation').length,1,'one refused check, not every job');
     credential=await pantry.command('integration.create',{name:'Pier replacement',scopes:ALL});
@@ -132,6 +151,8 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await pier.command('party.save',{...csvCustomer,name:'=1+2'});
     const safeCsv=await(await pier.request('/api/pier/books/export.csv')).text();
     assert.ok(safeCsv.includes("\"'=1+2\""),'spreadsheet-facing CSV keeps hostile text literal');
+    await pier.restartWithFreshSigningKey();
+    assert.ok((await pier.state()).operationalExceptions.every(r=>r.closure&&r.history.some(h=>h.kind==='closed')),'closure and evidence survive restart');
     await exerciseBooksFixtures();
   }finally{await pier?.close();await pantry.close();}
 });

@@ -1,4 +1,4 @@
-import { decimal, format, fail, fresh, get, requireRole, text, type Context } from '../model';
+import { decimal, format, movementFrontier, fail, fresh, get, requireRole, text, type Context } from '../model';
 import type { Bindings } from '../../auth.server';
 import { seal } from '../channels/secrets';
 import { PANTRY_CREDENTIAL } from './adapters/pantry-client';
@@ -89,7 +89,7 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
     let job=c.s.bookJobs.find(j=>j.key==='inventory-reconciliation');
     if(!job){job={id:crypto.randomUUID(),version:0,key:'inventory-reconciliation',kind:'valuation',sourceKind:'valuation',sourceId:'',reference:'Inventory value reconciliation',currency:'USD',createdAt:c.now,attempted:false};c.s.bookJobs.push(job);}
     const agrees=p.expected!==null&&p.actual!==null&&amount(p.expected)===amount(p.actual);
-    Object.assign(job,{version:job.version+1,status:agrees?'reconciled':'review',through:p.through??null,total:p.expected,actual:p.actual,reason:agrees?'':p.problem??`Pier inventory value is ${p.expected===null?'unvalued':usdText(money(toCents(amount(p.expected))))}; Pantry through ${p.through??'the comparison date'} holds ${p.actual===null?'an unknown amount':usdText(money(toCents(amount(p.actual))))}. Review missing costs, reversed receipts, returns or other ledger adjustments.`,fix:'Open Reports and the Pantry inventory account, reconcile the difference with your accountant, then sync again.',checkedAt:c.now});
+    Object.assign(job,{version:job.version+1,status:agrees?'reconciled':'review',movementSequence:movementFrontier(c.s),connectionVersion:connection.version,through:p.through??null,total:p.expected,actual:p.actual,reason:agrees?'':p.problem??`Pier inventory value is ${p.expected===null?'unvalued':usdText(money(toCents(amount(p.expected))))}; Pantry through ${p.through??'the comparison date'} holds ${p.actual===null?'an unknown amount':usdText(money(toCents(amount(p.actual))))}. Review missing costs, reversed receipts, returns or other ledger adjustments.`,fix:'Open Reports and the Pantry inventory account, reconcile the difference with your accountant, then sync again.',checkedAt:c.now});
     return job;
   }
   if(type==='book.checked'){connection.lastSync=c.now;connection.problem=p.problem??null;return connection;}

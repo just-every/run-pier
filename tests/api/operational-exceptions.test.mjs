@@ -1,0 +1,60 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { installation, basics, buy } from './harness.mjs';
+
+test('overdue cases deduplicate, retain assignment after restart, escalate unanswered work and require current owner cancellation', async t => {
+  let submissions=0;
+  const edge={now:'2026-11-02T12:00:00.000Z',bindings:{MAIL_PROVIDER:'resend',MAIL_FROM:'buyer@example.test',MAIL_API_KEY:'synthetic-pier-case-1'},async outboundService(request){assert.equal(new URL(request.url).hostname,'api.resend.com');submissions++;throw new Error('Synthetic uncertainty after submission');}};
+  const h=await installation(edge); t.after(()=>h.close()); const b=await basics(h);
+  const po=await buy(h,b,'4');
+  const order=await h.command('order.create',{customerId:b.customer.id,promiseDate:'2026-11-01',lines:[{itemId:b.item.id,quantity:'2',price:'1'}]});
+  const id=(await h.state()).actor.id;
+  await h.command('exception.policy',{version:0,enabled:true,assigneeId:id,escalationOwnerId:id,dueHours:1});
+  assert.equal((await(await h.mf.getWorker()).scheduled({scheduledTime:new Date(edge.now),cron:'* * * * *'})).outcome,'ok');
+  await h.command('exception.check',{}); await h.command('exception.check',{});
+  let cases=(await h.state()).operationalExceptions;
+  assert.deepEqual(cases.map(r=>[r.kind,r.sourceId]).sort(),[['late-customer-delivery',order.id],['overdue-po-confirmation',po.id]]);
+  const purchase=cases.find(r=>r.sourceId===po.id), delivery=cases.find(r=>r.sourceId===order.id);
+  assert.equal(purchase.assigneeId,id); assert.equal(purchase.dueAt,'2026-11-02T13:00:00.000Z');
+  await h.command('exception.assign',{exceptionId:purchase.id,version:purchase.version,assigneeId:id,dueAt:'2026-11-02T12:30:00.000Z',nextAction:'Call the supplier with the retained PO reference.'});
+  edge.now='2026-11-02T14:00:00.000Z';
+  await h.command('exception.check',{}); await h.command('exception.check',{});
+  await h.restartWithFreshSigningKey();
+  cases=(await h.state()).operationalExceptions;
+  assert.equal(cases.length,2);
+  const retained=cases.find(r=>r.id===purchase.id);
+  assert.equal(retained.assigneeId,id); assert.equal(retained.dueAt,'2026-11-02T12:30:00.000Z');
+  assert.equal(retained.nextAction,'Call the supplier with the retained PO reference.');
+  assert.equal(retained.escalatedTo,id); assert.equal(retained.history.filter(e=>e.kind==='escalated').length,1);
+  assert.ok(cases.every(r=>r.status==='open')); assert.equal((await h.state()).correspondence.length,0,'internal checks never grant outbound authority');
+  await h.command('exception.resolve',{exceptionId:retained.id,version:retained.version},{error:'EXCEPTION_EVIDENCE'});
+  await h.command('exception.cancel',{exceptionId:retained.id,version:retained.version,reason:'Duplicate procurement was abandoned.'},{error:'APPROVAL'});
+  const entered=await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}});
+  const cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+  const member=await(await h.request('/auth/session',{as:cookie})).json();
+  await h.command('role.set',{operatorId:member.operator.id,role:'owner'});
+  await h.command('business.save',{name:'Harbor cases',address:'40 Pier Road'});
+  const currentPo=(await h.state()).purchaseOrders.find(r=>r.id===po.id);
+  await h.command('po.send',{poId:po.id,version:currentPo.version,recipient:'supplier@example.test',confirm:true,chaseEveryDays:1,maxChases:1},{as:cookie});
+  assert.equal((await h.state()).deliveries.find(r=>r.phase==='uncertain')?.phase,'uncertain');
+  await h.command('mail.process',{}); await h.command('exception.check',{});
+  assert.equal(submissions,1,'uncertain delivery is never retried by case checks');
+  assert.equal((await h.state()).operationalExceptions.find(r=>r.id===retained.id).status,'open');
+  const prepared='synthetic-pier-case-pause';
+  const pending=h.command('exception.cancel',{exceptionId:retained.id,version:retained.version,reason:'Unauthorized after revocation',confirm:true},{as:cookie,headers:{'x-pier-test-pause':prepared},error:'TRANSACTION'});
+  try {
+    for(let n=0;n<100;n++){if((await(await h.request('/__test/prepared/'+prepared)).json()).ready)break;await new Promise(r=>setTimeout(r,10));}
+    assert.equal((await(await h.request('/__test/prepared/'+prepared)).json()).ready,true);
+    await h.command('role.set',{operatorId:member.operator.id,role:'viewer'});
+  } finally { await h.request('/__test/prepared/'+prepared,{method:'DELETE'}); }
+  await pending;
+  const privateState=await(await h.request('/api/pier/state',{as:cookie})).json();
+  assert.deepEqual(privateState.operationalExceptions,[]);
+  assert.equal((await h.state()).operationalExceptions.find(r=>r.id===retained.id).status,'open');
+  await h.command('exception.cancel',{exceptionId:retained.id,version:retained.version,reason:'Duplicate procurement was abandoned.',confirm:true});
+  await h.command('exception.check',{});
+  cases=(await h.state()).operationalExceptions;
+  assert.equal(cases.length,2); assert.equal(cases.find(r=>r.id===retained.id).status,'cancelled');
+  assert.equal(cases.find(r=>r.id===retained.id).cancellation.actorId,id);
+  assert.equal(cases.find(r=>r.id===delivery.id).status,'open');
+});

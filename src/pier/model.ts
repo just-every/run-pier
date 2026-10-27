@@ -133,6 +133,8 @@ export const collections = [
   "ediDocuments",
   "ediLabelEvents",
   "businessProfile",
+  "operationalExceptionPolicies",
+  "operationalExceptions",
   "slowStockPolicies",
   "slowStockExceptions",
   "slottingPlans",
@@ -187,7 +189,7 @@ export type Context = {
   actor: Actor;
   commandId: string;
   now: string;
-  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "recurringOrders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies" | "paymentConnections" | "workflowRules"; id: string; version: number };
+  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "recurringOrders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies" | "operationalExceptionPolicies" | "paymentConnections" | "workflowRules"; id: string; version: number };
   privacyStatements?: D1PreparedStatement[];
   channelSecrets?: { channelId: string; secret: string }[];
   automationActors?: Record<string, string>;

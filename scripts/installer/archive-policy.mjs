@@ -1,7 +1,7 @@
 // Archive normalization is pure and idempotent, and also runs on imported rows.
 // Historical consent is evidence, never authority in the receiving installation.
 const connections = new Set(['channels', 'bookConnections', 'shippingSettings', 'paymentConnections', 'aiSettings', 'documentSettings', 'ediPartners']);
-const policies = new Set(['replenishmentPolicies', 'slowStockPolicies', 'recurringOrders', 'workflowRules']);
+const policies = new Set(['replenishmentPolicies', 'slowStockPolicies', 'operationalExceptionPolicies', 'recurringOrders', 'workflowRules']);
 export function inactiveValue(value) {
   if (Array.isArray(value)) return value.map(inactiveValue);
   if (!value || typeof value !== 'object') return value;

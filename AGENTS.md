@@ -18,4 +18,4 @@ The installed root is Base's Lobby at `/`. The public run site (`rer build --sit
 
 ## Lander-Regenerate
 
-The inherited pin predates the shared contract-docs generator. For the native strong-authentication slice, regenerate its legacy acceptance row and all Status counts with `node scripts/contract-docs.mjs write ADMIN-002`, then `node scripts/contract-docs.mjs check ADMIN-002`. CONTRACT.md supplies status, evidence and gaps. The bridge preserves unrelated legacy rows and the unchanged homepage projection. Regenerate the edition source lock last.
+The inherited pin predates the shared contract-docs generator. For the native strong-authentication and operational-case slices, regenerate each selected legacy acceptance row and all Status counts with `node scripts/contract-docs.mjs write ADMIN-002 AUTO-001`, then `node scripts/contract-docs.mjs check ADMIN-002 AUTO-001`. CONTRACT.md supplies status, evidence and gaps. The bridge preserves unrelated legacy rows and the unchanged homepage projection. Regenerate the edition source lock last.

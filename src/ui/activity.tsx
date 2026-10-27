@@ -7,6 +7,7 @@ import { Proposals } from './proposals'
 import { LiveWork } from './item-agent/bulk'
 import { CustomFields } from './custom-fields'
 import { PrivacyReview } from './privacy'
+import { OperationalExceptions } from './operational-exceptions'
 import { Operators } from './operators'
 
 export function Activity({ state, run, busy, itemId, documentId, refresh }: { state: PierState; run: RunCommand; busy: boolean; itemId: string; documentId: string; refresh: () => Promise<void> }) {
@@ -28,6 +29,7 @@ export function Activity({ state, run, busy, itemId, documentId, refresh }: { st
     </section>
     {state.actor.role === 'owner' && <PrivacyReview state={state} run={run} busy={busy} />}
     <section className="panel"><h2>Settings</h2><a href={'#activity' + '/custom-fields'}>Custom fields</a></section>
+    <OperationalExceptions state={state} run={run} busy={busy} />
     <LiveWork state={state} run={run} busy={busy} />
     <Proposals state={state} run={run} busy={busy} />
     {state.actor.role === 'owner' && <Operators state={state} run={run} busy={busy} refresh={refresh} />}

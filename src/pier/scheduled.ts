@@ -17,6 +17,7 @@ export async function runReplenishmentSchedule(env: Bindings, scheduledTime = Da
   const context = { s, now, commandId: '', actor: { id: '', role: 'viewer', name: 'Scheduled planning', sessionId: '', operatorVersion: 0 } };
   const low = forecast(context);
   const pending = [
+    ...s.operationalExceptionPolicies.filter(p => p.enabled).map(p => ({ collection: 'operationalExceptionPolicies' as const, id: p.id, version: p.version, approvedBy: p.approvedBy })),
     ...s.slowStockPolicies.filter(p => p.enabled).map(p => ({ collection: 'slowStockPolicies' as const, id: p.id, version: p.version, approvedBy: p.approvedBy })),
     ...s.purchaseOrders.filter(po => po.sendPolicy?.enabled && !po.sendPolicy.messageId && po.sendPolicy.expiresAt > now).map(po => ({ collection: 'purchaseOrders' as const, id: po.id, version: po.sendPolicy.version, approvedBy: po.sendPolicy.approvedBy })),
     ...s.replenishmentPolicies.filter(p => p.autoDraft && low.some((r: any) => r.policyId === p.id && Number(r.remainingSuggestion ?? r.suggestedQuantity ?? r.suggested ?? 0) > 0)).map(p => ({ collection: 'replenishmentPolicies' as const, id: p.id, version: p.version, approvedBy: p.approvedBy })),
