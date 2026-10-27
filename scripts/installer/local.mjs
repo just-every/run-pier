@@ -28,10 +28,12 @@ const lifecycle = operatorInstaller({
         JSON.stringify({ name: input.APP_NAME, primaryColor: input.PRIMARY_COLOR }, null, 2) + "\n",
       );
     } catch (error) {
+      const owner = String(input.OWNER_EMAIL).replaceAll("'", "'\\''");
+      const retry = `rer setup --owner-email '${owner}' --non-interactive`;
       if (["EACCES", "EPERM", "EROFS"].includes(error.code))
-        throw commandFailure("Pier cannot save its appearance because the checkout is read-only. Run chmod u+w src/branding.json && rer setup --non-interactive.");
+        throw commandFailure(`Pier cannot save its appearance because the checkout is read-only. Run chmod u+w src/branding.json && ${retry}.`);
       if (error.code === "ENOSPC")
-        throw commandFailure("Pier cannot save its appearance because the disk is full. Free space on this disk, then run rer setup --non-interactive.");
+        throw commandFailure(`Pier cannot save its appearance because the disk is full. Free space on this disk, then run ${retry}.`);
       throw error;
     }
   },

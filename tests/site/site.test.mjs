@@ -57,7 +57,7 @@ test('setup explains a read-only checkout and its published recovery command com
     assert.equal(failed.status, 1, failed.stdout + failed.stderr);
     const output = failed.stdout + failed.stderr;
     assert.doesNotMatch(output, /EACCES|EPERM|\n\s+at /);
-    const next = output.match(/Run (chmod u\+w src\/branding.json && rer setup --non-interactive)\./)?.[1];
+    const next = output.match(/Run (chmod u\+w src\/branding.json && rer setup --owner-email 'owner@example.test' --non-interactive)\./)?.[1];
     assert.ok(next, 'a failed setup must give the executable recovery command');
     const recovered = spawnSync('sh', ['-c', next], { cwd: scratch, env, encoding: 'utf8' });
     assert.equal(recovered.status, 0, 'the printed recovery command must finish setup');
