@@ -35,6 +35,7 @@ export default {
   product: 'inventory-pier', replaceableTables: ['pier_meta', 'pier_strong_policy'],
   requiredConfiguration: ['OWNER_EMAIL', 'INSTALLATION_KEY', 'SESSION_SECRET', 'SETUP_TOKEN', 'AUTH_ORIGIN', 'MAIL_PROVIDER', 'MAIL_FROM'],
   exportRow(table, row) {
+    if (table === 'pier_security_grants') { row.revoked_at = row.revoked_at ?? row.created_at; }
     if (table === 'pier_strong_users') { row.restore_paused = 1; }
     if (table === 'pier_commands') row.result = JSON.stringify(inactiveValue(JSON.parse(row.result)));
     if (table === 'pier_records') row.data = JSON.stringify(inactiveRecord(row.kind, JSON.parse(row.data)));

@@ -1,3 +1,4 @@
+import { securityDelegation } from './security-delegation.mjs';
 import { authenticatorCode } from './strong-auth-fixture.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -600,6 +601,8 @@ test("roles, agent preparation, revoked session, stale human approval and direct
   await run('count.capture', { locationId: b.source.id }, { error: 'SCOPE' });
   const { exportedAt: _expiredAfterTime, ...expiredAfter } = await (await h.request('/api/pier/export')).json();
   assert.deepEqual(expiredAfter, expiredBefore, 'expiry and revocation cannot write stock or a successful command result');
+  const legacyFactor=await(await h.request('/auth/strong-auth/enroll',{method:'POST',body:{}})).json();
+  assert.equal((await h.request('/auth/strong-auth/verify',{method:'POST',body:{code:authenticatorCode(legacyFactor.secret)}})).status,200);
   await h.request("/auth/session/revoke", {
     method: "POST",
     body: { sessionId: member.session.id },
@@ -973,4 +976,5 @@ test('native factors bind assurance to sessions, revoke prepared writes and reco
   assert.equal((await h.request('/api/pier/state')).status,403,'restart issues no assurance for the fresh session');
   assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret,Date.now()+300000)},undefined,{'x-pier-test-now':new Date(Date.now()+300000).toISOString()})).status,200,'installation encryption survives a session signing-key restart');
   assert.equal((await h.request('/api/pier/state')).status,200);
+  await securityDelegation(t);
 });
