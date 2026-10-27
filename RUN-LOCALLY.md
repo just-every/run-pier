@@ -12,4 +12,4 @@ A hosted Pier emails sign-in links and the owner's daily dispatch summary throug
 
 ## Recover a stopped setup
 
-Run `rer setup --non-interactive` from the same Pier folder to resume saved answers and migrations. If setup says it cannot save Pier’s appearance because the checkout is read-only, run the command it prints: `chmod u+w src/branding.json && rer setup --non-interactive`. If the disk is full, free space first and run `rer setup --non-interactive` again. Do not delete the local database to repair an installation.
+Run `rer setup` from the same Pier folder to resume setup and migrations. For unattended setup, pass your owner address again with `rer setup --owner-email you@example.com --non-interactive`. If setup says it cannot save Pier’s appearance because the checkout is read-only, run the command it prints: `chmod u+w src/branding.json && rer setup --owner-email you@example.com --non-interactive` (with your original owner address). If the disk is full, free space first and run the printed setup command again. Do not delete the local database to repair an installation.
