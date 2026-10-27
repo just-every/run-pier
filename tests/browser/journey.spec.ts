@@ -1188,7 +1188,7 @@ test('native authenticator enrollment, required sessions and owner recovery are 
   await expect(page.getByText('Authenticator verification is required for every private session.',{exact:true})).toBeVisible();
   await page.getByLabel('Authenticator code').fill(enrolledCode);await page.getByRole('button',{name:'Verify code',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('already been used');await capture('replay-refusal');
-  const other=await browser.newContext();
+  const other=await browser.newContext({viewport:{width:1440,height:1000}});
   try {
     const blocked=await other.newPage();await blocked.goto(process.env.PIER_OPEN!);await blocked.waitForURL(url=>url.pathname==='/security');
     const denied=await other.request.get(base+'/api/pier/state');expect(denied.status()).toBe(403);
@@ -1201,6 +1201,36 @@ test('native authenticator enrollment, required sessions and owner recovery are 
     await blocked.getByLabel('Authenticator code').fill(authenticatorCode(staffSecret));await blocked.getByRole('button',{name:'Verify code',exact:true}).click();
     await expect(blocked.getByText('This session is verified.',{exact:true})).toBeVisible();
     const staffSession=await(await other.request.get(base+'/auth/session')).json();
+    const delegated=await browser.newContext({viewport:{width:1440,height:1000}});
+    try {
+      const admin=await delegated.newPage();await admin.goto(process.env.PIER_OPEN!);await admin.waitForURL(url=>url.pathname==='/security');await admin.goto(base+'/auth/dev/enter?as=admin');await admin.waitForURL(url=>url.pathname==='/security');
+      await admin.getByRole('button',{name:'Start enrollment',exact:true}).click();
+      const adminSecret=await admin.locator('[data-factor-secret]').textContent();
+      await admin.getByLabel('Authenticator code').fill(authenticatorCode(adminSecret));await admin.getByRole('button',{name:'Verify code',exact:true}).click();
+      const adminSession=await(await delegated.request.get(base+'/auth/session')).json();
+      await page.goto(base+'/security');
+      const grant=page.locator('form').filter({has:page.getByRole('button',{name:'Grant security access',exact:true})});
+      await grant.locator('select[name="delegateId"]').selectOption(adminSession.operator.id);
+      await grant.locator('select[name="operatorId"]').selectOption(staffSession.operator.id);
+      await grant.getByLabel('Duration in minutes',{exact:true}).fill('60');await grant.getByRole('button',{name:'Grant security access',exact:true}).click();
+      await expect(page.getByRole('status')).toContainText('Security change saved.');
+      await capture('human-grant');
+      await admin.goto(base+'/security');await expect(admin.getByRole('heading',{name:'Delegated security controls',exact:true})).toBeVisible();
+      const revoke=admin.locator('form').filter({has:admin.getByRole('button',{name:'Revoke target sessions',exact:true})});
+      await revoke.getByLabel('Reason',{exact:true}).fill('synthetic-pier-1');await revoke.getByRole('button',{name:'Revoke target sessions',exact:true}).click();
+      await expect(admin.getByRole('status')).toContainText('Security change saved.');
+      expect((await other.request.get(base+'/api/pier/state')).status()).toBe(401);
+      expect((await delegated.request.post(base+'/auth/strong-auth/require',{headers:{origin:base},data:{}})).status()).toBe(403);
+      if(shots)for(const width of [1440,390]){await admin.setViewportSize({width,height:1000});await admin.screenshot({path:join(shots,`${width}-native-security-delegated.png`),fullPage:true});}
+      await admin.setViewportSize({width:1440,height:1000});
+      const ungrant=page.locator('form').filter({has:page.getByRole('button',{name:'Revoke security grant',exact:true})});
+      await ungrant.getByRole('button',{name:'Revoke security grant',exact:true}).click();
+      const stale=admin.locator('form').filter({has:admin.getByRole('button',{name:'Reset target factor',exact:true})});
+      await stale.getByLabel('Reason',{exact:true}).fill('synthetic-pier-2');await stale.getByRole('button',{name:'Reset target factor',exact:true}).click();
+      await expect(admin.getByRole('alert')).toContainText('Current authority changed');
+      await expect(admin.getByRole('heading',{name:'Delegated security controls',exact:true})).toHaveCount(0);
+      if(shots)for(const width of [1440,390]){await admin.setViewportSize({width,height:1000});await admin.screenshot({path:join(shots,`${width}-native-security-delegated-refusal.png`),fullPage:true});}
+    } finally {await delegated.close();}
     await page.goto(base+'/security');
     const recovery=page.locator('form').filter({has:page.getByRole('button',{name:'Authorize recovery',exact:true})});
     await recovery.locator('select[name="operatorId"]').selectOption(staffSession.operator.id);await recovery.getByLabel('Reason',{exact:true}).fill('Owner reviewed lost staff device');
@@ -1217,4 +1247,12 @@ test('native authenticator enrollment, required sessions and owner recovery are 
   await self.getByRole('button',{name:'Authorize recovery',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Another assured native owner');
   expect(status.audit.some((row:any)=>row.action==='factor.required')).toBe(true);
   await capture('owner-controls');
+  const nativeOwner=page.locator('form').filter({has:page.getByRole('button',{name:'Prepare recovery owner',exact:true})});
+  await nativeOwner.locator('select[name="operatorId"]').selectOption({label:'Dev admin'});
+  await nativeOwner.getByRole('checkbox',{name:'Grant full native owner authority',exact:true}).check();
+  await nativeOwner.getByRole('button',{name:'Prepare recovery owner',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('Security change saved.');
+  const prepared=await(await page.request.get(base+'/auth/strong-auth/status')).json();
+  expect(prepared.operators.some((operator:any)=>operator.display_name==='Dev admin'&&operator.role==='owner')).toBe(true);
+  await capture('recovery-readiness');
 });

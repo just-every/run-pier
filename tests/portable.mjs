@@ -161,8 +161,10 @@ async function verifyNative(runtime, secret) {
     assert.equal(state.enrolled,false,'archive restores no factor secret');
     assert.equal(state.verified,false,'archive restores no session assurance');
     assert.equal((await runtime.request('/api/pier/export')).status,403,'required assurance survives restore');
+    assert.equal((await runtime.request('/auth/strong-auth/enroll','POST',{})).status,403,'restored enrollment refuses until explicit native owner recovery');
     const session=await(await runtime.request('/auth/session')).json();
     assert.equal((await runtime.request('/auth/strong-auth/recover','POST',{operatorId:session.operator.id,reason:'Fresh native owner restored installation'})).status,200);
+    assert.equal((await runtime.request('/api/pier/state')).status,403,'restored recovery grants no private access before fresh verification');
     secret=undefined;
   }
   if(!secret)secret=(await(await runtime.request('/auth/strong-auth/enroll','POST',{})).json()).secret;
@@ -332,12 +334,23 @@ try {
   await running.cmd('business.save',{name:'Synthetic portable business',address:'1 Synthetic Pier Road',shipTo:{}});
   const typedPurchase=await running.cmd('po.draft',{supplierId:typedState.parties.find(p=>p.customFields?.private_value==='synthetic-pier-private-supplier').id,promiseDate:'2026-11-01',reason:'Typed PDF custody',lines:[{itemId:typedState.items.find(i=>i.sku==='RESTORE-IMPORT').id,quantity:'1',price:'1'}]});
   const typedDocument=await running.cmd('print.generate',{kind:'purchase-order',sourceId:typedPurchase.id});
-  const before = await (await running.request("/api/pier/export")).json();
-  assert.equal(before.customFieldDefinitions.length,4);
+  assert.equal((await (await running.request('/api/pier/export')).json()).customFieldDefinitions.length,4);
   assert.equal(typedDocument.typedFieldCustody,true);
 
   const nativeSecret=await verifyNative(running);
   assert.equal((await running.request('/auth/strong-auth/require','POST',{})).status,200);
+  const nativePersona=async name=>{
+    const entered=await running.request('/auth/dev/enter?as='+name);assert.equal(entered.status,303);
+    const cookies=new Map(running.sessionCookie().split(';').map(part=>{const value=part.trim(),index=value.indexOf('=');return [value.slice(0,index),value.slice(index+1)];}));
+    for(const value of entered.headers.getSetCookie()){const part=value.split(';')[0],index=part.indexOf('=');cookies.set(part.slice(0,index),part.slice(index+1));}
+    const cookie=[...cookies].map(([key,value])=>key+'='+value).join('; ');
+    const session=await(await running.request('/auth/session','GET',undefined,cookie)).json();return {cookie,session};
+  };
+  const securityAdmin=await nativePersona('admin'), securityTarget=await nativePersona('member');
+  const securityGrant=await running.request('/auth/strong-auth/grant','POST',{delegateId:securityAdmin.session.operator.id,operatorId:securityTarget.session.operator.id,minutes:1440});
+  assert.equal(securityGrant.status,200,await securityGrant.clone().text());
+  assert.equal((await securityGrant.json()).grants.length,1,'source has a live human security grant');
+  const before=await(await running.request('/api/pier/export')).json();
   const oldSession = running.sessionCookie();
   assert.ok(before.importJournal.jobs.length > 0);
   assert.ok(
@@ -374,7 +387,13 @@ try {
     "--non-interactive",
   ]);
   running = await start(destination, p2);
+  const restoredSecurity=await(await running.request('/auth/strong-auth/status')).json();
+  assert.equal(restoredSecurity.required,true,'restore preserves required two-factor enforcement');
+  assert.equal(restoredSecurity.restorePaused,true,'restore must pause enrollment before any recovery branch');
+  assert.equal(restoredSecurity.enrolled,false,'restore excludes enrolled factors');
+  assert.equal(restoredSecurity.verified,false,'restore excludes session proofs');
   await verifyNative(running);
+  assert.deepEqual((await(await running.request('/auth/strong-auth/status')).json()).grants,[],'archive restore retains no live security grant authority');
   assert.equal(
     (await running.request("/api/pier/state", "GET", undefined, oldSession))
       .status,
@@ -543,6 +562,7 @@ try {
       assert.equal(state.actor.role,'owner');
       const inactive=state.operators.filter(operator=>operator.role!=='owner'&&operator.status==='inactive');
       assert.equal(inactive.length,1);
+      await verifyNative(running);
       const reactivated=await running.request('/auth/operator/status','POST',{operatorId:inactive[0].id,status:'active'});
       assert.equal(reactivated.status,200,'fresh owner explicitly reactivates this staff identity');
       member=await running.request('/auth/dev/enter?as=member');
