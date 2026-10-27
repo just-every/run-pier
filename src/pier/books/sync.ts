@@ -15,6 +15,7 @@ import { amount, money } from '../money';
 import { withShopPayment, reconciliationDate } from './shop-payment';
 import { providerOperation, type ProviderAudit } from '../provider-audit';
 import { movementFrontier, type Row, type State } from '../model';
+import { journalReadback } from './journal-readback';
 
 // A sync after a command runs under waitUntil, which Cloudflare ends about 30 s
 // after the response. Work stops well inside that, and the lease outlives the
@@ -72,7 +73,13 @@ export async function syncBooks(env:Bindings){
     };
     // Stored rows with the same creation time have no insertion order. Credits
     // depend on their invoice or payable, which must be admitted first.
-    const jobs=(await load(env.DB)).bookJobs.filter(j=>j.status!=='skipped'&&j.document).sort((a,b)=>Number(a.kind==='credit')-Number(b.kind==='credit'));
+    const planned=await load(env.DB);
+    const jobs=planned.bookJobs.filter(j=>j.status!=='skipped'&&j.document).sort((a,b)=>Number(a.kind==='credit')-Number(b.kind==='credit'));
+    const journalIds=jobs.filter(j=>j.kind==='journal'&&j.remoteId&&['posted','reconciled'].includes(j.status)).map(j=>j.remoteId as string);
+    let journals: ReadonlyMap<string, any> | undefined, journalProblem: unknown;
+    try {
+      journals=await journalReadback(pantryClient({baseUrl:connection.baseUrl,credentials:secret,fetch:transport(planned)}).request,journalIds);
+    } catch(error) { journalProblem=error; }
     for(const snapshot of jobs){
       if(Date.now()-start>BUDGET)break;
       const state=await load(env.DB),current=state.bookConnections.find(c=>c.id===connection.id),job=state.bookJobs.find(j=>j.id===snapshot.id)!;
@@ -83,8 +90,10 @@ export async function syncBooks(env:Bindings){
       if(job.sourceKind==='supplierBill')doc=withReceiptState(state,job.sourceId,doc);
       let creating=false;
       try{
+        const sharedJournal=job.kind==='journal'&&journalIds.includes(job.remoteId);
+        if(sharedJournal&&journalProblem)throw journalProblem;
         doc=withShopPayment(state,job.sourceId,current,doc);
-        const remote=createPantryAdapter({baseUrl:connection.baseUrl,credentials:secret,fetch:transport(state,job)});
+        const remote=createPantryAdapter({baseUrl:connection.baseUrl,credentials:secret,fetch:transport(state,job)},sharedJournal?journals:undefined);
         let result=await providerOperation(env.DB,audit(state,job,'book.read','inbound'),()=>remote.read(doc),value=>({externalIds:[value?.id]}));
         // The owner's Check Pantry re-sends a request Pantry has no record of, under
         // its original idempotency keys, so a request that did arrive is never doubled.

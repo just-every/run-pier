@@ -106,6 +106,7 @@ import { floor, floorState } from "./floor";
 import { dispatchSummary } from "./floor/summary";
 import { sendSummary } from "./floor/mail";
 import { canonicalJson, sha256, publishImport } from "./import-kit";
+const replayedCommand = Symbol('replayed command');
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
     status,
@@ -206,7 +207,7 @@ export async function execute(
   const previous = await saved(env.DB, commandId, digest, actor, backgroundPolicy);
   if (previous) {
     if (actor.role !== 'owner' && (type.startsWith('customField.') || type.startsWith('import.') && privateFieldCustody(await load(env.DB)) || previous.result?.pdf)) throw new Problem('FORBIDDEN', 'Current owner authority is required to recover protected field content, originals or documents.', null, 403);
-    return { ...previous, result: physicalResult(await load(env.DB), actor, previous.result) };
+    return { ...previous, [replayedCommand]: true, result: physicalResult(await load(env.DB), actor, previous.result) };
   }
   // A losing optimistic admission is recomputed from current stock. This is
   // database concurrency handling, not a retry of an external effect or model.
@@ -708,8 +709,12 @@ export async function pierResponse(
     if (outcome && ['po.send','slowStock.check','slowStock.flag','order.repromise','order.promisePolicy','po.confirm'].includes(type)) await deliverCorrespondence(env);
     if (outcome && type === "dispatch.close") return reply(await deliver(env, actor, commandId, outcome));
     if (outcome) {
-      if (execution) execution.waitUntil(Promise.all([syncChannels(env),syncBooks(env)]));
-      else await Promise.all([syncChannels(env),syncBooks(env)]);
+      // A settled command replay has no new financial work. Unknown or held
+      // outcomes still reconcile; explicit and scheduled syncs always read back.
+      const bookWork = !outcome[replayedCommand] || (await load(env.DB)).bookJobs.some(job => ['pending','uncertain','review'].includes(job.status));
+      const sync = () => Promise.all([syncChannels(env), ...(bookWork ? [syncBooks(env)] : [])]);
+      if (execution) execution.waitUntil(sync());
+      else await sync();
       return reply(outcome);
     }
     return reply(

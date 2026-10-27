@@ -8,7 +8,7 @@ const dollars=(value:bigint)=>{
   return `${value<0n?'-':''}${n/100n}.${String(n%100n).padStart(2,'0')}`;
 };
 const flag=(value:unknown)=>value===true||value===1;
-export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
+export function createPantryAdapter(config:BooksAdapterConfig, journals?: ReadonlyMap<string, any>):BooksAdapter {
   const client=pantryClient(config);
   const lookup=async(path:string,collection:string,field:string,value:string) => {
     const rows=(await client.request(`${path}?${field}=${encodeURIComponent(value)}`))[collection];
@@ -18,7 +18,7 @@ export function createPantryAdapter(config:BooksAdapterConfig):BooksAdapter {
   const raw=async(doc:BookDocument) => {
     if(doc.vendorCreditForReference)return lookup('vendor-credits','vendorCredits',doc.remoteId?'id':'reference',doc.remoteId??doc.reference);
     if(doc.kind==='item')return client.attachment(doc);
-    if(doc.kind==='journal')return lookup('journals','entries',doc.remoteId?'id':'memo',doc.remoteId??doc.reference);
+    if(doc.kind==='journal')return journals && doc.remoteId ? journals.get(doc.remoteId) ?? null : lookup('journals','entries',doc.remoteId?'id':'memo',doc.remoteId??doc.reference);
     const sales=['invoice','credit'].includes(doc.kind);
     return lookup(sales?'invoices':'bills',sales?'invoices':'bills',doc.remoteId?'id':sales?'number':'reference',doc.remoteId??doc.reference);
   };

@@ -2979,7 +2979,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "f590479fea5bf59d5ce299136bd75fa7d51886e3296fd493b823a65078e68493",
+      "sha256": "76199894527bd43b7e2aa687ffb3c769f9da41e804f69f21fc1192e04bb32edb",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3003,7 +3003,7 @@
       "executable": false
     },
     "src/pier/books/adapters/pantry.ts": {
-      "sha256": "398b1ad9919d09b943a79e5fe297d8820432a8dbdd6520d7233967117b79092d",
+      "sha256": "bc591bbb001ef157787382f4529d24ec5a75426a07e5eca6fbdb32332ed427a7",
       "executable": false
     },
     "src/pier/books/adapters/qbo.ts": {
@@ -3028,6 +3028,10 @@
     },
     "src/pier/books/export.ts": {
       "sha256": "4c8635e5e7d52f5c6a629b39af82004e3840f99a1f5264131839a3189144ca8a",
+      "executable": false
+    },
+    "src/pier/books/journal-readback.ts": {
+      "sha256": "17c1abef23f8b410b5821faec53a017494bcc5068d3c9e0f5bacbf8df67ff746",
       "executable": false
     },
     "src/pier/books/pantry-accounts.ts": {
@@ -3071,7 +3075,7 @@
       "executable": false
     },
     "src/pier/books/sync.ts": {
-      "sha256": "afde1632033ea351b467888eff109598d02bd7e53d06459156548509f30146c8",
+      "sha256": "a3028cab9c6fbae0c0545b185ca37dd04a9044c9e61fcff63c155477f51cabf2",
       "executable": false
     },
     "src/pier/business.ts": {
