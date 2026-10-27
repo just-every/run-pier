@@ -630,7 +630,9 @@ Every capability claim on the approved homepage (`src/site/landing/`, the page-s
 
 ## Status
 
-Current statuses and evidence are recorded below and synchronized with ACCEPTANCE.md. Historical assessments and earlier round notes do not certify later implementation. SALES-005 remains partial under the 27 October 2026 CT ruling.
+Judged from the code and tests at commit `c2f094b96a3444189bfb3d14b2100c59d5a02cf3` (27 October 2026).
+
+Current statuses and evidence are synchronized with ACCEPTANCE.md. Historical assessments and earlier round notes do not certify later implementation. SALES-005 remains partial under the 27 October 2026 CT ruling.
 
 Updated 24 October 2026 (sx-pier-c-next1): SALES-004 and BUY-003 are done with bounded recurrence, explicit owner customer and supplier credit posting, real Pantry reconciliation, replacement landed costs and desktop and phone public-door proof. The recurring default records ct approval of 22 October at 20:40Z. Acceptance points and homepage copy are unchanged.
 
