@@ -11,6 +11,7 @@ test('overdue cases deduplicate, retain assignment after restart, escalate unans
   const id=(await h.state()).actor.id;
   await h.command('exception.policy',{version:0,enabled:true,assigneeId:id,escalationOwnerId:id,dueHours:1});
   assert.equal((await(await h.mf.getWorker()).scheduled({scheduledTime:new Date(edge.now),cron:'* * * * *'})).outcome,'ok');
+  assert.equal((await(await h.mf.getWorker()).scheduled({scheduledTime:new Date(Date.parse(edge.now)+60000),cron:'* * * * *'})).outcome,'ok');
   await h.command('exception.check',{}); await h.command('exception.check',{});
   let cases=(await h.state()).operationalExceptions;
   assert.deepEqual(cases.map(r=>[r.kind,r.sourceId]).sort(),[['late-customer-delivery',order.id],['overdue-po-confirmation',po.id]]);

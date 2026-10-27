@@ -21,7 +21,7 @@ function event(c: Context, record: Row, kind: string, detail: any = {}) {
 export function operationalEvidence(c: Context, record: Row) {
   const connection = c.s.bookConnections.find(r => r.enabled && !r.problem && c.automationActors?.[r.approvedBy] === 'owner');
   const reconciliation = c.s.bookJobs.find(r => r.key === 'inventory-reconciliation');
-  const ledger = !!connection?.lastSync && reconciliation?.status === 'reconciled' &&
+  const ledger = c.booksCredentialPresent === true && !!connection?.lastSync && reconciliation?.status === 'reconciled' &&
     reconciliation.connectionVersion === connection.version && reconciliation.movementSequence === movementFrontier(c.s) &&
     reconciliation.checkedAt <= connection.lastSync;
   const current = (jobs: Row[]) => jobs.length > 0 && jobs.every(job => job.remoteId && job.checkedAt && job.checkedAt <= connection?.lastSync && ['posted', 'reconciled'].includes(job.status));

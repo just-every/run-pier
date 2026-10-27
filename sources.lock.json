@@ -647,7 +647,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "fdaee14728c35aebcd68ca135a5000741106ae477acfad01f66c8cd6afa1f056",
+      "sha256": "b94e56b60e855fb662341f10539afe691529bbfc1c89c66291c42549c36a31a2",
       "executable": false
     },
     "packaging.json": {
@@ -2979,7 +2979,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "346f682cee8b3bfafcb7d370619b45d04e676f7ab46d73a86549ca6036fdf772",
+      "sha256": "f16505bc5f5fd216a28ec0a4a1b06947319f7e8a15b9e461795d7bafe87b91c4",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3451,7 +3451,7 @@
       "executable": false
     },
     "src/pier/model.ts": {
-      "sha256": "ab109a4485665ee52e2957813ccc49583d51a20cb4323dcff20e21b9b9e72d08",
+      "sha256": "ab1e0feec7b3170958bb7dcf7c290623d91cff995c49e44099c3ac6673bcea1f",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -3487,7 +3487,7 @@
       "executable": false
     },
     "src/pier/operational-exceptions.ts": {
-      "sha256": "d59c0400d0a02bb98a80f68529b1a816875ff71d9c0beaa255022fd4a34b888e",
+      "sha256": "e90b81d041855f4ece0758e39612504434e45325d394a8e08b1aba1fd6b85a81",
       "executable": false
     },
     "src/pier/orders.ts": {
@@ -3755,7 +3755,7 @@
       "executable": false
     },
     "src/pier/scheduled.ts": {
-      "sha256": "eb35d2923ed47ddd1cd9a78bd7473f61c8ffe23bd0607d051c8ec77d86c16cb9",
+      "sha256": "a69ff1170e6e6b2d245dbd5ae71ff43667135efb1257a002e37626eca813afd4",
       "executable": false
     },
     "src/pier/shipping/commands.ts": {
@@ -4663,7 +4663,7 @@
       "executable": false
     },
     "tests/api/books.test.mjs": {
-      "sha256": "8a791fa72cbc4dc57e574839c78970f3cf1a735a8a5c1dcc3043052850fdd1da",
+      "sha256": "0b2bea2d2795ddcb5cee610d8eba1d144c0eb192df4f66b1d364fbe3fa355125",
       "executable": false
     },
     "tests/api/catalogue-fixtures.mjs": {
@@ -4747,7 +4747,7 @@
       "executable": false
     },
     "tests/api/operational-exceptions.test.mjs": {
-      "sha256": "6ec5c6bdaa33a372c682bc5174b259411fa78819a4a50322ff9e823dc20d90b8",
+      "sha256": "23dff04b2ec9b5b8024abd7e27319fe41b5cbfd8214cc2a87c2fbdc6a86cb98c",
       "executable": false
     },
     "tests/api/packing-documents.test.mjs": {
@@ -4875,7 +4875,7 @@
       "executable": false
     },
     "tests/browser/operational-exceptions.spec.ts": {
-      "sha256": "29259f51b52e268330d4790cb490aecab5d9a1e0b5a76539b1620c2a70463fc6",
+      "sha256": "ae337a3729828d908b3bec37e1712fc1e414b1d74f469ba9f0b7e21e78e045d9",
       "executable": false
     },
     "tests/browser/playwright.config.ts": {

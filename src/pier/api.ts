@@ -213,7 +213,7 @@ export async function execute(
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB),
       s = structuredClone(before),
-      c: Context = { s, actor, commandId, now: now(), backgroundPolicy, installationScope:sha256('pier-recurring-authority\0'+env.SESSION_SECRET), automationActors: await activeAutomationActors(env.DB) };
+      c: Context = { s, actor, commandId, now: now(), backgroundPolicy, installationScope:sha256('pier-recurring-authority\0'+env.SESSION_SECRET), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
     await approver(env, c, type, payload);
     let result: any = await privacy(c, type, payload, env);
     if (result === undefined) result = supplierBills(c, type, payload);
@@ -376,7 +376,7 @@ export async function pierResponse(
     if (request.method === "GET") {
       admitRead(actor, url);
       const full = await load(env.DB), s = physicalState(full, actor),
-        c = { s, actor, commandId: "", now: new Date().toISOString(), automationActors: await activeAutomationActors(env.DB) };
+        c = { s, actor, commandId: "", now: new Date().toISOString(), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
       privateFields = privateFieldCustody(full);
       const gate = authority(actor);
       if (

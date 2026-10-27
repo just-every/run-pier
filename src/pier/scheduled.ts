@@ -31,7 +31,8 @@ export async function runReplenishmentSchedule(env: Bindings, scheduledTime = Da
     if (!role || !['owner', 'buyer', ...(policy.collection === 'orders' ? ['operator'] : [])].includes(role)) continue;
     const operator = await env.DB.prepare('SELECT version,display_name FROM oa_operators WHERE id=?').bind(policy.approvedBy).first<any>();
     if (!operator) continue;
-    await execute(env, { id: policy.approvedBy, role, name: operator.display_name, sessionId: 'scheduled-policy', operatorVersion: operator.version }, `schedule-${policy.id}-${policy.version}-${slot}`, 'automation.tick', {}, () => now, policy);
+    const checkSlot = policy.collection === 'operationalExceptionPolicies' ? Math.floor(Date.parse(now) / 60000) : slot;
+    await execute(env, { id: policy.approvedBy, role, name: operator.display_name, sessionId: 'scheduled-policy', operatorVersion: operator.version }, `schedule-${policy.id}-${policy.version}-${checkSlot}`, 'automation.tick', {}, () => now, policy);
   }
   await runRecurringSchedule(env,scheduledTime);
   await runWorkflowRules(env,scheduledTime);

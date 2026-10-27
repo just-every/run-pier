@@ -153,6 +153,8 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     assert.ok(safeCsv.includes("\"'=1+2\""),'spreadsheet-facing CSV keeps hostile text literal');
     await pier.restartWithFreshSigningKey();
     assert.ok((await pier.state()).operationalExceptions.every(r=>r.closure&&r.history.some(h=>h.kind==='closed')),'closure and evidence survive restart');
+    await pier.command('exception.check',{});
+    assert.ok((await pier.state()).operationalExceptions.every(r=>r.status==='open'),'unreadable credentials after restart cannot retain current closure');
     await exerciseBooksFixtures();
   }finally{await pier?.close();await pantry.close();}
 });
