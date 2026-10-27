@@ -5,6 +5,9 @@ import assert from 'node:assert/strict'
 import { spawnSync, execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { mkdtemp, chmod, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { freshCopy } from '../browser/runtime.mjs'
 
 const root = new URL('../..', import.meta.url).pathname
 const site = join(root, 'dist/site')
@@ -40,4 +43,23 @@ test('hosted preflight refuses missing account inputs before building or contact
   assert.match(output, /Nothing was uploaded/);
   assert.match(output, /rer deploy --dry-run --env-file/);
   assert.doesNotMatch(output, /vite v|transforming|Uploading|https:\/\/api.cloudflare.com/);
+});
+
+test('setup explains a read-only checkout and its published recovery command completes the same installation', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'pier-recovery-'));
+  try {
+    await freshCopy(root, scratch);
+    const branding = join(scratch, 'src/branding.json');
+    await chmod(branding, 0o444);
+    const env = { ...process.env, CI: 'true', RER_SERVER_JOURNEY: '1', PATH: join(scratch, 'node_modules/.bin') + ':' + process.env.PATH };
+    delete env.RER_LOCAL_OPERATION; delete env.RER_ONBOARDING_PROCESS_OWNER;
+    const failed = spawnSync('rer', ['setup', '--owner-email', 'owner@example.test', '--non-interactive'], { cwd: scratch, env, encoding: 'utf8' });
+    assert.equal(failed.status, 1, failed.stdout + failed.stderr);
+    const output = failed.stdout + failed.stderr;
+    assert.doesNotMatch(output, /EACCES|EPERM|\n\s+at /);
+    const next = output.match(/Run (chmod u\+w src\/branding.json && rer setup --non-interactive)\./)?.[1];
+    assert.ok(next, 'a failed setup must give the executable recovery command');
+    const recovered = spawnSync('sh', ['-c', next], { cwd: scratch, env, encoding: 'utf8' });
+    assert.equal(recovered.status, 0, 'the printed recovery command must finish setup');
+  } finally { await rm(scratch, { recursive: true, force: true }); }
 });

@@ -10,6 +10,7 @@ import { commandAdapter as createCommandAdapter } from "@runeditrun/rer/adapter"
 import { ownerDeploy } from "@runeditrun/rer/deploy";
 import { localPortability } from "@runeditrun/rer/portability";
 import * as model from "./ui/seed.mjs";
+import { commandFailure } from "@runeditrun/rer/internal/onboarding/failures.mjs";
 import { hostedPreflight } from "./hosted-preflight.mjs";
 
 export { selectLocalState };
@@ -21,14 +22,18 @@ const lifecycle = operatorInstaller({
     if (input.APP_NAME === undefined && input.PRIMARY_COLOR === undefined)
       return;
     await store.step("Saving application branding");
-    await writeFile(
-      join(root, "src/branding.json"),
-      JSON.stringify(
-        { name: input.APP_NAME, primaryColor: input.PRIMARY_COLOR },
-        null,
-        2,
-      ) + "\n",
-    );
+    try {
+      await writeFile(
+        join(root, "src/branding.json"),
+        JSON.stringify({ name: input.APP_NAME, primaryColor: input.PRIMARY_COLOR }, null, 2) + "\n",
+      );
+    } catch (error) {
+      if (["EACCES", "EPERM", "EROFS"].includes(error.code))
+        throw commandFailure("Pier cannot save its appearance because the checkout is read-only. Run chmod u+w src/branding.json && rer setup --non-interactive.");
+      if (error.code === "ENOSPC")
+        throw commandFailure("Pier cannot save its appearance because the disk is full. Free space on this disk, then run rer setup --non-interactive.");
+      throw error;
+    }
   },
 });
 export const adapter = lifecycle;

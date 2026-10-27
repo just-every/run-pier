@@ -36,7 +36,7 @@ export function OperatorRoleForm({ state, operators, run, busy }: { state: PierS
       ...(Object.keys(visibility).length ? { visibility } : {}),
       ...(editor.physical ? { permissions: {
         warehouses: text(data, 'warehouses').split(',').map(value => value.trim()).filter(Boolean),
-        locationIds: text(data, 'locationIds').split(',').map(value => value.trim()).filter(Boolean),
+        locationIds: editor.locationIds.split(',').map(value => value.trim()).filter(Boolean),
         ...(text(data, 'expiresAt') ? { expiresAt: text(data, 'expiresAt') } : {}),
       } } : {}),
     })
@@ -52,10 +52,9 @@ export function OperatorRoleForm({ state, operators, run, busy }: { state: PierS
     <label className="field"><span><input type="checkbox" checked={editor.physical} onChange={event => setEditor({ ...editor, physical: event.target.checked })} /> Restrict to physical stock and counts</span></label>
     {editor.physical && <>
       <Field label="Granted warehouses (comma separated)" name="warehouses" required={false} value={editor.warehouses} onChange={warehouses => setEditor({ ...editor, warehouses })} />
-      <Field label="Granted location identities (comma separated)" name="locationIds" required={false} value={editor.locationIds} onChange={locationIds => setEditor({ ...editor, locationIds })} />
+      <fieldset><legend>Granted locations</legend><p>Leave all unchecked to allow every location in the granted warehouses.</p>{records(state, 'locations').map(location => <label className="check" key={location.id}><input type="checkbox" checked={editor.locationIds.split(',').map(value => value.trim()).includes(location.id)} onChange={event => { const current = editor.locationIds.split(',').map(value => value.trim()).filter(Boolean); setEditor({ ...editor, locationIds: (event.target.checked ? [...current, location.id] : current.filter(id => id !== location.id)).join(', ') }) }} />{location.warehouse} · {location.name}</label>)}</fieldset>
       <Field label="Grant expiry (ISO timestamp)" name="expiresAt" required={false} value={editor.expiresAt} onChange={expiresAt => setEditor({ ...editor, expiresAt })} />
       <details><summary>Physical grant details</summary><p>Receiving, picking, packing, dispatch and physical slips use this grant. Costs, sales prices and sensitive customer profiles stay private. Empty warehouses revoke physical access. Empty locations permit every location in the named warehouses. Use an ISO timestamp with Z or an explicit offset for expiry.</p></details>
-      <details><summary>Available location identities</summary><ul>{records(state, 'locations').map(location => <li key={location.id}>{location.warehouse} · {location.name} · {location.id}</li>)}</ul></details>
     </>}
     <details><summary>Role and visibility details</summary><p>Purchasing can see purchasing costs. Sales and Sales operations can see sales prices. The hide switches only restrict that access. Physical stock grants hide both. Finance has stock access; receivables authority remains with the owner.</p><p>Native owners retain full visibility. Your own authority and native owners are managed through native owner management. Originals, typed fields and sensitive customer profiles remain owner-only. The server checks current authority on every command.</p></details>
   </Form>
