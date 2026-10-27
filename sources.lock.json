@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "74173bb7e92ffe8fb0d45290068f981ee7f1c280a17b0a4ea39b6104a9952751",
+      "sha256": "b0ed7f4ac985755980c36232bae24516180f8386035d150911550f09f9108470",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "67514877c94b969a1f80a75bc36891373009789b047a3104cc74acb3fdf99e07",
+      "sha256": "773ffa03afbf91c93f63324e9beb84602b98fa59cf3db6bdfa870b8abc7abd12",
       "executable": false
     },
     "DEMO.md": {
@@ -4763,7 +4763,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "d1cd958d553f4ef94298f27e6e37254b36a14e39683c50507a3f86cc57f33c5a",
+      "sha256": "0888e7289014c49e1c517211dbd84fe5331ced31db847cfa888e00c54225fa3a",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {
