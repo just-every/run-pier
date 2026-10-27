@@ -14,7 +14,7 @@ import { valuationLedger } from '../valuation-ledger';
 import { amount, money } from '../money';
 import { withShopPayment, reconciliationDate } from './shop-payment';
 import { providerOperation, type ProviderAudit } from '../provider-audit';
-import type { Row, State } from '../model';
+import { movementFrontier, type Row, type State } from '../model';
 
 // A sync after a command runs under waitUntil, which Cloudflare ends about 30 s
 // after the response. Work stops well inside that, and the lease outlives the
@@ -77,8 +77,8 @@ export async function syncBooks(env:Bindings){
       if(Date.now()-start>BUDGET)break;
       const state=await load(env.DB),current=state.bookConnections.find(c=>c.id===connection.id),job=state.bookJobs.find(j=>j.id===snapshot.id)!;
       if(!current?.enabled||current.version!==connection.version)break;
-      // Re-read payments even after settlement: reversal reopens the source order/bill.
-      if(['posted','reconciled'].includes(job.status)&&!['invoice','bill'].includes(job.kind))continue;
+      // Re-read payments and journals after posting: reversals reopen their source work.
+      if(['posted','reconciled'].includes(job.status)&&!['invoice','bill','journal'].includes(job.kind))continue;
       let doc={...job.document,...(job.remoteId?{remoteId:job.remoteId}:{})} as BookDocument;
       if(job.sourceKind==='supplierBill')doc=withReceiptState(state,job.sourceId,doc);
       let creating=false;
@@ -113,15 +113,15 @@ export async function syncBooks(env:Bindings){
       // A revoked or under-permitted credential refuses every job alike; stop rather than mark each one.
       if(connectionProblem)break;
     }
-    const state=await load(env.DB),ledger=valuationLedger(state,new Date().toISOString());
+    const state=await load(env.DB),movementSequence=movementFrontier(state),ledger=valuationLedger(state,new Date().toISOString());
     const layers=ledger.positions.flatMap(p=>p.layers).filter(l=>l.quantity>0n);
     const expected=layers.some(l=>l.value===null)?null:money(layers.reduce((n,l)=>n+l.value!,0n));
     try {
       const through=reconciliationDate(state,new Date().toISOString().slice(0,10));
       const tb=await pantryClient({baseUrl:connection.baseUrl,credentials:await credentials(env,'books:pantry'),fetch:transport(state)}).request('reports/trial-balance?to='+through);
       const actual=money(BigInt(tb.rows.find((r:any)=>r.id===connection.inventoryAccountId)?.net??0)*10000000000n);
-      await record('book.reconcile',{actual,expected,through});
-    } catch (error) { connectionProblem??=error instanceof PantryRefusal&&error.status===401?BROKEN:`Pier could not reach Pantry at ${connection.baseUrl}. Check that Pantry is running at that address, then choose Sync now.`; await record('book.reconcile',{actual:null,expected,problem:'Pantry inventory value could not be checked. Restore the connection, then sync again.'}); }
+      await record('book.reconcile',{actual,expected,through,movementSequence});
+    } catch (error) { connectionProblem??=error instanceof PantryRefusal&&error.status===401?BROKEN:`Pier could not reach Pantry at ${connection.baseUrl}. Check that Pantry is running at that address, then choose Sync now.`; await record('book.reconcile',{actual:null,expected,movementSequence,problem:'Pantry inventory value could not be checked. Restore the connection, then sync again.'}); }
     await record('book.checked',{problem:connectionProblem});return {processed};
   }finally{await env.DB.prepare('DELETE FROM pier_book_locks WHERE id=1 AND token=?').bind(token).run();}
 }

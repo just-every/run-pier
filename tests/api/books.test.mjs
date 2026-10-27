@@ -8,7 +8,7 @@ import { pantryInstallation } from './pantry-installation.mjs';
 test('Pantry connects with a scoped credential and picked accounts; a matched invoice posts a ready payable, replays never duplicate, and revocation shows a broken connection',async()=>{
   const pantry=await pantryInstallation();
   let pier;
-  let loseJournalResponse=false, echoFailure=false;
+  let loseJournalResponse=false, echoFailure=false, holdTrialBalance;
   try{
     await pantry.command('chart.start',{});
     const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory Asset',type:'asset',subtype:'other'});
@@ -19,6 +19,7 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
       assert.equal(new URL(request.url).origin,pantry.origin);
       if(echoFailure)return Response.json({error:request.headers.get('authorization')+' synthetic-pier-private-response'},{status:400});
       const response=await fetch(request.url,{method:request.method,headers:Object.fromEntries([...request.headers].filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),redirect:'manual',...(request.method==='GET'?{}:{body:await request.arrayBuffer()})});
+      if(holdTrialBalance&&request.url.includes('/reports/trial-balance')){const hold=holdTrialBalance;holdTrialBalance=null;hold.ready();await hold.released;}
       if(loseJournalResponse&&request.method==='POST'&&request.url.endsWith('/integration/v1/journals')){loseJournalResponse=false;await response.text();throw new Error('Synthetic response loss after Pantry saved the journal');}
       return response;
     }};
@@ -107,6 +108,23 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     assert.deepEqual(state.operationalExceptions.map(r=>[r.kind,r.status]).sort(),[['late-customer-delivery','closed'],['overdue-po-confirmation','closed']]);
     assert.deepEqual(state.operationalExceptions.find(r=>r.id===poCaseId).closure.receiptIds.sort(),state.receipts.map(r=>r.id).sort());
     assert.equal(state.operationalExceptions.find(r=>r.id===orderCaseId).closure.shipmentIds.length,1);
+    const entered=await fetch(pier.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':pier.devKey}});
+    const memberCookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+    const member=(await(await pier.request('/auth/session',{as:memberCookie})).json()).operator;
+    await pier.command('role.set',{operatorId:member.id,role:'owner'});
+    let casePolicy=(await pier.state()).operationalExceptionPolicies[0];
+    await pier.command('exception.policy',{...casePolicy},{as:memberCookie});
+    assert.ok((await pier.state()).operationalExceptions.every(r=>r.status==='closed'));
+    await pier.command('role.set',{operatorId:member.id,role:'viewer'});
+    state=await pier.state();
+    assert.ok(state.operationalExceptions.every(r=>r.status==='open'),'revoking the case policy approver reopens retained closures');
+    assert.ok(state.operationalExceptions.every(r=>r.history.some(event=>event.kind==='reopened'&&event.reason.includes('case policy'))),'policy revocation retains reopening history');
+    const revokedCase=state.operationalExceptions.find(r=>r.id===poCaseId);
+    await pier.command('exception.resolve',{exceptionId:revokedCase.id,version:revokedCase.version},{error:'EXCEPTION_EVIDENCE'});
+    casePolicy=(await pier.state()).operationalExceptionPolicies[0];
+    await pier.command('exception.policy',{...casePolicy});
+    assert.ok((await pier.state()).operationalExceptions.every(r=>r.status==='closed'),'a current owner can reapprove the policy after review');
+
     await pantry.command('journal.reverse',{id:supplierPayment.journal_id,date:new Date().toISOString().slice(0,10),memo:'Supplier payment returned by bank'});
     await pier.command('book.sync',{});state=await pier.state();
     assert.ok(state.receiptClosures.every(r=>r.status==='payment'),'supplier payment reversal reopens each affected receipt: '+JSON.stringify({closures:state.receiptClosures,jobs:state.bookJobs.filter(j=>j.kind==='bill').map(({status,received,readyToPay,paid,open,reason})=>({status,received,readyToPay,paid,open,reason}))}));
@@ -151,6 +169,26 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await pier.command('party.save',{...csvCustomer,name:'=1+2'});
     const safeCsv=await(await pier.request('/api/pier/books/export.csv')).text();
     assert.ok(safeCsv.includes("\"'=1+2\""),'spreadsheet-facing CSV keeps hostile text literal');
+    // Preserve the aggregate ledger balance while invalidating the actual source journal.
+    const sourceJournal=(await pantry.view('journal')).entries.find(e=>e.id===state.bookJobs.find(j=>j.key.startsWith('cogs:')).remoteId);
+    await pantry.command('journal.reverse',{id:sourceJournal.id,date:'2026-10-27',memo:'Synthetic source journal reversal'});
+    const replacement=await pantry.command('journal.save-draft',{date:'2026-10-27',memo:'synthetic-pier-closure-20',lines:sourceJournal.lines.map(line=>({accountId:line.account_id,...(line.debit_cents?{debit:(line.debit_cents/100).toFixed(2)}:{credit:(line.credit_cents/100).toFixed(2)}),memo:'Reviewed replacement'}))});
+    await pantry.command('journal.post',{id:replacement.id,revision:replacement.revision});
+    await pier.command('book.sync',{}); state=await pier.state();
+    assert.equal(state.bookJobs.find(j=>j.remoteId===sourceJournal.id).status,'review','a reversed source journal is reread even when aggregate balances agree');
+    assert.equal(state.bookJobs.find(j=>j.key==='inventory-reconciliation').status,'reconciled');
+    assert.equal(state.operationalExceptions.find(r=>r.id===orderCaseId).status,'open','matching totals cannot close a delivery whose source journal was reversed');
+    const concurrentPo=await buy(pier,b,'1');
+    const sampledSequence=Math.max(...(await pier.state()).movements.map(m=>m.sequence));
+    let announce,release;
+    const ready=new Promise(resolve=>{announce=resolve;});
+    holdTrialBalance={ready:announce,released:new Promise(resolve=>{release=resolve;})};
+    const syncing=pier.command('book.sync',{});
+    try { await ready; await receive(pier,b,concurrentPo,'1'); }
+    finally { release(); }
+    await syncing; state=await pier.state();
+    assert.equal(state.bookJobs.find(j=>j.key==='inventory-reconciliation').movementSequence,sampledSequence,'reconciliation retains the frontier used to sample the amounts');
+    assert.equal(state.bookJobs.find(j=>j.key==='inventory-reconciliation').status,'review','a receipt during readback requires a fresh comparison');
     await pier.restartWithFreshSigningKey();
     assert.ok((await pier.state()).operationalExceptions.every(r=>r.closure&&r.history.some(h=>h.kind==='closed')),'closure and evidence survive restart');
     await pier.command('exception.check',{});

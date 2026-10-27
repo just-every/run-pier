@@ -545,7 +545,10 @@ export async function pierResponse(
         actor,
         people,
         bookConnections,
-        operationalExceptions: actor.role === "owner" ? s.operationalExceptions.map(record => ({ ...record, evidence: operationalEvidence(c, record) })) : [],
+        operationalExceptions: actor.role === "owner" ? s.operationalExceptions.map(record => {
+          const evidence = operationalEvidence(c, record);
+          return { ...record, status: record.status === 'closed' && !evidence.ready ? 'open' : record.status, evidence };
+        }) : [],
         receiptClosures: receiptBookViews(s, bookConnections.some(row => row.enabled && row.credentialPresent && !row.problem)),
         orders: s.orders.map((o) => ({ ...orderView(c, o),...(actor.role==='owner'?{}:{creditClearance:undefined}), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),

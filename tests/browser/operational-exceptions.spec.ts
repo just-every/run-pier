@@ -63,4 +63,32 @@ test('owners assign overdue cases, see premature closure refusal and retain docu
     await page.setViewportSize({ width, height: 1000 })
     await panel.screenshot({ path: join(shots, `${width}-operational-case-history.png`) })
   }
+  const memberContext = await context.browser()!.newContext()
+  const memberTab = await memberContext.newPage()
+  try {
+    await memberTab.goto(process.env.PIER_OPEN!.replace('as=owner', 'as=member'))
+    await memberTab.waitForURL(url => url.pathname === '/app')
+    const member = (await (await memberContext.request.get(origin + '/auth/session')).json()).operator
+    await command('role.set', { operatorId: member.id, role: 'owner' })
+    const policy = (await state()).operationalExceptionPolicies[0]
+    await command('exception.policy', { ...policy, assigneeId: member.id, escalationOwnerId: member.id })
+    await command('role.set', { operatorId: member.id, role: 'viewer' })
+    let another = await command('po.draft', { supplierId: supplier.id, promiseDate: '2020-01-01', reason: 'Review revoked assignment', lines: [{ itemId: item.id, quantity: '1', price: '1' }] })
+    await command('po.approve', { poId: another.id, version: another.version }); another = await command('po.commit', { poId: another.id, version: another.version })
+    await command('exception.check', {})
+    const unassigned = (await state()).operationalExceptions.find((r: any) => r.sourceId === another.id)
+    await page.reload()
+    const pending = panel.locator(`[data-case-id="${unassigned.id}"]`)
+    await pending.locator('summary').first().click()
+    await expect(pending).toContainText('Owner assignment required')
+    await expect(pending).toContainText('A configured owner no longer has authority.')
+    if (shots) for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await panel.screenshot({ path: join(shots, `${width}-operational-case-assignment.png`) })
+    }
+    await pending.getByLabel('Assigned owner', { exact: true }).selectOption(owner)
+    await pending.getByLabel('Next action', { exact: true }).fill('Current owner reviews the supplier and escalation settings.')
+    await pending.getByRole('button', { name: 'Save next action', exact: true }).click()
+    await expect(pending).not.toContainText('Owner assignment required')
+  } finally { await memberContext.close() }
 })

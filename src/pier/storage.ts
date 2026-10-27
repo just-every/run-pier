@@ -133,7 +133,9 @@ export async function commit(
   ]);
   if (c.s.operationalExceptions.some(record => record.status === 'closed' && before.operationalExceptions.find(old => old.id === record.id)?.status !== 'closed')) {
     const connection = c.s.bookConnections.find(connection => connection.enabled && !connection.problem) ?? fail('EXCEPTION_EVIDENCE', 'Current Pantry authority is required.');
-    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}='owner')`, [connection.approvedBy]);
+    const policy = c.s.operationalExceptionPolicies[0] ?? fail('EXCEPTION_EVIDENCE', 'Current case policy authority is required.');
+    for (const id of new Set([connection.approvedBy, policy.approvedBy]))
+      guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}='owner')`, [id]);
   }
   if (c.approver) {
     guard(

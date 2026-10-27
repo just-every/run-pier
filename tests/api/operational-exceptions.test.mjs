@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { installation, basics, buy } from './harness.mjs';
+import { installation, basics, buy, receive } from './harness.mjs';
 
 test('overdue cases deduplicate, retain assignment after restart, escalate unanswered work and require current owner cancellation', async t => {
   let submissions=0;
@@ -58,4 +58,37 @@ test('overdue cases deduplicate, retain assignment after restart, escalate unans
   assert.equal(cases.length,2); assert.equal(cases.find(r=>r.id===retained.id).status,'cancelled');
   assert.equal(cases.find(r=>r.id===retained.id).cancellation.actorId,id);
   assert.equal(cases.find(r=>r.id===delivery.id).status,'open');
+  const recipient=(await h.state()).correspondence[0].recipient;
+  // A later promise applies only to the units actually re-promised.
+  const item=await h.command('item.save',{sku:'synthetic-pier-case-2',name:'Split promise bolts',unit:'each',packSize:'1'});
+  const split={...b,item};
+  const opening=await buy(h,split,'1'); await receive(h,split,opening,'1');
+  await h.command('supplierItem.save',{supplierId:b.supplier.id,itemId:item.id,code:'synthetic-pier-case-3',packSize:'1',minimum:'1',price:'1',leadDays:7});
+  const supply=await buy(h,split,'1');
+  let mixed=await h.command('order.create',{customerId:b.customer.id,promiseDate:'2026-11-01',lines:[{itemId:item.id,quantity:'2',price:'1'}]});
+  mixed=(await h.state()).orders.find(r=>r.id===mixed.id);
+  await h.command('order.repromise',{orderId:mixed.id,version:mixed.version,fingerprint:mixed.backorderPlan.fingerprint,recipient,confirm:true});
+  mixed=(await h.state()).orders.find(r=>r.id===mixed.id);
+  assert.equal(mixed.promiseDate,'2026-11-01');
+  assert.equal(mixed.lines[0].backorderPromiseDate,'2026-11-09');
+  assert.equal(mixed.lines[0].backorderPromisedQuantity,'1');
+  const quote=await h.command('quote.create',{customerId:b.customer.id,promiseDate:'2026-11-01',lines:[{itemId:item.id,quantity:'1',price:'1'}]});
+  await h.command('exception.check',{});
+  cases=(await h.state()).operationalExceptions;
+  assert.equal(cases.filter(r=>r.sourceId===mixed.id&&r.kind==='late-customer-delivery').length,1,'reserved units retain their overdue original promise');
+  assert.equal(cases.filter(r=>r.sourceId===quote.id).length,0,'an unaccepted quote is not a delivery obligation');
+  let wholly=await h.command('order.create',{customerId:b.customer.id,promiseDate:'2026-11-01',lines:[{itemId:item.id,quantity:'1',price:'1'}]});
+  wholly=(await h.state()).orders.find(r=>r.id===wholly.id);
+  await h.command('order.repromise',{orderId:wholly.id,version:wholly.version,fingerprint:wholly.backorderPlan.fingerprint,recipient,confirm:true});
+  await h.command('exception.check',{});
+  assert.equal((await h.state()).operationalExceptions.filter(r=>r.sourceId===wholly.id).length,0,'a wholly re-promised future delivery is not overdue');
+  await h.command('role.set',{operatorId:member.operator.id,role:'owner'});
+  const policy=(await h.state()).operationalExceptionPolicies[0];
+  await h.command('exception.policy',{...policy,assigneeId:member.operator.id,escalationOwnerId:member.operator.id});
+  await h.command('role.set',{operatorId:member.operator.id,role:'viewer'});
+  const freshPo=await buy(h,b,'1'); await h.command('exception.check',{});
+  const freshCase=(await h.state()).operationalExceptions.find(r=>r.sourceId===freshPo.id);
+  assert.equal(freshCase.assigneeId,null,'new work cannot inherit a revoked assignee');
+  assert.match(freshCase.assignmentProblem,/no longer has authority/);
+  assert.equal(freshCase.escalationOwnerId,null,'revoked escalation owners cannot inherit new work');
 });
