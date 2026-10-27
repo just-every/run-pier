@@ -8,7 +8,7 @@ import { pantryInstallation } from './pantry-installation.mjs';
 test('Pantry connects with a scoped credential and picked accounts; a matched invoice posts a ready payable, replays never duplicate, and revocation shows a broken connection',async()=>{
   const pantry=await pantryInstallation();
   let pier;
-  let loseJournalResponse=false, echoFailure=false;
+  let loseJournalResponse=false, echoFailure=false, providerRequests=0;
   try{
     await pantry.command('chart.start',{});
     const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory Asset',type:'asset',subtype:'other'});
@@ -16,6 +16,7 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     const lookups=await pantry.view('state'),revenue=lookups.accounts.find(a=>a.code==='4000');
     const bank=await pantry.command('bank-account.save',{name:'Operating checking',institution:'Synthetic bank',accountId:lookups.accounts.find(a=>a.code==='1000').id,numberLast4:'4242',routing:'',openingDate:'2026-01-01',openingBalance:'0.00'});
     pier=await installation({async outboundService(request){
+      providerRequests++;
       assert.equal(new URL(request.url).origin,pantry.origin);
       if(echoFailure)return Response.json({error:request.headers.get('authorization')+' synthetic-pier-private-response'},{status:400});
       const response=await fetch(request.url,{method:request.method,headers:Object.fromEntries([...request.headers].filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),redirect:'manual',...(request.method==='GET'?{}:{body:await request.arrayBuffer()})});
@@ -69,9 +70,20 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     const dispatchId=randomUUID(),dispatchPayload={orderId:order.id,shipmentReference:'SYNTHETIC-BOOKS-1',lines:[{orderLineId:order.lines[0].id,quantity:'4'}]};
     await pier.command('dispatch.create',dispatchPayload,{commandId:dispatchId});
     state=await pier.state();assert.equal(state.bookJobs.find(j=>j.kind==='journal').status,'uncertain');
+    let health = await (await pier.request('/api/pier/integrations')).json();
+    assert.equal(health.connectors.find(row => row.id === 'pantry').uncertain, 1);
+    await pier.restart();
+    health = await (await pier.request('/api/pier/integrations')).json();
+    assert.equal(health.connectors.find(row => row.id === 'pantry').uncertain, 1);
     await pier.command('dispatch.create',dispatchPayload,{commandId:dispatchId});
     await pier.command('book.sync',{});
     state=await pier.state();assert.equal(state.bookJobs.find(j=>j.kind==='journal').status,'posted');
+    health = await (await pier.request('/api/pier/integrations')).json();
+    const books = health.connectors.find(row => row.id === 'pantry');
+    assert.equal(books.uncertain, 0);
+    assert.ok(books.lastSuccessfulSync);
+    assert.ok(books.effects.some(row => row.mapping.includes(state.bookJobs.find(job => job.kind === 'journal').remoteId)));
+    assert.ok(!JSON.stringify(health).includes(credential.token));
     sales=await pantry.view('sales');assert.equal(sales.invoices.length,1);assert.equal(sales.invoices[0].total_cents,800);assert.equal(sales.invoices[0].status,'issued');
     const journal=(await pantry.view('journal')).entries.filter(e=>e.memo.startsWith('PIER-COGS-'));
     assert.equal(journal.length,1);assert.equal(journal[0].status,'posted');assert.equal(journal[0].lines.find(l=>l.account_id===cogs.id).debit_cents,100);assert.equal(journal[0].lines.find(l=>l.account_id===inventory.id).credit_cents,100);
@@ -96,9 +108,11 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     const exp=await pier.request('/api/pier/books/export.iif');assert.equal(exp.status,200);assert.match(await exp.text(),/Cost of Goods Sold/);
     const exported=await (await pier.request('/api/pier/export')).text();assert.ok(!exported.includes(credential.token),'connection credentials must not enter exports');
     // Revoking the credential in Pantry stops Pier with a plain broken connection, not a queue of errors.
+    const lastSuccessfulSync=(await (await pier.request('/api/pier/integrations')).json()).connectors.find(row => row.id === 'pantry').lastSuccessfulSync;
     await pantry.command('integration.revoke',{id:credential.id});
     await pier.command('book.sync',{});
     state=await pier.state();assert.match(state.bookConnections[0].problem,/revoked or replaced in Pantry.*Reconnect Pantry/);
+    assert.equal((await (await pier.request('/api/pier/integrations')).json()).connectors.find(row => row.id === 'pantry').lastSuccessfulSync,lastSuccessfulSync);
     assert.ok(state.receiptClosures.every(r=>r.status==='connection'),'revoked credentials cannot claim current receipt closure');
     assert.equal(state.bookJobs.filter(j=>j.status==='review'&&j.kind!=='valuation').length,1,'one refused check, not every job');
     credential=await pantry.command('integration.create',{name:'Pier replacement',scopes:ALL});
@@ -111,6 +125,13 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     const safeExport=await(await pier.request('/api/pier/export')).text();
     assert.ok(!safeExport.includes(credential.token));assert.ok(!safeExport.includes('synthetic-pier-private-response'),'provider error bodies never become retained command/job/audit messages');
     echoFailure=false;
+    await pier.command('book.disconnect',{});
+    const stoppedRequests=providerRequests;
+    await pier.restart();
+    await pier.command('book.sync',{});
+    assert.equal(providerRequests,stoppedRequests,'local revocation survives restart and sends no further book request');
+    assert.equal((await (await pier.request('/api/pier/integrations')).json()).connectors.find(row => row.id === 'pantry').status,'paused');
+    await pier.command('book.connect',{...connection,integrationToken:credential.token});
     const csvCustomer=(await pier.state()).parties.find(p=>p.id===b.customer.id);
     await pier.command('party.save',{...csvCustomer,name:'=1+2'});
     const safeCsv=await(await pier.request('/api/pier/books/export.csv')).text();

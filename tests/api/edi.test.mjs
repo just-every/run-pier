@@ -115,10 +115,26 @@ test('retailer 850 through line decisions, packed SSCC ASN and shipped invoice o
   const waiting=await h.command('edi.receive',{partnerId:partner.id,x12:second});
   state=await h.state();const uncertain=state.ediDocuments.find(d=>d.id===waiting.acknowledgmentDocumentId);
   assert.equal(uncertain.status,'uncertain');
+  await h.restart();
+  let ediHealth = (await (await h.request('/api/pier/integrations')).json()).connectors.find(row => row.id === partner.id);
+  assert.equal(ediHealth.uncertain, 1);
+  assert.ok(ediHealth.effects.some(row => row.id === uncertain.id && row.state === 'uncertain'));
+  assert.ok(ediHealth.attempts.some(row => row.operation === 'provider.edi.send' && row.outcome === 'uncertain'));
+  assert.ok(!JSON.stringify(ediHealth).includes('synthetic-network-edge-token'));
+  assert.ok(!JSON.stringify(ediHealth).includes(x12));
   const attempts=traffic.length;
   await h.command('edi.send',{documentId:uncertain.id,version:uncertain.version});
   assert.equal(traffic.length,attempts,'uncertain sends require reconciliation instead of a blind repeat');
   await h.command('edi.send.result',{documentId:uncertain.id,version:uncertain.version,status:'accepted'},{error:'EDI_INTERNAL'});
+  await h.command('edi.send.reconcile',{documentId:uncertain.id,version:uncertain.version,outcome:'accepted',providerId:'synthetic-pier-8911',sentAt:new Date().toISOString(),reason:'Verified retained bridge intake for the exact document identity'});
+  ediHealth = (await (await h.request('/api/pier/integrations')).json()).connectors.find(row => row.id === partner.id);
+  assert.equal(ediHealth.uncertain, 0);
+  assert.ok(ediHealth.effects.find(row => row.id === uncertain.id).mapping.includes('synthetic-pier-8911'));
+  const currentPartner=(await h.state()).ediPartners.find(row => row.id === partner.id);
+  await h.command('edi.partner.save',{...currentPartner,enabled:false});
+  await h.restart();
+  assert.equal((await (await h.request('/api/pier/integrations')).json()).connectors.find(row => row.id === partner.id).status,'paused');
+  assert.equal(traffic.length,attempts);
 
   const managed=await installation({bindings:{RER_MANAGEMENT_ORIGIN:'https://runeditrun.com',EDI_BRIDGE_URL:'https://edi-edge.example.test/documents',EDI_BRIDGE_TOKEN:'synthetic-token'},outboundService:()=>{throw new Error('Managed must never make provider egress');}});
   try {

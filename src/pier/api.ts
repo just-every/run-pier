@@ -1,3 +1,4 @@
+import { integrationHealth } from './integration-health';
 import { customFieldCommands, customFieldRead, customFieldProjection, privateFieldCustody } from './custom-fields';
 import { stockFeed } from './stock-feed';
 import { purchaseChanges } from './purchase-changes';
@@ -385,6 +386,10 @@ export async function pierResponse(
           null,
           401,
         );
+      if (url.pathname === '/api/pier/integrations') {
+        if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only the current owner can inspect connector recovery.', null, 403);
+        return reply(await integrationHealth(env, full));
+      }
       if (url.pathname === '/api/pier/custom-fields') return reply(customFieldRead(c,url.searchParams));
       if (url.pathname === '/api/pier/questions') return reply(liveQuestion(full, actor, url.searchParams));
       if (scoped(actor)) {
@@ -415,12 +420,14 @@ export async function pierResponse(
       if (originalDocument) return originalDocument;
       const labelMatch = /^\/api\/pier\/shipping\/labels\/([^/]+)\.(pdf|zpl)$/.exec(url.pathname);
       if (labelMatch) {
+        const connection = full.shippingSettings.find(row => row.id === 'shipping:easypost');
+        if (!connection?.enabled) fail('SHIPPING_KEY', 'Reconnect EasyPost before downloading a carrier label.');
         const blocked = shippingUnavailable(env);
         if (blocked) fail('SHIPPING_UNAVAILABLE', blocked);
         const job = s.shippingJobs.find(j => j.id === labelMatch[1]);
         const destination = labelUrl(labelMatch[2] === 'pdf' ? job?.labelPdfUrl : job?.labelZplUrl);
         if (!destination) fail('LABEL', 'This label format is not available from the carrier.');
-        const response = await providerOperation(env.DB, { actor, commandId: crypto.randomUUID(), connectorId: 'shipping-easypost', operation: 'shipping.labelDownload', direction: 'inbound', state: full, sources: [{ collection: 'shippingJobs', row: job! }], documentIds: [job!.id, job!.orderId], itemIds: full.orders.find(order => order.id === job!.orderId)?.lines.map((line: any) => line.itemId) ?? [] }, () => fetch(destination!, { redirect: 'manual', signal: AbortSignal.timeout(25000) }), response => ({ outcome: response.ok ? 'accepted' : 'refused' }));
+        const response = await providerOperation(env.DB, { actor, commandId: crypto.randomUUID(), connectorId: 'shipping-easypost', operation: 'shipping.labelDownload', direction: 'inbound', state: full, sources: [{ collection: 'shippingJobs', row: job! }, { collection: 'shippingSettings', row: connection! }], documentIds: [job!.id, job!.orderId], itemIds: full.orders.find(order => order.id === job!.orderId)?.lines.map((line: any) => line.itemId) ?? [] }, () => fetch(destination!, { redirect: 'manual', signal: AbortSignal.timeout(25000) }), response => ({ outcome: response.ok ? 'accepted' : 'refused' }));
         if (!response.ok) fail('LABEL', 'The carrier label could not be downloaded. Check EasyPost.');
         return new Response(response.body, { headers: { 'content-type': labelMatch[2] === 'pdf' ? 'application/pdf' : 'application/octet-stream', 'content-disposition': `inline; filename="pier-label-${job!.carton}.${labelMatch[2]}"`, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
       }
