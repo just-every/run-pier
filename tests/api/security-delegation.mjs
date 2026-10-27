@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { authenticatorCode } from './strong-auth-fixture.mjs';
-import { installation } from './harness.mjs';
+import { installation, basics, buy, receive } from './harness.mjs';
 
 export async function securityDelegation(t) {
   const h=await installation();t.after(()=>h.close());
@@ -18,6 +18,9 @@ export async function securityDelegation(t) {
   const owner=await(await h.request('/auth/session')).json(), admin=await persona('admin'), target=await persona('member');
   await enroll();const adminSecret=await enroll(admin.cookie);const targetSecret=await enroll(target.cookie);
   assert.equal((await call('require')).status,200);
+  const stock=await basics(h), purchase=await buy(h,stock,'2');await receive(h,stock,purchase,'1');
+  await h.command('business.save',{name:'synthetic-pier-8',address:'synthetic-pier-9',shipTo:{}});
+  const retainedDocument=await h.command('print.generate',{kind:'purchase-order',sourceId:purchase.id});
   const grant=async(headers)=>{
     const response=await call('grant',{delegateId:admin.session.operator.id,operatorId:target.session.operator.id,minutes:1},undefined,headers);
     assert.equal(response.status,200,await response.clone().text());
@@ -38,6 +41,8 @@ export async function securityDelegation(t) {
     audit:(await h.db.prepare('SELECT * FROM pier_strong_audit ORDER BY id').all()).results,
   });
   const before=await snapshot();
+  assert.ok(before.movements.length>0 && before.results.length>0,'refusals preserve existing stock and successful command results');
+  assert.ok(before.records.some(row=>row.id===retainedDocument.id),'refusals preserve an existing retained document');
   for(const [path,body] of [['/auth/session/revoke',{sessionId:target.session.id}],['/auth/operator/status',{operatorId:target.session.operator.id,status:'inactive'}]]) assert.equal((await h.request(path,{method:'POST',body,as:admin.cookie})).status,403,'compatibility route cannot supply unbounded administrator authority');
   for(const action of ['recover','revoke','deactivate']) {
     for(const operatorId of [owner.operator.id,admin.session.operator.id,'synthetic-pier-2']) {
@@ -90,7 +95,13 @@ export async function securityDelegation(t) {
   assert.equal((await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}})).status,403,'deprovisioning also refuses fresh sessions');
   const audit=(await(await h.request('/auth/strong-auth/status')).json()).audit;
   for(const action of ['recover','revoke','deactivate']) assert.ok(audit.some(row=>row.action==='factor.'+action&&row.actor_id===admin.session.operator.id&&row.target_id===target.session.operator.id&&row.reason===input.reason),'successful delegated verb has exact audit actor, target and outcome');
+  assert.equal((await call('reactivate',{operatorId:target.session.operator.id,reason:'synthetic-pier-6'})).status,200);
+  const promotionBarrier='synthetic-pier-7';
+  const promotionPending=call('recover',scoped,admin.cookie,{'x-pier-test-pause':promotionBarrier});await waitPrepared(promotionBarrier);
   assert.equal((await call('prepare-owner',{operatorId:admin.session.operator.id,confirm:'yes'})).status,200);
+  const promoted=await snapshot();await h.request('/__test/prepared/'+promotionBarrier,{method:'DELETE'});
+  assert.equal((await promotionPending).status,409,'a changed native identity fences a prepared delegated reset');
+  assert.deepEqual(await snapshot(),promoted,'identity change leaves no partial delegated effects');
   assert.equal((await h.request('/api/pier/state',{as:admin.cookie})).status,401,'preparation requires a fresh native session');
   const recoveryOwner=await persona('admin');assert.equal(recoveryOwner.session.operator.role,'owner');
   assert.equal((await h.request('/api/pier/state',{as:recoveryOwner.cookie})).status,403,'new owner needs fresh session assurance');

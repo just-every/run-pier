@@ -4055,7 +4055,7 @@
       "executable": false
     },
     "src/strong-auth/delegation.ts": {
-      "sha256": "67e104e782fff579bdeba629ea9ad40cc3673530bbe41629ab64e3b7fdb316f5",
+      "sha256": "087bb98e517ca28e9641a9aaac18a68265abc2efa758fa70e8202f1ac38a4463",
       "executable": false
     },
     "src/strong-auth/routes.ts": {
@@ -4775,7 +4775,7 @@
       "executable": false
     },
     "tests/api/security-delegation.mjs": {
-      "sha256": "42c2fdaae2b3b19f92e79a8cfe20ac6bf72b22ea082cc4f13ffff523cd7c9c1c",
+      "sha256": "c989f4ad90db95db084fdc4c3e11ddd51aff36a16636773a738d1f43d0b9ecb9",
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
@@ -4855,7 +4855,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "bd9a55af67fd02f8326043a6190a32a758e513de4a083dafe6c77c97f902359d",
+      "sha256": "5d5ad74a63ce31c3736a0a599aedb5c64a8bc2da79b40dc0e6437c69ba616b5d",
       "executable": false
     },
     "tests/browser/open.spec.ts": {

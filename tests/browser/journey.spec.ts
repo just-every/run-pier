@@ -1247,4 +1247,12 @@ test('native authenticator enrollment, required sessions and owner recovery are 
   await self.getByRole('button',{name:'Authorize recovery',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Another assured native owner');
   expect(status.audit.some((row:any)=>row.action==='factor.required')).toBe(true);
   await capture('owner-controls');
+  const nativeOwner=page.locator('form').filter({has:page.getByRole('button',{name:'Prepare recovery owner',exact:true})});
+  await nativeOwner.locator('select[name="operatorId"]').selectOption({label:'Dev admin'});
+  await nativeOwner.getByRole('checkbox',{name:'Grant full native owner authority',exact:true}).check();
+  await nativeOwner.getByRole('button',{name:'Prepare recovery owner',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('Security change saved.');
+  const prepared=await(await page.request.get(base+'/auth/strong-auth/status')).json();
+  expect(prepared.operators.some((operator:any)=>operator.display_name==='Dev admin'&&operator.role==='owner')).toBe(true);
+  await capture('recovery-readiness');
 });
