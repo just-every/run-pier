@@ -54,7 +54,7 @@ export function Operators({ state, run, busy, refresh }: Props) {
     } finally { inFlight.current = false; setPending(false) }
   }
 
-  return <section className="panel"><h2>Operator roles</h2>
+  return <section className="panel"><h2>Operator roles</h2><p><a href="/security">Security settings</a></p>
     <Table headings={['Operator', 'Status', 'Pier role', 'Commercial visibility', 'Physical stock grant']}>{operators.map(operator => <tr key={operator.id}>
       <td>{operator.name || operator.email}<small>{operator.email}</small></td><td>{words(operator.status)}</td>
       <td>{roleLabel(records(state, 'roles').find(role => role.id === operator.id)?.role || (operator.role === 'owner' ? 'owner' : 'viewer'))}</td>

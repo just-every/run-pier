@@ -22,7 +22,7 @@ export async function installation(edge = {}) {
   });
   let origin = edge.production ? "https://localhost" : "http://localhost";
   const setup = randomBytes(32).toString("hex"),
-    devKey = randomBytes(32).toString("hex");
+    devKey = randomBytes(32).toString("hex"), installationKey = randomBytes(32).toString("hex");
   const options = (port) => ({
     ...convertV4MiniflareOptions({
       host: "127.0.0.1",
@@ -38,6 +38,7 @@ export async function installation(edge = {}) {
         AUTH_LOCAL: "true",
         AUTH_ORIGIN: origin,
         OWNER_EMAIL: "owner@example.test",
+        INSTALLATION_KEY: installationKey,
         SESSION_SECRET: randomBytes(32).toString("hex"),
         SETUP_TOKEN: setup,
         MAIL_PROVIDER: "development",

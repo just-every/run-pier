@@ -31,10 +31,11 @@ export function inactiveRecord(kind, record) {
 }
 export default {
   includeTables: ['oa_operators', 'oa_bootstrap', 'oa_invitation_cancellations', 'oa_auth_settings', 'oa_auth_audit', 'oa_domain_rules', 'oa_logout_events'],
-  excludeTables: ['rer_dependency_keys', 'rer_dependency_pending', 'rer_dependency_codes', 'pier_guard', 'pier_channel_secrets', 'pier_channel_locks', 'pier_book_locks'],
+  excludeTables: ['rer_dependency_keys', 'rer_dependency_pending', 'rer_dependency_codes', 'pier_strong_factors', 'pier_strong_proofs', 'pier_strong_attempts', 'pier_guard', 'pier_channel_secrets', 'pier_channel_locks', 'pier_book_locks'],
   product: 'inventory-pier', replaceableTables: ['pier_meta'],
   requiredConfiguration: ['OWNER_EMAIL', 'INSTALLATION_KEY', 'SESSION_SECRET', 'SETUP_TOKEN', 'AUTH_ORIGIN', 'MAIL_PROVIDER', 'MAIL_FROM'],
   exportRow(table, row) {
+    if (table === 'pier_strong_users') { row.restore_paused = 1; row.generation += 1; }
     if (table === 'pier_commands') row.result = JSON.stringify(inactiveValue(JSON.parse(row.result)));
     if (table === 'pier_records') row.data = JSON.stringify(inactiveRecord(row.kind, JSON.parse(row.data)));
     if (table === 'pier_mail_deliveries' && ['sending', 'unavailable'].includes(row.phase)) {

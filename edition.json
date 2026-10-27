@@ -13,6 +13,7 @@
         "kind": "local",
         "paths": [
           "src/pier",
+          "src/strong-auth",
           "src/auth.server.ts",
           "src/server.ts",
           "scripts/installer",

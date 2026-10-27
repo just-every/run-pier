@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "parent": null,
   "edition": "just-every/inventory-pier",
-  "manifest": "4006a58af2b71f1cbbe2ce8ae4f0b562e41a31feda5223f21b6ed93f5bab3ad6",
+  "manifest": "666c24d99f436b60317f41d4a37af7922bec76080b9164c84f35622144f2d0b5",
   "toolchain": {
     "id": "runeditrun/edition-authoring",
     "version": "1.1.0",
@@ -15,6 +15,7 @@
         "kind": "local",
         "paths": [
           "src/pier",
+          "src/strong-auth",
           "src/auth.server.ts",
           "src/server.ts",
           "scripts/installer",
@@ -518,7 +519,7 @@
       "executable": false
     },
     "edition.json": {
-      "sha256": "4006a58af2b71f1cbbe2ce8ae4f0b562e41a31feda5223f21b6ed93f5bab3ad6",
+      "sha256": "666c24d99f436b60317f41d4a37af7922bec76080b9164c84f35622144f2d0b5",
       "executable": false
     },
     "HOMEPAGE-VARIANTS.md": {
@@ -623,6 +624,10 @@
     },
     "migrations/core/0021_stock_feed.sql": {
       "sha256": "9ffa1483ebb7bd65cb5555ddf121b158e8b6230b1b870ad473c7a0701501996f",
+      "executable": false
+    },
+    "migrations/core/0022_strong_auth.sql": {
+      "sha256": "7b2f1067f0ed7a8a23b99ccb568d09c1a779b324c9bbd287cc0cb5bbe528af11",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -1106,7 +1111,7 @@
       "executable": false
     },
     "scripts/installer/archive-policy.mjs": {
-      "sha256": "cf7d7f301d48174be8e4af7aaca92bc2ce5b893094860bb765f19ee4ebf34df2",
+      "sha256": "8d748b3a63a8bf1f730bc836549e9240f4ca63bac45553edf6c67713f58cb112",
       "executable": false
     },
     "scripts/installer/hosted-preflight.mjs": {
@@ -1146,7 +1151,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "fa735ffb9777981f28f4ac250000efb995c4fcb4f9aa9cb13ecb1a0ae567fb90",
+      "sha256": "30cce04d2e162086bc70a94b40c98ae17c6131a74c1f868991c1ed9f1e0f602e",
       "executable": false
     },
     "src/base/contract-filter.ts": {
@@ -2962,7 +2967,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "df9ad33e289dd15629cec24fab7008dc33ab5aaa449434954c01e596b066dbba",
+      "sha256": "1d9ad361a69e9d9af5f0d2851dcee1aa0c038ecdb20e36ad1a2e4590a5a74bbb",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3594,7 +3599,7 @@
       "executable": false
     },
     "src/pier/privacy-auth.ts": {
-      "sha256": "9ec01e41c0a76715988f9cc08ecb8f230aaafd078dc11a22e21c7c853ebb1763",
+      "sha256": "23f5378ab1308cf2a94c6fdef044ba5946f56c45cd8daf9926f0e7453661cf81",
       "executable": false
     },
     "src/pier/privacy-plan.ts": {
@@ -3782,7 +3787,7 @@
       "executable": false
     },
     "src/pier/storage.ts": {
-      "sha256": "5adb84ad252936103c235dccfd9a40209aa5767791bf5447b203334d46500a92",
+      "sha256": "7aeebc18502a1d79c63286ad565b2669c5a575d68772e085bdf760314226de7f",
       "executable": false
     },
     "src/pier/supplier-inspections.ts": {
@@ -4031,6 +4036,22 @@
     },
     "src/site/style/site.css": {
       "sha256": "a8a570ddea55d616fec81753cbf8963b2bb0282945b6eded1a98c1155f56aa51",
+      "executable": false
+    },
+    "src/strong-auth/assurance.ts": {
+      "sha256": "9735162c34600fd7645fe2966c51f5a3d53c254bf394e7aef54662e56989c1f9",
+      "executable": false
+    },
+    "src/strong-auth/routes.ts": {
+      "sha256": "5f882cfa2626f2a8b1b398d0c44fa52abbc584b14ac1fe90c47a7263ee5559fa",
+      "executable": false
+    },
+    "src/strong-auth/screen.ts": {
+      "sha256": "a2aaa4b307786aa86075390962be2d077aea2a6c3b0ecf3613a367eca2ce181c",
+      "executable": false
+    },
+    "src/strong-auth/totp.ts": {
+      "sha256": "dd276dcec4be96e629cdfbb20a6291e56d5734b5a4ed7eb53ef8b2251562840b",
       "executable": false
     },
     "src/ui/activity.tsx": {
@@ -4350,7 +4371,7 @@
       "executable": false
     },
     "src/ui/operators.tsx": {
-      "sha256": "bcdfb11ef8b08d1f7229bd5c997bd718f9dbf672816916a78e757dde54b4bdfb",
+      "sha256": "2e8e59ad35bd4b6d8fa6cde4b0e4b2bcbcf1b9806de579937f1b6a9ce593f634",
       "executable": false
     },
     "src/ui/order-pricing.tsx": {
@@ -4666,7 +4687,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "e016accb947e219fcb46e31911408ca65721cd99adcf5083cad4b7a92abbaae7",
+      "sha256": "aeeaa9f50c8571fc1e92f7ad5b3c93a70d8307312e304351b32aee17a5ca98b7",
       "executable": false
     },
     "tests/api/inbound-asn-fixture.mjs": {

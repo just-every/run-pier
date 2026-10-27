@@ -1,3 +1,6 @@
+import { strongAuthResponse } from './strong-auth/routes'
+import { requireAssurance } from './strong-auth/assurance'
+import { Problem } from './pier/model'
 import { createDependencies } from './modules/dependencies/index.mjs'
 import { createIdpOwnerClaimHandler, createOwnerClaimHandler } from './modules/owner-claim/index.mjs'
 import { firstRunResponse } from './base/setup'
@@ -63,6 +66,20 @@ async function html(body: string) {
 
 export async function authResponse(request: Request, original: Bindings): Promise<Response | null> {
  const env = runtimeBindings(original), url = new URL(request.url)
+ const strong = await strongAuthResponse(request, env)
+ if (strong) return strong
+ // Session establishment remains available; it does not grant private access.
+ const guardedAuth = new Set(['/auth/invite','/auth/invite/cancel','/auth/operators','/auth/sessions','/auth/operator/status','/auth/operator/role','/auth/session/revoke','/auth/domain-rules','/auth/providers','/auth/providers/unlink','/auth/providers/relink','/auth/settings/identity','/auth/email','/auth/display-name','/auth/policy/approve','/auth/policy/revoke'])
+ if (guardedAuth.has(url.pathname) || url.pathname === '/setup' || url.pathname === '/app' || url.pathname.startsWith('/app/')) {
+  const session = await operatorAuth(env).getSession(request)
+  if (session) try { await requireAssurance(env, session.id, session.operator.id) }
+  catch (error) {
+   if (!(error instanceof Problem)) throw error
+   if (url.pathname.startsWith('/auth/')) return Response.json({error:error.code,message:error.message},{status:error.status,headers:{'cache-control':'no-store'}})
+   return new Response(null,{status:303,headers:{location:'/security','cache-control':'no-store'}})
+  }
+ }
+
  if (url.pathname.startsWith('/.well-known/rer-') || url.pathname.startsWith('/auth/dependencies/')) {
   const linked = await createDependencies({ db: env.DB, INSTALLATION_KEY: env.INSTALLATION_KEY, INSTALLATION_KEY_PREVIOUS: env.INSTALLATION_KEY_PREVIOUS, origin: env.AUTH_ORIGIN, name: branding.name, provider: env.IDENTITY_PROVIDER, local: env.AUTH_LOCAL === 'true', auth: operatorAuth(env), claimOwner: token => createIdpOwnerClaimHandler({db:env.DB,authConfig:authConfig(env),clientIp:()=>request.headers.get('CF-Connecting-IP')??''})(new Request(env.AUTH_ORIGIN+'/auth/owner-claim',{method:'POST',headers:{Host:new URL(env.AUTH_ORIGIN).host,Origin:env.AUTH_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({token})})) }).handle(request)
   if (linked) return linked

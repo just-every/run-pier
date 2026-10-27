@@ -1,3 +1,4 @@
+import { assuranceSql } from '../strong-auth/assurance';
 import { stockEvents } from './stock-feed';
 import { auditStatement } from './audit';
 import {
@@ -10,8 +11,10 @@ import {
 } from "./model";
 import type { Bindings } from "../auth.server";
 export const authority = (a: Actor) => ({
-  sql: `EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>?) AND (CASE WHEN EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=?) THEN (SELECT json_extract(data,'$.role') FROM pier_records WHERE kind='roles' AND id=?) ELSE (SELECT CASE WHEN role='owner' THEN 'owner' ELSE 'viewer' END FROM oa_operators WHERE id=?) END)=? AND COALESCE((SELECT version FROM pier_records WHERE kind='roles' AND id=?),0)=? AND NOT EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=? AND json_extract(data,'$.role')!='owner' AND json_extract(data,'$.permissions.expiresAt')<=strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+  sql: `${assuranceSql()} AND EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>?) AND (CASE WHEN EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=?) THEN (SELECT json_extract(data,'$.role') FROM pier_records WHERE kind='roles' AND id=?) ELSE (SELECT CASE WHEN role='owner' THEN 'owner' ELSE 'viewer' END FROM oa_operators WHERE id=?) END)=? AND COALESCE((SELECT version FROM pier_records WHERE kind='roles' AND id=?),0)=? AND NOT EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=? AND json_extract(data,'$.role')!='owner' AND json_extract(data,'$.permissions.expiresAt')<=strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
   params: [
+    a.sessionId,
+    a.id,
     a.sessionId,
     a.id,
     a.operatorVersion,

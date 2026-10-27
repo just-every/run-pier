@@ -12,6 +12,7 @@ export function eraseNativeIdentity(c: Context, env: Bindings, target: NativeSub
     .bind(crypto.randomUUID(),id,target.version,target.email,target.display_name,target.role,target.status,target.role,target.status,id)];
   for (const table of ['oa_provider_sessions','oa_provider_session_pins','oa_step_up_challenges']) statements.push(db.prepare(`DELETE FROM ${table} WHERE session_id IN (${affectedSessions})`).bind(id,id));
   statements.push(db.prepare("DELETE FROM oa_dev_credentials WHERE (credential='oa_sessions' AND id IN (" + affectedSessions + ")) OR (credential='oa_tokens' AND id IN (SELECT id FROM oa_tokens WHERE operator_id=? OR issuer_id=?)) OR (credential='oa_credentials' AND id IN (SELECT id FROM oa_credentials WHERE operator_id=?))").bind(id,id,id,id,id));
+  for (const table of ['pier_strong_factors','pier_strong_proofs','pier_strong_attempts']) statements.push(db.prepare(`DELETE FROM ${table} WHERE operator_id=?`).bind(id));
   statements.push(db.prepare(`DELETE FROM oa_sessions WHERE operator_id=? OR source_token_id IN (SELECT id FROM oa_tokens WHERE issuer_id=?)`).bind(id,id),
     db.prepare('DELETE FROM oa_tokens WHERE operator_id=? OR issuer_id=?').bind(id,id),
     db.prepare('DELETE FROM oa_step_up_challenges WHERE operator_id=?').bind(id),

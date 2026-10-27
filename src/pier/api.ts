@@ -1,3 +1,4 @@
+import { requireAssurance } from '../strong-auth/assurance';
 import { trade, tradeResponse } from './trade';
 import { customFieldCommands, customFieldRead, customFieldProjection, privateFieldCustody } from './custom-fields';
 import { stockFeed } from './stock-feed';
@@ -121,6 +122,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
       null,
       401,
     );
+  await requireAssurance(env, session.id, session.operator.id);
   const role = await env.DB.prepare(
     "SELECT data FROM pier_records WHERE kind='roles' AND id=?",
   )
