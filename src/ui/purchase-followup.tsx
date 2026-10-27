@@ -8,7 +8,7 @@ export function PurchaseFollowup({ state, po, run, busy }: { state: PierState; p
   const supplier = state.parties.find((p: any) => p.id === po.supplierId)
   const cost = po.expectedLandedCost
   const authorized = ['owner', 'buyer'].includes(state.actor.role)
-  return <><Facts values={[{ label: 'Receiving warehouse', value: po.destinationWarehouse || 'Any receiving warehouse' }, { label: 'Expected landed total USD', value: <Amount value={cost?.total} /> }, { label: 'Freight / duty estimate USD', value: `${cost?.freight || '0'} / ${cost?.duty || '0'}` }, { label: 'Supplier confirmation', value: po.confirmation ? day(po.confirmation.promiseDate) : 'Awaiting confirmation' }]} />
+  return <><Facts values={[{ label: 'Receiving warehouse', value: po.destinationWarehouse || 'Any receiving warehouse' }, { label: 'Expected landed total USD', value: <Amount value={cost?.total} unknown={state.actor.role === 'agent' ? 'Hidden by your role' : 'Unvalued'} /> }, { label: 'Freight / duty estimate USD', value: state.actor.role === 'agent' ? 'Hidden by your role' : `${cost?.freight || '0'} / ${cost?.duty || '0'}` }, { label: 'Supplier confirmation', value: po.confirmation ? day(po.confirmation.promiseDate) : 'Awaiting confirmation' }]} />
     {po.status === 'draft' && <button disabled={busy || !authorized} onClick={() => run('po.delete', { poId: po.id, version: po.version })}>Delete uncommitted draft</button>}
     {po.status === 'committed' && <>
       <PurchaseSend state={state} po={po} run={run} busy={busy} />
