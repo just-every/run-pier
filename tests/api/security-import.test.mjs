@@ -908,7 +908,9 @@ test('erasing an operator revokes private authority and anonymizes the human lab
 
 
 test('native factors bind assurance to sessions, revoke prepared writes and recover only under audited owner control', async t => {
-  const h = await installation(); t.after(()=>h.close());
+  const now = Math.floor(Date.now() / 300000) * 300000 + 30000;
+  const at = offset => ({'x-pier-test-now': new Date(now + offset).toISOString()});
+  const h = await installation({now: new Date(now).toISOString()}); t.after(()=>h.close());
   const owner = await (await h.request('/auth/session')).json();
   const call = (action, body = {}, as, headers) => h.request('/auth/strong-auth/'+action,{method:'POST',body,as,headers});
   const persona = async name => {
@@ -921,8 +923,8 @@ test('native factors bind assurance to sessions, revoke prepared writes and reco
   const commandId=randomUUID();await h.command('item.save',{sku:'synthetic-pier-2',name:'Recovered stock',unit:'each',packSize:'1'},{commandId});
   assert.equal((await call('require')).status,409,'an unverified owner cannot require a factor');
   const enrollment=await(await call('enroll')).json(); assert.match(enrollment.secret,/^[A-Z2-7]{32}$/);
-  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret)})).status,200);
-  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret)})).status,409,'consumed code cannot be replayed');
+  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret,now)})).status,200);
+  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret,now)})).status,409,'consumed code cannot be replayed');
   const preparedOwner=await persona('owner'), factorBarrier='synthetic-pier-4', unassuredCommand=randomUUID();
   const pendingBeforePolicy=h.request('/api/pier/commands',{method:'POST',as:preparedOwner.cookie,headers:{'x-pier-test-pause':factorBarrier},body:{commandId:unassuredCommand,type:'item.save',payload:{sku:'synthetic-pier-5',name:'Unassured prepared stock',unit:'each',packSize:'1'}}});
   let factorReady=false;for(let attempt=0;attempt<100;attempt++){factorReady=(await(await h.request('/__test/prepared/'+factorBarrier)).json()).ready;if(factorReady)break;await new Promise(resolve=>setTimeout(resolve,10));}
@@ -937,11 +939,19 @@ test('native factors bind assurance to sessions, revoke prepared writes and reco
   const newOwner=await persona('owner');
   assert.equal((await h.request('/api/pier/state',{as:newOwner.cookie})).status,403,'new sessions do not inherit assurance');
   assert.equal((await h.request('/api/pier/commands',{method:'POST',as:newOwner.cookie,body:{commandId,type:'item.save',payload:{sku:'synthetic-pier-2',name:'Recovered stock',unit:'each',packSize:'1'}}})).status,403,'saved results still require current assurance');
-  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret)},newOwner.cookie)).status,409,'a consumed code cannot assure another session');
-  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret,Date.now()+30000)},newOwner.cookie,{'x-pier-test-now':new Date(Date.now()+30000).toISOString()})).status,200);
+  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret,now)},newOwner.cookie)).status,409,'a consumed code cannot assure another session');
+  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret,now+30000)},newOwner.cookie,at(30000))).status,200);
   assert.equal((await h.request('/api/pier/state',{as:newOwner.cookie})).status,200);
   const staffEnrollment=await(await call('enroll',{},member.cookie)).json();
-  assert.equal((await call('verify',{code:authenticatorCode(staffEnrollment.secret)},member.cookie)).status,200);
+  const otherMember=await persona('member');
+  const wrongSession=await call('verify',{code:authenticatorCode(staffEnrollment.secret,now)},otherMember.cookie);
+  assert.equal(wrongSession.status,409,'only the session that started enrollment may confirm it');
+  assert.equal((await wrongSession.json()).error,'ENROLLMENT');
+  assert.equal((await call('verify',{code:authenticatorCode(staffEnrollment.secret,now)},member.cookie)).status,200);
+  assert.equal((await call('enroll',{},otherMember.cookie)).status,403,'an enrolled factor cannot be replaced without owner recovery');
+  for(let attempt=0;attempt<3;attempt++)assert.equal((await call('verify',{code:'invalid'},otherMember.cookie)).status,409);
+  assert.equal((await call('verify',{code:authenticatorCode(staffEnrollment.secret,now+30000)},otherMember.cookie,at(30000))).status,429,'attempt limit is shared by every session of the operator');
+  assert.equal((await call('verify',{code:authenticatorCode(staffEnrollment.secret,now+300000)},otherMember.cookie,at(300000))).status,200,'a later attempt window permits a valid current code');
   assert.equal((await call('recover',{operatorId:owner.operator.id,reason:'Unauthorized owner recovery'},member.cookie)).status,403);
   assert.equal((await h.request('/api/pier/export',{as:member.cookie})).status,403,'factor assurance grants no wider role');
   const stock=await basics(h), purchase=await buy(h,stock,'2');await receive(h,stock,purchase,'1');
@@ -962,19 +972,40 @@ test('native factors bind assurance to sessions, revoke prepared writes and reco
   assert.equal((await call('recover',{operatorId:member.session.operator.id,reason:'Owner reviewed lost device'})).status,200);
   assert.equal((await h.request('/api/pier/state',{as:member.cookie})).status,401);
   const recoveredMember=await persona('member');assert.equal((await h.request('/api/pier/state',{as:recoveredMember.cookie})).status,403);
+  const revokedStatus=await call('verify',{code:authenticatorCode(staffEnrollment.secret,now+30000)},recoveredMember.cookie,at(30000));
+  assert.equal(revokedStatus.status,409,'a recovered operator cannot reuse the removed factor');
+  assert.equal((await revokedStatus.json()).error,'ENROLLMENT');
   const recoveredEnrollment=await(await call('enroll',{},recoveredMember.cookie)).json();assert.notEqual(recoveredEnrollment.secret,staffEnrollment.secret);
-  assert.equal((await call('verify',{code:authenticatorCode(recoveredEnrollment.secret)},recoveredMember.cookie)).status,200);
+  assert.equal((await call('verify',{code:authenticatorCode(recoveredEnrollment.secret,now)},recoveredMember.cookie)).status,200);
   assert.equal((await h.request('/api/pier/state',{as:recoveredMember.cookie})).status,200);
+  const anotherRecoveredMember=await persona('member');
+  assert.equal((await call('verify',{code:authenticatorCode(recoveredEnrollment.secret,now+30000)},anotherRecoveredMember.cookie,at(30000))).status,200);
+  assert.equal((await call('revoke',{operatorId:member.session.operator.id,reason:'Owner retired every staff device'})).status,200);
+  for(const cookie of [recoveredMember.cookie,anotherRecoveredMember.cookie])assert.equal((await h.request('/api/pier/state',{as:cookie})).status,401,'all-device revocation ends each prior session');
+  const finalMember=await persona('member');
+  assert.equal((await h.request('/api/pier/state',{as:finalMember.cookie})).status,403,'a new session after device revocation still needs its own proof');
+  assert.equal((await call('verify',{code:authenticatorCode(recoveredEnrollment.secret,now+60000)},finalMember.cookie,at(60000))).status,200,'device revocation retains the enrolled factor for fresh sign-in');
   assert.equal((await call('deactivate',{operatorId:member.session.operator.id,reason:'Owner ended employment'})).status,200);
-  assert.equal((await h.request('/api/pier/state',{as:recoveredMember.cookie})).status,401);
+  assert.equal((await h.request('/api/pier/state',{as:finalMember.cookie})).status,401);
   assert.equal((await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}})).status,403,'deprovisioning refuses a new native session too');
   const audit=(await(await h.request('/auth/strong-auth/status')).json()).audit;
   assert.ok(audit.some(row=>row.action==='factor.recover'&&row.actor_id===owner.operator.id&&row.target_id===member.session.operator.id&&row.reason==='Owner reviewed lost device'));
   assert.ok(audit.some(row=>row.action==='factor.deactivate'&&row.target_id===member.session.operator.id));
+  assert.ok(audit.some(row=>row.action==='factor.revoke'&&row.target_id===member.session.operator.id&&row.reason==='Owner retired every staff device'));
   assert.ok(!JSON.stringify(audit).includes(enrollment.secret));
   await h.restartWithFreshSigningKey();
   assert.equal((await h.request('/api/pier/state')).status,403,'restart issues no assurance for the fresh session');
-  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret,Date.now()+300000)},undefined,{'x-pier-test-now':new Date(Date.now()+300000).toISOString()})).status,200,'installation encryption survives a session signing-key restart');
+  assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret,now+300000)},undefined,at(300000))).status,200,'installation encryption survives a session signing-key restart');
   assert.equal((await h.request('/api/pier/state')).status,200);
+  const admin=await persona('admin');
+  const expiredEnrollment=await(await call('enroll',{},admin.cookie)).json();
+  const expired=await call('verify',{code:authenticatorCode(expiredEnrollment.secret,now+600000)},admin.cookie,at(600000));
+  assert.equal(expired.status,409,'an expired setup key cannot complete enrollment');
+  assert.equal((await expired.json()).error,'ENROLLMENT');
+  assert.equal((await h.request('/api/pier/state',{as:admin.cookie})).status,403,'expired enrollment grants no private access');
+  const freshEnrollment=await(await call('enroll',{},admin.cookie,at(600000))).json();
+  assert.notEqual(freshEnrollment.secret,expiredEnrollment.secret);
+  assert.equal((await call('verify',{code:authenticatorCode(freshEnrollment.secret,now+600000)},admin.cookie,at(600000))).status,200,'fresh session-bound enrollment recovers from expiry');
+  assert.equal((await h.request('/api/pier/state',{as:admin.cookie})).status,200);
   await securityDelegation(t);
 });
