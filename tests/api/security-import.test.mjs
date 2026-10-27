@@ -920,7 +920,15 @@ test('native factors bind assurance to sessions, revoke prepared writes and reco
   const enrollment=await(await call('enroll')).json(); assert.match(enrollment.secret,/^[A-Z2-7]{32}$/);
   assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret)})).status,200);
   assert.equal((await call('verify',{code:authenticatorCode(enrollment.secret)})).status,409,'consumed code cannot be replayed');
+  const preparedOwner=await persona('owner'), factorBarrier='synthetic-pier-4', unassuredCommand=randomUUID();
+  const pendingBeforePolicy=h.request('/api/pier/commands',{method:'POST',as:preparedOwner.cookie,headers:{'x-pier-test-pause':factorBarrier},body:{commandId:unassuredCommand,type:'item.save',payload:{sku:'synthetic-pier-5',name:'Unassured prepared stock',unit:'each',packSize:'1'}}});
+  let factorReady=false;for(let attempt=0;attempt<100;attempt++){factorReady=(await(await h.request('/__test/prepared/'+factorBarrier)).json()).ready;if(factorReady)break;await new Promise(resolve=>setTimeout(resolve,10));}
+  assert.equal(factorReady,true);
   assert.equal((await call('require')).status,200);
+  await h.request('/__test/prepared/'+factorBarrier,{method:'DELETE'});
+  assert.equal((await pendingBeforePolicy).status,409,'requiring a factor fences a prepared mutation inside its batch');
+  assert.equal(await h.db.prepare('SELECT id FROM pier_commands WHERE id=?').bind(unassuredCommand).first(),null);
+  assert.ok(!(await h.state()).items.some(item=>item.sku==='synthetic-pier-5'));
   const privateDoors=['/api/pier/state','/api/pier/export','/api/pier/native-export','/api/pier/audit','/api/pier/documents/synthetic-pier-1/original','/api/pier/sales-documents/synthetic-pier-1.pdf','/api/pier/report-snapshots/synthetic-pier-1.csv'];
   for(const path of privateDoors)assert.equal((await h.request(path,{as:member.cookie})).status,403,path);
   const newOwner=await persona('owner');
@@ -939,7 +947,7 @@ test('native factors bind assurance to sessions, revoke prepared writes and reco
   assert.equal(ready,true,'the real product batch was prepared');
   assert.equal((await call('revoke',{operatorId:owner.operator.id,sessionId:newOwner.session.id,reason:'Device access revoked'})).status,200);
   await h.request('/__test/prepared/'+barrier,{method:'DELETE'});
-  const refused=await pending; assert.equal(refused.status,401);
+  const refused=await pending; assert.equal(refused.status,409);
   const after=await h.state();assert.deepEqual(after.items,before.items);assert.deepEqual(after.movements,before.movements);assert.deepEqual(after.reservations,before.reservations);
   assert.equal(await h.db.prepare('SELECT id FROM pier_commands WHERE id=?').bind(preparedId).first(),null,'no successful result leaks from the refused transaction');
   assert.equal((await h.request('/api/pier/state',{as:newOwner.cookie})).status,401);
@@ -951,6 +959,7 @@ test('native factors bind assurance to sessions, revoke prepared writes and reco
   assert.equal((await h.request('/api/pier/state',{as:recoveredMember.cookie})).status,200);
   assert.equal((await call('deactivate',{operatorId:member.session.operator.id,reason:'Owner ended employment'})).status,200);
   assert.equal((await h.request('/api/pier/state',{as:recoveredMember.cookie})).status,401);
+  assert.equal((await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}})).status,403,'deprovisioning refuses a new native session too');
   const audit=(await(await h.request('/auth/strong-auth/status')).json()).audit;
   assert.ok(audit.some(row=>row.action==='factor.recover'&&row.actor_id===owner.operator.id&&row.target_id===member.session.operator.id&&row.reason==='Owner reviewed lost device'));
   assert.ok(audit.some(row=>row.action==='factor.deactivate'&&row.target_id===member.session.operator.id));

@@ -16,7 +16,7 @@ export default withDevIdentity({
     }
     // A test-only scheduling barrier pauses the real batch, never changes SQL.
     const pause = request.headers.get('x-pier-test-pause');
-    if(pause){const entry={ready:false,released:false};pauses.set(pause,entry);const db=env.DB;env={...env,DB:new Proxy(db,{get(target,property){if(property==='batch')return async(statements:any[])=>{entry.ready=true;while(!entry.released)await new Promise(resolve=>setTimeout(resolve,10));pauses.delete(pause);return target.batch(statements);};const value=target[property];return typeof value==='function'?value.bind(target):value;}})};}
+    if(pause){const entry={ready:false,released:false};pauses.set(pause,entry);const db=env.DB;env={...env,DB:new Proxy(db,{get(target,property){if(property==='batch')return async(statements:any[])=>{if(statements.length>4){entry.ready=true;while(!entry.released)await new Promise(resolve=>setTimeout(resolve,10));pauses.delete(pause);}return target.batch(statements);};const value=target[property];return typeof value==='function'?value.bind(target):value;}})};}
     // Clock control exists only in this test Worker. Product commands and all
     // authority/stock admission still execute through their real HTTP doors.
     const RealDate=Date, clock=request.headers.get('x-pier-test-now');

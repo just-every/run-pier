@@ -91,11 +91,13 @@ export async function saved(
   digest: string,
   actor: Actor,
 ) {
+  const gate = authority(actor);
   const r = await db
-    .prepare("SELECT * FROM pier_commands WHERE id=?")
-    .bind(commandId)
+    .prepare(`SELECT *,(${gate.sql}) AS admitted FROM pier_commands WHERE id=?`)
+    .bind(...gate.params,commandId)
     .first<any>();
   if (!r) return null;
+  if (!r.admitted) throw new Problem('AUTH','Current session assurance is required to recover this result.',null,401);
   if (r.digest !== digest || r.actor_id !== actor.id)
     fail(
       "IDEMPOTENCY",

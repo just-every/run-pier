@@ -69,7 +69,7 @@ export async function authResponse(request: Request, original: Bindings): Promis
  const strong = await strongAuthResponse(request, env)
  if (strong) return strong
  // Session establishment remains available; it does not grant private access.
- const guardedAuth = new Set(['/auth/invite','/auth/invite/cancel','/auth/operators','/auth/sessions','/auth/operator/status','/auth/operator/role','/auth/session/revoke','/auth/domain-rules','/auth/providers','/auth/providers/unlink','/auth/providers/relink','/auth/settings/identity','/auth/email','/auth/display-name','/auth/policy/approve','/auth/policy/revoke'])
+ const guardedAuth = new Set(['/auth/policies','/auth/policy-runs','/auth/setup-complete','/auth/invite','/auth/invite/cancel','/auth/operators','/auth/sessions','/auth/operator/status','/auth/operator/role','/auth/session/revoke','/auth/domain-rules','/auth/providers','/auth/providers/unlink','/auth/providers/relink','/auth/settings/identity','/auth/email','/auth/display-name','/auth/policy/approve','/auth/policy/revoke'])
  if (guardedAuth.has(url.pathname) || url.pathname === '/setup' || url.pathname === '/app' || url.pathname.startsWith('/app/')) {
   const session = await operatorAuth(env).getSession(request)
   if (session) try { await requireAssurance(env, session.id, session.operator.id) }

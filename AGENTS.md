@@ -15,3 +15,7 @@ Exercise meaningful stock journeys through authenticated HTTP in the real Worker
 Protect dirty work and source evidence. Keep private credentials and token-bearing URLs out of output and public-ready documents. Do not place private evidence logs or personal email addresses in this checkout. Stop every server or watcher you start. Do not deploy or send supplier messages without explicit authority.
 
 The installed root is Base's Lobby at `/`. The public run site (`rer build --site`: `src/site/`, `docs/site.json`) carries the homepage, `/run` and the docs rendered from the repository's Markdown. Keep all journeys usable on desktop and mobile. Product and operations commands in user-facing docs use the shared `rer` verbs.
+
+## Lander-Regenerate
+
+The inherited pin predates the shared contract-docs generator. For the native strong-authentication slice, regenerate its legacy acceptance row and all Status counts with `node scripts/contract-docs.mjs write ADMIN-002`, then `node scripts/contract-docs.mjs check ADMIN-002`. CONTRACT.md supplies status, evidence and gaps. The bridge preserves unrelated legacy rows and the unchanged homepage projection. Regenerate the edition source lock last.
