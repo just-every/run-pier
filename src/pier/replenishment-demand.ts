@@ -3,7 +3,7 @@ import { decimal, format, SCALE, type Context } from './model';
 import { ceilDivide, signedQuantity, supplyPosition } from './replenishment-position';
 
 const DAY = 86_400_000;
-export function sellThrough(c: Context, itemId: string, warehouse: string, selectedWindow: number) {
+export function sellThrough(c: Context, itemId: string, warehouse: string, selectedWindow: number, after?: string) {
   const now = Date.parse(c.now);
   const warehouses = new Map(c.s.locations.map(l => [l.id, l.warehouse]));
   // Channel quantities are dated at native capture, never at an invented provider date.
@@ -31,8 +31,8 @@ export function sellThrough(c: Context, itemId: string, warehouse: string, selec
       shipmentId: shipment.id,
     })));
   return [...new Set([30, 90, 365, selectedWindow])].sort((a, b) => a - b).map(days => {
-    const rows = observations.filter(o => o.at > now - days * DAY && o.at <= now && o.quantity > 0n);
-    const channelRows = channelObservations.filter(o => o.at > now - days * DAY && o.at <= now && o.quantity > 0n);
+    const rows = observations.filter(o => o.at > Math.max(now - days * DAY, after ? Date.parse(after) : -Infinity) && o.at <= now && o.quantity > 0n);
+    const channelRows = channelObservations.filter(o => o.at > Math.max(now - days * DAY, after ? Date.parse(after) : -Infinity) && o.at <= now && o.quantity > 0n);
     const nativeShipped = rows.reduce((n, o) => n + o.quantity, 0n);
     const channelOrdered = channelRows.reduce((n, o) => n + o.quantity, 0n);
     const sold = nativeShipped + channelOrdered;

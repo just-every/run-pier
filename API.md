@@ -135,3 +135,8 @@ The owner business JSON export includes `customFieldDefinitions` and each record
 Private typed-field source custody remains owner-only after cutover undo removes the live definitions. Retained CSV originals continue to block unsupported subject erasure; undo is not an erasure operation.
 
 For unsupported typed-field custody, the subject preview returns a `refusal` message naming the missing subject attribution and governed-erasure setup. An explicit erasure request returns that same message and records refusal with blocking custody classes; no content is deleted. Audit records opaque field and record identities, versions, counts, authority and outcomes, never arbitrary field values or document bodies.
+
+
+### Replenishment scenarios
+
+`replenishment.save` may carry reviewed `forecastAssumptions: {seasonality: {low, expected, high, source}, promotion: {low, expected, high, source}}`; omit to retain or pass `null` to clear. Bounds are positive ordered decimal factors no greater than ten. `replenishment.compare` adds `optimization` with physical exposure, scenario bounds, a retained-current-demand holdout baseline, current supplier alternatives, gross realized shipment margin, cash and service rankings and unpriced transfer surplus. Its purchase command payload includes the exact state version. `replenishment.review` accepts `{poId}` and returns retained planning evidence beside current demand, physical receipt, landed-cost and Pantry reconciliation outcomes. Both comparison and review require a current buyer or agent. See [Replenishment](docs/replenishment.md) for limitations.
