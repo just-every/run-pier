@@ -202,7 +202,7 @@ export async function execute(
   admitScopedCommand(await load(env.DB), actor, type, payload);
   admitCommercialCommand(actor, type);
   const digest = sha256(canonicalJson({ type, payload }));
-  const previous = await saved(env.DB, commandId, digest, actor);
+  const previous = await saved(env.DB, commandId, digest, actor, backgroundPolicy);
   if (previous) {
     if (actor.role !== 'owner' && (type.startsWith('customField.') || type.startsWith('import.') && privateFieldCustody(await load(env.DB)) || previous.result?.pdf)) throw new Problem('FORBIDDEN', 'Current owner authority is required to recover protected field content, originals or documents.', null, 403);
     return { ...previous, result: physicalResult(await load(env.DB), actor, previous.result) };
@@ -292,7 +292,7 @@ export async function execute(
         result,
         type === "import.undo",
       );
-      const outcome = await saved(env.DB, commandId, digest, actor);
+      const outcome = await saved(env.DB, commandId, digest, actor, backgroundPolicy);
       if (!outcome)
         fail(
           "IMPORT_PUBLICATION",
@@ -319,7 +319,7 @@ export async function execute(
       const outcome = await commit(env, c, before, digest, result);
       return { ...outcome, result: visibleResult };
     } catch (error) {
-      const replay = await saved(env.DB, commandId, digest, actor);
+      const replay = await saved(env.DB, commandId, digest, actor, backgroundPolicy);
       if (replay) return { ...replay, result: physicalResult(await load(env.DB), actor, replay.result) };
       const latest = await load(env.DB);
       if (latest.version !== before.version) {

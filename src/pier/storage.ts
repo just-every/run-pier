@@ -90,14 +90,15 @@ export async function saved(
   commandId: string,
   digest: string,
   actor: Actor,
+  backgroundPolicy?: Context["backgroundPolicy"],
 ) {
-  const gate = authority(actor);
+  const gate = backgroundPolicy ? policyAuthority({actor,backgroundPolicy}) : authority(actor);
   const r = await db
     .prepare(`SELECT *,(${gate.sql}) AS admitted FROM pier_commands WHERE id=?`)
     .bind(...gate.params,commandId)
     .first<any>();
   if (!r) return null;
-  if (!r.admitted) throw new Problem('AUTH','Current session assurance is required to recover this result.',null,401);
+  if (!r.admitted) throw new Problem('AUTH','Current authority is required to recover this result.',null,401);
   if (r.digest !== digest || r.actor_id !== actor.id)
     fail(
       "IDEMPOTENCY",
