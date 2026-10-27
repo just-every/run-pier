@@ -79,6 +79,7 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
       toLocationId: to.id,
       transitLocationId: transit.id,
       quantity: format(q),
+      received: "0",
       reason: text(p.reason),
       status: "transit",
     });
@@ -104,11 +105,16 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
     const t = get(c.s, "transfers", p.transferId);
     if (t.status !== "transit")
       fail("TRANSFER_STATE", "Transfer already received.");
+    const remaining = decimal(t.quantity) - decimal(t.received ?? "0");
+    if (p.version !== undefined || p.quantity !== undefined) fresh(t, p.version);
+    const quantity = p.quantity === undefined ? remaining : decimal(p.quantity, true);
+    if (quantity > remaining)
+      fail("TRANSFER_QUANTITY", "Received quantity exceeds the stock still in transit.");
     move(c, {
       itemId: t.itemId,
       locationId: t.transitLocationId,
       status: "transit",
-      quantity: (-decimal(t.quantity)).toString(),
+      quantity: (-quantity).toString(),
       reason: "Destination receipt",
       documentId: t.id,
     });
@@ -116,11 +122,13 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
       itemId: t.itemId,
       locationId: t.toLocationId,
       status: "sellable",
-      quantity: decimal(t.quantity).toString(),
+      quantity: quantity.toString(),
       reason: "Destination receipt",
       documentId: t.id,
     });
-    t.status = "received";
+    t.received = format(decimal(t.received ?? "0") + quantity);
+    t.receipts = [...(t.receipts ?? []), { quantity: format(quantity), actorId: c.actor.id, at: c.now, commandId: c.commandId }];
+    t.status = quantity === remaining ? "received" : "transit";
     t.version++;
     return t;
   }

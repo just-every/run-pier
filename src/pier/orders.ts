@@ -350,17 +350,24 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   if (r.status !== "quarantine")
     fail("RETURN_STATE", "Only quarantined returns may be reviewed.");
   if (type === "return.approve") {
-    r.approval = { actorId: c.actor.id, version: r.version, at: c.now };
+    const remaining = decimal(r.quantity) - decimal(r.restocked ?? "0");
+    const quantity = p.quantity === undefined ? remaining : decimal(p.quantity, true);
+    if (quantity > remaining) fail("RETURN_QUANTITY", "Restock quantity exceeds the units still in quarantine.");
+    r.approval = { actorId: c.actor.id, version: r.version, at: c.now, quantity: format(quantity) };
     return r;
   }
   if (!r.approval || r.approval.version !== r.version)
     fail("APPROVAL", "Review this exact return before restocking.");
   if (r.kit && r.inspection.some((part: any) => part.condition !== 'sellable')) fail('KIT_INSPECTION', 'A kit with a damaged component must stay quarantined. Inspect its components before restocking.');
+  const remaining = decimal(r.quantity) - decimal(r.restocked ?? "0");
+  const quantity = decimal(r.approval.quantity ?? format(remaining), true);
+  if (quantity > remaining || (p.quantity !== undefined && decimal(p.quantity, true) !== quantity))
+    fail("RETURN_QUANTITY", "Restock only the exact quantity the inspector approved.");
   move(c, {
     itemId: r.itemId,
     locationId: r.locationId,
     status: "quarantine",
-    quantity: (-decimal(r.quantity)).toString(),
+    quantity: (-quantity).toString(),
     reason: "Reviewed restock",
     documentId: r.id,
   });
@@ -368,11 +375,14 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     itemId: r.itemId,
     locationId: r.locationId,
     status: "sellable",
-    quantity: decimal(r.quantity).toString(),
+    quantity: quantity.toString(),
     reason: "Reviewed restock",
     documentId: r.id,
   });
-  r.status = "restocked";
+  r.restocked = format(decimal(r.restocked ?? "0") + quantity);
+  r.restockReviews = [...(r.restockReviews ?? []), { ...r.approval, postedBy: c.actor.id, postedAt: c.now, quantity: format(quantity) }];
+  r.approval = null;
+  r.status = quantity === remaining ? "restocked" : "quarantine";
   r.version++;
   return r;
 }

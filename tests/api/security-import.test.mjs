@@ -484,6 +484,19 @@ test("roles, agent preparation, revoked session, stale human approval and direct
     { poId: agentDraft.id, version: agentDraft.version },
     { error: "FORBIDDEN" },
   );
+  const secondAgent = await persona("admin");
+  assert.notEqual(secondAgent.session.operator.id, member.session.operator.id);
+  await h.command("role.set", { operatorId: secondAgent.session.operator.id, role: "agent" });
+  const beforeAgentDenials = (await h.state());
+  for (const actor of [member, secondAgent]) {
+    for (const type of ["po.approve", "po.commit"])
+      await h.command(type, { poId: agentDraft.id, version: agentDraft.version }, { as: actor.cookie, error: "FORBIDDEN" });
+    await h.command("transfer.send", { itemId: b.item.id, fromLocationId: b.source.id, toLocationId: b.destination.id, transitLocationId: b.transit.id, quantity: "1", reason: "Agent cannot move stock" }, { as: actor.cookie, error: "FORBIDDEN" });
+  }
+  const afterAgentDenials = await h.state();
+  assert.deepEqual(afterAgentDenials.purchaseOrders, beforeAgentDenials.purchaseOrders);
+  assert.deepEqual(afterAgentDenials.movements, beforeAgentDenials.movements);
+  assert.deepEqual(afterAgentDenials.reservations, beforeAgentDenials.reservations);
   await run(
     "count.capture",
     { locationId: b.source.id },
