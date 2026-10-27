@@ -41,6 +41,14 @@ export function roleState(full: State, actor: Actor, view: any) {
         for (const key of ['purchaseOrders', 'supplierItems', 'receipts', 'supplierReturns', 'replenishmentExceptions', 'replenishmentPolicies', 'replenishmentSettings', 'slowStockPolicies', 'slowStockExceptions'] as const) output[key] = view[key];
         output.forecasts = view.forecasts;
         output.reorder = view.reorder;
+      } else if (actor.role === 'agent') {
+        // Agents can follow a shared draft without receiving purchasing costs,
+        // private supplier snapshots, approval identities or customer addresses.
+        output.purchaseOrders = full.purchaseOrders.filter(po => !po.dropshipId).map(po => ({
+          ...pickFields(po, ['reference', 'supplierId', 'status', 'promiseDate', 'destinationWarehouse']),
+          approved: po.approval?.version === po.version,
+          lines: po.lines.map((line: any) => pickFields(line, ['itemId', 'quantity', 'received'])),
+        }));
       }
     }
     if (['operator', 'sales'].includes(actor.role)) {
@@ -63,7 +71,7 @@ export function commandProjection(value: any, actor: Actor): any {
   if (actor.role === 'owner' || !value || typeof value !== 'object') return value;
   if (Array.isArray(value)) return value.map(entry => commandProjection(entry, actor));
   if (!costsVisible(actor) && Array.isArray(value.lines) && (value.supplierId || value.poId)) value = {
-    ...pickFields(value, ['reference', 'status', 'promiseDate', 'destinationWarehouse', 'poId', 'supplierReference', 'receivingId', 'variance', 'overReason']),
+    ...pickFields(value, ['reference', 'supplierId', 'approved', 'status', 'promiseDate', 'destinationWarehouse', 'poId', 'supplierReference', 'receivingId', 'variance', 'overReason']),
     lines: value.lines.map((line: any) => pickFields(line, ['itemId', 'poLineId', 'locationId', 'quantity', 'received', 'movementId', 'trace'])),
   };
   if (!pricesVisible(actor) && Array.isArray(value.lines) && value.customerId) value = {

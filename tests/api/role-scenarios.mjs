@@ -125,6 +125,13 @@ export async function commercialRoleMatrix(t) {
     assert.deepEqual(state.customerProfiles ?? [], []);
     assert.ok(!JSON.stringify(state).includes('private@example.test'));
     assert.ok(!JSON.stringify(state).includes('synthetic-pier-7'));
+    if (role === 'agent') {
+      const shared = state.purchaseOrders.find(row => row.id === po.id);
+      assert.ok(shared, 'an agent can follow the nonfinancial purchase record');
+      assert.equal(shared.lines[0].price, undefined);
+      assert.equal(shared.supplierSnapshot, undefined);
+      assert.equal(shared.approval, undefined);
+    }
     if (role === 'buyer') assert.equal(state.purchaseOrders.find(row => row.id === po.id).lines[0].price, '19.37');
     else assert.ok(!JSON.stringify(state).includes('19.37'), role + ' has no purchasing cost');
     if (['sales', 'operator'].includes(role)) assert.equal(state.orders.find(row => row.id === order.id).lines[0].price, '71.29');
