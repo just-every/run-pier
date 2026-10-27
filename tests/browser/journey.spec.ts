@@ -1104,3 +1104,69 @@ test('purchase approval names spend authority and exposes supplier re-approval a
     if (shots) await detail.screenshot({ path: join(shots, `${width}-purchase-reapproved.png`) })
   }
 })
+
+test('two distinct agents share one draft while current human authority alone approves and commits it', async ({ page, context, browser }) => {
+  const base = await ownerEntry(page)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  const command = async (type: string, payload: object) => {
+    const response = await context.request.post(`${base}/api/pier/commands`, { headers: { origin: base }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
+  }
+  const tag = `synthetic-pier-${crypto.randomUUID().slice(0, 8)}`
+  const supplier = await command('party.save', { name: `${tag} supplier`, kind: 'supplier' })
+  const item = await command('item.save', { sku: tag, name: `${tag} item`, unit: 'each', packSize: '1' })
+  const agents = []
+  try {
+    for (const persona of ['member', 'admin']) {
+      const agentContext = await browser.newContext()
+      const agentPage = await agentContext.newPage()
+      agents.push({ context: agentContext, page: agentPage })
+      const entry = new URL(process.env.PIER_OPEN!)
+      const fragment = new URLSearchParams(entry.hash.slice(1)); fragment.set('as', persona); entry.hash = fragment.toString()
+      try { await agentPage.goto(entry.href); await agentPage.waitForURL(url => !url.hash.includes('rer-dev') && url.pathname === '/app') }
+      catch { throw new Error('The local agent could not sign in through its native development door.') }
+      const session = await (await agentContext.request.get(`${base}/auth/session`)).json()
+      await command('role.set', { operatorId: session.operator.id, role: 'agent' })
+    }
+    const first = agents[0], second = agents[1]
+    await first.page.goto(`${base}/app#purchasing`); await first.page.reload()
+    const draft = section(first.page, 'Draft supplier purchase order')
+    await draft.getByLabel('Supplier', { exact: true }).selectOption({ label: supplier.name })
+    await draft.getByLabel('Promise date', { exact: true }).fill('2026-11-05')
+    await draft.getByLabel('Purchase reason', { exact: true }).fill(tag)
+    await draft.getByLabel('Item 1', { exact: true }).selectOption(item.id)
+    await draft.getByLabel('Quantity (base units)', { exact: true }).fill('2')
+    await draft.getByLabel('Unit price (USD)', { exact: true }).fill('3')
+    await submit(first.page, draft, 'Save draft for exact review')
+    const state = await (await context.request.get(`${base}/api/pier/state`)).json()
+    const po = state.purchaseOrders.find((row: any) => row.reason === tag)
+    const firstSession = await (await first.context.request.get(`${base}/auth/session`)).json()
+    const secondSession = await (await second.context.request.get(`${base}/auth/session`)).json()
+    expect(firstSession.operator.id).not.toBe(secondSession.operator.id)
+    expect(state.auditEvents.some((event: any) => event.type === 'po.draft' && event.actorId === firstSession.operator.id && event.documentIds.includes(po.id))).toBe(true)
+    for (const agent of agents) {
+      await agent.page.goto(`${base}/app#purchasing/${po.id}`); await agent.page.reload()
+      await expect(agent.page.getByRole('button', { name: /^Approve exact version / })).toBeDisabled()
+      for (const type of ['po.approve', 'po.commit']) {
+        const denied = await agent.context.request.post(`${base}/api/pier/commands`, { headers: { origin: base }, data: { commandId: crypto.randomUUID(), type, payload: { poId: po.id, version: po.version } } })
+        expect(denied.status()).toBe(403)
+        expect((await denied.json()).ok).toBe(false)
+      }
+    }
+    const deniedState = await (await context.request.get(`${base}/api/pier/state`)).json()
+    expect(deniedState.movements).toEqual(state.movements)
+    expect(deniedState.reservations).toEqual(state.reservations)
+    expect(deniedState.purchaseOrders.find((row: any) => row.id === po.id).approval).toBeNull()
+    for (const width of [1440, 390]) {
+      await second.page.setViewportSize({ width, height: 1000 })
+      if (shots) await second.page.screenshot({ path: join(shots, `${width}-distinct-agent-denial.png`), fullPage: true })
+    }
+    await page.goto(`${base}/app#purchasing/${po.id}`); await page.reload()
+    const panel = section(page, `Purchase order ${po.reference}`)
+    await submit(page, panel, await panel.getByRole('button', { name: /^Approve exact version / }).innerText())
+    await submit(page, panel, 'Commit approved order')
+    const committed = await (await context.request.get(`${base}/api/pier/state`)).json()
+    expect(committed.purchaseOrders.find((row: any) => row.id === po.id).status).toBe('committed')
+    expect(committed.movements).toEqual(state.movements)
+  } finally { for (const agent of agents) await agent.context.close() }
+})

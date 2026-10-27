@@ -53,3 +53,5 @@ Wider explicit sales and accountant delegation remains an ADMIN-001 gap. SEC-002
 inherits that gap. DATA-001 and DATA-002 preserve the existing archive and custody
 obligations; new connector, model and document doors inherit the same current
 authority and explicit egress requirements before shipping.
+
+Agents can follow ordinary purchase drafts and commitments by supplier, reference, quantities, dates and approval status. Costs, supplier snapshots, private originals and dropship customer addresses stay hidden. Two different agents do not create human authority: neither can approve or commit the other's preparation. An owner or current purchasing approver reviews the exact commercial record.
