@@ -1,3 +1,5 @@
+// @ts-expect-error Independent Node authenticator for the native security journey.
+import { authenticatorCode } from '../api/strong-auth-fixture.mjs'
 // @ts-expect-error Real sibling Worker fixture accessed through GitHub's API.
 import { pantryInstallation } from '../api/pantry-installation.mjs'
 // @ts-expect-error Synthetic X12 source submitted through the public receiving door.
@@ -1170,3 +1172,34 @@ test('two distinct agents share one draft while current human authority alone ap
     expect(committed.movements).toEqual(state.movements)
   } finally { for (const agent of agents) await agent.context.close() }
 })
+
+
+test('native authenticator enrollment, required sessions and owner recovery are usable', async ({page,browser}) => {
+  const base=await ownerEntry(page);
+  await page.setViewportSize({width:1440,height:1000});
+  const capture=async(label:string)=>{if(!shots)return;for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(shots,`${width}-native-security-${label}.png`),fullPage:true,mask:[page.locator('[data-factor-secret]')]});}await page.setViewportSize({width:1440,height:1000});};
+  await page.goto(base+'/security');await expect(page.getByRole('heading',{name:'Security',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Start enrollment',exact:true}).click();
+  const secret=await page.locator('[data-factor-secret]').textContent();expect(secret).toBeTruthy();
+  await capture('enrollment');
+  await page.getByLabel('Authenticator code').fill(authenticatorCode(secret));await page.getByRole('button',{name:'Verify code',exact:true}).click();
+  await expect(page.getByText('This session is verified.',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Require two-factor authentication',exact:true}).click();
+  await expect(page.getByText('Authenticator verification is required for every private session.',{exact:true})).toBeVisible();
+  await page.getByLabel('Authenticator code').fill(authenticatorCode(secret));await page.getByRole('button',{name:'Verify code',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('already been used');await capture('replay-refusal');
+  const other=await browser.newContext();
+  try {
+    const blocked=await other.newPage();await blocked.goto(process.env.PIER_OPEN!);await blocked.waitForURL(url=>url.pathname==='/security');
+    const denied=await other.request.get(base+'/api/pier/state');expect(denied.status()).toBe(403);
+    await expect(blocked.getByText('This session needs verification.',{exact:true})).toBeVisible();
+    if(shots)for(const width of [1440,390]){await blocked.setViewportSize({width,height:1000});await blocked.screenshot({path:join(shots,`${width}-native-security-required.png`),fullPage:true});}
+  } finally {await other.close();}
+  const response=await page.request.get(base+'/auth/strong-auth/status');const status=await response.json();
+  const sessionResponse=await page.request.get(base+'/auth/session');const session=await sessionResponse.json();
+  const self=page.locator('form').filter({has:page.getByRole('button',{name:'Authorize recovery',exact:true})});
+  await self.getByLabel('Operator',{exact:true}).selectOption(session.operator.id);await self.getByLabel('Reason',{exact:true}).fill('Owner recovery refusal proof');
+  await self.getByRole('button',{name:'Authorize recovery',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Another assured native owner');
+  expect(status.audit.some((row:any)=>row.action==='factor.required')).toBe(true);
+  await capture('owner-controls');
+});

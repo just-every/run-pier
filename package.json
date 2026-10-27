@@ -19,7 +19,7 @@
     "test:email-link": "node tests/email-link.mjs",
     "onboard": "node scripts/install.mjs",
     "build:app": "vite build",
-    "verify:app": "pnpm run build && pnpm run typecheck && pnpm run test:api && pnpm run test:site && node tests/email-link.mjs && node tests/portable.mjs",
+    "verify:app": "pnpm run build && pnpm run typecheck && pnpm run test:api && pnpm run test:site && node tests/email-link.mjs && node tests/portable.mjs && node tests/browser/run.mjs --grep 'native authenticator enrollment'",
     "reset": "rer reset",
     "export": "rer export",
     "import": "rer import",

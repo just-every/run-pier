@@ -1,3 +1,4 @@
+import { authenticatorCode } from './api/strong-auth-fixture.mjs';
 // Full public-command portability proof. Runs sequential fresh installations;
 // every child and directory is owned by this script and closed in finally.
 import assert from "node:assert/strict";
@@ -153,6 +154,22 @@ async function start(root, p) {
     await interrupt(runtime);
     throw error;
   }
+}
+async function verifyNative(runtime, secret) {
+  const state=await(await runtime.request('/auth/strong-auth/status')).json();
+  if(state.restorePaused){
+    assert.equal(state.enrolled,false,'archive restores no factor secret');
+    assert.equal(state.verified,false,'archive restores no session assurance');
+    assert.equal((await runtime.request('/api/pier/export')).status,403,'required assurance survives restore');
+    const session=await(await runtime.request('/auth/session')).json();
+    assert.equal((await runtime.request('/auth/strong-auth/recover','POST',{operatorId:session.operator.id,reason:'Fresh native owner restored installation'})).status,200);
+    secret=undefined;
+  }
+  if(!secret)secret=(await(await runtime.request('/auth/strong-auth/enroll','POST',{})).json()).secret;
+  let response=await runtime.request('/auth/strong-auth/verify','POST',{code:authenticatorCode(secret)});
+  if(response.status===409){await new Promise(resolve=>setTimeout(resolve,30010-Date.now()%30000));response=await runtime.request('/auth/strong-auth/verify','POST',{code:authenticatorCode(secret)});}
+  assert.equal(response.status,200,await response.clone().text());
+  return secret;
 }
 let running;
 try {
@@ -319,6 +336,8 @@ try {
   assert.equal(before.customFieldDefinitions.length,4);
   assert.equal(typedDocument.typedFieldCustody,true);
 
+  const nativeSecret=await verifyNative(running);
+  assert.equal((await running.request('/auth/strong-auth/require','POST',{})).status,200);
   const oldSession = running.sessionCookie();
   assert.ok(before.importJournal.jobs.length > 0);
   assert.ok(
@@ -355,6 +374,7 @@ try {
     "--non-interactive",
   ]);
   running = await start(destination, p2);
+  await verifyNative(running);
   assert.equal(
     (await running.request("/api/pier/state", "GET", undefined, oldSession))
       .status,
@@ -472,6 +492,7 @@ try {
   // Its checkpoint refuses the older source archive before any private row
   // returns. A current archive restores normally with the source absent.
   running = await start(source, p);
+  await verifyNative(running,nativeSecret);
   const erasurePlan = await (await running.request('/api/pier/privacy?kind=attachment&subjectId=' + before.evidenceDocuments[0].id)).json();
   await running.cmd('privacy.eraseAttachment', { documentId: before.evidenceDocuments[0].id, planHash: erasurePlan.planHash, confirm: true });
   await running.close(); running = null;
@@ -486,6 +507,7 @@ try {
   const p3 = await port();
   await command(fenced, ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(p3)]);
   running = await start(fenced, p3);
+  await verifyNative(running);
   const fencedExport = await (await running.request('/api/pier/export')).json();
   assert.equal(fencedExport.evidenceDocuments.length, 0);
   assert.ok(!JSON.stringify(fencedExport).includes(original.toString('base64')));

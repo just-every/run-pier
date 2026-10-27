@@ -643,7 +643,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "02a30e22f553bac91d38a9e9c9aec8edc97858bc6e43a7c26a524ab70592622f",
+      "sha256": "de83db68c7b4ef025ff404328651bee6b11a72c70a4cae1feb3491e14cabc954",
       "executable": false
     },
     "packaging.json": {
@@ -4759,7 +4759,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "a4583521b70bb971dcfdb68d05003a6d70f0b533b9e52ce26994986577a23f80",
+      "sha256": "aa66be64554b40b8ae8a33237a448f1cd5efd45be924e539733de98e8c8ce5ab",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {
@@ -4790,6 +4790,10 @@
       "sha256": "fefcf200eb97e265e98d742113d7ff3c558dbf819ae0af98e848b7636c7ca8f4",
       "executable": false
     },
+    "tests/api/strong-auth-fixture.mjs": {
+      "sha256": "6457db617ce6c241dbcfdb901cce72738387e059a59ea2485348fea9d6fef58b",
+      "executable": false
+    },
     "tests/api/supplier-bill-documents.test.mjs": {
       "sha256": "7a438dd3a1ab713fad51d5f730b3a86fe3ce534308302e5c27354ebb2ca16ec8",
       "executable": false
@@ -4811,7 +4815,7 @@
       "executable": false
     },
     "tests/api/worker.ts": {
-      "sha256": "e4d922ed810b153178126b4d89be0b0de87932e5c7b49fc3abfdb37e482ffcb6",
+      "sha256": "d88550b3c9728cea7112487257869c6ab5c560438acb57f3f03cf70d19b41c27",
       "executable": false
     },
     "tests/browser/acceptance.mjs": {
@@ -4831,7 +4835,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "543e780c7ed5e45e7964b84fc5b12bf86fd87ef41b68721fa82ffb06a502ed18",
+      "sha256": "3fa5cb8af1263203c71661bcf2ce4f2237db0111903256783819c3a33d11a649",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
@@ -5175,7 +5179,7 @@
       "executable": false
     },
     "tests/portable.mjs": {
-      "sha256": "ac9420f5abeb30c117f761cd2e870ad4c08b7ac753a3630b2a3691fb0f7c7e7f",
+      "sha256": "ba3f1efa7fd55ceeb685cbcb201c3d65d4b169154c70a32ff334af23546dac69",
       "executable": false
     },
     "tests/runtime.mjs": {
