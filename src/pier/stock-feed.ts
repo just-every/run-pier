@@ -49,7 +49,7 @@ export async function stockFeed(request: Request, db: D1Database, actor: Actor, 
     if (typeof token !== 'string') return checkpointError();
     if (token === row.checkpoint) return respond({ok:true,checkpoint:token,acknowledgedSequence:row.acknowledged});
     if (!pending || token !== pending.token) return checkpointError();
-    await db.batch([guard(),db.prepare('UPDATE pier_stock_consumers SET acknowledged=?,checkpoint=?,pending=NULL WHERE id=? AND pending=?').bind(pending.end,token,id,row.pending),db.prepare('INSERT INTO pier_guard(id,ok) VALUES(?,CASE WHEN changes()=1 THEN 1 ELSE 0 END)').bind(crypto.randomUUID()),db.prepare('DELETE FROM pier_guard')]);
+    await db.batch([guard(),db.prepare('UPDATE pier_stock_consumers SET acknowledged=?,checkpoint=?,last_ack_at=?,pending=NULL WHERE id=? AND pending=?').bind(pending.end,token,new Date().toISOString(),id,row.pending),db.prepare('INSERT INTO pier_guard(id,ok) VALUES(?,CASE WHEN changes()=1 THEN 1 ELSE 0 END)').bind(crypto.randomUUID()),db.prepare('DELETE FROM pier_guard')]);
     return respond({ok:true,checkpoint:token,acknowledgedSequence:pending.end});
   }
   // A fetched page is only a replay handle. It can never advance the resume frontier.

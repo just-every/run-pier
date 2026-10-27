@@ -135,3 +135,39 @@ The owner business JSON export includes `customFieldDefinitions` and each record
 Private typed-field source custody remains owner-only after cutover undo removes the live definitions. Retained CSV originals continue to block unsupported subject erasure; undo is not an erasure operation.
 
 For unsupported typed-field custody, the subject preview returns a `refusal` message naming the missing subject attribution and governed-erasure setup. An explicit erasure request returns that same message and records refusal with blocking custody classes; no content is deleted. Audit records opaque field and record identities, versions, counts, authority and outcomes, never arbitrary field values or document bodies.
+
+### Connector health
+
+The current owner can read `GET /api/pier/integrations` to inspect connector scope,
+retained connection revisions, successful provider-request times, completed sync
+or stock acknowledgement times, pending work, failed work, uncertain work and
+source-to-document identities. Channels shows this same projection in Integration
+health. Provider polling uses canonical reads; a connection revision is explicitly
+labelled and is not represented as a provider incremental cursor. Stock consumers
+show their acknowledged sequence and outstanding page identities, never resume
+tokens. Fetching a stock page does not advance its acknowledgement time.
+
+Provider attempt history retains uncertain outcomes even after a business effect
+has been reconciled. The current effect state is shown separately. Recovery links
+open the existing connector controls: their current authority, version and
+reconciliation checks still apply. Refreshing health sends no provider request.
+Credentials, provider bodies, contact addresses and checkout URLs are excluded.
+
+A retained effect with sufficient provider identity exposes a recovery command
+and its current version in the health projection. Reconcile effect invokes the
+existing canonical connector command; it does not create a new replay authority.
+Uncertain payment creation without a returned provider identity still requires
+manual identity reconciliation in the payment controls. A resolved carrier replay
+records its command outcome without purchasing another label. Pausing shipping
+also refuses carrier label downloads and tracking webhooks after restart.
+
+The same health projection covers the configured EDI bridge, item AI, separately
+consented document extraction, signed document intake and business mail. It
+returns opaque record and provider identities, not X12 bodies, originals, model
+outputs, recipient addresses or credentials. Unconfirmed paid model failures stay
+uncertain because a failed local result does not establish that no paid request
+reached the provider. These rows expose the existing owner controls and audit;
+they do not offer automatic paid retries. EDI uncertainty requires its existing
+verified bridge receipt or explicit human reconciliation. Mail reports provider
+acceptance separately from actual inbox delivery, and has no shared incremental
+checkpoint.
