@@ -387,6 +387,11 @@ try {
     "--non-interactive",
   ]);
   running = await start(destination, p2);
+  const restoredSecurity=await(await running.request('/auth/strong-auth/status')).json();
+  assert.equal(restoredSecurity.required,true,'restore preserves required two-factor enforcement');
+  assert.equal(restoredSecurity.restorePaused,true,'restore must pause enrollment before any recovery branch');
+  assert.equal(restoredSecurity.enrolled,false,'restore excludes enrolled factors');
+  assert.equal(restoredSecurity.verified,false,'restore excludes session proofs');
   await verifyNative(running);
   assert.deepEqual((await(await running.request('/auth/strong-auth/status')).json()).grants,[],'archive restore retains no live security grant authority');
   assert.equal(
