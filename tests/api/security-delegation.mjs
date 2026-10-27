@@ -45,12 +45,18 @@ export async function securityDelegation(t) {
     }
     assert.equal((await call(action,input,target.cookie)).status,403,'ordinary member has no grant');
   }
-  for(const action of ['require','grant','ungrant','prepare-owner']) assert.equal((await call(action,input,admin.cookie)).status,403,'delegates cannot manage policy or grants');
+  for(const action of ['require','grant','ungrant','prepare-owner']) {
+    assert.equal((await call(action,input,admin.cookie)).status,403,'delegates cannot manage policy or grants');
+    assert.equal((await call(action,input,target.cookie)).status,403,'ordinary members cannot manage policy or grants');
+  }
+  const formRefusal=await fetch(h.origin+'/auth/operator/status',{method:'POST',headers:{origin:h.origin,cookie:admin.cookie,'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({operatorId:target.session.operator.id,status:'inactive'})});
+  assert.equal(formRefusal.status,403,'form encoding cannot bypass native security authority');
   assert.deepEqual(await snapshot(),before,'denied administration has no authority or business effects');
   const unassured=await persona('owner');
   for(const action of ['require','recover','revoke','deactivate','grant','ungrant','prepare-owner']) assert.equal((await call(action,{...input,delegateId:admin.session.operator.id,minutes:1,confirm:'yes'},unassured.cookie)).status,409,'unassured owner is refused');
   await h.command('role.set',{operatorId:admin.session.operator.id,role:'agent'});
-  assert.equal((await call('recover',input,admin.cookie)).status,409,'an agent cannot use a human grant');
+  for(const action of ['recover','revoke','deactivate']) assert.equal((await call(action,input,admin.cookie)).status,409,'an agent cannot use a human grant');
+  for(const action of ['require','grant','ungrant','prepare-owner']) assert.equal((await call(action,input,admin.cookie)).status,403,'an agent cannot manage security authority');
   await h.command('role.set',{operatorId:admin.session.operator.id,role:'viewer'});
   assert.equal((await call('recover',{...input,operatorId:owner.operator.id})).status,403,'live owner self-recovery is refused');
 

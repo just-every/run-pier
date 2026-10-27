@@ -93,6 +93,9 @@ async function perform(env: Bindings, session: Session, action: string, input: R
         statements.push(db.prepare('INSERT INTO pier_strong_users(operator_id,generation) VALUES(?,1) ON CONFLICT(operator_id) DO UPDATE SET generation=generation+1,restore_paused=0').bind(target));
         statements.push(db.prepare('DELETE FROM pier_strong_factors WHERE operator_id=?').bind(target),db.prepare('DELETE FROM pier_strong_proofs WHERE operator_id=?').bind(target));
         statements.push(db.prepare('DELETE FROM pier_strong_attempts WHERE operator_id=?').bind(target));
+      } else if (action === 'reactivate') {
+        statements.push(db.prepare("UPDATE oa_operators SET status='active' WHERE id=? AND status='inactive'").bind(target));
+        guard('changes()=1');
       } else if (action === 'deactivate') {
         if (target === id) reject('SELF','A different native owner must deprovision this identity.');
         statements.push(db.prepare("UPDATE oa_operators SET status='inactive' WHERE id=?").bind(target));
@@ -113,8 +116,8 @@ async function perform(env: Bindings, session: Session, action: string, input: R
 }
 export async function strongAuthResponse(request: Request, env: Bindings): Promise<Response | null> {
   const url = new URL(request.url), page = url.pathname === '/security';
-  const legacyRevoke=url.pathname==='/auth/session/revoke', legacyDeactivate=url.pathname==='/auth/operator/status' && request.method==='POST' && (await request.clone().json().catch(()=>({}))).status==='inactive';
-  if (!page && !legacyRevoke && !legacyDeactivate && !url.pathname.startsWith('/auth/strong-auth/')) return null;
+  const legacyRevoke=url.pathname==='/auth/session/revoke', legacyStatus=url.pathname==='/auth/operator/status';
+  if (!page && !legacyRevoke && !legacyStatus && !url.pathname.startsWith('/auth/strong-auth/')) return null;
   const session = await operatorAuth(env).getSession(request);
   if (!session) return page ? new Response(null,{status:303,headers:{location:'/signin'}}) : json({error:'AUTH'},401);
   let secret: string | undefined, notice = '', error = '', status = 200;
@@ -125,8 +128,8 @@ export async function strongAuthResponse(request: Request, env: Bindings): Promi
       const raw = await request.text(); if (raw.length > 8192) reject('INPUT','Security request is too large.',413);
       const input = request.headers.get('content-type')?.includes('application/json') ? JSON.parse(raw) : Object.fromEntries(new URLSearchParams(raw));
       if(legacyRevoke){const target=await env.DB.prepare('SELECT operator_id FROM oa_sessions WHERE id=?').bind(input.sessionId ?? '').first<{operator_id:string}>();input.operatorId=target?.operator_id ?? '';input.reason=input.reason ?? 'Native session revocation requested';}
-      if(legacyDeactivate)input.reason=input.reason ?? 'Native deprovisioning requested';
-      secret = await perform(env, session, legacyRevoke ? 'revoke' : legacyDeactivate ? 'deactivate' : page ? input.action : url.pathname.split('/').pop()!,input);
+      if(legacyStatus){if(!['active','inactive'].includes(input.status)) reject('STATUS','Choose an active or inactive status.',400);input.reason=input.reason ?? 'Native operator status change requested';}
+      secret = await perform(env, session, legacyRevoke ? 'revoke' : legacyStatus ? input.status==='active' ? 'reactivate' : 'deactivate' : page ? input.action : url.pathname.split('/').pop()!,input);
       notice = secret ? 'Add this secret to your authenticator, then verify its current code.' : 'Security change saved.';
     } else if (!page && url.pathname !== '/auth/strong-auth/status') reject('METHOD','Submit this action with POST.',405);
   } catch (failure) {

@@ -557,6 +557,7 @@ try {
       assert.equal(state.actor.role,'owner');
       const inactive=state.operators.filter(operator=>operator.role!=='owner'&&operator.status==='inactive');
       assert.equal(inactive.length,1);
+      await verifyNative(running);
       const reactivated=await running.request('/auth/operator/status','POST',{operatorId:inactive[0].id,status:'active'});
       assert.equal(reactivated.status,200,'fresh owner explicitly reactivates this staff identity');
       member=await running.request('/auth/dev/enter?as=member');
