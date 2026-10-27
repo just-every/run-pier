@@ -70,3 +70,14 @@ export function sourceDocument(state: PierState, id: string) {
   for (const [kind, tab, name] of documents) { const row = records(state, kind).find(value => value.id === id); if (row) return { tab, name: name(state, row) } }
   return { tab: 'activity', name: 'Removed document' }
 }
+
+/** Audit actions are described as work, while exported records keep command names. */
+export function actionName(type: string) {
+  const explicit: Record<string, string> = { 'privacy.eraseSubject': 'Erase customer records', 'privacy.eraseActor': 'Erase operator records' }
+  if (explicit[type]) return explicit[type]
+  const [subject, action] = type.split('.')
+  const subjects: Record<string, string> = { po: 'purchase order', item: 'item', location: 'location', party: 'customer or supplier', supplierItem: 'supplier terms', role: 'staff access', receiving: 'purchase receiving', receipt: 'purchase receipt', order: 'sales order', transfer: 'stock transfer', return: 'returned goods', count: 'physical count', proposal: 'prepared proposal', book: 'Books connection', ai: 'AI connection' }
+  if (!action) return words(type)
+  const description = action.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]/g, ' ')
+  return `${words(description)} · ${subjects[subject] || subject.replace(/([a-z])([A-Z])/g, '$1 $2')}`
+}

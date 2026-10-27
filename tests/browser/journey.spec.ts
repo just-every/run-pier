@@ -495,7 +495,7 @@ test('durable scan refusals and item edits are visible in scoped Activity filter
     const history = page.getByRole('heading', { name: 'Decision and input history', exact: true }).locator('..')
     await expect(history).toContainText('synthetic-pier-scan'); await expect(history).toContainText('synthetic-pier-wrong')
     await expect(history).toContainText('Refused'); await expect(history).toContainText('synthetic-pier-browser')
-    const changed = history.getByRole('row').filter({ hasText: 'Item.save' }).first()
+    const changed = history.getByRole('row').filter({ hasText: 'Audit revised item' }).first()
     await changed.getByText('Recorded change details', { exact: true }).click()
     await expect(changed).toContainText('Audit source item <script>window.syntheticPier=1</script>'); expect(await page.evaluate(() => (globalThis as any).syntheticPier)).toBeUndefined(); await expect(changed).toContainText('Audit revised item')
     // The touched Activity surface and shared shell use text-labelled controls.
@@ -975,7 +975,7 @@ test('owners inspect holds and erase reviewed customer copies with durable stock
     expect((await context.request.get(base + '/api/pier/documents/' + document.id + '/original')).status()).toBe(404)
     await page.getByLabel('Document identity filter', { exact: true }).fill(customer.id)
     const history = section(page, 'Decision and input history')
-    await expect(history).toContainText('Privacy.eraseSubject')
+    await expect(history).toContainText('Erase customer records')
     await expect(history).not.toContainText(customer.email)
     await assertNativeWidth(page)
     expect(await page.locator('button,a').evaluateAll(nodes => nodes.filter(node => !node.textContent?.trim() && node.querySelector('svg')).length)).toBe(0)
