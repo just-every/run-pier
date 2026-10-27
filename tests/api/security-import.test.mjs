@@ -941,16 +941,21 @@ test('native factors bind assurance to sessions, revoke prepared writes and reco
   assert.equal((await call('verify',{code:authenticatorCode(staffEnrollment.secret)},member.cookie)).status,200);
   assert.equal((await call('recover',{operatorId:owner.operator.id,reason:'Unauthorized owner recovery'},member.cookie)).status,403);
   assert.equal((await h.request('/api/pier/export',{as:member.cookie})).status,403,'factor assurance grants no wider role');
+  const stock=await basics(h), purchase=await buy(h,stock,'2');await receive(h,stock,purchase,'1');
   const before=await h.state(), preparedId=randomUUID(), barrier='synthetic-pier-3';
-  const pending=h.request('/api/pier/commands',{method:'POST',as:newOwner.cookie,headers:{'x-pier-test-pause':barrier},body:{commandId:preparedId,type:'item.save',payload:{id:record.id,version:record.version,sku:record.sku,name:'Changed during revoke',unit:'each',packSize:'1'}}});
+  assert.equal(before.receipts.length,1);assert.ok(before.movements.length>0);
+  const receiptPayload={poId:purchase.id,supplierReference:'Prepared device receipt',lines:[{poLineId:purchase.lines[0].id,locationId:stock.source.id,quantity:'1',cost:'0.25'}]};
+  const pending=h.request('/api/pier/commands',{method:'POST',as:newOwner.cookie,headers:{'x-pier-test-pause':barrier},body:{commandId:preparedId,type:'receipt.create',payload:receiptPayload}});
   let ready=false;for(let attempt=0;attempt<100;attempt++){ready=(await(await h.request('/__test/prepared/'+barrier)).json()).ready;if(ready)break;await new Promise(resolve=>setTimeout(resolve,10));}
   assert.equal(ready,true,'the real product batch was prepared');
   assert.equal((await call('revoke',{operatorId:owner.operator.id,sessionId:newOwner.session.id,reason:'Device access revoked'})).status,200);
   await h.request('/__test/prepared/'+barrier,{method:'DELETE'});
   const refused=await pending; assert.equal(refused.status,409);
-  const after=await h.state();assert.deepEqual(after.items,before.items);assert.deepEqual(after.movements,before.movements);assert.deepEqual(after.reservations,before.reservations);
+  const after=await h.state();for(const field of ['items','movements','reservations','receipts','purchaseOrders','orders'])assert.deepEqual(after[field],before[field],field+' remains atomic after device revocation');
   assert.equal(await h.db.prepare('SELECT id FROM pier_commands WHERE id=?').bind(preparedId).first(),null,'no successful result leaks from the refused transaction');
   assert.equal((await h.request('/api/pier/state',{as:newOwner.cookie})).status,401);
+  await h.command('receipt.create',receiptPayload,{commandId:preparedId});
+  assert.equal((await h.state()).receipts.length,2,'the same prepared receipt succeeds with current assured authority');
   assert.equal((await call('recover',{operatorId:member.session.operator.id,reason:'Owner reviewed lost device'})).status,200);
   assert.equal((await h.request('/api/pier/state',{as:member.cookie})).status,401);
   const recoveredMember=await persona('member');assert.equal((await h.request('/api/pier/state',{as:recoveredMember.cookie})).status,403);

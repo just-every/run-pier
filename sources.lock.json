@@ -4763,7 +4763,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "b3dd5dcc7e44336ac0cb1bb5b5e950afb24399e05ac29b59754121f80547fc20",
+      "sha256": "d1cd958d553f4ef94298f27e6e37254b36a14e39683c50507a3f86cc57f33c5a",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {
@@ -4839,7 +4839,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "3fa5cb8af1263203c71661bcf2ce4f2237db0111903256783819c3a33d11a649",
+      "sha256": "ac09233f90036757b95704064f3f2df1a799e547f41e0dca484059f09d4c02fe",
       "executable": false
     },
     "tests/browser/open.spec.ts": {

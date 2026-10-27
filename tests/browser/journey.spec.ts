@@ -1180,13 +1180,13 @@ test('native authenticator enrollment, required sessions and owner recovery are 
   const capture=async(label:string)=>{if(!shots)return;for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(shots,`${width}-native-security-${label}.png`),fullPage:true,mask:[page.locator('[data-factor-secret]')]});}await page.setViewportSize({width:1440,height:1000});};
   await page.goto(base+'/security');await expect(page.getByRole('heading',{name:'Security',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Start enrollment',exact:true}).click();
-  const secret=await page.locator('[data-factor-secret]').textContent();expect(secret).toBeTruthy();
+  const secret=await page.locator('[data-factor-secret]').textContent();expect(secret).toBeTruthy();const enrolledCode=authenticatorCode(secret);
   await capture('enrollment');
-  await page.getByLabel('Authenticator code').fill(authenticatorCode(secret));await page.getByRole('button',{name:'Verify code',exact:true}).click();
+  await page.getByLabel('Authenticator code').fill(enrolledCode);await page.getByRole('button',{name:'Verify code',exact:true}).click();
   await expect(page.getByText('This session is verified.',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Require two-factor authentication',exact:true}).click();
   await expect(page.getByText('Authenticator verification is required for every private session.',{exact:true})).toBeVisible();
-  await page.getByLabel('Authenticator code').fill(authenticatorCode(secret));await page.getByRole('button',{name:'Verify code',exact:true}).click();
+  await page.getByLabel('Authenticator code').fill(enrolledCode);await page.getByRole('button',{name:'Verify code',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('already been used');await capture('replay-refusal');
   const other=await browser.newContext();
   try {
@@ -1194,11 +1194,26 @@ test('native authenticator enrollment, required sessions and owner recovery are 
     const denied=await other.request.get(base+'/api/pier/state');expect(denied.status()).toBe(403);
     await expect(blocked.getByText('This session needs verification.',{exact:true})).toBeVisible();
     if(shots)for(const width of [1440,390]){await blocked.setViewportSize({width,height:1000});await blocked.screenshot({path:join(shots,`${width}-native-security-required.png`),fullPage:true});}
+    await blocked.goto(base+'/auth/dev/enter?as=member');await blocked.waitForURL(url=>url.pathname==='/security');
+    await blocked.setViewportSize({width:1440,height:1000});
+    await blocked.getByRole('button',{name:'Start enrollment',exact:true}).click();
+    const staffSecret=await blocked.locator('[data-factor-secret]').textContent();
+    await blocked.getByLabel('Authenticator code').fill(authenticatorCode(staffSecret));await blocked.getByRole('button',{name:'Verify code',exact:true}).click();
+    await expect(blocked.getByText('This session is verified.',{exact:true})).toBeVisible();
+    const staffSession=await(await other.request.get(base+'/auth/session')).json();
+    await page.goto(base+'/security');
+    const recovery=page.locator('form').filter({has:page.getByRole('button',{name:'Authorize recovery',exact:true})});
+    await recovery.locator('select[name="operatorId"]').selectOption(staffSession.operator.id);await recovery.getByLabel('Reason',{exact:true}).fill('Owner reviewed lost staff device');
+    await recovery.getByRole('button',{name:'Authorize recovery',exact:true}).click();
+    await expect(page.getByRole('status')).toContainText('Security change saved.');
+    await expect(page.getByText('Owner reviewed lost staff device',{exact:false})).toBeVisible();
+    expect((await other.request.get(base+'/api/pier/state')).status()).toBe(401);
+    await capture('recovery-audit');
   } finally {await other.close();}
   const response=await page.request.get(base+'/auth/strong-auth/status');const status=await response.json();
   const sessionResponse=await page.request.get(base+'/auth/session');const session=await sessionResponse.json();
   const self=page.locator('form').filter({has:page.getByRole('button',{name:'Authorize recovery',exact:true})});
-  await self.getByLabel('Operator',{exact:true}).selectOption(session.operator.id);await self.getByLabel('Reason',{exact:true}).fill('Owner recovery refusal proof');
+  await self.locator('select[name="operatorId"]').selectOption(session.operator.id);await self.getByLabel('Reason',{exact:true}).fill('Owner recovery refusal proof');
   await self.getByRole('button',{name:'Authorize recovery',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Another assured native owner');
   expect(status.audit.some((row:any)=>row.action==='factor.required')).toBe(true);
   await capture('owner-controls');
