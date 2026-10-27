@@ -29,7 +29,9 @@ the channel buffer, customer payment terms and a limited credit-status summary.
 Availability uses the approved destination and the same versioned routing source
 as channel orders. Missing routing publishes zero availability. Price schedules
 outside their effective dates are absent. Orders and shipment references belong
-to that customer only; supplier costs, other buyers, arbitrary custom fields,
+to that customer only and appear only when every order line is in the approved
+item scope. Mixed orders are omitted entirely, including their totals, status
+and tracking, rather than exposing unapproved items through aggregate values; supplier costs, other buyers, arbitrary custom fields,
 source originals, native sessions and carrier label URLs are excluded. The
 response is private and has `Cache-Control: no-store`.
 
@@ -47,8 +49,9 @@ changed content with that identity refuses. Event intake creates no stock
 reservation, order or message, and starts no connector sync.
 
 Without a recorded owner-approved `followupConsent` on the grant, abandonment
-returns `no-consent`. Consent names its prior `at` timestamp and explicit
-`source`. With consent it returns `pending-owner-review`; no reminder is sent.
+returns `no-consent`. Consent names its explicit `recipient`, `purpose`, prior `at` timestamp and
+`source`, with the approving owner retained. A missing recipient or purpose
+refuses the grant. This records consent for review and grants no send authority. With consent it returns `pending-owner-review`; no reminder is sent.
 Purchase permanently suppresses that cart. Unsubscribe permanently suppresses
 all this buyer's carts, including later abandonment and delayed event replay.
 Re-granting cannot reset unsubscribe suppression. Responses report the current
@@ -56,7 +59,8 @@ cart suppression state, including on replay. At most 1,000 carts per buyer are
 retained; exceeding that bound refuses rather than deleting prior evidence.
 Automatic reminders, recipient authorization and delivery remain unimplemented.
 
-This conservative authority and consent default awaits ct approval. Retained
+CT approved this authority and consent boundary with riders on 27 October 2026.
+The authorized reminder workflow remains a required product target. Retained
 cart identities and consent remain under owner custody; there is no automatic
 deletion or claim of complete subject erasure. DATA-002 governs future erasure;
 SEC-002 governs future external disclosure; SALES-007 governs trade order routing.

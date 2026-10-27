@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { createServer } from "node:net";
 import { inactiveRecord, inactiveValue } from "../scripts/installer/archive-policy.mjs";
 import { documentOriginal } from "./api/document-original.mjs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 const workspace = resolve("."),
   parent = await mkdtemp(join(tmpdir(), "pier-portable-")),
   children = new Set();
@@ -298,6 +298,19 @@ try {
   await running.cmd('document.configure', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-2', consent: true });
   await running.cmd('ai.save', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-3', consent: true });
   await running.cmd('channel.save', { name: 'Portable channel', provider: 'woocommerce', baseUrl: 'https://synthetic-pier.example', warehouse: 'Main', enabled: false, credentials: { consumerKey: 'synthetic-pier-4', consumerSecret: 'synthetic-pier-5' } });
+  const tradeKeys = ['synthetic-pier-12-portable-buyer-credential', 'synthetic-pier-13-portable-buyer-credential'];
+  const tradeHash = key => createHash('sha256').update('pier-trade-buyer\0' + key).digest('hex');
+  let tradeChannel = await running.cmd('channel.save', { name: 'Portable trade', provider: 'stall', baseUrl: 'https://trade.example.test', warehouse: 'Main', enabled: false, credentials: { accessToken: 'synthetic-pier-18' } });
+  const tradeGrant = (buyerId, key) => ({ channelId: tradeChannel.id, version: tradeChannel.version, buyerId, customerId: customer.id, itemIds: [item.id], keyHash: tradeHash(key), shipTo: { country: 'US', postalCode: '94104' } });
+  for (const [index, buyerId] of ['suppressed', 'purchased'].entries()) tradeChannel = await running.cmd('trade.grant', { ...tradeGrant(buyerId, tradeKeys[index]), followupConsent: { recipient: 'buyer@example.test', purpose: 'One abandoned wholesale cart reminder', source: 'synthetic-pier-14', at: '2026-10-26T00:00:00Z' } });
+  tradeChannel = await running.cmd('channel.save', { id: tradeChannel.id, version: tradeChannel.version, name: 'Portable trade', provider: 'stall', baseUrl: 'https://trade.example.test', warehouse: 'Main', enabled: true, credentials: { accessToken: 'synthetic-pier-18' } });
+  const tradeEvent = async (key, eventId, cartId, event) => {
+    const response = await fetch(`http://127.0.0.1:${p}/api/pier/trade/cart-events`, { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ eventId, cartId, event }) });
+    assert.equal(response.status, 200, await response.clone().text());
+    return response.json();
+  };
+  assert.equal((await tradeEvent(tradeKeys[0], 'unsubscribed', 'retained-cart', 'unsubscribed')).cart.status, 'suppressed');
+  assert.equal((await tradeEvent(tradeKeys[1], 'purchased', 'retained-cart', 'purchased')).cart.status, 'purchased');
   const typedState=await(await running.request('/api/pier/state')).json();
   await running.cmd('business.save',{name:'Synthetic portable business',address:'1 Synthetic Pier Road',shipTo:{}});
   const typedPurchase=await running.cmd('po.draft',{supplierId:typedState.parties.find(p=>p.customFields?.private_value==='synthetic-pier-private-supplier').id,promiseDate:'2026-11-01',reason:'Typed PDF custody',lines:[{itemId:typedState.items.find(i=>i.sku==='RESTORE-IMPORT').id,quantity:'1',price:'1'}]});
@@ -368,6 +381,26 @@ try {
       rows.map(r => inactiveRecord(field, r)).sort((a, b) => a.id.localeCompare(b.id)),
       field + ' restored with only declared inactive-authority changes',
     );
+  }
+  let restoredTrade = after.channels.find(channel => channel.id === tradeChannel.id);
+  assert.equal(restoredTrade.enabled, false);
+  assert.deepEqual(restoredTrade.tradeBuyers.map(buyer => [buyer.buyerId, buyer.enabled, buyer.keyHash, buyer.followupConsent, buyer.suppressed]), [['suppressed', false, null, null, true], ['purchased', false, null, null, false]]);
+  assert.ok(restoredTrade.tradeBuyers[1].carts[0].purchasedAt);
+  const restoredCatalog = key => fetch(`http://127.0.0.1:${p2}/api/pier/trade/catalog`, { headers: { authorization: `Bearer ${key}` } });
+  for (const key of tradeKeys) assert.equal((await restoredCatalog(key)).status, 403);
+  restoredTrade = await running.cmd('channel.save', { id: restoredTrade.id, version: restoredTrade.version, name: 'Portable trade', provider: 'stall', baseUrl: 'https://trade.example.test', warehouse: 'Main', enabled: true, credentials: { accessToken: 'synthetic-pier-18' } });
+  for (const key of tradeKeys) assert.equal((await restoredCatalog(key)).status, 403, 're-enablement cannot restore buyer credentials');
+  const freshKeys = ['synthetic-pier-15-restored-buyer-credential', 'synthetic-pier-16-restored-buyer-credential'];
+  for (const [index, buyerId] of ['suppressed', 'purchased'].entries()) {
+    restoredTrade = await running.cmd('trade.grant', { ...tradeGrant(buyerId, freshKeys[index]), version: restoredTrade.version });
+    const catalog = await restoredCatalog(freshKeys[index]);
+    assert.equal(catalog.status, 200);
+    assert.equal((await catalog.json()).followupSuppressed, index === 0);
+    for (const cartId of ['retained-cart', 'new-cart']) {
+      const response = await fetch(`http://127.0.0.1:${p2}/api/pier/trade/cart-events`, { method: 'POST', headers: { authorization: `Bearer ${freshKeys[index]}`, 'content-type': 'application/json' }, body: JSON.stringify({ eventId: cartId, cartId, event: 'abandoned' }) });
+      assert.equal(response.status, 200, await response.clone().text());
+      assert.deepEqual(await response.json(), { ok: true, cart: { cartId, status: index === 0 ? 'suppressed' : cartId === 'retained-cart' ? 'purchased' : 'no-consent' }, reminderSent: false });
+    }
   }
   assert.equal(after.evidenceDocuments[0].original, original.toString('base64'));
   assert.equal(after.salesDocuments.find(d=>d.id===typedDocument.id).pdf,typedDocument.pdf);

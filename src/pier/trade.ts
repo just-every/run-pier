@@ -34,7 +34,8 @@ export function trade(c: Context, type: string, p: any): Row | undefined {
       const address = fields(p.shipTo ?? {}, ['country', 'state', 'postalCode']);
       for (const value of Object.values(address)) text(value, 'Destination');
       if (p.followupConsent !== undefined && (!p.followupConsent || typeof p.followupConsent.at !== 'string' || !Number.isFinite(Date.parse(p.followupConsent.at)) || Date.parse(p.followupConsent.at) > Date.parse(c.now))) fail('TRADE_CONSENT', 'Record prior explicit consent with its source and time.');
-      const consent = p.followupConsent ? { source: text(p.followupConsent.source, 'Consent source'), at: p.followupConsent.at, approvedBy: c.actor.id } : null;
+      const consent = p.followupConsent ? { recipient: text(p.followupConsent.recipient, 'Consent recipient'), purpose: text(p.followupConsent.purpose, 'Consent purpose'), source: text(p.followupConsent.source, 'Consent source'), at: p.followupConsent.at, approvedBy: c.actor.id } : null;
+      if (consent && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(consent.recipient)) fail('TRADE_CONSENT', 'Record one explicitly authorized recipient.');
       const grant = { buyerId, customerId: p.customerId, keyHash: p.keyHash, itemIds: p.itemIds, shipTo: address, enabled: true, approvedAt: c.now, approvedBy: c.actor.id, followupConsent: consent, suppressed: old?.suppressed ?? false, carts: old?.carts ?? [] };
       if (old) Object.assign(old, grant); else channel.tradeBuyers.push(grant);
     }
@@ -107,7 +108,9 @@ export async function tradeResponse(request: Request, env: Bindings): Promise<Re
     const available = stock.filter(p => p.itemId === i.id).reduce((sum, p) => sum + decimal(p.available), 0n) - decimal(channel.buffer ?? '0');
     return [{ ...fields(i, ['id', 'sku', 'name', 'unit', 'packSize']), availability: format(available > 0n ? available : 0n), prices: quantities.map(quantity => ({ minimumQuantity: quantity, price: orderPrice(c, customer.id, i.id, decimal(quantity), undefined).price, currency: 'USD' })) }];
   });
-  const orders = s.orders.filter(o => o.customerId === customer.id && o.documentType !== 'quote').map(o => ({ ...fields(o, ['id', 'reference', 'createdAt', 'currency', 'total', 'promiseDate']), lines: o.lines.map((l: any) => fields(l, ['itemId', 'quantity', 'price', 'dispatched', 'cancelled'])), shipments: s.shipments.filter(sh => sh.orderId === o.id).map(sh => ({ ...fields(sh, ['id', 'reference', 'createdAt', 'deliveryStatus']), tracking: s.shippingJobs.filter(job => job.orderId === o.id && job.shipmentId === sh.id).map(job => fields(job, ['trackingCode', 'trackingStatus', 'mode'])) })) }));
+  // A mixed order's total and shipment status also reveal unapproved items.
+  // Omit the entire document rather than relabeling a partial total as its total.
+  const orders = s.orders.filter(o => o.customerId === customer.id && o.documentType !== 'quote' && o.lines.length > 0 && o.lines.every((l: any) => buyer.itemIds.includes(l.itemId))).map(o => ({ ...fields(o, ['id', 'reference', 'createdAt', 'currency', 'total', 'promiseDate']), lines: o.lines.map((l: any) => fields(l, ['itemId', 'quantity', 'price', 'dispatched', 'cancelled'])), shipments: s.shipments.filter(sh => sh.orderId === o.id).map(sh => ({ ...fields(sh, ['id', 'reference', 'createdAt', 'deliveryStatus']), tracking: s.shippingJobs.filter(job => job.orderId === o.id && job.shipmentId === sh.id).map(job => fields(job, ['trackingCode', 'trackingStatus', 'mode'])) })) }));
   const gate = policyAuthority({ actor, backgroundPolicy: policy });
   const admitted = await env.DB.prepare(`SELECT CASE WHEN (${gate.sql}) AND (SELECT version FROM pier_meta WHERE id=1)=? THEN 1 ELSE 0 END AS ok`).bind(...gate.params, s.version).first<any>();
   if (!admitted?.ok) throw new Problem('TRADE_AUTH', 'Authority or catalog changed. Retry with current authority.', null, 403);

@@ -318,7 +318,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "3e0c63d5c35dfb5cdeaa126d63203a24b6dd99ece986b8348c64a14acdc64909",
+      "sha256": "b6aade86e11edc7ca39a59ec3a028db991cab86f7c154ec548c823838f8b8cfb",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -346,7 +346,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "4cbcbb9375939d2f0ac8c4b560bf03e90945628b315aae588f85499a18d66a80",
+      "sha256": "d72716932fb284b8d9ba0226a07902819d8bd6a3d7ce657e984636c14b9a7796",
       "executable": false
     },
     "DEMO.md": {
@@ -498,7 +498,7 @@
       "executable": false
     },
     "docs/trade-api.md": {
-      "sha256": "454155e0f9750ef4c12a18038ca21c547374bdf7cf1571d04281136b50c1193e",
+      "sha256": "e1c18c46900427987883e93cc6d9266b06bd84176aebd8d5b87484fa6769910c",
       "executable": false
     },
     "docs/warehouse-placement.md": {
@@ -3790,7 +3790,7 @@
       "executable": false
     },
     "src/pier/trade.ts": {
-      "sha256": "1b40d0b404ac3132a19d722c6dd96e5d709b99d5900ecdcd1b675eda066b713c",
+      "sha256": "b9b1bc012e84e609718e3da6d29b76ac803eb521c5d0e3ca76c53f8c32a9dd03",
       "executable": false
     },
     "src/pier/valuation-ledger.ts": {
@@ -4614,7 +4614,7 @@
       "executable": false
     },
     "tests/api/channels.test.mjs": {
-      "sha256": "e663c5b9b8c4322027376379cb3df0c67cb46daa9674341ab7b90e4594f9d54a",
+      "sha256": "6c23f8c70e38eedd956530a89763e63b6bc5fa85bc77494f8e3fa45f653bfe5f",
       "executable": false
     },
     "tests/api/costing.test.mjs": {
@@ -4730,7 +4730,7 @@
       "executable": false
     },
     "tests/api/shipping.test.mjs": {
-      "sha256": "acfdce8ae0fa4f5974a58b5f1289e52da994b901b32ce88221bc71bfe3d9d428",
+      "sha256": "e83891973ac599d5bdd1cbcff5413bec9de81a21ce306157ab55f0588a6ad047",
       "executable": false
     },
     "tests/api/slotting.test.mjs": {
@@ -5134,7 +5134,7 @@
       "executable": false
     },
     "tests/portable.mjs": {
-      "sha256": "ff7b6227e47c575cd1bc80c9f93cb43f9f2b483c00ef9412337c38f4e7f3522a",
+      "sha256": "ac9420f5abeb30c117f761cd2e870ad4c08b7ac753a3630b2a3691fb0f7c7e7f",
       "executable": false
     },
     "tests/runtime.mjs": {

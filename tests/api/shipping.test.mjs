@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { installation } from './harness.mjs';
 import { shippingEdge } from './shipping-edge.mjs';
 
@@ -80,6 +80,14 @@ test('packed order → verified rates → label → emailed tracking → deliver
   assert.equal((await notify('0'.repeat(64))).status, 401);
   const response = await notify(signature); assert.equal(response.status, 200, await response.text());
   assert.equal((await notify(signature)).status, 200);
+  let channel = await h.command('channel.save', { provider: 'stall', name: 'Tracking projection', baseUrl: 'https://trade.example.test', warehouse: 'North', enabled: false, credentials: { accessToken: 'synthetic-pier-17' } });
+  const key = 'synthetic-pier-11-tracking-buyer-credential';
+  channel = await h.command('channel.save', { id: channel.id, version: channel.version, provider: 'stall', name: 'Tracking projection', baseUrl: 'https://trade.example.test', warehouse: 'North', enabled: true, credentials: { accessToken: 'synthetic-pier-17' } });
+  await h.command('trade.grant', { channelId: channel.id, version: channel.version, buyerId: 'tracking', customerId: order.customerId, itemIds: [order.lines[0].itemId], keyHash: createHash('sha256').update('pier-trade-buyer\0' + key).digest('hex'), shipTo: { country: 'US', postalCode: '94104' } });
+  const projection = await (await h.request('/api/pier/trade/catalog', { as: '', headers: { authorization: `Bearer ${key}` } })).json();
+  assert.deepEqual(projection.orders.map(row => row.id), [order.id]);
+  assert.deepEqual(projection.orders[0].shipments, [{ id: shipment.id, reference: shipment.reference, createdAt: shipment.createdAt, deliveryStatus: 'delivered', tracking: [{ trackingCode: job.trackingCode, trackingStatus: 'delivered', mode: 'test' }] }]);
+  assert.equal(JSON.stringify(projection).includes('labelUrl'), false);
   const state = await h.invariant();
   assert.equal(state.shipments[0].deliveryStatus, 'delivered'); assert.ok(state.shipments[0].closedAt);
   assert.equal(state.orders.find(o => o.id === order.id).deliveryStatus, 'delivered');
