@@ -288,12 +288,21 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
           .available,
         "0",
       );
+      const receiptKey = randomUUID();
+      const partial = { transferId: transfer.id, version: transfer.version, quantity: "0.2" };
+      const arrived = await h.command("transfer.receive", partial, { commandId: receiptKey });
+      assert.equal(arrived.received, "0.2");
+      assert.equal(arrived.status, "transit");
+      assert.deepEqual(await h.command("transfer.receive", partial, { commandId: receiptKey }), arrived);
+      const midway = await h.invariant();
+      assert.equal(midway.positions.find(p => p.locationId === b.transit.id).quantity, "0.3");
+      assert.equal(midway.positions.find(p => p.locationId === b.destination.id).quantity, "0.2");
+      const beforeDenied = midway.movements;
+      await h.command("transfer.receive", partial, { error: "STALE" });
+      await h.command("transfer.receive", { ...partial, version: arrived.version, quantity: "0.4" }, { error: "TRANSFER_QUANTITY" });
+      assert.deepEqual((await h.state()).movements, beforeDenied);
       await h.command("transfer.receive", { transferId: transfer.id });
-      await h.command(
-        "transfer.receive",
-        { transferId: transfer.id },
-        { error: "TRANSFER_STATE" },
-      );
+      await h.command("transfer.receive", { transferId: transfer.id }, { error: "TRANSFER_STATE" });
       await h.invariant();
     },
   );
@@ -350,14 +359,21 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         { returnId: returned.id, version: returned.version },
         { error: "APPROVAL" },
       );
-      await h.command("return.approve", {
-        returnId: returned.id,
-        version: returned.version,
-      });
-      await h.command("return.restock", {
-        returnId: returned.id,
-        version: returned.version,
-      });
+      const review = { returnId: returned.id, version: returned.version, quantity: "0.1" };
+      const approved = await h.command("return.approve", review);
+      const restockKey = randomUUID();
+      const partial = await h.command("return.restock", review, { commandId: restockKey });
+      assert.equal(partial.restocked, "0.1");
+      assert.equal(partial.status, "quarantine");
+      assert.deepEqual(await h.command("return.restock", review, { commandId: restockKey }), partial);
+      const beforeDenied = (await h.state()).movements;
+      await h.command("return.restock", { returnId: returned.id, version: partial.version }, { error: "APPROVAL" });
+      await h.command("return.approve", { returnId: returned.id, version: partial.version, quantity: "0.2" }, { error: "RETURN_QUANTITY" });
+      assert.deepEqual((await h.state()).movements, beforeDenied);
+      await h.command("return.approve", { returnId: returned.id, version: partial.version });
+      const complete = await h.command("return.restock", { returnId: returned.id, version: partial.version });
+      assert.equal(complete.restocked, returned.quantity);
+      assert.equal(complete.status, "restocked");
       await h.command(
         "return.create",
         {

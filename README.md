@@ -10,9 +10,9 @@ Pier is an MIT-licensed stock and wholesale-order app for small finished-goods w
 
 The public source repository is [just-every/run-pier](https://github.com/just-every/run-pier).
 
-Pier starts with no business records. On your computer Pier runs the same server and a lasting local database as online, and you sign in with a one-click local link. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.51 package.
+Pier starts with no business records. On your computer Pier runs the same server and a lasting local database as online, and you sign in with a one-click local link. No remote identity, mail, model, supplier, accounting or carrier account is needed for local setup. The project is pinned to the published `@runeditrun/rer` 0.2.79 package.
 
-One line, the same as [run-pier.com/run](https://run-pier.com/run). It installs `rer`, gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
+With Node already installed, use this one-line alternative to the two-step [run-pier.com/run](https://run-pier.com/run) start. It installs `rer`, gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
 
 ```sh
 npx -y @runeditrun/rer dev just-every/run-pier

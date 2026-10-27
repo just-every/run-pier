@@ -16,7 +16,7 @@ To stop the rest of an order, **Cancel remaining demand** releases only its unsh
 
 ## Returns
 
-A return points to the shipment line it came back from. **Return dispatched goods into quarantine** records it into a quarantine bin, where it is not available. In **Quarantine review**, **Approve exact return for restocking** and then **Restock approved return** make it sellable again.
+A return points to the shipment line it came back from. **Return dispatched goods into quarantine** records it into a quarantine bin, where it is not available. In **Quarantine review**, enter only the inspected sellable quantity in **Review restock quantity** and choose **Approve partial restock**, then **Restock approved return**. Only that approved quantity becomes sellable; the remainder stays quarantined and needs a new review. To release everything still quarantined, choose **Approve exact return for restocking** instead.
 
 To see where any of these numbers came from, see [Activity and proposals](activity.md).
 

@@ -38,7 +38,7 @@ function dispose(c: Context, r: Row, p: any) {
       r.writeOffApprovedBy = c.actor.id;
       r.writeOffApprovedAt = c.now;
     }
-    move(c, { itemId: r.itemId, locationId: r.locationId, status: 'quarantine', quantity: (-decimal(r.quantity)).toString(), reason: `Damaged return write-off: ${review.reason}`, documentId: r.id });
+    move(c, { itemId: r.itemId, locationId: r.locationId, status: 'quarantine', quantity: (-(decimal(r.quantity) - decimal(r.restocked ?? "0"))).toString(), reason: `Damaged return write-off: ${review.reason}`, documentId: r.id });
     r.status = 'writtenoff';
     r.version++;
   }

@@ -2,7 +2,7 @@
 // primary action, every page's links and files resolve inside the site, and no page links an instance-only route.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { spawnSync, execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
@@ -29,3 +29,15 @@ test('the run site builds, its primary action opens /run, and every link and fil
     }
   }
 })
+
+// Public CLI refusal: no build or upload may begin while hosting inputs are absent.
+test('hosted preflight refuses missing account inputs before building or contacting a provider', () => {
+  const env = { ...process.env };
+  delete env.CLOUDFLARE_ACCOUNT_ID; delete env.CLOUDFLARE_API_TOKEN;
+  const result = spawnSync(join(root, 'node_modules/.bin/rer'), ['deploy', '--dry-run'], { cwd: root, env, encoding: 'utf8' });
+  const output = result.stdout + result.stderr;
+  assert.equal(result.status, 3, output);
+  assert.match(output, /Nothing was uploaded/);
+  assert.match(output, /rer deploy --dry-run --env-file/);
+  assert.doesNotMatch(output, /vite v|transforming|Uploading|https:\/\/api.cloudflare.com/);
+});

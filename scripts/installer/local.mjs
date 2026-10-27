@@ -10,6 +10,7 @@ import { commandAdapter as createCommandAdapter } from "@runeditrun/rer/adapter"
 import { ownerDeploy } from "@runeditrun/rer/deploy";
 import { localPortability } from "@runeditrun/rer/portability";
 import * as model from "./ui/seed.mjs";
+import { hostedPreflight } from "./hosted-preflight.mjs";
 
 export { selectLocalState };
 const lifecycle = operatorInstaller({
@@ -36,7 +37,7 @@ export const commandAdapter = createCommandAdapter(lifecycle, {
   dev: developmentTarget,
   preview: previewTarget,
   verify: ["pnpm", ["run", "verify:app"]],
-  deploy: ownerDeploy("deploy.json", lifecycle),
+  deploy: hostedPreflight(ownerDeploy("deploy.json", lifecycle)),
   portability: localPortability({
     database: "inventory-pier",
     policyModule: "scripts/installer/archive-policy.mjs",
