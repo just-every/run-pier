@@ -9,3 +9,7 @@ Node 22.20.0 and pnpm 10.12.4 are pinned. Local D1 data persists under `.wrangle
 Use `rer describe`, `rer doctor` and `rer check` for command effects, environment diagnostics and structural validation. `rer build` emits the production Worker; `rer verify` runs the declared acceptance wall. Stop preview with `rer preview --stop` before export/reset. `rer export --output exports/pier.rer` captures the supported complete installation; `rer import --input exports/pier.rer --yes` restores to an empty destination running the same Pier release (commit) that made the archive. Follow OPERATIONS.md for native identity re-entry and reconciliation. `rer reset --yes` is destructive and removes the declared local data/settings. Nothing here grants deployment or supplier-send authority.
 
 A hosted Pier emails sign-in links and the owner's daily dispatch summary through your own mail provider. Give the deploy `MAIL_PROVIDER` (`resend`, `sendgrid` or `cloudflare`), `MAIL_API_KEY` and `MAIL_FROM` (a sender address your provider has verified) in the environment or the `--env-file`.
+
+## Recover a stopped setup
+
+Run `rer setup --non-interactive` from the same Pier folder to resume saved answers and migrations. If setup says it cannot save Pier’s appearance because the checkout is read-only, run the command it prints: `chmod u+w src/branding.json && rer setup --non-interactive`. If the disk is full, free space first and run `rer setup --non-interactive` again. Do not delete the local database to repair an installation.

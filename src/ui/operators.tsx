@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { label, records, type PierState, type RunCommand } from './api'
+import { records, type PierState, type RunCommand } from './api'
 import { Empty, Field, Form, Table, text } from './controls'
 import { words } from './display'
 import { CommercialVisibility, OperatorRoleForm, roleLabel } from './operator-grants'
@@ -59,7 +59,7 @@ export function Operators({ state, run, busy, refresh }: Props) {
       <td>{operator.name || operator.email}<small>{operator.email}</small></td><td>{words(operator.status)}</td>
       <td>{roleLabel(records(state, 'roles').find(role => role.id === operator.id)?.role || (operator.role === 'owner' ? 'owner' : 'viewer'))}</td>
       <td><CommercialVisibility role={records(state, 'roles').find(role => role.id === operator.id)} nativeOwner={operator.role === 'owner'} /></td>
-      <td>{grantFor(operator.id) ? <>{grantFor(operator.id).warehouses.join(', ') || 'No warehouses'}<small>{grantFor(operator.id).locationIds.length ? `Locations: ${grantFor(operator.id).locationIds.map((id: string) => label(records(state, 'locations'), id)).join(', ')}` : 'All locations in these warehouses'}</small><small>{grantFor(operator.id).expiresAt ? `Expires ${grantFor(operator.id).expiresAt}` : 'No expiry'}</small></> : 'No physical stock restriction'}</td>
+      <td>{grantFor(operator.id) ? <>{grantFor(operator.id).warehouses.join(', ') || 'No warehouses'}<small>{grantFor(operator.id).locationIds.length ? `Locations: ${grantFor(operator.id).locationIds.map((id: string) => records(state, 'locations').find(location => location.id === id)?.name || 'Removed location').join(', ')}` : 'All locations in these warehouses'}</small><small>{grantFor(operator.id).expiresAt ? `Expires ${grantFor(operator.id).expiresAt}` : 'No expiry'}</small></> : 'No physical stock restriction'}</td>
     </tr>)}</Table>
     {notice && <p className="notice" role="status">{notice}</p>}
     {error && <p className="error" role="alert">{error}</p>}
