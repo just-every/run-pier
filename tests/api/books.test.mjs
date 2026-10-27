@@ -22,7 +22,13 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
       if(loseJournalResponse&&request.method==='POST'&&request.url.endsWith('/integration/v1/journals')){loseJournalResponse=false;await response.text();throw new Error('Synthetic response loss after Pantry saved the journal');}
       return response;
     }});
-    const b=await basics(pier),po=await buy(pier,b,'12');
+    const b=await basics(pier);
+    await pier.command('supplierItem.save',{supplierId:b.supplier.id,itemId:b.item.id,code:'synthetic-pier-closure-1',packSize:'1',minimum:'1',price:'0.25',leadDays:6});
+    await pier.command('replenishment.save',{version:0,itemId:b.item.id,warehouse:'North',supplierId:b.supplier.id,method:'fixed',safetyStock:'0',reorderPoint:'0',reorderQuantity:'12',windowDays:30,reviewDays:10});
+    const planned=await pier.command('replenishment.plan',{lines:[{itemId:b.item.id,warehouse:'North',quantity:'12'}]});
+    let po=planned.drafts[0];
+    await pier.command('po.approve',{poId:po.id,version:po.version});
+    po=await pier.command('po.commit',{poId:po.id,version:po.version});
     const receipt=await receive(pier,b,po,'11');
     const ALL=['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','post'];
     const narrow=await pantry.command('integration.create',{name:'Pier, bills only',scopes:['bills:write']});
@@ -37,6 +43,9 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     let state=await pier.state();
     assert.equal(state.bookJobs.filter(j=>j.kind==='bill').length,0,'a goods receipt alone must not invent a supplier invoice');
     assert.equal(state.receiptClosures.find(r=>r.id===receipt.id).status,'invoice');
+    let follow=(await pier.command('replenishment.review',{poId:po.id})).followThrough;
+    assert.equal(follow.status,'open');assert.equal(follow.remaining,'1');assert.equal(follow.actualLandedCost,'2.750000000000');
+    assert.equal(follow.lines[0].forecast.expected,'0');
     assert.deepEqual(state.receiptClosures.find(r=>r.id===receipt.id).unbilled,[{itemId:b.item.id,quantity:'11'}]);
     let supplierBill=await pier.command('supplierBill.save',{poId:po.id,reference:'METALS-7731',date:new Date().toISOString().slice(0,10),quantityTolerancePercent:'0',priceTolerancePercent:'0',lines:[{poLineId:po.lines[0].id,quantity:'12',unitPrice:'0.30'}]});
     assert.equal(supplierBill.match.withinTolerance,false);
@@ -84,6 +93,7 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await pier.command('book.sync',{});state=await pier.state();
     assert.ok(state.receiptClosures.every(r=>r.status==='payment'),'supplier payment reversal reopens each affected receipt: '+JSON.stringify({closures:state.receiptClosures,jobs:state.bookJobs.filter(j=>j.kind==='bill').map(({status,received,readyToPay,paid,open,reason})=>({status,received,readyToPay,paid,open,reason}))}));
     assert.equal(state.supplierBills.find(b=>b.id===supplierBill.id).books.open,'3.00');
+    assert.equal((await pier.command('replenishment.review',{poId:po.id})).followThrough.status,'open','a reversed payment reopens the forecast follow-through');
     await pantry.command('payment.record',{direction:'paid',contactId:sales.bills[0].vendor_id,date:new Date().toISOString().slice(0,10),amount:'3.00',bankAccountId:bank.id,reference:'SYNTHETIC-REPLACEMENT-BILL-PAYMENT',allocations:[{targetId:sales.bills[0].id,amount:'3.00'}]});
     await pier.command('book.sync',{});state=await pier.state();assert.ok(state.receiptClosures.every(r=>r.status==='closed'));
     await pantry.command('journal.reverse',{id:payment.journal_id,date:new Date().toISOString().slice(0,10),memo:'Synthetic bank payment was reversed'});
@@ -93,6 +103,12 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     const tb=await pantry.view('reports/trial-balance');
     assert.equal(tb.balanced,true);assert.equal(tb.rows.find(r=>r.id===inventory.id).net,200);
     assert.equal(state.bookJobs.find(j=>j.key==='inventory-reconciliation').status,'reconciled');
+    follow=(await pier.command('replenishment.review',{poId:po.id})).followThrough;
+    assert.equal(follow.status,'closed');assert.equal(follow.remaining,'0');
+    assert.deepEqual([follow.expectedLandedCost,follow.actualLandedCost,follow.landedCostDifference],['3.000000000000','3.000000000000','0.000000000000']);
+    assert.deepEqual([follow.lines[0].predicted,follow.lines[0].actual,follow.lines[0].difference,follow.lines[0].received],['0','4','4','12']);
+    assert.equal(follow.receiptClosures.length,2);assert.ok(follow.receiptClosures.every(r=>r.status==='closed'));
+    assert.equal(follow.inventoryReconciliation.status,'reconciled');
     const exp=await pier.request('/api/pier/books/export.iif');assert.equal(exp.status,200);assert.match(await exp.text(),/Cost of Goods Sold/);
     const exported=await (await pier.request('/api/pier/export')).text();assert.ok(!exported.includes(credential.token),'connection credentials must not enter exports');
     // Revoking the credential in Pantry stops Pier with a plain broken connection, not a queue of errors.
@@ -100,6 +116,7 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     await pier.command('book.sync',{});
     state=await pier.state();assert.match(state.bookConnections[0].problem,/revoked or replaced in Pantry.*Reconnect Pantry/);
     assert.ok(state.receiptClosures.every(r=>r.status==='connection'),'revoked credentials cannot claim current receipt closure');
+    assert.equal((await pier.command('replenishment.review',{poId:po.id})).followThrough.status,'open','a revoked ledger connection cannot retain forecast closure');
     assert.equal(state.bookJobs.filter(j=>j.status==='review'&&j.kind!=='valuation').length,1,'one refused check, not every job');
     credential=await pantry.command('integration.create',{name:'Pier replacement',scopes:ALL});
     await pier.command('book.connect',{...connection,integrationToken:credential.token});await pier.command('book.sync',{});
@@ -117,4 +134,71 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     assert.ok(safeCsv.includes("\"'=1+2\""),'spreadsheet-facing CSV keeps hostile text literal');
     await exerciseBooksFixtures();
   }finally{await pier?.close();await pantry.close();}
+});
+
+test('an adjusted connected forecast follows its exact approved send through landed receipt and the real Pantry ledger', async t => {
+  const pantry = await pantryInstallation(); t.after(() => pantry.close());
+  await pantry.command('chart.start', {});
+  const inventory = await pantry.command('account.save', { code: '1300', name: 'Inventory Asset', type: 'asset', subtype: 'other' });
+  const cogs = await pantry.command('account.save', { code: '5000', name: 'Cost of Goods Sold', type: 'expense', subtype: 'other' });
+  const landed = await pantry.command('account.save', { code: '5100', name: 'Freight and duty', type: 'expense', subtype: 'other' });
+  const chart = await pantry.view('state');
+  const bank = await pantry.command('bank-account.save', { name: 'Operating', institution: 'Synthetic bank', accountId: chart.accounts.find(a => a.code === '1000').id, numberLast4: '4242', routing: '', openingDate: '2026-01-01', openingBalance: '0.00' });
+  const credential = await pantry.command('integration.create', { name: 'Forecast closure', scopes: ['contacts:write', 'invoices:write', 'bills:write', 'journals:write', 'documents:write', 'payments:read', 'reports:read', 'post'] });
+  const mail = [];
+  const edge = { now: '2026-10-27T00:00:00.000Z', bindings: { MAIL_PROVIDER: 'resend', MAIL_FROM: 'buyer@example.test', MAIL_API_KEY: 'synthetic-pier-closure-2' }, outboundService: async request => {
+    const url = new URL(request.url);
+    if (url.hostname === 'api.resend.com') { mail.push(await request.json()); return Response.json({ id: `synthetic-pier-mail-${mail.length}` }); }
+    if (url.hostname === 'closure.example.test') {
+      if (request.method === 'PUT') return Response.json({ id: 1, ...await request.json() });
+      return Response.json(url.pathname.endsWith('/products') ? [{ id: 1, name: 'Brass bolt', type: 'simple', sku: 'BOLT' }] : [{ id: 1, number: 'synthetic-pier-closure-3', status: 'processing', currency: 'USD', billing: { first_name: 'Buyer', last_name: '' }, refunds: [], line_items: [{ id: 1, sku: 'BOLT', quantity: 30, price: 8 }] }]);
+    }
+    assert.equal(url.origin, pantry.origin);
+    return fetch(request.url, { method: request.method, headers: Object.fromEntries([...request.headers].filter(([key]) => !['transfer-encoding', 'content-length', 'host', 'connection'].includes(key))), redirect: 'manual', ...(request.method === 'GET' ? {} : { body: await request.arrayBuffer() }) });
+  } };
+  const pier = await installation(edge); t.after(() => pier.close()); const b = await basics(pier);
+  await pier.command('business.save', { name: 'Harbor Wholesale', address: '40 Pier Road, Portland OR 97210' });
+  let opening = await pier.command('po.draft', { supplierId: b.supplier.id, destinationWarehouse: 'North', promiseDate: '2026-09-26', reason: 'Retained supplier history', lines: [{ itemId: b.item.id, quantity: '30', price: '2' }] });
+  await pier.command('po.approve', { poId: opening.id, version: opening.version }); opening = await pier.command('po.commit', { poId: opening.id, version: opening.version });
+  await pier.command('receipt.create', { poId: opening.id, supplierReference: 'synthetic-pier-closure-4', lines: [{ poLineId: opening.lines[0].id, locationId: b.source.id, quantity: '30', cost: '2' }] }, { headers: { 'x-pier-test-now': '2026-09-27T00:00:00.000Z' } });
+  let channel = await pier.command('channel.save', { name: 'Connected forecast', provider: 'woocommerce', baseUrl: 'https://closure.example.test', warehouse: 'North', credentials: { consumerKey: 'synthetic-pier-closure-5', consumerSecret: 'synthetic-pier-closure-6' } }, { headers: { 'x-pier-test-now': '2026-10-02T00:00:00.000Z' } });
+  const captured = await pier.state(), order = captured.orders.find(o => o.id === captured.channelOrders[0].orderId);
+  await pier.command('dispatch.create', { orderId: order.id, shipmentReference: 'synthetic-pier-closure-7', lines: [{ orderLineId: order.lines[0].id, quantity: '30' }] }, { headers: { 'x-pier-test-now': '2026-10-07T00:00:00.000Z' } });
+  await pier.command('channel.save', { ...channel, enabled: false });
+  await pier.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: 'synthetic-pier-closure-8', packSize: '6', minimum: '12', price: '2', leadDays: 6 });
+  const policy = await pier.command('replenishment.save', { version: 0, itemId: b.item.id, warehouse: 'North', supplierId: b.supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '20', reorderQuantity: '30', windowDays: 30, leadDays: 6, reviewDays: 10, freight: '6', duty: '0', forecastAssumptions: { seasonality: { low: '1', expected: '1.5', high: '2', source: 'Reviewed seasonal campaign' }, promotion: { low: '1', expected: '2', high: '3', source: 'Reviewed promotion campaign' } } });
+  const comparison = await pier.command('replenishment.compare', { itemId: b.item.id, warehouse: 'North', cashCeiling: '128' });
+  const choice = comparison.optimization.rankings.cash[0];
+  assert.equal(comparison.optimization.forecast.expected, '270'); assert.equal(choice.quantity, '60'); assert.equal(choice.reliability.delayDays, 1);
+  assert.equal(comparison.optimization.rankings.service[0].quantity, '486');
+  const selected = await pier.command(choice.command.type, choice.command.payload); let po = selected.drafts[0];
+  assert.equal(po.replenishment.evidence[0].forecast.expected, '270'); assert.equal(po.replenishment.expectedLandedCost, '126.000000000000');
+  await pier.command('po.approve', { poId: po.id, version: po.version }); po = await pier.command('po.commit', { poId: po.id, version: po.version });
+  const authorize = current => pier.command('po.authorizeSend', { poId: current.id, version: current.version, recipient: 'supplier@example.test', maxSpend: '128', expiresAt: '2026-10-28T00:00:00.000Z', maxChases: 0, confirm: true });
+  po = await authorize(po); await pier.command('po.sendApproved', { poId: po.id, version: po.version }); assert.equal(mail.length, 1);
+  let second = await pier.command('po.draft', { supplierId: b.supplier.id, destinationWarehouse: 'North', promiseDate: '2026-11-02', reason: 'Second exact approval', lines: [{ itemId: b.item.id, quantity: '12', price: '2' }] });
+  await pier.command('po.approve', { poId: second.id, version: second.version }); second = await pier.command('po.commit', { poId: second.id, version: second.version }); second = await authorize(second);
+  await pier.command('replenishment.save', { ...policy, version: policy.version, freight: '7' });
+  second = (await pier.state()).purchaseOrders.find(p => p.id === second.id);
+  await pier.command('po.sendApproved', { poId: second.id, version: second.version }, { error: 'SEND_AUTHORITY' }); assert.equal(mail.length, 1);
+  await pier.command('book.connect', { baseUrl: pantry.origin, integrationToken: credential.token, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: chart.accounts.find(a => a.code === '4000').id, landedCostAccountId: landed.id, taxCode: 'exempt' });
+  const historicalBill = await pier.command('supplierBill.save', { poId: opening.id, reference: 'synthetic-pier-closure-12', date: '2026-10-27', quantityTolerancePercent: '0', priceTolerancePercent: '0', lines: [{ poLineId: opening.lines[0].id, quantity: '30', unitPrice: '2' }] });
+  await pier.command('supplierBill.approve', { id: historicalBill.id, version: historicalBill.version, receiptEvidence: historicalBill.match.receiptEvidence });
+  edge.now = '2026-10-27T01:00:00.000Z';
+  const receipt = await pier.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-closure-9', landedCost: { freight: '6', duty: '0', allocation: 'quantity' }, lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '60', cost: '2' }] });
+  let bill = await pier.command('supplierBill.save', { poId: po.id, reference: 'synthetic-pier-closure-10', date: '2026-10-27', quantityTolerancePercent: '0', priceTolerancePercent: '0', freight: '6', duty: '0', lines: [{ poLineId: po.lines[0].id, quantity: '60', unitPrice: '2' }] });
+  assert.equal(bill.match.withinTolerance, true, JSON.stringify(bill.match));
+  await pier.command('supplierBill.approve', { id: bill.id, version: bill.version, receiptEvidence: bill.match.receiptEvidence });
+  let follow = (await pier.command('replenishment.review', { poId: po.id })).followThrough;
+  assert.equal(follow.status, 'open'); assert.equal(follow.actualLandedCost, '126.000000000000'); assert.equal(follow.lines[0].predicted, '0.375'); assert.equal(follow.lines[0].actual, '0');
+  const sales = await pantry.view('sales'), remote = sales.bills.find(r => r.reference === `PIER-SB-${bill.id.replaceAll('-', '').slice(0, 24)}`) ?? sales.bills.find(r => r.total_cents === 12600);
+  assert.ok(remote); assert.equal(remote.total_cents, 12600);
+  await pantry.command('payment.record', { direction: 'paid', contactId: remote.vendor_id, date: '2026-10-27', amount: '126.00', bankAccountId: bank.id, reference: 'synthetic-pier-closure-11', allocations: [{ targetId: remote.id, amount: '126.00' }] });
+  await pier.command('book.sync', {});
+  follow = (await pier.command('replenishment.review', { poId: po.id })).followThrough;
+  assert.equal(follow.status, 'closed', JSON.stringify(follow)); assert.deepEqual(follow.receiptIds, [receipt.id]);
+  assert.equal(follow.inventoryReconciliation.status, 'reconciled'); assert.equal(follow.landedCostDifference, '0.000000000000');
+  const ledger = await pantry.view('reports/trial-balance'); assert.equal(ledger.balanced, true);
+  assert.equal((await pier.state()).supplierBills.find(b => b.id === bill.id).books.open, '0.00');
+  await pier.invariant();
 });
