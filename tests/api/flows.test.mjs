@@ -360,7 +360,11 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         { error: "APPROVAL" },
       );
       const review = { returnId: returned.id, version: returned.version, quantity: "0.1" };
-      const approved = await h.command("return.approve", review);
+      await h.command("return.approve", review);
+      const beforeMismatch = (await h.state()).movements;
+      await h.command("return.restock", { ...review, quantity: "0.2" }, { error: "RETURN_QUANTITY" });
+      await h.command("return.restock", { returnId: returned.id, version: returned.version }, { error: "RETURN_QUANTITY" });
+      assert.deepEqual((await h.state()).movements, beforeMismatch);
       const restockKey = randomUUID();
       const partial = await h.command("return.restock", review, { commandId: restockKey });
       assert.equal(partial.restocked, "0.1");

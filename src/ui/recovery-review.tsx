@@ -1,4 +1,4 @@
-import { label, records, type PierState } from './api'
+import { records, type PierState } from './api'
 import { sourceDocument } from './display'
 import { Facts } from './controls'
 
@@ -16,7 +16,7 @@ export function RecoveryReview({ state, type, payload }: { state: PierState | nu
   const values = Object.entries(payload).flatMap(([key, value]) => {
     if (!state || typeof value !== 'string' || !value) return []
     const kind = ({ itemId: 'items', locationId: 'locations', fromLocationId: 'locations', toLocationId: 'locations', supplierId: 'parties', customerId: 'parties' } as Record<string, string>)[key]
-    if (kind) return [{ label: ({ itemId: 'Item', locationId: 'Bin', fromLocationId: 'Source bin', toLocationId: 'Destination bin', supplierId: 'Supplier', customerId: 'Customer' } as Record<string, string>)[key], value: label(records(state, kind), value) }]
+    if (kind) return [{ label: ({ itemId: 'Item', locationId: 'Bin', fromLocationId: 'Source bin', toLocationId: 'Destination bin', supplierId: 'Supplier', customerId: 'Customer' } as Record<string, string>)[key], value: records(state, kind).find(row => row.id === value)?.name || 'Removed record' }]
     if (['poId', 'orderId', 'shipmentId', 'returnId', 'transferId', 'countId'].includes(key)) return [{ label: 'Document', value: sourceDocument(state, value).name }]
     if (['quantity', 'supplierReference', 'shipmentReference', 'reason'].includes(key)) return [{ label: ({ quantity: 'Quantity (base units)', supplierReference: 'Supplier receipt reference', shipmentReference: 'Shipment reference', reason: 'Reason' } as Record<string, string>)[key], value }]
     return []

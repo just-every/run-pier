@@ -361,7 +361,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   if (r.kit && r.inspection.some((part: any) => part.condition !== 'sellable')) fail('KIT_INSPECTION', 'A kit with a damaged component must stay quarantined. Inspect its components before restocking.');
   const remaining = decimal(r.quantity) - decimal(r.restocked ?? "0");
   const quantity = decimal(r.approval.quantity ?? format(remaining), true);
-  if (quantity > remaining || (p.quantity !== undefined && decimal(p.quantity, true) !== quantity))
+  if (quantity > remaining || (p.quantity === undefined ? remaining : decimal(p.quantity, true)) !== quantity)
     fail("RETURN_QUANTITY", "Restock only the exact quantity the inspector approved.");
   move(c, {
     itemId: r.itemId,
