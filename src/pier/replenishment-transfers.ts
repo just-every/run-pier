@@ -1,4 +1,4 @@
-import { available, decimal, fail, format, get, SCALE, text, type Context } from './model';
+import { available, decimal, fail, format, get, MAX, SCALE, text, type Context } from './model';
 import { ceilDivide, signedQuantity, supplyPosition } from './replenishment-position';
 import { effectivePolicy } from './replenishment-scope';
 import { money } from './money';
@@ -34,7 +34,8 @@ export function reviewedTransfers(c: Context, f: any, forecast: any, quotes: any
       const horizonDays = f.leadDays + (objective === 'cash' ? 1 : 2) * f.reviewDays;
       const demand = ceilDivide(decimal(objective === 'cash' ? forecast.expected : forecast.high) * BigInt(horizonDays), BigInt(f.windowDays));
       const need = positive(demand + decimal(f.safetyStock) - signedQuantity(f.position) - decimal(f.draftQuantity));
-      const quantity = free < need ? free : need;
+      const bounded = free < MAX ? free : MAX;
+      const quantity = bounded < need ? bounded : need;
       const layers = takeLayers(structuredClone(ledger.positions.find(p => p.itemId === f.itemId && p.locationId === from.id && p.status === 'sellable')?.layers ?? []), quantity);
       const stockCost = !layers.length || layers.some(l => l.value === null) ? null : layers.reduce((n, l) => n + l.value!, 0n);
       const cost = quantity > 0n ? decimal(transportCost) * SCALE : 0n;

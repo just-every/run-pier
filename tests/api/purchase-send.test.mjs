@@ -31,6 +31,15 @@ test('BUY-006: an agent sends only the exact bounded human-approved purchase onc
   const message = await h.command('po.sendApproved', payload, { as: cookie, commandId });
   assert.equal(message.approvedBy, (await h.state()).actor.id);
   assert.equal(message.requestedBy, session.operator.id);
+  assert.deepEqual(message.policyDecision.classes, ['money', 'external']);
+  assert.equal(message.policyDecision.outcome, 'approved');
+  assert.equal(message.policyDecision.facts.expectedLandedCost, undefined, 'an agent receives no hidden purchasing cost');
+  const decision = (await h.state()).correspondence.find(row => row.id === message.id).policyDecision;
+  assert.equal(decision.facts.expectedLandedCost, '2.500000000000');
+  assert.equal(decision.facts.recipient, po.sendPolicy.recipient);
+  assert.equal(decision.facts.terms.lines[0].quantity, '10');
+  assert.equal(decision.policy.approvedBy, (await h.state()).actor.id);
+  assert.equal(decision.policy.executorId, session.operator.id);
   assert.equal(mail.length, 1);
   assert.equal(mail[0].to[0], 'supplier@example.test');
   const retained = (await h.state()).salesDocuments.find(doc => doc.id === message.documentId);
@@ -102,6 +111,20 @@ test('BUY-006: an agent sends only the exact bounded human-approved purchase onc
   assert.equal(po.workflow.ruleVersion, rule.version - 1, 'draft provenance retains the generating revision');
   await h.command('po.sendApproved', { poId: po.id, version: po.version }, { as: cookie, error: 'SEND_AUTHORITY' });
   assert.equal(mail.length, mailBeforeEdit);
+  // Current company routing is checked again when a delegated send executes.
+  await h.command('role.set', { operatorId: session.operator.id, role: 'buyer' });
+  const ownerId = (await h.state()).actor.id, expiresAt = new Date(Date.now() + 3600000).toISOString();
+  await h.command('purchaseApproval.save', { limits: [{ supplierId: b.supplier.id, exceptionType: 'any', maxSpend: '100', approverId: ownerId,
+    escalationId: ownerId, delegates: [{ actorId: session.operator.id, expiresAt }] }] });
+  po = await authorize(await current((await buy(h, b)).id), { maxSpend: '100' }, { as: cookie });
+  const permitted = await h.command('po.sendApproved', { poId: po.id, version: po.version });
+  assert.equal(permitted.policyDecision.policy.purchaseApprovalVersion, 1);
+  assert.equal(mail.length, mailBeforeEdit + 1);
+  po = await authorize(await current((await buy(h, b)).id), { maxSpend: '100' }, { as: cookie });
+  const beforeExpiry = await h.state();
+  await h.command('po.sendApproved', { poId: po.id, version: po.version }, { headers: { 'x-pier-test-now': new Date(Date.parse(expiresAt) + 1000).toISOString() }, error: 'APPROVAL_ROUTE' });
+  assert.equal(mail.length, mailBeforeEdit + 1);
+  assert.deepEqual((await h.state()).correspondence, beforeExpiry.correspondence);
 
 });
 

@@ -1301,14 +1301,16 @@ test('buyers compare reviewed replenishment scenarios and follow selected receip
   await expect(comparison).toContainText('600'); await expect(comparison).toContainText('Held-out backtest');
   await expect(comparison).toContainText(`Transfer from ${source.warehouse}`);
   await expect(comparison.getByRole('button', { name: 'Dispatch cash transfer', exact: true })).toBeEnabled();
-  const capture = async (name: string) => {
+  const capture = async (name: string, target: Locator) => {
     if (shots) for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 });
-      await h.shot(width, name);
+      await target.scrollIntoViewIfNeeded();
+      await target.screenshot({ path: join(shots, `${width}-${name}-detail.png`) });
+      await page.screenshot({ path: join(shots, `${width}-${name}-viewport.png`) });
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
   };
-  await capture('replenishment-comparison');
+  await capture('replenishment-comparison', comparison);
   await comparison.getByRole('button', { name: 'Draft cash purchase', exact: true }).click();
   await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false');
   const state = await h.state(), po = state.purchaseOrders.find((p: any) => p.replenishment?.evidence.some((e: any) => e.itemId === b.item.id));
@@ -1326,5 +1328,6 @@ test('buyers compare reviewed replenishment scenarios and follow selected receip
   await expect(review).toContainText('96.00'); await expect(review).toContainText('Open');
   await expect(review.getByRole('row').filter({ hasText: b.item.sku })).toContainText('48');
   await expect(review).toContainText('absolute error'); await expect(review).toContainText('paid receipt obligations');
-  await capture('replenishment-follow-through');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await capture('replenishment-follow-through', review);
 });

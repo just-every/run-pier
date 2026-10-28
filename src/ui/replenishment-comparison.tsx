@@ -15,10 +15,10 @@ export function ReplenishmentComparison({ state, run, busy, forecast: f }: Props
   return <>
     <Form title="Compare cash and service plans" submit="Compare current options" busy={busy} disabled={!authorized(state)}
       note="Compare one item using saved settings and current evidence. A purchase choice creates a draft for separate human approval. A transfer choice dispatches physical stock only with current warehouse authority."
-      onSubmit={data => run('replenishment.compare', { itemId: f.itemId, warehouse: f.warehouse, cashCeiling: text(data, 'cashCeiling'),
+      onSubmit={async data => { await run('replenishment.compare', { itemId: f.itemId, warehouse: f.warehouse, cashCeiling: text(data, 'cashCeiling'),
         ...(includeTransfer ? { transferQuotes: [{ fromLocationId: text(data, 'fromLocationId'), toLocationId: text(data, 'toLocationId'), transitLocationId: text(data, 'transitLocationId'),
           expectedDate: text(data, 'expectedDate'), transportCost: text(data, 'transportCost'), reason: text(data, 'reason') }] } : {}) },
-      { onResult: result => setSaved({ actor: `${state.actor.id}:${state.actor.role}`, result }) })}>
+      { onResult: result => setSaved({ actor: `${state.actor.id}:${state.actor.role}`, result }) }); return false; }}>
       <Field label="Cash ceiling USD" name="cashCeiling" inputMode="decimal" defaultValue="100" />
       {f.scope !== 'company' && <Field label="Include a reviewed transfer" type="checkbox" required={false} checked={includeTransfer} onChange={() => setIncludeTransfer(!includeTransfer)} />}
       {includeTransfer && <>

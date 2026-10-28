@@ -62,9 +62,15 @@ export function purchaseSend(c: Context, type: string, p: any): Row | undefined 
   if (!policy?.enabled || policy.messageId || policy.expiresAt <= c.now || policy.inputs !== inputs(c, po) || policy.approvedMaterial !== poMaterial(po) ||
       !role || !['owner', 'buyer'].includes(role)) fail('SEND_AUTHORITY', 'This send authority expired, changed or was revoked. Ask a buyer to review it again.');
   if (amount(purchaseSpend(po)) > decimal(policy.maxSpend) * 1000000n) fail('SPEND_LIMIT', 'This purchase exceeds the approved landed spend.');
+  assertPurchaseApproval(c, po, policy.approvedBy);
   c.purchaseSendAuthority = { poId: po.id, policyVersion: policy.version, actorId: policy.approvedBy, role };
   const result = queuePurchase(c, po, { recipient: policy.recipient, chaseEveryDays: policy.everyDays, maxChases: policy.maxChases },
     { approvedBy: policy.approvedBy, approvalRole: role, sendPolicyVersion: policy.version, requestedBy: c.actor.id, executor: c.backgroundPolicy ? 'Scheduled inventory agent' : c.actor.name });
+  result.policyDecision = { classes: ['money', 'external'], outcome: 'approved',
+    facts: { expectedLandedCost: purchaseSpend(po), currency: 'USD', recipient: policy.recipient,
+      terms: JSON.parse(poMaterial(po)), maxSpend: policy.maxSpend },
+    policy: { kind: 'exact-human-send', version: policy.version, purchaseApprovalVersion: po.approvalRoute?.policyVersion ?? null,
+      approvedBy: policy.approvedBy, executorId: c.actor.id, inputs: policy.inputs, at: c.now } };
   policy.messageId = result.id;
   policy.executedAt = c.now;
   po.version++;
