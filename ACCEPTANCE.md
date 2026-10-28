@@ -8,10 +8,10 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 18 | 69 | 4 | 91 |
+| Core | 21 | 66 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 18 | 69 | 11 | 98 |
+| Full target | 21 | 66 | 11 | 98 |
 
 Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-011 proof is re-run on the exact landing candidate; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
@@ -34,7 +34,7 @@ Core · published · **partial**
 
 #### PIER-002 — Maintain counterparties and supplier terms
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Operators link suppliers and customers. Each supplier/item pair has one versioned terms record with supplier code, pack, price, minimum order and lead time. Purchase commitments and receipts retain their exact terms snapshot when the supplier later changes terms.
 
@@ -42,8 +42,8 @@ Core · published · **partial**
 1. Journey 2: create supplier terms, commit a PO, revise terms and read the original PO/receipt.
 2. The commitment retains its original quantities, price and source version; duplicate-pair creation cannot bypass the versioned record.
 
-**Evidence.** `src/pier/catalogue.ts`; `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (02, 05)
-**Gap.** Unasserted in the cited evidence: revising the supplier terms after the PO, reading the original PO and receipt after that revision with their quantities, price and source version, and refusal of a duplicate supplier-item pair. Asserted: supplier terms are saved and the committed PO line snapshots that terms record and its price.
+**Evidence.** `tests/api/flows.test.mjs` — “02 supplier terms are exact snapshots” creates and revises terms, rereads the original committed PO and receipt through state and business export, verifies exact quantities, price, terms version and movement links, and refuses duplicate-pair creation without changing terms, history or successful commands; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” creates supplier terms and commits and receives the purchase.
+**Gap.** None.
 
 #### PIER-003 — Review native opening inventory
 
@@ -90,7 +90,7 @@ Core · published · **partial** · Cites BASE-AGENT-008
 
 #### PIER-006 — Receive partial purchases atomically
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Warehouse staff receive some or all of a committed purchase into named bins, recording supplier reference and exact receipt cost. The remainder stays expected. Invalid or over-received lines cannot partially post an otherwise valid multi-line receipt.
 
@@ -98,8 +98,8 @@ Core · published · **partial**
 1. Journey 6: partially receive a multi-line PO, repeat the command, then submit one invalid line.
 2. The first receipt posts once, exact cost is retained, remaining expected quantities reconcile and the invalid receipt leaves every line unchanged.
 
-**Evidence.** `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (06)
-**Gap.** Unasserted: the remaining expected quantity after a partial receipt, and partial receipt of a multi-line PO (the PO received has one line). Asserted: the partial receipt posts once on replay with its exact cost, and a receipt carrying an invalid second line leaves movements unchanged.
+**Evidence.** `tests/api/flows.test.mjs` — “06 partial receipts and failed multi-line receipt are atomic” partially receives both SKUs of a committed PO, checks exact costs, independent movement sums and remaining expected quantities, replays without another receipt and refuses both an invalid line and an excessive second line without partial business effects; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” receives a partial purchase and recovers the exact command after response loss.
+**Gap.** None.
 
 #### PIER-007 — Correct receipts with physical evidence
 
@@ -142,7 +142,7 @@ Core · published · **partial**
 
 #### PIER-010 — Cancel and inspect returns
 
-Core · published · **partial** · Register R-6
+Core · published · **done** · Register R-6
 
 **Requirement.** Staff cancel only unshipped demand and release only its remaining reservations. A return points to an actual dispatch line and cannot exceed dispatched units less prior returns. It enters quarantine and requires separately reviewed restock before becoming sellable.
 
@@ -150,8 +150,8 @@ Core · published · **partial** · Register R-6
 1. Journey 10: cancel the remainder of a partially shipped order, return shipped units, reject an excess return and review a partial restock.
 2. Shipment history survives and quarantined units cannot be sold before restock.
 
-**Evidence.** `src/pier/orders.ts`; `tests/api/flows.test.mjs` (10) — exact partial restock, retained quarantine, replay and excess/mismatched-quantity refusal; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” reviews and posts a partial restock through Sales orders.
-**Gap.** Unasserted: that quarantined returned units cannot be sold before restock. Asserted: cancellation keeps the shipped quantity, the return, the excess-return refusal and the reviewed partial and full restock.
+**Evidence.** `tests/api/flows.test.mjs` — “10 cancellation preserves shipment and returns remain quarantine until review” proves cancellation and released reservations, preserved shipment history, actual dispatch-linked returns, excess-return refusal, exact partial and full restock, approval and replay; an isolated returned SKU reserves zero before restock and dispatch refuses without changing stock, movements, reservations, shipments, orders, returns or successful commands; after exact human approval and partial restock only the released quantity reserves and ships, with independent sellable and quarantine movement sums; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” reviews and posts partial restock through Sales orders, capturing the return at 1440 and 390.
+**Gap.** None.
 
 #### PIER-011 — Count at a captured movement frontier
 
