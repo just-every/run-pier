@@ -206,7 +206,7 @@ export async function execute(
   const previous = await saved(env.DB, commandId, digest, actor, backgroundPolicy);
   if (previous) {
     if (actor.role !== 'owner' && (type.startsWith('customField.') || type.startsWith('import.') && privateFieldCustody(await load(env.DB)) || previous.result?.pdf)) throw new Problem('FORBIDDEN', 'Current owner authority is required to recover protected field content, originals or documents.', null, 403);
-    return { ...previous, result: physicalResult(await load(env.DB), actor, previous.result) };
+    return { ...previous, replayed: true, result: physicalResult(await load(env.DB), actor, previous.result) };
   }
   // A losing optimistic admission is recomputed from current stock. This is
   // database concurrency handling, not a retry of an external effect or model.
@@ -323,7 +323,7 @@ export async function execute(
       return { ...outcome, result: visibleResult };
     } catch (error) {
       const replay = await saved(env.DB, commandId, digest, actor, backgroundPolicy);
-      if (replay) return { ...replay, result: physicalResult(await load(env.DB), actor, replay.result) };
+      if (replay) return { ...replay, replayed: true, result: physicalResult(await load(env.DB), actor, replay.result) };
       const latest = await load(env.DB);
       if (latest.version !== before.version) {
         if (attempt < 7) continue;
@@ -705,8 +705,12 @@ export async function pierResponse(
     if (outcome && ['po.send','slowStock.check','slowStock.flag','order.repromise','order.promisePolicy','po.confirm'].includes(type)) await deliverCorrespondence(env);
     if (outcome && type === "dispatch.close") return reply(await deliver(env, actor, commandId, outcome));
     if (outcome) {
-      if (execution) execution.waitUntil(Promise.all([syncChannels(env),syncBooks(env)]));
-      else await Promise.all([syncChannels(env),syncBooks(env)]);
+      // Settled replays recover their durable result. Uncertain ledger work
+      // still reconciles, while explicit and scheduled syncs always read back.
+      const booksPending = !outcome.replayed || (await load(env.DB)).bookJobs.some(job => job.document && !['posted','reconciled','skipped'].includes(job.status));
+      const followUp = Promise.all([syncChannels(env), ...(booksPending ? [syncBooks(env)] : [])]);
+      if (execution) execution.waitUntil(followUp);
+      else await followUp;
       return reply(outcome);
     }
     return reply(

@@ -94,4 +94,33 @@ test('owners assign overdue cases, see premature closure refusal and retain docu
     await page.setViewportSize({ width, height: 1000 })
     await panel.screenshot({ path: join(shots, `${width}-operational-case-history.png`) })
   }
+  const colleague = await context.browser()!.newContext()
+  let colleagueId: string
+  try {
+    const staff = await colleague.newPage()
+    await staff.goto(process.env.PIER_OPEN!.replace('as=owner', 'as=member'))
+    await staff.waitForURL(url => url.pathname === '/app' && !url.hash.includes('rer-dev'))
+    colleagueId = (await (await colleague.request.get(origin + '/auth/session')).json()).operator.id
+  } finally { await colleague.close() }
+  await command('role.set', { operatorId: colleagueId, role: 'owner' })
+  await page.reload(); await deliveryDetail.locator('summary').first().click()
+  await deliveryDetail.getByLabel('Assigned owner', { exact: true }).selectOption(colleagueId)
+  await deliveryDetail.getByRole('button', { name: 'Save next action', exact: true }).click()
+  await expect.poll(async () => (await state()).operationalExceptions.find((r: any) => r.id === delivery.id).assigneeId).toBe(colleagueId)
+  await command('role.set', { operatorId: colleagueId, role: 'viewer' })
+  await page.reload(); await deliveryDetail.locator('summary').first().click()
+  await expect(deliveryDetail).toContainText('Unassigned')
+  await expect(deliveryDetail).toContainText('Choose a current owner')
+  if (shots) for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await panel.screenshot({ path: join(shots, `${width}-operational-case-unassigned.png`) })
+  }
+  await deliveryDetail.getByLabel('Assigned owner', { exact: true }).selectOption(owner)
+  await deliveryDetail.getByRole('button', { name: 'Save next action', exact: true }).click()
+  await expect.poll(async () => (await state()).operationalExceptions.find((r: any) => r.id === delivery.id).assigneeId).toBe(owner)
+  await expect(deliveryDetail).not.toContainText('Choose a current owner')
+  if (shots) for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await panel.screenshot({ path: join(shots, `${width}-operational-case-reassigned.png`) })
+  }
 })

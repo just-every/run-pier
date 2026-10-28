@@ -2999,7 +2999,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "653073e291720f1c0aba3aa49f58ceaa8052e224db62e7f73c531686c8b5d542",
+      "sha256": "1cd5fe02efcfaac6eaa28b1747bae562a73873c78f24b6d6f7cd3a54c97ba62a",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -4919,7 +4919,7 @@
       "executable": false
     },
     "tests/browser/operational-exceptions.spec.ts": {
-      "sha256": "0b33b17dbae38494279be544e64bf1805410e5b7ac8f388311706e54749f27e2",
+      "sha256": "4cce60627ca879592c9de404e9641f01ae54e94b448c9d92d8561b69d7ba8ed3",
       "executable": false
     },
     "tests/browser/playwright.config.ts": {
