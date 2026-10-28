@@ -19,7 +19,7 @@
     "test:email-link": "node tests/email-link.mjs",
     "onboard": "node scripts/install.mjs",
     "build:app": "vite build",
-    "verify:app": "pnpm run build && pnpm run typecheck && pnpm run test:api && pnpm run test:site && node tests/email-link.mjs && node tests/portable.mjs && node tests/browser/run.mjs --grep 'native authenticator enrollment' && node tests/browser/run.mjs --grep 'owners assign overdue cases' && node tests/browser/run.mjs --grep 'buyers compare reviewed replenishment'",
+    "verify:app": "node scripts/ci/verify-app.mjs",
     "reset": "rer reset",
     "export": "rer export",
     "import": "rer import",
@@ -30,13 +30,15 @@
     "deps": "rer install",
     "rer": "rer",
     "test:api": "node --test --test-concurrency=1 tests/api/*.test.mjs",
-    "test:portable": "node tests/portable.mjs",
+    "test:portable": "pnpm run build && node tests/portable.mjs && node tests/portable.mjs --custody",
     "source:lock": "node scripts/edition-authoring/cli.mjs lock",
     "source:check": "node scripts/edition-authoring/cli.mjs check",
-    "test:site": "node --test tests/site/*.test.mjs",
+    "test:site": "pnpm exec rer build --site && node --test tests/site/*.test.mjs",
     "hosted": "node scripts/hosted.mjs",
     "delivery:spec": "node scripts/build-deployment-spec.mjs",
-    "check:deployment-spec": "node scripts/build-deployment-spec.mjs --check"
+    "check:deployment-spec": "node scripts/build-deployment-spec.mjs --check",
+    "test:journeys": "node tests/run-journeys.mjs",
+    "test:browser": "pnpm run build && node tests/browser/run.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "1.1.1",

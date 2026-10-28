@@ -14,7 +14,7 @@ export async function pantryInstallation({ revision = '5c712d42d1c2107a7550aba3b
   const dir=await mkdtemp(join(tmpdir(),'pier-pantry-'));
   let mf;
   try{
-    let source=process.env.PANTRY_SOURCE;
+    let source=process.env.PANTRY_SOURCES ? join(process.env.PANTRY_SOURCES, revision) : process.env.PANTRY_SOURCE;
     if(!source){
       source=join(dir,'source');
       // Compatibility target, not a runtime dependency or a version assertion.

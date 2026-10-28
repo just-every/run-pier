@@ -62,72 +62,102 @@ jobs:
           fi
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
-  rer-verify:
+  light:
     needs: plan
     if: needs.plan.outputs.skip != 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    env:
-      CI: 'true'
-      WRANGLER_SEND_METRICS: 'false'
-      GH_TOKEN: ${{ github.token }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Reclaim unused hosted runner toolchain space
-        if: runner.environment == 'github-hosted' && runner.os == 'Linux'
-        shell: bash
-        run: |
-          set -euo pipefail
-          # rer dev and preview require 15 GiB free. This disposable JavaScript job
-          # does not use Android, .NET or Haskell; preserve Node, browsers and caches.
-          df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
-          for toolchain in /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup; do
-            if df -Pk "$GITHUB_WORKSPACE" "$RUNNER_TEMP" | awk '
-              NR > 1 && $4 < 20 * 1024 * 1024 { insufficient = 1 }
-              END { exit insufficient }
-            '; then
-              break
-            fi
-            sudo rm -rf -- "$toolchain"
-          done
-          df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
       - uses: actions/setup-node@v4
         with:
           node-version: '22.20.0'
       - run: corepack enable && corepack prepare pnpm@10.12.4 --activate
       - run: pnpm install --frozen-lockfile
       - run: node src/base/contract-docs.mjs check
-      - name: Install Chromium
+      - run: pnpm exec rer check --profile first-party
+      - run: pnpm run typecheck
+
+  build:
+    needs: [plan, light]
+    if: needs.plan.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+      PIER_CI_BUILD_STAGE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.20.0'
+      - run: corepack enable && corepack prepare pnpm@10.12.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium for output and hydration scans
         run: |
-          set -euo pipefail
           pnpm exec playwright install chromium
-          # Hosted ubuntu-24.04 already carries Chromium's libraries. Use apt only when a real launch fails.
           node scripts/ci/chromium-probe.mjs || {
             timeout 420 pnpm exec playwright install-deps chromium
             node scripts/ci/chromium-probe.mjs
           }
-      - run: pnpm exec rer check --profile first-party
       - run: pnpm exec rer verify --no-queue
-      # The run site: homepage, /run and the docs from the repository's Markdown,
-      # refused on any broken, instance-only or other-origin reference.
-      - run: pnpm exec rer build --site --no-queue
-      - name: Verify connector recovery and capture desktop and phone screens
-        env:
-          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-sync-browser
-          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-sync-browser/screenshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pier-build
+          path: dist
+          include-hidden-files: true
+          retention-days: 1
+
+  journeys:
+    needs: [plan, build]
+    if: needs.plan.outputs.skip != 'true'
+    name: Journeys ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+      GH_TOKEN: ${{ github.token }}
+      PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-journeys
+      PIER_SCREENSHOTS: ${{ runner.temp }}/pier-journeys/screenshots
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room for native installation journeys
+        run: sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.20.0'
+      - run: corepack enable && corepack prepare pnpm@10.12.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: pier-build
+          path: dist
+      - name: Install Chromium
+        if: matrix.shard != 7
         run: |
-          timeout 1200 node tests/browser/run.mjs stock.spec.ts --grep STOCK-001
-          timeout 1200 node tests/browser/run.mjs supplier-returns.spec.ts --grep BUY-003
+          pnpm exec playwright install chromium
+          node scripts/ci/chromium-probe.mjs || {
+            timeout 420 pnpm exec playwright install-deps chromium
+            node scripts/ci/chromium-probe.mjs
+          }
+      - run: node tests/run-journeys.mjs ${{ matrix.shard }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: connector-recovery-screens
-          path: ${{ runner.temp }}/pier-sync-browser
+          name: journey-screens-${{ matrix.shard }}
+          path: ${{ runner.temp }}/pier-journeys
           if-no-files-found: ignore
           retention-days: 7
 
+
   verify:
-    needs: [plan, rer-verify]
+    needs: [plan, light, build, journeys]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 1
