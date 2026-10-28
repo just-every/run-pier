@@ -344,6 +344,21 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         movements: s.movements, positions: s.positions, reservations: s.reservations, commands: s.commands });
       assert.deepEqual(await h.command("receipt.create", multiPayload, { commandId: multiKey }), posted);
       assert.deepEqual(receiptBusiness(await h.state()), receiptBusiness(received));
+      const secondReceipt = await h.command("receipt.create", {
+        ...multiPayload, supplierReference: "synthetic-pier-6-second-receipt",
+        lines: [{ ...receiptLines[0], quantity: "0.3" }, { ...receiptLines[1], quantity: "0.5" }],
+      });
+      const cumulative = await h.state();
+      const cumulativePo = cumulative.purchaseOrders.find((p) => p.id === multiPo.id);
+      for (const [index, quantity, expected] of [[0, "1.5", "1.5"], [1, "3", "2"]]) {
+        const itemId = receiptItems[index].id;
+        assert.equal(cumulativePo.lines[index].received, quantity);
+        assert.equal(parse(cumulativePo.lines[index].quantity) - parse(quantity), parse(expected));
+        assert.equal(cumulative.warehouseStocks.find((s) => s.itemId === itemId && s.warehouse === "North").expected, expected);
+        assert.equal(cumulative.movements.filter((m) => m.itemId === itemId && m.status === "sellable").reduce((n, m) => n + BigInt(m.quantity), 0n), parse(quantity));
+        assert.equal(cumulative.positions.find((p) => p.itemId === itemId && p.locationId === b.source.id && p.status === "sellable").quantity, quantity);
+        assert.equal(secondReceipt.lines[index].costTotal, ["0.060000000000", "0.175000000000"][index]);
+      }
       const beforeLimit = receiptBusiness(await h.state());
       await h.command("receipt.create", {
         ...multiPayload, lines: [{ ...receiptLines[0], quantity: "0.1" }, { ...receiptLines[1], quantity: "2.6" }],

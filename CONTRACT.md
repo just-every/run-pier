@@ -1410,7 +1410,7 @@ Inherits BASE-AGENT-001 to BASE-AGENT-013. The company's policy decides every ca
 
 ## Status
 
-Judged from the code and tests of the exact landing candidate (28 October 2026) for PIER-002, PIER-006 and PIER-010; its full commit identity is reported with the recorded Verify evidence. Other status judgments at commit `2795306bf0090a139f5f220dbe7ee592c92ec51a` are preserved; AGENT-002 proof is re-run on its exact landing candidate.
+Judged from the code and tests at commit `452406a0c473c851dc1de49bfe768596e91f4910` (28 October 2026). PIER-002, PIER-006 and PIER-010 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |

@@ -13,7 +13,7 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 | Later | 0 | 0 | 0 | 0 |
 | Full target | 20 | 67 | 11 | 98 |
 
-Judged from the code and tests at commit `2795306bf0090a139f5f220dbe7ee592c92ec51a` (28 October 2026). AGENT-002 proof is re-run on the exact landing candidate; other status judgments are preserved. PIER-002, PIER-006 and PIER-010 are judged from the exact landing candidate on branch `cloud/sx-pier-c-f8`, whose full commit identity is reported with its Verify evidence. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `452406a0c473c851dc1de49bfe768596e91f4910` (28 October 2026). PIER-002, PIER-006 and PIER-010 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
