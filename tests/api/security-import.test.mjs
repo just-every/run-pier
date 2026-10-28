@@ -634,8 +634,10 @@ test("native import reads USD by default, refuses an unknown currency naming the
     ],
   });
   const rows = "p1,i1,l,sellable,10,each,2.50,\np2,i2,l,sellable,4,each,10,AUD\n";
+  const beforeUnknownCurrency = await h.state();
   const refused = await h.command("import.stage", input("p1,i1,l,sellable,10,each,2.50,XYZ\n"), { error: "CURRENCY" });
   assert.match(refused.error.message, /Row 2 of positions\.csv/);
+  assert.deepEqual(await h.state(), beforeUnknownCurrency, "unknown currency cannot stage a batch or change business state");
   let b = await h.command("import.stage", input(rows));
   assert.equal(b.currency, "USD");
   assert.equal(b.source.records.find((r) => r.sourceId === "p1").payload.currency, "USD");
