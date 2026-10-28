@@ -39,6 +39,112 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
     po = await buy(h, b);
     assert.equal(po.lines[0].terms.id, terms.id);
     assert.equal(po.lines[0].terms.price, "0.25");
+
+    // Keep this receipt history separate from the opening and stock journey below.
+    const history = await installation({ outboundService: request => {
+      outbound.push(new URL(request.url).origin);
+      throw new Error('Supplier terms do not authorize external access.');
+    } });
+    try {
+      const fixtures = await basics(history);
+      const original = await history.command("supplierItem.save", {
+        supplierId: fixtures.supplier.id, itemId: fixtures.item.id,
+        code: "synthetic-pier-1", packSize: "0.5", price: "2.4", minimum: "1", leadDays: 3,
+      });
+      const expectedTerms = {
+        id: original.id, version: 1,
+        supplierId: fixtures.supplier.id, itemId: fixtures.item.id,
+        code: "synthetic-pier-1", packSize: "0.5", price: "2.4", minimum: "1", leadDays: 3,
+      };
+      const termValues = ({ id, version, supplierId, itemId, code, packSize, price, minimum, leadDays }) =>
+        ({ id, version, supplierId, itemId, code, packSize, price, minimum, leadDays });
+      const draft = await history.command("po.draft", {
+        supplierId: fixtures.supplier.id, promiseDate: "2026-11-01", reason: "Retain approved supplier terms",
+        lines: [{ itemId: fixtures.item.id, quantity: "6.5", price: "2.4" }],
+      });
+      await history.command("po.approve", { poId: draft.id, version: draft.version });
+      await history.command("po.commit", { poId: draft.id, version: draft.version });
+      const received = await history.command("receipt.create", {
+        poId: draft.id, supplierReference: "synthetic-pier-2",
+        lines: [{ poLineId: draft.lines[0].id, locationId: fixtures.source.id, quantity: "2.25", cost: "2.4" }],
+      });
+      const exported = async () => {
+        const response = await history.request("/api/pier/export");
+        assert.equal(response.status, 200);
+        return response.json();
+      };
+      const beforeRevision = await exported();
+      const originalPo = beforeRevision.purchaseOrders.find(row => row.id === draft.id);
+      const originalReceipt = beforeRevision.receipts.find(row => row.id === received.id);
+      const revised = await history.command("supplierItem.save", {
+        id: original.id, version: original.version,
+        supplierId: fixtures.supplier.id, itemId: fixtures.item.id,
+        code: "synthetic-pier-3", packSize: "2", price: "3.75", minimum: "8", leadDays: 12,
+      });
+      const expectedCurrent = {
+        ...expectedTerms, version: 2, code: "synthetic-pier-3", packSize: "2", price: "3.75", minimum: "8", leadDays: 12,
+      };
+      assert.deepEqual(termValues(revised), expectedCurrent);
+
+      const state = await history.invariant();
+      const afterRevision = await exported();
+      for (const view of [state, afterRevision]) {
+        assert.equal(view.supplierItems.length, 1);
+        assert.deepEqual(termValues(view.supplierItems[0]), expectedCurrent);
+        const committed = view.purchaseOrders.find(row => row.id === draft.id);
+        assert.equal(committed.status, "committed");
+        assert.equal(committed.supplierId, fixtures.supplier.id);
+        assert.equal(committed.lines.length, 1);
+        const line = committed.lines[0];
+        assert.deepEqual({ itemId: line.itemId, quantity: line.quantity, price: line.price, received: line.received },
+          { itemId: fixtures.item.id, quantity: "6.5", price: "2.4", received: "2.25" });
+        assert.deepEqual(termValues(line.terms), expectedTerms);
+        const receipt = view.receipts.find(row => row.id === received.id);
+        assert.equal(receipt.poId, committed.id);
+        assert.equal(receipt.supplierReference, "synthetic-pier-2");
+        assert.equal(receipt.status, "posted");
+        assert.equal(receipt.lines.length, 1);
+        const receiptLine = receipt.lines[0];
+        assert.deepEqual({ poLineId: receiptLine.poLineId, itemId: receiptLine.itemId, locationId: receiptLine.locationId,
+          quantity: receiptLine.quantity, cost: receiptLine.cost, costTotal: receiptLine.costTotal },
+        { poLineId: line.id, itemId: fixtures.item.id, locationId: fixtures.source.id,
+          quantity: "2.25", cost: "2.4", costTotal: "5.400000000000" });
+        assert.deepEqual(receiptLine.source, { cost: "2.4", currency: "USD", usdRate: "1", total: "5.400000000000" });
+        const movement = view.movements.find(row => row.id === receiptLine.movementId);
+        assert.deepEqual({ itemId: movement.itemId, locationId: movement.locationId, documentId: movement.documentId,
+          quantity: movement.quantity, status: movement.status },
+        { itemId: fixtures.item.id, locationId: fixtures.source.id, documentId: receipt.id,
+          quantity: "2250000", status: "sellable" });
+      }
+      assert.deepEqual(afterRevision.purchaseOrders, beforeRevision.purchaseOrders);
+      assert.deepEqual(afterRevision.receipts, beforeRevision.receipts);
+      assert.deepEqual(afterRevision.purchaseOrders[0], originalPo);
+      assert.deepEqual(afterRevision.receipts[0], originalReceipt);
+
+      const duplicateId = randomUUID();
+      const duplicate = await history.request("/api/pier/commands", {
+        method: "POST",
+        body: { commandId: duplicateId, type: "supplierItem.save", payload: {
+          supplierId: fixtures.supplier.id, itemId: fixtures.item.id,
+          code: "synthetic-pier-4", packSize: "5", price: "0.1", minimum: "0", leadDays: 0,
+        } },
+      });
+      assert.equal(duplicate.status, 409);
+      const refusal = await duplicate.json();
+      assert.equal(refusal.ok, false);
+      assert.equal(refusal.error.code, "DUPLICATE");
+      const afterRefusal = await exported();
+      for (const key of ["items", "parties", "locations", "supplierItems", "purchaseOrders", "receipts", "movements", "reservations", "commands"])
+        assert.deepEqual(afterRefusal[key], afterRevision[key], `duplicate terms leave ${key} unchanged`);
+      assert.equal(afterRefusal.commands.some(row => row.id === duplicateId), false);
+      const refusedState = await history.invariant();
+      assert.deepEqual(refusedState.positions, state.positions);
+      assert.deepEqual(refusedState.supplierItems, state.supplierItems);
+      assert.deepEqual(refusedState.purchaseOrders, state.purchaseOrders);
+      assert.deepEqual(refusedState.receipts, state.receipts);
+    } finally {
+      await history.close();
+    }
     await h.invariant();
   });
   await t.test(
