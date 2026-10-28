@@ -11,7 +11,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 3 | "reorders before you run out" | `BUY-005` partial; `BUY-008` partial; `BUY-001` partial; `AUTO-001` partial | partial |
 | 4 | "and keeps the books in step" | `ACCOUNT-001` partial; `ACCOUNT-002` partial | partial |
 | 5 | "100% free, open source alternative to the supported source inventory systems" | `OPEN-001` done; `MIGRATE-001` partial | partial |
-| 6 | The six hero tags, each a stage below | `PIER-006` partial; `EDI-001` partial; `PIER-011` partial; `WMS-001` done; `STOCK-001` partial; `BUY-005` partial | partial |
+| 6 | The six hero tags, each a stage below | `PIER-006` partial; `EDI-001` partial; `PIER-011` done; `WMS-001` done; `STOCK-001` partial; `BUY-005` partial | partial |
 | 7 | "The inventory agent reads sell-through across your channels, sees the gap" | `AGENT-002` done; `BUY-001` partial | partial |
 | 8 | "Order 500 by Oct 7 · 12 days safety" | `BUY-001` partial; `BUY-005` partial | partial |
 | 9 | "… and sends the purchase order" (PO-1048 sent, confirmed) | `AGENT-002` done; `BUY-006` partial | partial |
@@ -21,8 +21,8 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 13 | "Each carton is scanned against the PO as it comes off the truck" | `WMS-001` done; `SCAN-002` partial; `PIER-006` partial | partial |
 | 14 | "480 of 500 received · 20 short" | `PIER-006` partial | partial |
 | 15 | "Scan the bin, scan the carton" (put away on a handheld) | `WMS-001` done; `SCAN-001` partial; `PIER-006` partial | partial |
-| 16 | "A count that disagrees gets a recount" | `PIER-011` partial; `WMS-001` done | partial |
-| 17 | "… before anything moves" | `PIER-011` partial; `COUNT-001` partial | partial |
+| 16 | "A count that disagrees gets a recount" | `PIER-011` done; `WMS-001` done | done |
+| 17 | "… before anything moves" | `PIER-011` done; `COUNT-001` partial | partial |
 | 18 | "Orders from your stores, marketplaces and EDI land in one queue" | `CHANNEL-001` partial; `EDI-001` partial; `SALES-001` partial; `SALES-008` done | partial |
 | 19 | Faire among the orders and channels | `CHANNEL-004` partial | partial |
 | 20 | One count: 571 available, 692 on hand, 121 reserved | `STOCK-001` partial; `PIER-004` done | partial |
@@ -53,4 +53,4 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 45 | Tag "PO-1061 sent · 600 Blue Mug 12oz" | `AGENT-002` done; `BUY-006` partial | partial |
 | 46 | "Free and open source, MIT licensed" | `OPEN-001` done | done |
 
-Claims: 46; 4 done, 42 partial, 0 missing.
+Claims: 46; 5 done, 41 partial, 0 missing.

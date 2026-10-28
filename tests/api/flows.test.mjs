@@ -508,11 +508,14 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         intervened.counts.find((count) => count.id === aba.id).stale,
         true,
       );
+      const beforeReplacedFrontier = await countEffects();
       const rejected = await h.command(
         "count.approve",
         { countId: aba.id, version: aba.version },
         { error: "COUNT_FRONTIER" },
       );
+      assert.deepEqual(await countEffects(), beforeReplacedFrontier,
+        "a replaced movement frontier also refuses without business effects");
       assert.equal(rejected.error.details.removedMovementIds.length, 1);
       assert.equal(
         intervened.positions.find(

@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 17 | 70 | 4 | 91 |
+| Core | 18 | 69 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 17 | 70 | 11 | 98 |
+| Full target | 18 | 69 | 11 | 98 |
 
-Judged from the code and tests at commit `2795306bf0090a139f5f220dbe7ee592c92ec51a` (28 October 2026). AGENT-002 proof is re-run on the exact landing candidate; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-011 proof is re-run on the exact landing candidate; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -155,7 +155,7 @@ Core · published · **partial** · Register R-6
 
 #### PIER-011 — Count at a captured movement frontier
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Warehouse staff capture a movement frontier, record a physical count, inspect variance and approve an exact adjustment or recount. A movement after capture makes the review stale; a model estimate cannot replace a physical count.
 
@@ -163,8 +163,8 @@ Core · published · **partial**
 1. Journey 11: capture and count a bin, move stock, then attempt the old approval.
 2. It fails without changing stock; a new captured count can produce the exact approved compensating movement.
 
-**Evidence.** `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (11)
-**Gap.** Unasserted: that the refused stale approval leaves stock unchanged (the test reads positions before the refusal). Asserted: the stale-frontier refusal and the exact compensating movement from a new captured count.
+**Evidence.** `tests/api/flows.test.mjs` — “11 count frontier prevents overwriting intervening movement” in “Pier public Worker and D1 wholesale journey” proves captured physical counts, stale approval refusal after an intervening receipt and after replacement of a captured movement, unchanged stock positions, movements, reservations, count review and approval state and successful command results, independent movement sums, and the exact fresh-count compensating adjustment. The enclosing journey asserts zero outbound requests.
+**Gap.** None.
 
 #### PIER-012 — Investigate and leave with native data
 
