@@ -1,3 +1,4 @@
+import { admitPlannedTransfer, transferQuotes } from './replenishment-transfers';
 import {
   decimal,
   format,
@@ -57,6 +58,8 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
     transfer.expectedDate = date; transfer.promiseReason = text(p.reason); transfer.confirmedBy = c.actor.id; transfer.version++; return transfer;
   }
   if (type === "transfer.send") {
+    admitPlannedTransfer(c, p);
+    const quote = p.expectedDate !== undefined || p.transportCost !== undefined ? transferQuotes([p])[0] : null;
     const q = decimal(p.quantity, true);
     const from = get(c.s, "locations", p.fromLocationId),
       to = get(c.s, "locations", p.toLocationId),
@@ -82,6 +85,8 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
       received: "0",
       reason: text(p.reason),
       status: "transit",
+      ...(quote ? { expectedDate: quote.expectedDate, transportCost: quote.transportCost, quoteSource: quote.reason } : {}),
+      ...(p.planningReview ? { planningReview: structuredClone(p.planningReview) } : {}),
     });
     move(c, {
       itemId: t.itemId,

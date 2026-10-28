@@ -1,4 +1,5 @@
 import { replenishmentFollowThrough } from './replenishment-follow-through';
+import { transferQuotes } from './replenishment-transfers';
 import { optimization } from './replenishment-optimization';
 import { adjustedForecast, forecastAssumptions } from './replenishment-forecast';
 import { compareReplenishment } from './replenishment-alternatives';
@@ -97,7 +98,7 @@ export function replenishment(c: Context, type: string, p: any): Row | undefined
     const f = forecast(c, [{ itemId: p.itemId, warehouse: p.warehouse, supplierId: p.supplierId }]).find(f => f.itemId === p.itemId && f.warehouse === p.warehouse)
       ?? fail('NOT_FOUND', 'Choose an active item in the current planning scope.');
     return { id: c.commandId, version: 1, stateVersion: c.s.version + 1, itemId: f.itemId, warehouse: f.warehouse,
-      supplierId: f.supplierId, ...compareReplenishment(f, p.cashCeiling), optimization: optimization(c, f, p.cashCeiling) };
+      supplierId: f.supplierId, ...compareReplenishment(f, p.cashCeiling), optimization: optimization(c, f, p.cashCeiling, transferQuotes(p.transferQuotes)) };
   }
   if (!['replenishment.save', 'replenishment.plan'].includes(type)) return;
   requireRole(c, ['buyer']);

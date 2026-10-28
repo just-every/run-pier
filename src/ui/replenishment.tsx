@@ -1,3 +1,4 @@
+import { ReplenishmentComparison } from './replenishment-comparison';
 import { ReorderBatch, ReorderScope } from './reorder-batch';
 import { useState } from 'react';
 import { label, records, unit, type PierState, type RunCommand } from './api';
@@ -46,6 +47,7 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
   const suppliers = records(state, 'parties').filter(party => party.kind === 'supplier' && terms.some(term => term.supplierId === party.id));
   const learned = f.learned;
   return <>
+    <ReplenishmentComparison key={`${f.itemId}-${f.warehouse}-${state.actor.id}`} state={state} run={run} busy={busy} forecast={f} />
     <section className="panel"><h2><ItemName state={state} id={f.itemId} /> · {f.warehouse}</h2>
       <Facts values={[
         { label: 'Sellable on hand', value: `${f.onHand} ${unit(state, f.itemId)}` },
@@ -102,6 +104,12 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
       <Field label="Duty estimate (USD total)" name="duty" defaultValue={policy?.duty ?? '0'} inputMode="decimal" />
       <Field label="Automatically prepare purchase drafts" name="autoDraft" type="checkbox" defaultChecked={policy?.autoDraft === true} required={false} />
     </Form>
+    {policy && <details><summary>Forecast settings</summary>
+      <Form key={`forecast-${f.policyVersion}`} title="Seasonality and promotion assumptions" submit="Save forecast assumptions" busy={busy} disabled={!canBuy(state)} note="Enter reviewed low, expected and high factors with their evidence sources. These are uncertain scenarios, not measured probabilities. The held-out backtest uses only earlier demand for training."
+        onSubmit={data => { const target = f.scope === 'company' ? f.defaults : f.localPolicy; return run('replenishment.save', { ...policy, id: target?.id, version: target?.version ?? 0, warehouse: f.warehouse, scope: f.scope === 'company' ? 'sku' : 'location', forecastAssumptions: Object.fromEntries(['seasonality', 'promotion'].map(kind => [kind, { low: text(data, `${kind}Low`), expected: text(data, `${kind}Expected`), high: text(data, `${kind}High`), source: text(data, `${kind}Source`) }])) }); }}>
+        {['seasonality', 'promotion'].map(kind => <div key={kind}>{['Low', 'Expected', 'High', 'Source'].map(bound => <Field key={bound} label={`${kind === 'seasonality' ? 'Seasonality' : 'Promotion'} ${bound.toLowerCase()}`} name={`${kind}${bound}`} defaultValue={policy.forecastAssumptions?.[kind]?.[bound.toLowerCase()] ?? (bound === 'Source' ? '' : '1')} inputMode={bound === 'Source' ? 'text' : 'decimal'} />)}</div>)}
+      </Form>
+    </details>}
     <p className="muted">Supplier: {label(suppliers, supplierId)}. Policy version {f.policyVersion}. Buyer-applied parameters stay fixed when new demand arrives.</p>
   </>;
 }
