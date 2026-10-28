@@ -4642,6 +4642,10 @@
       "sha256": "611add09bb36dd14310c8ebe4bc60c44e8bcb48ff8f20566be7d6ae108ce1118",
       "executable": false
     },
+    "src/ui/style/replenishment.css": {
+      "sha256": "bf168627d0dd08e483c7f1b971c2add1e2078df433e9373fec5ef99c9b3f2a80",
+      "executable": false
+    },
     "src/ui/style/shell.css": {
       "sha256": "e7ce18ceeaad5e0fa1a406a797ca6d487b08919abd72cc3aee47579812a0a845",
       "executable": false
