@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "bb0fa6bc24a7c3b92ce05663a94c7ac43b43725fc2f8d447e49a6e0f98cde4fd",
+      "sha256": "9cd6d10318aed720c35889966d084ce7d08c753765437185e8ff5a59692dd569",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "6b750d2e058fa74e8127bef3b04e2d0f435ca139588aeca5e6d16b915b4c2bb6",
+      "sha256": "ace56d4ac460d3a40be0ec71166910af149089c9b04be67c3af02c93d8c8df68",
       "executable": false
     },
     "DEMO.md": {
@@ -403,7 +403,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "719887056327359c516b80a3bddb4e136ab32364362744c424a69b01fcaf68a9",
+      "sha256": "6868fa4b8273e29cdf6600d2b05c24d3fe8b34543ed1da026d63f0f709b729b4",
       "executable": false
     },
     "docs/contract/acceptance-before-cleanup.md": {
@@ -4755,7 +4755,7 @@
       "executable": false
     },
     "tests/api/inventory-journey.test.mjs": {
-      "sha256": "85df99f2e9d577b4f46027aac1cc65565a7e370f5521e4f72d701b38ef84df44",
+      "sha256": "9f288908497d315eacf36a76801d00578684908a0d671b658e25f19015bbf230",
       "executable": false
     },
     "tests/api/journey-resources.mjs": {

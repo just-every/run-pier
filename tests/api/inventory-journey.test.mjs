@@ -405,6 +405,20 @@ test("Opening stock to fractional sales, physical corrections, stocktake and dur
       await checkpoint(
         "11 count frontier prevents overwriting intervening movement",
         async () => {
+          const countEffects = async () => {
+            const state = await h.invariant();
+            const response = await h.request("/api/pier/export");
+            assert.equal(response.status, 200);
+            const exported = await response.json();
+            return {
+              version: state.version,
+              positions: state.positions,
+              movements: state.movements,
+              reservations: state.reservations,
+              counts: state.counts,
+              commands: exported.commands,
+            };
+          };
           let count = await h.command("count.capture", {
             locationId: b.destination.id,
           });
@@ -426,11 +440,18 @@ test("Opening stock to fractional sales, physical corrections, stocktake and dur
             reason: "Physical count",
           });
           await receive(h, b, po, "0.1");
+          const beforeRefusal = await countEffects();
+          const staleReview = beforeRefusal.counts.find((count) => count.id === stale.id);
+          assert.equal(staleReview.status, "review");
+          assert.equal(staleReview.approval, undefined);
+          assert.equal(staleReview.stale, true);
           await h.command(
             "count.approve",
             { countId: stale.id, version: stale.version },
             { error: "COUNT_FRONTIER" },
           );
+          assert.deepEqual(await countEffects(), beforeRefusal,
+            "stale approval changes no stock, movements, reservations, count review or successful command results");
           let revision = await h.command("import.stage", {
             namespace: "opening",
             sourceVersion: "corrected-opening",
@@ -497,11 +518,14 @@ test("Opening stock to fractional sales, physical corrections, stocktake and dur
             intervened.counts.find((count) => count.id === aba.id).stale,
             true,
           );
+          const beforeReplacedFrontier = await countEffects();
           const rejected = await h.command(
             "count.approve",
             { countId: aba.id, version: aba.version },
             { error: "COUNT_FRONTIER" },
           );
+          assert.deepEqual(await countEffects(), beforeReplacedFrontier,
+            "a replaced movement frontier also refuses without business effects");
           assert.equal(rejected.error.details.removedMovementIds.length, 1);
           assert.equal(
             intervened.positions.find(
