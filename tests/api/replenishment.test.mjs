@@ -482,5 +482,15 @@ test('supplier delays and realized contribution rank bounded purchases while tra
   net = (await h.command('replenishment.compare', request)).optimization.realizedMargin;
   assert.equal(net.revenue, '166.000000000000', 'a prepay return credit belongs to its physical shipment and replaces the whole reserve once');
   assert.equal(net.cost, '68.000000000000'); assert.equal(net.margin, '98.000000000000');
+  const lossOrder = await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '2', price: '1' }] });
+  const lossShipment = await h.command('dispatch.create', { orderId: lossOrder.id, shipmentReference: 'synthetic-pier-net-loss', lines: [{ orderLineId: lossOrder.lines[0].id, quantity: '2' }] });
+  let lossInvoice = await h.command('invoice.draft', { orderId: lossOrder.id, shipmentId: lossShipment.id, charges: [{ kind: 'discount', amount: '200', taxable: false }, { kind: 'freight', amount: '300', taxable: false }] });
+  lossInvoice = await h.command('invoice.review', { invoiceId: lossInvoice.id, version: lossInvoice.version });
+  await h.command('invoice.authorize', { invoiceId: lossInvoice.id, version: lossInvoice.version });
+  const lossComparison = (await h.command('replenishment.compare', request)).optimization;
+  assert.equal(lossComparison.realizedMargin.revenue, '-32.000000000000', 'item losses cannot be floored to zero or hidden by separately charged freight');
+  assert.equal(lossComparison.realizedMargin.margin, '-104.000000000000');
+  assert.equal(lossComparison.realizedMargin.unitRevenue, '-0.761904');
+  assert.ok(lossComparison.rankings.cash.every(option => option.expectedContribution.startsWith('-')));
   await h.invariant();
 });

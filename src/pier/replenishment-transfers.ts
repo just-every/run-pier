@@ -42,7 +42,7 @@ export function reviewedTransfers(c: Context, f: any, forecast: any, quotes: any
       const executable = quantity > 0n && leadDays <= horizonDays;
       return { kind: 'transfer', objective, quoteIndex: index, fromWarehouse: from.warehouse, toWarehouse: to.warehouse,
         quantity: format(quantity), horizonDays, leadDays, expectedDate, transportCost, expectedLandedCost: money(cost),
-        expectedContribution: unitRevenue === null || stockCost === null ? null : money(quantity * decimal(unitRevenue) - stockCost - cost),
+        expectedContribution: unitRevenue === null || stockCost === null ? null : money(quantity * signedQuantity(unitRevenue) - stockCost - cost),
         uncoveredAtHorizon: format(positive(need - (executable ? quantity : 0n))), protectedSafetyStock: surplus.safetyStock,
         sourcePosition: surplus.position, available: quantity > 0n, executable,
         reason: !quantity ? 'Source demand, safety stock or bin availability leaves no surplus.' : !executable ? 'Reviewed arrival is beyond this planning horizon.' : null,

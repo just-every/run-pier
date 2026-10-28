@@ -18,7 +18,7 @@ export function Replenishment({ state, run, busy }: Props) {
   const rows: ForecastRow[] = state.forecasts ?? [];
   const [selected, setSelected] = useState('');
   const current = rows.find(row => JSON.stringify([row.itemId, row.warehouse]) === selected);
-  return <>
+  return <div className="replenishment-review">
     <ReorderScope state={state} run={run} busy={busy} /><ReorderBatch state={state} run={run} busy={busy} />
     <section className="panel"><h2>Demand and replenishment</h2>
       <p className="muted">Observed demand proposes reorder points and quantities. A buyer applies the parameters; planning creates supplier purchase drafts for exact approval.</p>
@@ -36,7 +36,7 @@ export function Replenishment({ state, run, busy }: Props) {
       </Table>}
     </section>
     {current && <PolicyEditor key={`${selected}-${current.policyVersion}`} state={state} run={run} busy={busy} forecast={current} />}
-  </>;
+  </div>;
 }
 
 function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: ForecastRow }) {
@@ -46,7 +46,7 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
   const supplierTerms = terms.find(term => term.supplierId === supplierId);
   const suppliers = records(state, 'parties').filter(party => party.kind === 'supplier' && terms.some(term => term.supplierId === party.id));
   const learned = f.learned;
-  return <>
+  return <div className="replenishment-review">
     <section className="panel"><h2><ItemName state={state} id={f.itemId} /> · {f.warehouse}</h2>
       <Facts values={[
         { label: 'Sellable on hand', value: `${f.onHand} ${unit(state, f.itemId)}` },
@@ -115,5 +115,5 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
       <Field label="Automatically prepare purchase drafts" name="autoDraft" type="checkbox" defaultChecked={policy?.autoDraft === true} required={false} />
     </Form>
     <p className="muted">Supplier: {label(suppliers, supplierId)}. Policy version {f.policyVersion}. Buyer-applied parameters stay fixed when new demand arrives.</p>
-  </>;
+  </div>;
 }

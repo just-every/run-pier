@@ -41,7 +41,7 @@ export function optimization(c: Context, f: any, cashCeiling: string, transferQu
     const service = compareReplenishment({ ...candidate, observedSold: forecast.high }, cashCeiling).options.find(o => o.name === 'stretch')!;
     return [cash, service].map(option => ({ ...option, kind: 'purchase', supplierId: terms.supplierId, reliability: supplier,
       objective: option === cash ? 'cash' : 'service',
-      expectedContribution: margin.unitRevenue === null ? null : money(decimal(option.quantity) * decimal(margin.unitRevenue) - amount(option.expectedLandedCost)),
+      expectedContribution: margin.unitRevenue === null ? null : money(decimal(option.quantity) * signedQuantity(margin.unitRevenue) - amount(option.expectedLandedCost)),
       command: { type: 'replenishment.plan', payload: { stateVersion: c.s.version + 1, lines: [{ itemId: f.itemId, warehouse: f.warehouse, supplierId: terms.supplierId, quantity: option.quantity }] } } }));
   });
   const transfers = f.scope === 'company' ? [] : f.includedWarehouses.filter((warehouse: string) => warehouse !== f.warehouse).flatMap((warehouse: string) => {

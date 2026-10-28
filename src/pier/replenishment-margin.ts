@@ -27,7 +27,7 @@ export function realizedMargin(c: Context, itemId: string) {
       const index = invoice.lines.indexOf(priced), weights = invoice.lines.map((l: any) => amount(l.amount));
       const discounts = invoice.charges.filter((l: any) => l.kind === 'discount').reduce((n: bigint, l: any) => n + amount(l.amount), 0n);
       const allocatedDiscount = allocate(discounts, weights)[index];
-      // Discounts exceeding all item revenue cannot establish a positive item margin.
+      // Keep negative item revenue; separately charged freight cannot hide a loss.
       const net = amount(priced.amount) + allocatedDiscount;
       const convert = (value: bigint) => value * decimal(invoice.usdRate) / SCALE;
       let credits = 0n;
@@ -42,7 +42,7 @@ export function realizedMargin(c: Context, itemId: string) {
         if (credit.kind === 'return') returnCredits.set(credit.returnId, (returnCredits.get(credit.returnId) ?? 0n) + share);
       }
       invoiceIds.add(invoice.id);
-      return { line, quantity: q, revenue: convert((net > 0n ? net : 0n) * q / decimal(priced.quantity)), credits, returnCredits };
+      return { line, quantity: q, revenue: convert(net * q / decimal(priced.quantity)), credits, returnCredits };
     });
     if (economics.some(e => e === null)) continue;
     quantity += economics.reduce((n: bigint, e: any) => n + e.quantity, 0n);
@@ -65,6 +65,6 @@ export function realizedMargin(c: Context, itemId: string) {
   return { quantity: format(quantity), revenue: money(revenue), cost: money(netCost), margin: money(revenue - netCost), shipmentIds,
     returnedQuantity: format(returnedQuantity), returnValue: money(returnValue), recoveredCost: money(recoveredCost), returnIds,
     creditAdjustments: money(creditAdjustments), invoiceIds: [...invoiceIds], creditIds: [...creditIds],
-    unitRevenue: quantity ? format(revenue > 0n ? revenue / quantity : 0n) : null,
+    unitRevenue: quantity ? format(revenue / quantity) : null,
     basis: 'Priced native shipments with known consumed USD cost. Authorized invoice item prices, allocated discounts and item credits supersede order prices. Physical returns reserve their net item value until credited, without counting the credit twice; only sellable restocked cost is recovered. Tax, freight income and financing are outside item contribution. Unpriced, unvalued, kit and unconverted non-USD lines are excluded.' };
 }

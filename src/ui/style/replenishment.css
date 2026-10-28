@@ -1,0 +1,6 @@
+.pier-app .replenishment-review small,
+.pier-app .replenishment-review dt,
+.pier-app .replenishment-review .badge,
+.pier-app .replenishment-review code,
+.pier-app .replenishment-review .table-wrap th,
+.pier-app .replenishment-review .table-wrap td[data-label]::before { font-size: 13px; }

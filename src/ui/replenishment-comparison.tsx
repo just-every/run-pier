@@ -67,7 +67,7 @@ export function ReplenishmentFollowThrough({ state, po, run, busy }: Props & { p
   const [saved, setSaved] = useState<any>(null);
   if (!po.replenishment || !authorized(state)) return null;
   const follow = saved?.version === state.version && saved?.actor === `${state.actor.id}:${state.actor.role}` ? saved.value : null;
-  return <section className="panel"><h2>Forecast versus actual</h2>
+  return <section className="panel replenishment-review"><h2>Forecast versus actual</h2>
     <button disabled={busy} onClick={() => run('replenishment.review', { poId: po.id }, { onResult: result => setSaved({ value: result.followThrough, version: state.version + 1, actor: `${state.actor.id}:${state.actor.role}` }) })}>Review current receipt and ledger</button>
     {saved && !follow && <p>Records changed. Review current receipt and ledger again.</p>}
     {follow && <><p><Badge>{words(follow.status)}</Badge> Checked {when(follow.checkedAt)}</p>

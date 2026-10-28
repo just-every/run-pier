@@ -483,7 +483,7 @@
       "executable": false
     },
     "docs/replenishment.md": {
-      "sha256": "f68f12869b84c9cb0392530a64d78489f13bb0dbaa6fa3a9267a886464a59fb7",
+      "sha256": "d76d71630f8adb4cf540375544fe26de0ad7baff85288cb539965de84add34c5",
       "executable": false
     },
     "docs/returns.md": {
@@ -3711,11 +3711,11 @@
       "executable": false
     },
     "src/pier/replenishment-margin.ts": {
-      "sha256": "c984b7f74de676523aa315f78b520b83cd73fadeb526560b526115ed31c8561e",
+      "sha256": "63bfe78db8a1bdab06f70d622f9647f422b1a705ffcd08aa60c13a481fd29071",
       "executable": false
     },
     "src/pier/replenishment-optimization.ts": {
-      "sha256": "3f8edd896d0ff6bf9b7f3adc7abffcc4dcd6839d544902ca4d8b8418cb90f9e6",
+      "sha256": "a0344c8bc544d8dd7709cb77b38338f3e7a2649b6dfc6aec0c69c4b4c88126fc",
       "executable": false
     },
     "src/pier/replenishment-position.ts": {
@@ -3727,7 +3727,7 @@
       "executable": false
     },
     "src/pier/replenishment-transfers.ts": {
-      "sha256": "5577f2f0f4d949b3cea213905044f627a858bb05cc0b699704f97e4ffd676aee",
+      "sha256": "c138dfb97be4812aa4ed829b148aa50fb5e65bf89dcb91181cf9443057b78f66",
       "executable": false
     },
     "src/pier/replenishment.ts": {
@@ -4555,11 +4555,11 @@
       "executable": false
     },
     "src/ui/replenishment-comparison.tsx": {
-      "sha256": "76f4d753667f5cd85fb096236db1bc4c153eaac86120c72090e327e6164104e0",
+      "sha256": "d3be799d6c41a372678aa6ba1cd003781cad080ba4048049fde25749a16e0a0f",
       "executable": false
     },
     "src/ui/replenishment.tsx": {
-      "sha256": "5775140464f3641b18bba5c780662c5010e1636cf171b2442fd97a0607e1dcb5",
+      "sha256": "73d1660777c7e7a6e4a72e5b75192ede1cfcd619f1932ba806ff51ef634ffb6c",
       "executable": false
     },
     "src/ui/reports.tsx": {
@@ -4635,7 +4635,7 @@
       "executable": false
     },
     "src/ui/style/index.ts": {
-      "sha256": "6f678979112a6e70e13ca7e0cce3bc4106c461e74cd1dbe082a25292b35fb356",
+      "sha256": "9aa2cfd7f5d5775fc1433479d1ad43000a41c7d5435ee2aa443f002e6d7b797d",
       "executable": false
     },
     "src/ui/style/records.css": {
@@ -4803,7 +4803,7 @@
       "executable": false
     },
     "tests/api/replenishment.test.mjs": {
-      "sha256": "7ea238f9cbcd8779acae5433442c20f37b146ffe06dc1b07606c4e20aabffae3",
+      "sha256": "52373df5a731810c4866b6f5c979b1905ca50bb58b4806e63771c0ecd066c290",
       "executable": false
     },
     "tests/api/returns.test.mjs": {
