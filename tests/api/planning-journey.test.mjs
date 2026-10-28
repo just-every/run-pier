@@ -115,7 +115,9 @@ test("Observe demand, compare bounded replenishment, release backorders and clos
 
 
     await phase('bounded workflow dry-runs, vendor and spend limits, worker loss and pause preserve human approval', async t => {
-      const h = await installation(); t.after(() => h.close()); const b = await basics(h);
+      // Keep the same-day budget journey independent of the runner's UTC hour.
+      const now = new Date().toISOString().slice(0, 10) + 'T12:00:00.000Z';
+      const h = await installation({ now }); t.after(() => h.close()); const b = await basics(h);
       await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: 'synthetic-pier-1', packSize: '1', minimum: '1', price: '2', leadDays: 3 });
       await h.command('replenishment.save', { version: 0, itemId: b.item.id, warehouse: 'North', supplierId: b.supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '2', reorderQuantity: '2', autoDraft: false });
       const config = { name: 'Bounded drafts', kind: 'draft-po', warehouses: ['North'], supplierIds: [b.supplier.id], perRunBudget: '10', dailyBudget: '10', cadenceMinutes: 15, automaticApproval: false };
@@ -127,7 +129,7 @@ test("Observe demand, compare bounded replenishment, release backorders and clos
       let job = await h.command('workflow.enqueue', { ruleId: rule.id });
       job = await h.command('workflow.claim', { ruleId: rule.id, jobId: job.id, version: job.version });
       const start = Date.parse(job.startedAt);
-      await h.command('workflow.recover', {}, { headers: { 'x-pier-test-now': new Date(start + 120001).toISOString() } });
+      await h.command('workflow.recover', {}, { headers: { 'x-pier-test-now': new Date(Date.parse(job.leaseUntil) + 1).toISOString() } });
       let state = await h.state(); assert.equal(state.workflowJobs.find(j => j.id === job.id).status, 'uncertain'); assert.deepEqual(state.purchaseOrders, before.purchaseOrders);
       await h.command('workflow.claim', { ruleId: rule.id, jobId: job.id, version: state.workflowJobs.find(j => j.id === job.id).version }, { error: 'WORKFLOW_JOB' });
       // A separate rule proves successful once-only work and a disabled queued job.
@@ -147,7 +149,7 @@ test("Observe demand, compare bounded replenishment, release backorders and clos
       assert.equal(state.purchaseOrders.length, 1); assert.equal(state.purchaseOrders[0].status, 'draft'); assert.equal(state.purchaseOrders[0].approval, null); assert.deepEqual(state.movements, before.movements);
       // An uncertain job continues to reserve its budget, even after worker loss.
       await h.command('po.delete', { poId: state.purchaseOrders[0].id, version: state.purchaseOrders[0].version });
-      const later = new Date(start + 15 * 60000).toISOString();
+      const later = new Date(start + config.cadenceMinutes * 60000).toISOString();
       let next = await h.command('workflow.enqueue', { ruleId: rule.id }, { headers: { 'x-pier-test-now': later } });
       next = await h.command('workflow.claim', { ruleId: rule.id, jobId: next.id, version: next.version }, { headers: { 'x-pier-test-now': later } });
       assert.equal(next.status, 'failed'); assert.match(next.problem, /daily budget/);

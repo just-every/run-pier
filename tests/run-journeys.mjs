@@ -5,11 +5,11 @@ const shards = [
   { api: ['inventory', 'catalogue', 'warehouse'], browser: 'warehouse', commands: [] },
   { api: ['migration', 'identity'], browser: 'authority', commands: [] },
   { api: ['sales', 'channel'], browser: 'sales', commands: [] },
-  { api: ['purchase', 'planning'], browser: 'purchase', commands: [] },
+  { api: ['purchase', 'planning'], browser: 'purchase', commands: ['site'] },
   { api: ['agent', 'ledger'], browser: 'catalogue', commands: [] },
   { api: ['documents', 'delivery'], browser: 'phone', commands: ['email-link', 'runtime'] },
   { api: [], browser: null, commands: ['portable'] },
-  { api: [], browser: 'returns', commands: ['portable-custody', 'site'] },
+  { api: [], browser: 'returns', commands: ['portable-custody'] },
 ];
 async function command(args) {
   const child = spawn(process.execPath, args, { stdio: 'inherit', env: { ...process.env, RER_SERVER_JOURNEY: '1' } });
