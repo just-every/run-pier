@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID, generateKeyPairSync, sign } from "node:crypto";
 import { documentOriginal } from './document-original.mjs';
 import { readFile } from 'node:fs/promises';
-import { installation, basics, buy, receive } from "./harness.mjs";
+import { installation, basics, buy, receive, parse } from "./harness.mjs";
 import { scopedWarehouseWork, commercialRoleMatrix } from './role-scenarios.mjs';
 
 test('scoped warehouse receipts, picks, packs, slips and dispatch retain physical authority after revocation', scopedWarehouseWork);
@@ -651,8 +651,51 @@ test("native import reads USD by default, refuses an unknown currency naming the
   const line = state.purchaseOrders[0].lines[0];
   assert.equal(line.price, "13");
   assert.deepEqual(line.source, { price: "20", currency: "AUD", usdRate: "0.65" });
-  const report = await (await h.request("/api/pier/reports")).json();
+  const reportResponse = await h.request("/api/pier/reports");
+  assert.equal(reportResponse.status, 200);
+  const report = await reportResponse.json();
+  assert.equal(report.currency, "USD");
   assert.equal(report.valuation.total, "51.000000000000");
+  const exportResponse = await h.request("/api/pier/export");
+  assert.equal(exportResponse.status, 200);
+  const exported = await exportResponse.json();
+  assert.equal(exported.currency, "USD");
+  const imported = exported.imports.find(batch => batch.id === b.id);
+  assert.equal(imported.status, "committed");
+  const mug = exported.items.find(item => item.sku === "MUG");
+  const bin = exported.locations.find(location => location.name === "Bin 1");
+  const opening = imported.postedRows.find(row => row.kind === "positions" && row.key === "p1");
+  assert.deepEqual(imported.links.find(link => link.kind === "positions" && link.key === "p1"), {
+    kind: "positions", key: "p1", id: opening.id, namespace: "mixed",
+  });
+  assert.deepEqual(imported.costEvidence.filter(cost => cost.sourceKey === "p1"), [{
+    sourceKey: "p1", itemId: mug.id, locationId: bin.id, quantity: "10", cost: "2.5", currency: "USD",
+  }]);
+  const movements = exported.movements.filter(movement => movement.itemId === mug.id);
+  assert.equal(movements.length, 1);
+  const [movement] = movements;
+  assert.equal(movement.id, opening.id);
+  assert.equal(movement.importId, imported.id);
+  assert.equal(movement.documentId, imported.id);
+  assert.equal(movement.locationId, bin.id);
+  assert.equal(movement.status, "sellable");
+  assert.equal(BigInt(movement.quantity), 10_000_000n);
+  const mugRows = report.valuation.rows.filter(row => row.itemId === mug.id);
+  assert.equal(mugRows.length, 1);
+  const [mugRow] = mugRows;
+  assert.equal(mugRow.locationId, bin.id);
+  assert.equal(mugRow.status, "sellable");
+  assert.equal(mugRow.quantity, "10");
+  assert.equal(mugRow.value, "25.000000000000");
+  assert.equal(mugRow.unvaluedQuantity, "0");
+  assert.deepEqual(mugRow.layers, [{
+    quantity: "10", value: "25.000000000000", sourceId: movement.id, receivedAt: movement.createdAt,
+  }]);
+  const [layer] = mugRow.layers;
+  // Derive USD per unit from the public ledger's amount and quantity, not the CSV cost.
+  const layerAmount = BigInt(layer.value.replace(".", ""));
+  assert.equal(layerAmount / parse(layer.quantity), 2_500_000n, "the MUG opening ledger carries USD 2.50 per unit at six decimal places");
+  assert.equal(layerAmount % parse(layer.quantity), 0n);
 });
 
 test('retained originals and signed mail produce cited hostile drafts; corrected owner review routes and approves once', async t => {
