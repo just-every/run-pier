@@ -2,6 +2,12 @@
 
 Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.79 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. Recorded verbatim Base copies use `4280971d7c0295b8a88c3e1179048efcbbe14f30` (tag `rer-v0.2.79`); adapted components retain their independent comparison origins in `edition.json`. There is no checkout-local copy of the RER CLI.
 
+## Agent runtime sources
+
+The shared agent-door and Business settings source copies are independently pinned to Base `d555e789cffb744a9f83d76ebe42a2e3bdd7a055` in `base-copies.json`. Their storage is added by migrations 0024–0026; previously applied migrations are unchanged. Theme dependencies for those copies are under `src/foundation/runtime`.
+
+These source copies are not mounted by the production Worker. Pier currently offers native session-scoped proposal preparation, item checks, replenishment comparisons and exact-human-authorized supplier sends. It does not yet offer the shared MCP door, signed company agent policy or the Agents approval pages. The Agent surface in CONTRACT.md remains the required adoption target; existing native roles, grants, approvals and authenticator requirements govern current work. No agent-provider spend limit is enforced by these unmounted copies.
+
 ## Local start
 
 Start from nothing with one line (without Node: `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-pier`), then use the bare project verbs inside the checkout:
