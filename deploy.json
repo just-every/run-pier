@@ -33,14 +33,6 @@
       "environment": "MAIL_API_KEY"
     },
     {
-      "binding": "MAIL_PROVIDER",
-      "environment": "MAIL_PROVIDER"
-    },
-    {
-      "binding": "MAIL_FROM",
-      "environment": "MAIL_FROM"
-    },
-    {
       "binding": "EDI_BRIDGE_URL",
       "environment": "EDI_BRIDGE_URL",
       "optional": true
