@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "a025e6f9c0bc44eac51a5c6fa318d1160977b3649b943434fda76a4db2b6b496",
+      "sha256": "8f53adab00732224c26e3f5ed48921625afc1dabdcdc916f0d0b6fce64a9c02e",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "47e3ab6e8a17465097fd90611fd4a332a33b9ebd001ef201c90cd6319e3b8f9e",
+      "sha256": "8930ff5dac1a309502446e1888fefc23eff692d93c0ae137b6dd45a35ebf3ffa",
       "executable": false
     },
     "DEMO.md": {
@@ -403,7 +403,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "8b88538f435f3372cc8f813fa8f6afda4d094baa08f88c935e08b0dd02e7816f",
+      "sha256": "719887056327359c516b80a3bddb4e136ab32364362744c424a69b01fcaf68a9",
       "executable": false
     },
     "docs/contract/acceptance-before-cleanup.md": {
@@ -3671,7 +3671,7 @@
       "executable": false
     },
     "src/pier/purchase-send.ts": {
-      "sha256": "90f74a0db873684bdd3c5ef9cad79939dbaaf9674026d790c48973354c4f86b9",
+      "sha256": "b1ef4a48e1616f4dd9a0269f91a394c8347dec78c932bae1331aa232682041d2",
       "executable": false
     },
     "src/pier/purchasing-workflow.ts": {

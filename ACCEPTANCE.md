@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 16 | 71 | 4 | 91 |
+| Core | 17 | 70 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 16 | 71 | 11 | 98 |
+| Full target | 17 | 70 | 11 | 98 |
 
-Judged from the code and tests at commit `c2f094b96a3444189bfb3d14b2100c59d5a02cf3` (27 October 2026). Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `2795306bf0090a139f5f220dbe7ee592c92ec51a` (28 October 2026). AGENT-002 proof is re-run on the exact landing candidate; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -1317,7 +1317,7 @@ Core · push-further · **partial** · Cites BASE-AGENT-005, BASE-AGENT-008 · R
 
 #### AGENT-002 — Optimize replenishment against cash and service
 
-Core · push-further · **partial**
+Core · push-further · **done**
 
 **Requirement.** The inventory agent forecasts from real channel sell-through, seasonality, promotions and stockout-censored demand, with uncertainty and backtesting. It combines MOQ/case packs, supplier reliability, confirmed receipts, actual margin and owner cash/service limits to compare executable PO/transfer options and draft the selected POs. The agent's send through BUY-002 carries the money and external classes with its exact spend, terms and recipient as facts, and the company's policy decides it. Policy/budget changes or new demand invalidate a stale approval; the agent verifies arrival and accounting rather than stopping at draft creation.
 
@@ -1325,8 +1325,8 @@ Core · push-further · **partial**
 1. Under the held policy, provide connected sell-through with a censored stockout and unreliable supplier, compare a cash-constrained and service-maximizing plan, have a buyer approve one PO send and change a material input before a second.
 2. The second blocks; the first is followed through actual receipt, landed cost and reconciled ledger with forecast-versus-actual explanation.
 
-**Evidence.** `tests/api/replenishment.test.mjs` — “native channel demand and shipments reconcile once across dispatch, cancellation and planning windows”, “cash and service horizon comparisons net supply and drafts with exact supplier rounding”, “captured channel demand retains stockout exposure, reviewed seasonal bounds and a held-out backtest” and “supplier delays and realized contribution rank bounded purchases while transfer comparisons protect source demand”; `tests/api/purchase-send.test.mjs` — “BUY-006: an agent sends only the exact bounded human-approved purchase once”; `tests/api/books.test.mjs` — “Pantry connects with a scoped credential and picked accounts; a matched invoice posts a ready payable, replays never duplicate, and revocation shows a broken connection” and “an adjusted connected forecast follows its exact approved send through landed receipt and the real Pantry ledger”; `src/pier/replenishment-follow-through.ts`
-**Gap.** Native captured demand is counted once. Public comparisons now retain movement-backed availability-normalized scenarios, buyer-reviewed seasonal and promotion bounds, a held-out retained-current-demand baseline, supplier delay evidence, gross realized shipment contribution, bounded cash and upper-scenario service rankings and source-safe transfer surplus. Drafts retain the forecast; public review follows actual demand, quantities, landed cost and current paid Pantry inventory reconciliation, reopening on financial or connection failure. Exact human-approved sends still invalidate on changed inputs. Remaining: priced and dated executable transfer ranking and the interactive comparison and follow-through screens with desktop and mobile proof; prospective validation of reviewed factors and wider margin economics, including returns. Historical provider backfill and incumbent history remain CHANNEL-001 and MIGRATE-002 boundaries, not claimed here.
+**Evidence.** `tests/api/replenishment.test.mjs` — “captured channel demand retains stockout exposure, reviewed seasonal bounds and a held-out backtest” proves connected WooCommerce sell-through, stockout correction, seasonal and promotion bounds, held-out actuals and a retained scenario compared with later actual demand and landed cost; “supplier delays and realized contribution rank bounded purchases while transfer comparisons protect source demand” proves supplier reliability, cash and service ranking, authorized invoice prices, discounts, return credits without double counting, priced and dated executable transfers, source protection, revocation and once-only physical execution; “cash and service horizon comparisons net supply and drafts with exact supplier rounding” proves ceiling, MOQ, case packs and supply netting. `tests/api/purchase-send.test.mjs` — “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves human approval, computed money and external facts, exact native policy decisions, expiry, revocation and material-input invalidation. `tests/api/books.test.mjs` — “an adjusted connected forecast follows its exact approved send through landed receipt and the real Pantry ledger” proves the complete connected forecast, unreliable supplier, cash and service choice, approved first send, blocked second send, actual receipt, landed cost, paid reconciled Pantry ledger and retained forecast explanation; “Pantry connects with a scoped credential and picked accounts; a matched invoice posts a ready payable, replays never duplicate, and revocation shows a broken connection” proves financial reversal and revoked-connection reopening. `tests/browser/journey.spec.ts` — “buyers compare reviewed replenishment scenarios and follow selected receipts to current ledger evidence” proves forecast settings, comparison, invalid-input recovery, exact purchase selection and receipt follow-through, with changed screens captured at 1440 and 390. Provider-edge fixtures follow D-4; historical backfill remains with CHANNEL-001 and MIGRATE-002, and shared MCP conformance remains with the SURFACE clauses.
+**Gap.** None.
 
 #### AGENT-003 — Close supplier confirmations and customer promises
 
