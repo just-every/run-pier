@@ -5,7 +5,17 @@ import { installation, basics, buy, receive, parse } from './harness.mjs';
 import { channelEdge } from './channel-edge.mjs';
 
 test('channel order reserves once and publishes net stock to every channel within a minute', async t => {
-  const edge = channelEdge(), h = await installation({ outboundService: edge.outbound });
+  const edge = channelEdge(), lostProviders = new Set();
+  const h = await installation({ outboundService: async request => {
+    const url = new URL(request.url);
+    const provider = url.hostname === 'woo.example.test' && request.method === 'PUT' ? 'woocommerce'
+      : url.hostname === 'amazon.example.test' && request.method === 'PATCH' ? 'amazon'
+      : url.hostname === 'stall.example.test' && url.pathname.endsWith('/catalogue') ? 'stall'
+      : url.hostname === 'shop.example.test' && (await request.clone().json()).query.includes('mutation PierStock') ? 'shopify' : null;
+    const response = await edge.outbound(request);
+    if (provider && lostProviders.delete(provider)) { await response.text(); throw new Error('Synthetic response loss after accepted absolute stock publication'); }
+    return response;
+  } });
   t.after(() => h.close()); edge.setState(h.state);
   const b = await basics(h);
   await h.command('item.save', { ...b.item, sku: 'CASE-BLUE', version: b.item.version });
@@ -48,6 +58,14 @@ test('channel order reserves once and publishes net stock to every channel withi
     assert.ok(sent[0].at - started < 60000, `${provider} receives stock within a minute`);
   }
   assert.equal((await hook()).status, 200); await h.command('channel.sync', {});
+  const health = await (await h.request('/api/pier/integrations')).json();
+  const connector = health.connectors.find(row => row.id === woo.id);
+  assert.equal(connector.status, 'active');
+  assert.ok(connector.lastSuccessfulSync);
+  assert.ok(connector.scope.includes('North'));
+  assert.ok(connector.effects.some(effect => effect.mapping.includes('902') && effect.mapping.includes(order.id)));
+  assert.ok(connector.attempts.some(attempt => attempt.outcome === 'accepted'));
+  assert.ok(!JSON.stringify(health).includes('synthetic-hook-secret'));
   assert.equal((await h.state()).orders.length, orderCount + 1, 'Webhook replay and reconciliation never reserve twice');
   assert.equal((await fetch(`${h.origin}/api/pier/channels/${woo.id}/webhook`, { method: 'POST', body: raw, headers: { 'x-wc-webhook-signature': 'invalid' } })).status, 401);
   // Stall's paid checkout already owns a native Pier reservation: linking must not duplicate it.
@@ -74,7 +92,27 @@ test('channel order reserves once and publishes net stock to every channel withi
   const competing = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '100' }] });
   assert.equal(competing.lines[0].reserved, free, 'An ordinary order cannot consume the FBA hold');
   assert.equal((await h.state()).positions.find(p => p.itemId === b.item.id).held, '10');
+  const beforeStale = (await h.state()).orders;
+  assert.equal((await hook()).status, 200, 'an old signed notice reconciles canonical state');
+  assert.deepEqual((await h.state()).orders, beforeStale, 'old notices never replace newer native order versions');
+  for (const provider of ['woocommerce','shopify','amazon','stall']) lostProviders.add(provider);
   await h.command('channel.release', { holdId: hold.id, version: hold.version });
+  let interruptedHealth = await (await h.request('/api/pier/integrations')).json();
+  for (const provider of ['woocommerce','shopify','amazon','stall']) {
+    const connector = interruptedHealth.connectors.find(row => row.scope.startsWith(provider + ':'));
+    assert.equal(connector.uncertain, 1, `${provider} exposes accepted publication without local confirmation`);
+  }
+  await h.restart();
+  await h.command('channel.sync', {});
+  interruptedHealth = await (await h.request('/api/pier/integrations')).json();
+  for (const provider of ['woocommerce','shopify','amazon','stall']) {
+    const connector = interruptedHealth.connectors.find(row => row.scope.startsWith(provider + ':'));
+    assert.equal(connector.uncertain, 0, `${provider} safely confirms absolute availability after restart`);
+    assert.ok(connector.attempts.some(row => row.operation === 'provider.channel.stock' && row.outcome === 'uncertain'));
+    assert.ok(connector.attempts.some(row => row.operation === 'provider.channel.stock' && row.outcome === 'accepted'));
+  }
+  assert.deepEqual((await h.state()).orders, beforeStale);
+
   s = await h.invariant();
   for (const position of s.positions) assert.ok(parse(position.available) >= 0n);
   const exported = await (await h.request('/api/pier/export')).text();
@@ -95,6 +133,17 @@ test('channel order reserves once and publishes net stock to every channel withi
   assert.deepEqual(afterRestart.auditEvents.find(event => event.id === stockOutcome.id), stockOutcome);
   const cipher = await (await h.mf.getD1Database('DB')).prepare('SELECT secret FROM pier_channel_secrets LIMIT 1').first();
   assert.ok(cipher.secret); assert.doesNotMatch(cipher.secret, /synthetic/);
+  const currentWoo = (await h.state()).channels.find(row => row.id === woo.id);
+  await h.command('channel.save', { ...currentWoo, enabled: false });
+  await h.restart();
+  const afterRevoke = edge.publications.length;
+  assert.equal((await hook()).status,404);
+  await h.command('channel.sync', {});
+  assert.equal(edge.publications.length, afterRevoke);
+  assert.equal((await h.state()).orders.length, s.orders.length);
+  const paused = (await (await h.request('/api/pier/integrations')).json()).connectors.find(row => row.id === woo.id);
+  assert.equal(paused.status, 'paused');
+
 });
 
 test('an owner chooses Shopify locations read from the platform without saving credentials in command history', async t => {
@@ -189,6 +238,8 @@ test('owner routing versions choose zones, shortage policy, reroute and net chan
   add(1,'94107','CA');add(2,'10001','NY');await h.command('channel.sync',{});
   let s=await h.state(),shop=s.orders.filter(o=>o.channelId===channel.id);assert.deepEqual(['synthetic-pier-1','synthetic-pier-2'].map(reference=>shop.find(o=>o.channelReference===reference).warehouse),['West','East']);assert.equal(shop.find(o=>o.channelReference==='synthetic-pier-1').routing.zone,'West coast');assert.equal(shop[0].channelLocation,'gid://shopify/Location/1');
   assert.equal(s.channelListings.find(l=>l.channelId===channel.id).available,'29');assert.equal(publications.at(-1),29);
+  const healthScope = (await (await h.request('/api/pier/integrations')).json()).connectors.find(row => row.id === channel.id).scope;
+  assert.ok(healthScope.includes('East')); assert.ok(healthScope.includes('West')); assert.ok(!healthScope.includes('FBA'));
   await h.command('routing.save',{source:'manual',mode:'rules',shortage:'hold',zones:[...zones,{...zones[0],name:'Overlapping zone'}],defaultEligible:[]},{error:'ROUTING_OVERLAP'});
   // Drain West to exactly two, while East retains at least ten.
   await activate('manual');const drain=await h.command('order.create',{customerId:b.customer.id,shipTo:{postalCode:'94107',country:'US'},lines:[{itemId:b.item.id,quantity:'9'}]});

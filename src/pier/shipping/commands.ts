@@ -6,6 +6,13 @@ export const SETTINGS = 'shipping:easypost';
 export const unavailable = (env: Bindings) => env.RER_OWNER_CLAIM_ISSUER && env.RER_DEMO !== '1' ? 'Shipping provider calls are not available yet on RER Managed.' : null;
 export async function shipping(c: Context, type: string, p: any, env: Bindings): Promise<Row | undefined> {
   if (!type.startsWith('shipping.')) return;
+  if (type === 'shipping.disconnect') {
+    requireRole(c, []);
+    const settings = get(c.s, 'shippingSettings', SETTINGS); fresh(settings, p.version);
+    settings.enabled = false; settings.connected = false; settings.webhookConfigured = false; settings.version++;
+    c.channelSecrets = [{ channelId: SETTINGS, secret: await seal(env, SETTINGS, {}) }];
+    return settings;
+  }
   if (type === 'shipping.save') {
     requireRole(c, []);
     if (!['test','production'].includes(p.mode)) fail('SHIPPING_MODE', 'Choose test or production.');

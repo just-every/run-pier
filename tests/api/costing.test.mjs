@@ -153,6 +153,11 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   await h.command('mail.process',{});assert.equal(mail.length,3);
   reject=false;uncertain=true;const pendingPayload={orderId:accepted.id,version:accepted.version,recipient:'buyer@example.test'},pendingId=randomUUID();
   const pending=await h.command('order.confirm',pendingPayload,{commandId:pendingId});assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===pending.id).phase,'uncertain');await h.command('order.confirm',pendingPayload,{commandId:pendingId});await h.command('mail.process',{});assert.equal(mail.length,4,'uncertain submission is never blindly replayed');uncertain=false;
+  const mailHealth = (await (await h.request('/api/pier/integrations')).json()).connectors.find(row => row.id === 'mail');
+  assert.equal(mailHealth.uncertain,1); assert.equal(mailHealth.failed,1);
+  assert.ok(mailHealth.lastSuccessfulSync);
+  assert.ok(mailHealth.effects.some(row => row.id === pending.id && row.state === 'uncertain'));
+  assert.ok(!JSON.stringify(mailHealth).includes('buyer@example.test'));
   let expiring=await h.command('quote.create',{...params,validUntil:new Date().toISOString().slice(0,10)});expiring=await h.command('quote.approve',{orderId:expiring.id,version:expiring.version,reason:'Exact expiring quote'});
   await h.command('quote.accept',{orderId:expiring.id,version:expiring.version},{headers:{'x-pier-test-now':new Date(Date.now()+86400000).toISOString()},error:'QUOTE_EXPIRED'});
   assert.equal((await h.request('/api/pier/export',{as:cookie})).status,403);assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:cookie})).status,403);
@@ -382,9 +387,9 @@ test('invoice-specific Stripe checkout verifies ACH success once and expires pai
     return Response.json(value);
   } }); t.after(() => h.close()); const b = await basics(h);
   await h.command('business.save',{name:'Harbor Wholesale',address:'30 Dock Road',shipTo:{}});
-  await h.command('payment.configure', { consent: false, mode: 'test', secretKey: 'synthetic-pier-1', webhookSecret: 'synthetic-pier-2' }, { error: 'PAYMENT_CONSENT' });
-  const connection = await h.command('payment.configure', { consent: true, mode: 'test', secretKey: 'synthetic-pier-1', webhookSecret: 'synthetic-pier-2' });
-  assert.equal(JSON.stringify(connection).includes('synthetic-pier-1'), false);
+  await h.command('payment.configure', { consent: false, mode: 'test', secretKey: 'synthetic-pier-8101', webhookSecret: 'synthetic-pier-2' }, { error: 'PAYMENT_CONSENT' });
+  const connection = await h.command('payment.configure', { consent: true, mode: 'test', secretKey: 'synthetic-pier-8101', webhookSecret: 'synthetic-pier-2' });
+  assert.equal(JSON.stringify(connection).includes('synthetic-pier-8101'), false);
   await h.command('sales.taxTable', { state: 'CA', rate: '8', reason: 'Reviewed owner estimate' });
   const makeInvoice = async () => {
     const order = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '2', price: '10' }] });
@@ -426,6 +431,9 @@ test('invoice-specific Stripe checkout verifies ACH success once and expires pai
   provider.payment_intent.amount_received--;
   assert.equal((await sendEvent()).status, 200); assert.equal((await sendEvent()).status, 200);
   assert.equal((await h.state()).invoicePayments.length, 1); assert.equal((await h.state()).invoicePayments[0].paymentMethod, 'us_bank_account');
+  assert.equal((await sendEvent({...event,type:'checkout.session.async_payment_failed'})).status,200);
+  assert.equal((await h.state()).invoicePayments.length,1);
+  assert.equal((await h.state()).invoicePaymentSessions.find(row => row.id === session.id).status,'succeeded');
   assert.match(await (await h.request(path, { as: '' })).text(), /16.20/);
   const redirected = await h.request(path, { method: 'POST', as: '' }); assert.equal(redirected.status, 303); assert.equal(creates, 2);
   const provider2 = [...remote.values()].at(-1); settle(provider2, 'succeeded');
@@ -439,6 +447,16 @@ test('invoice-specific Stripe checkout verifies ACH success once and expires pai
   const uncertain = await makeInvoice(); loseCreate = true;
   const unknownPayload = { invoiceId: uncertain.invoice.id, version: uncertain.invoice.version }, unknownId = randomUUID();
   const unknown = await h.command('payment.checkout', unknownPayload, { commandId: unknownId }); assert.equal(unknown.status, 'uncertain');
+  let health = await (await h.request('/api/pier/integrations')).json();
+  let payments = health.connectors.find(row => row.id === 'payment:stripe');
+  assert.equal(payments.uncertain, 1);
+  assert.ok(payments.attempts.some(row => row.operation === 'provider.payment.create' && row.outcome === 'uncertain'));
+  assert.ok(payments.effects.some(row => row.id === unknown.id && row.mapping.includes(uncertain.invoice.id)));
+  assert.ok(!JSON.stringify(health).includes('synthetic-pier-8101'));
+  assert.ok(!JSON.stringify(health).includes('checkout.stripe.com'));
+  await h.restart();
+  health = await (await h.request('/api/pier/integrations')).json();
+  assert.equal(health.connectors.find(row => row.id === 'payment:stripe').uncertain, 1);
   await h.command('payment.checkout', unknownPayload, { commandId: unknownId }); await h.command('payment.checkout', unknownPayload); assert.equal(creates, 3, 'response loss cannot submit another checkout');
   await h.command('invoice.void', { ...unknownPayload, reason: 'Must expire checkout first' }, { error: 'PAYMENT_ACTIVE' });
   let credit = await h.command('invoice.credit.draft', { invoiceId: uncertain.invoice.id, kind: 'price', reason: 'Reviewed price adjustment', lines: [{ invoiceLineId: uncertain.invoice.lines[0].id, amount: '1.00' }] });
@@ -449,6 +467,16 @@ test('invoice-specific Stripe checkout verifies ACH success once and expires pai
   credit = await h.command('invoice.credit.authorize', { creditId: credit.id, version: credit.version }); assert.equal(credit.status, 'authorized');
   assert.equal((await h.request(uncertain.path, { method: 'POST', as: '' })).status, 409);
   state = await h.state(); assert.equal(state.invoicePayLinks.find(r => r.invoiceId === uncertain.invoice.id).status, 'credited'); assert.equal(state.invoicePayments.length, 2);
+  health = await (await h.request('/api/pier/integrations')).json();
+  payments = health.connectors.find(row => row.id === 'payment:stripe');
+  assert.equal(payments.uncertain, 0);
+  assert.ok(payments.lastSuccessfulSync);
+  assert.ok(payments.lastSuccessfulRequest);
+  await h.command('payment.disconnect', { version: state.paymentConnections[0].version });
+  await h.restart();
+  assert.equal((await sendEvent()).status, 409);
+  assert.equal(creates, 3);
+  assert.equal((await h.state()).invoicePayments.length, 2);
 });
 
 

@@ -140,3 +140,38 @@ For unsupported typed-field custody, the subject preview returns a `refusal` mes
 ### Replenishment scenarios
 
 `replenishment.save` may carry reviewed `forecastAssumptions: {seasonality: {low, expected, high, source}, promotion: {low, expected, high, source}}`; omit to retain or pass `null` to clear. Bounds are positive ordered decimal factors no greater than ten. `replenishment.compare` adds `optimization` with physical exposure, scenario bounds, a retained-current-demand holdout baseline, current supplier alternatives, gross realized shipment margin, cash and service rankings and unpriced transfer surplus. Its purchase command payload includes the exact state version. `replenishment.review` accepts `{poId}` and returns retained planning evidence beside current demand, physical receipt, landed-cost and Pantry reconciliation outcomes. Both comparison and review require a current buyer or agent. See [Replenishment](docs/replenishment.md) for limitations.
+### Connector health
+
+The current owner can read `GET /api/pier/integrations` to inspect connector scope,
+retained connection revisions, successful provider-request times, completed sync
+or stock acknowledgement times, pending work, failed work, uncertain work and
+source-to-document identities. Channels shows this same projection in Integration
+health. Provider polling uses canonical reads; a connection revision is explicitly
+labelled and is not represented as a provider incremental cursor. Stock consumers
+show their acknowledged sequence and outstanding page identities, never resume
+tokens. Fetching a stock page does not advance its acknowledgement time.
+
+Provider attempt history retains uncertain outcomes even after a business effect
+has been reconciled. The current effect state is shown separately. Recovery links
+open the existing connector controls: their current authority, version and
+reconciliation checks still apply. Refreshing health sends no provider request.
+Credentials, provider bodies, contact addresses and checkout URLs are excluded.
+
+A retained effect with sufficient provider identity exposes a recovery command
+and its current version in the health projection. Reconcile effect invokes the
+existing canonical connector command; it does not create a new replay authority.
+Uncertain payment creation without a returned provider identity still requires
+manual identity reconciliation in the payment controls. A resolved carrier replay
+records its command outcome without purchasing another label. Pausing shipping
+also refuses carrier label downloads and tracking webhooks after restart.
+
+The same health projection covers the configured EDI bridge, item AI, separately
+consented document extraction, signed document intake and business mail. It
+returns opaque record and provider identities, not X12 bodies, originals, model
+outputs, recipient addresses or credentials. Unconfirmed paid model failures stay
+uncertain because a failed local result does not establish that no paid request
+reached the provider. These rows expose the existing owner controls and audit;
+they do not offer automatic paid retries. EDI uncertainty requires its existing
+verified bridge receipt or explicit human reconciliation. Mail reports provider
+acceptance separately from actual inbox delivery, and has no shared incremental
+checkpoint.

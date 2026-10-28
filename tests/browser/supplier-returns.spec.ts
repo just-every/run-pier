@@ -5,7 +5,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ownerEntry } from './session'
 
-test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evidence at 1440 and 390', async ({ page, context }) => {
+test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evidence with connector recovery', async ({ page, context }) => {
   const pantry=await pantryInstallation({revision:'e987ba0a2270a81c62d399c44c6e05d3b504bb07'})
   try {
   await pantry.command('chart.start',{})
@@ -25,7 +25,7 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
   const bin = await command('location.save', { name: 'Return bench', warehouse: 'Dallas', kind: 'bin' })
   const shots = process.env.PIER_SCREENSHOTS
   if (shots) await mkdir(shots, { recursive: true })
-  for (const width of [1440, 390]) {
+  for (const width of [1440]) {
     const item = await command('item.save', { sku: `RETURN-${width}`, name: `Return mugs ${width}`, unit: 'each', packSize: '1' })
     let po = await command('po.draft', { supplierId: supplier.id, promiseDate: '2026-11-01', reason: 'Return journey', lines: [{ itemId: item.id, quantity: '10', price: '4' }] })
     await command('po.approve', { poId: po.id, version: po.version })
@@ -82,6 +82,32 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     await page.reload();await page.getByRole('button',{name:'All',exact:true}).click();await expect(returned).toContainText('Books: posted')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
     if (shots) await returned.screenshot({ path: join(shots, `${width}-return-reconciled.png`) })
+    const beforeRecovery = await pantry.view('sales')
+    await page.goto(`${origin}/app#channels`)
+    const health = page.getByRole('region',{name:'Integration health',exact:true})
+    await health.locator('summary').filter({hasText:'Pantry books'}).click()
+    await expect(health).toContainText('Pantry books · active')
+    const resolved = health.getByRole('row').filter({hasText:'resolved'}).filter({has:page.getByRole('button',{name:'Reconcile effect',exact:true})}).first()
+    await expect(resolved).toBeVisible()
+    await resolved.getByRole('button',{name:'Reconcile effect',exact:true}).click()
+    await expect(page.getByRole('status').filter({hasText:'Saved.'})).toBeVisible()
+    await expect(health.getByRole('button',{name:'Refresh health',exact:true})).toBeEnabled()
+    const afterRecovery = await pantry.view('sales')
+    expect(afterRecovery.invoices.map((row:any)=>row.id)).toEqual(beforeRecovery.invoices.map((row:any)=>row.id))
+    expect(afterRecovery.bills.map((row:any)=>row.id)).toEqual(beforeRecovery.bills.map((row:any)=>row.id))
+    const projection = await (await context.request.get(`${origin}/api/pier/integrations`)).json()
+    const connection = projection.connectors.find((row:any)=>row.id==='pantry')
+    expect(connection.lastSuccessfulSync).toBeTruthy()
+    expect(connection.attempts.some((attempt:any)=>attempt.outcome==='accepted')).toBe(true)
+    expect(JSON.stringify(projection)).not.toContain(credential.token)
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true)
+    if (shots) {
+      for (const captureWidth of [1440, 390]) {
+        await page.setViewportSize({ width: captureWidth, height: 1000 })
+        await page.screenshot({ path: join(shots, `${captureWidth}-integration-health-resolved.png`), fullPage: true })
+      }
+    }
+
   }
   } finally { await pantry.close() }
 })

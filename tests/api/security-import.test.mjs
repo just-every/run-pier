@@ -728,6 +728,15 @@ test('retained originals and signed mail produce cited hostile drafts; corrected
   await h.command('document.extract', { documentId: document.id, version: document.version, consentOriginal: false }, { error: 'DOCUMENT_CONSENT' });
   let extraction = await h.command('document.extract', { documentId: document.id, version: document.version, consentOriginal: true });
   assert.equal(extraction.status, 'completed'); assert.equal(extraction.draft.lines[0].citations[0].page, 2);
+  let connectorHealth = await (await h.request('/api/pier/integrations')).json();
+  const extractionHealth = connectorHealth.connectors.find(row => row.id === 'pier-document-ai');
+  const intakeHealth = connectorHealth.connectors.find(row => row.id === 'pier-document-inbound');
+  assert.equal(extractionHealth.status,'active'); assert.ok(extractionHealth.lastSuccessfulSync);
+  assert.ok(extractionHealth.effects.some(row => row.id === extraction.id && row.state === 'resolved' && row.mapping.includes(document.id)));
+  assert.equal(intakeHealth.status,'active'); assert.ok(intakeHealth.lastSuccessfulSync);
+  assert.equal(intakeHealth.effects.length,1);
+  assert.ok(!JSON.stringify(connectorHealth).includes('intake@example.test'));
+  assert.ok(!JSON.stringify(connectorHealth).includes('<script>Untrusted order</script>'));
   assert.ok(extraction.draft.lines[0].ambiguities.some(flag => /Pack/.test(flag))); assert.ok(extraction.draft.ambiguities.some(flag => /Hostile/.test(flag)));
   assert.equal(calls.length, 1); assert.equal(calls[0].store, false); assert.equal(calls[0].text.format.strict, true);
   assert.equal(calls[0].input[0].content[1].file_data, `data:application/pdf;base64,${payload.base64}`);
@@ -768,6 +777,9 @@ test('retained originals and signed mail produce cited hostile drafts; corrected
   await h.command('document.extract', { documentId: document.id, version: state.evidenceDocuments[0].version, consentOriginal: true }, { error: 'DOCUMENT_SETUP' });
   inbound = await h.command('document.inboundRevoke', { version: inbound.version });
   assert.equal((await intake()).status, 404); assert.equal(setup.enabled, false); assert.equal(inbound.enabled, false);
+  connectorHealth = await (await h.request('/api/pier/integrations')).json();
+  assert.equal(connectorHealth.connectors.find(row => row.id === 'pier-document-ai').status,'paused');
+  assert.equal(connectorHealth.connectors.find(row => row.id === 'pier-document-inbound').status,'paused');
   await h.command('document.delete', { documentId: document.id }, { error: 'COMMAND' });
   // Explicit attachment erasure is a separate governed door. Its preview
   // changes with holds and dependencies, and old command replies lose content.
@@ -830,12 +842,20 @@ test('document paid claims send once across concurrency, image input and failed 
   await h.command('document.extract', payload, { commandId }); assert.equal(calls.length, 1);
   await h.command('document.extract', { ...payload, consentOriginal: false }, { commandId, error: 'IDEMPOTENCY' });
   await h.command('document.complete', { extractionId: concurrent.find(result => result.ok).result.id }, { error: 'DOCUMENT_INTERNAL' });
+  const uncertainExtractions = [];
   for (mode of ['failed', 'uncited']) {
     const id = randomUUID(), failed = await h.command('document.extract', payload, { commandId: id });
     assert.equal(failed.status, 'failed'); assert.equal(calls.length, mode === 'failed' ? 2 : 3);
+    uncertainExtractions.push(failed.id);
     await h.command('document.extract', payload, { commandId: id }); assert.equal(calls.length, mode === 'failed' ? 2 : 3);
     await h.command('document.review', { extractionId: failed.id, version: failed.version }, { error: 'DOCUMENT_STATE' });
   }
+  const health = (await (await h.request('/api/pier/integrations')).json()).connectors.find(row => row.id === 'pier-document-ai');
+  assert.equal(health.uncertain,2); assert.equal(health.failed,0);
+  assert.deepEqual(health.effects.filter(row => row.state === 'uncertain').map(row => row.id).sort(),uncertainExtractions.sort());
+  assert.ok(!JSON.stringify(health).includes('synthetic-pier-5'));
+  assert.ok(!JSON.stringify(health).includes('private upstream detail'));
+  assert.equal(calls.length,3,'health inspection never repeats a paid request');
   const exported = await (await h.request('/api/pier/export')).text();
   assert.ok(!exported.includes('synthetic-pier-5')); assert.ok(!exported.includes('private upstream detail'));
   assert.equal((await h.state()).orders.length, 0); assert.equal((await h.state()).movements.length, 0);

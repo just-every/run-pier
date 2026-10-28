@@ -12,7 +12,7 @@ export async function shippingWebhook(request: Request, env: Bindings): Promise<
   if (request.method !== 'POST') return new Response('Use POST.', { status: 405 });
   if (unavailable(env)) return new Response(unavailable(env), { status: 503 });
   const state = await load(env.DB), settings = state.shippingSettings.find(s => s.id === SETTINGS);
-  if (!settings?.webhookConfigured) return new Response('Configure the EasyPost webhook signing secret in Shipping.', { status: 409 });
+  if (!settings?.enabled || !settings.webhookConfigured) return new Response('Configure the EasyPost webhook signing secret in Shipping.', { status: 409 });
   const secret = await credentials(env, SETTINGS), raw = await request.text();
   if (raw.length > 1024 * 1024) return new Response('Event is too large.', { status: 413 });
   const v2 = request.headers.get('x-hmac-signature-v2'), timestamp = request.headers.get('x-timestamp'), path = request.headers.get('x-path');

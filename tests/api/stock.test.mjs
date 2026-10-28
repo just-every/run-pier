@@ -55,10 +55,23 @@ test('stock consumers resume only acknowledged pages and replay stable events af
   assert.equal((await h.request('/api/pier/stock-changes?consumer=anonymous',{as:''})).status,401);
   assert.equal((await h.request('/api/pier/stock-changes?consumer=invalid&limit=101')).status,400);
   const first = await page(); assert.equal(first.events.length,2); await ack(first);
+  const healthClock = new Date(Date.parse(first.events[0].at) + 120000).toISOString();
+  let health = await (await h.request('/api/pier/integrations', { headers:{'x-pier-test-now':healthClock} })).json();
+  let consumer = health.connectors.find(row => row.name === 'Stock consumer synthetic-pier-1');
+  assert.equal(consumer.cursor, String(first.events.at(-1).sequence));
+  assert.ok(consumer.lastSuccessfulSync);
+  assert.equal(consumer.uncertain, 0);
+  assert.equal(consumer.lagSeconds,120);
+  assert.equal(health.observedAt,healthClock);
+  assert.equal(consumer.pending,(await h.state()).positions.length-first.events.length);
   const interrupted = await page(); assert.ok(interrupted.events[0].sequence>first.events.at(-1).sequence);
   await h.restartWithFreshSigningKey();
   assert.deepEqual(await page(),interrupted,'fetch never advances the acknowledged checkpoint');
   assert.deepEqual(await page(first.consumer,first.pageToken),interrupted);
+  health = await (await h.request('/api/pier/integrations')).json();
+  consumer = health.connectors.find(row => row.name === 'Stock consumer synthetic-pier-1');
+  assert.deepEqual(consumer.effects[0].mapping, interrupted.events.map(event => event.eventId));
+  assert.equal(consumer.cursor, String(first.events.at(-1).sequence));
   const processed = new Map(), ids = [];
   for (const event of first.events) { processed.set(event.eventId,event); ids.push(event.eventId); }
   // Replaying an unacknowledged page upserts the same event identities.
@@ -85,10 +98,23 @@ test('stock consumers resume only acknowledged pages and replay stable events af
   const cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
   const session=await(await h.request('/auth/session',{as:cookie})).json();
   await h.command('role.set',{operatorId:session.operator.id,role:'viewer',permissions:{warehouses:['North'],locationIds:[b.source.id]}});
+  assert.equal((await h.request('/api/pier/integrations',{as:cookie})).status,403);
+  assert.equal((await h.request('/api/pier/integrations',{as:''})).status,401);
   const scopedPage=await page('synthetic-pier-2','',cookie);
   assert.ok(scopedPage.events.length); assert.ok(scopedPage.events.every(e=>e.locationId===b.source.id));
   for (const event of scopedPage.events) assert.deepEqual(Object.keys(event).sort(),['eventId','sequence','at','itemId','locationId','status','quantity','reserved','held','available','expiredOrBlocked','traceUnavailable'].sort());
   assert.equal((await h.request('/api/pier/stock-changes/ack',{method:'POST',as:cookie,body:{consumer:scopedPage.consumer,checkpoint:interrupted.pageToken}})).status,409);
   await h.command('role.set',{operatorId:session.operator.id,role:'viewer',permissions:{warehouses:['South'],locationIds:[]}});
   assert.equal((await h.request('/api/pier/stock-changes?consumer=synthetic-pier-2',{as:cookie})).status,409,'changed grants invalidate checkpoints');
+  health = await (await h.request('/api/pier/integrations')).json();
+  consumer = health.connectors.find(row => row.name === 'Stock consumer synthetic-pier-2');
+  assert.equal(consumer.status, 'authority changed');
+  assert.equal(consumer.failed, 1);
+  const expiresAt = new Date(Date.now()+3600000).toISOString();
+  await h.command('role.set',{operatorId:session.operator.id,role:'viewer',permissions:{warehouses:['North'],locationIds:[b.source.id],expiresAt}});
+  await page('synthetic-pier-expiry','',cookie);
+  const afterExpiry = new Date(Date.parse(expiresAt)+60000).toISOString();
+  const expiredHealth = await (await h.request('/api/pier/integrations',{headers:{'x-pier-test-now':afterExpiry}})).json();
+  assert.equal(expiredHealth.connectors.find(row => row.name === 'Stock consumer synthetic-pier-expiry').status,'authority changed');
+  assert.equal((await h.request('/api/pier/stock-changes?consumer=synthetic-pier-expiry',{as:cookie,headers:{'x-pier-test-now':afterExpiry}})).status,403);
 });

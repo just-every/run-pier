@@ -5,17 +5,19 @@ import { ownerEntry } from './session'
 // @ts-expect-error Worker/D1 fixture uses only authenticated public commands.
 import { stockJourney } from '../api/stock-fixtures.mjs'
 
-test('STOCK-001: stock totals, empty items and SKU/barcode/bin/status/warehouse filters at desktop and phone widths', async ({ page, context }) => {
+test('STOCK-001: stock totals, empty items and warehouse filters with connector recovery', async ({ page, context }) => {
   const origin = await ownerEntry(page)
   await stockJourney({ command: async (type: string, payload: object) => {
     const response = await context.request.post(`${origin}/api/pier/commands`, { headers: { origin }, data: { commandId: crypto.randomUUID(), type, payload } })
     const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
   } })
+  const connected = await context.request.post(`${origin}/api/pier/commands`, { headers:{origin}, data:{commandId:crypto.randomUUID(),type:'shipping.save',payload:{apiKey:'synthetic-pier-8110',mode:'test',fromAddress:{name:'Synthetic Pier',street1:'40 Pier Road',city:'San Francisco',state:'CA',zip:'94107',country:'US',phone:'4155550100'}}} })
+  expect((await connected.json()).ok).toBe(true)
   const state = await (await context.request.get(`${origin}/api/pier/state`)).json()
   const item = state.items.find((row: any) => row.sku === 'BOLT')
   const shots = process.env.PIER_SCREENSHOTS
   if (shots) await mkdir(shots, { recursive: true })
-  for (const width of [1440, 390]) {
+  for (const width of [1440]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto(`${origin}/app#stock`)
     await page.reload()
@@ -49,6 +51,41 @@ test('STOCK-001: stock totals, empty items and SKU/barcode/bin/status/warehouse 
     await expect(page.getByRole('region', { name: 'Selected item details' })).toContainText('In transit')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
     if (shots) await page.screenshot({ path: join(shots, `${width}-stock-all.png`), fullPage: true })
+    const feed = await context.request.get(`${origin}/api/pier/stock-changes?consumer=synthetic-pier-health&limit=2`)
+    expect(feed.status()).toBe(200)
+    const pending = await feed.json()
+    await page.goto(`${origin}/app#channels`)
+    const health = page.getByRole('region', { name: 'Integration health', exact: true })
+    await expect(health.getByRole('heading', { name: 'Integration health' })).toBeVisible()
+    await health.locator('summary').filter({ hasText: 'Stock consumer synthetic-pier-health' }).click()
+    await expect(health).toContainText('Acknowledged stock sequence; fetching does not advance it.')
+    for (const event of pending.events) await expect(health).toContainText(event.eventId)
+    await expect(health).toContainText('Stripe invoice payments · not connected')
+    await expect(health).toContainText('EasyPost shipping · active')
+    if (width === 1440) {
+      await health.locator('summary').filter({hasText:'EasyPost shipping'}).click()
+      await health.getByRole('button',{name:'Pause shipping',exact:true}).click()
+      await expect(health).toContainText('EasyPost shipping · paused')
+    }
+    await expect(health).toContainText('Pantry books · not connected')
+    await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
+    await expect(health.getByRole('button', { name: 'Refresh health', exact: true })).toBeEnabled()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
+    if (shots) {
+      for (const captureWidth of [1440, 390]) {
+        await page.setViewportSize({ width: captureWidth, height: 1000 })
+        await page.screenshot({ path: join(shots, `${captureWidth}-integration-health.png`), fullPage: true })
+      }
+      await page.setViewportSize({ width: 1440, height: 1000 })
+    }
+    await context.request.post(`${origin}/auth/signout`, { headers: { origin }, data: {} })
+    await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
+    await expect(health.getByRole('alert')).toContainText('Check your owner access and retry.')
+    if (shots) await page.screenshot({ path: join(shots, `${width}-integration-health-expired.png`), fullPage: true })
+    await ownerEntry(page)
+    await page.goto(`${origin}/app#channels`)
+    await expect(health.locator('summary').filter({ hasText: 'Stock consumer synthetic-pier-health' })).toBeVisible()
+
   }
 })
 

@@ -93,6 +93,6 @@ export async function books(c:Context,type:string,p:any,env:Bindings):Promise<an
     Object.assign(job,{version:job.version+1,status:agrees?'reconciled':'review',movementSequence:p.movementSequence,connectionVersion:connection.version,through:p.through??null,total:p.expected,actual:p.actual,reason:agrees?'':!current?'Stock moved while Pantry inventory value was being checked. Sync again to compare the current movement history.':p.problem??`Pier inventory value is ${p.expected===null?'unvalued':usdText(money(toCents(amount(p.expected))))}; Pantry through ${p.through??'the comparison date'} holds ${p.actual===null?'an unknown amount':usdText(money(toCents(amount(p.actual))))}. Review missing costs, reversed receipts, returns or other ledger adjustments.`,fix:'Open Reports and the Pantry inventory account, reconcile the difference with your accountant, then sync again.',checkedAt:c.now});
     return job;
   }
-  if(type==='book.checked'){connection.lastSync=c.now;connection.problem=p.problem??null;return connection;}
+  if(type==='book.checked'){connection.lastSync=c.now;connection.problem=p.problem??null;if(!p.problem)connection.lastSuccessfulSync=c.now;return connection;}
   fail('COMMAND','Unknown books command.');
 }
