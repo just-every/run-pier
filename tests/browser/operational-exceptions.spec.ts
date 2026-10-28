@@ -110,7 +110,8 @@ test('owners assign overdue cases, see premature closure refusal and retain docu
   await command('role.set', { operatorId: colleagueId, role: 'viewer' })
   await page.reload(); await deliveryDetail.locator('summary').first().click()
   await expect(deliveryDetail).toContainText('Unassigned')
-  await expect(deliveryDetail).toContainText('Choose a current owner')
+  const assignmentWarning = deliveryDetail.locator(':scope > p').filter({ hasText: 'Choose a current owner' })
+  await expect(assignmentWarning).toBeVisible()
   if (shots) for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     await panel.screenshot({ path: join(shots, `${width}-operational-case-unassigned.png`) })
@@ -118,7 +119,11 @@ test('owners assign overdue cases, see premature closure refusal and retain docu
   await deliveryDetail.getByLabel('Assigned owner', { exact: true }).selectOption(owner)
   await deliveryDetail.getByRole('button', { name: 'Save next action', exact: true }).click()
   await expect.poll(async () => (await state()).operationalExceptions.find((r: any) => r.id === delivery.id).assigneeId).toBe(owner)
-  await expect(deliveryDetail).not.toContainText('Choose a current owner')
+  await expect(deliveryDetail.getByLabel('Assigned owner', { exact: true })).toHaveValue(owner)
+  await expect(assignmentWarning).toHaveCount(0)
+  await deliveryDetail.getByText('Closure and case history', { exact: true }).click()
+  await expect(deliveryDetail).toContainText('Choose a current owner: the assigned owner no longer has authority.')
+  await deliveryDetail.getByText('Closure and case history', { exact: true }).click()
   if (shots) for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     await panel.screenshot({ path: join(shots, `${width}-operational-case-reassigned.png`) })

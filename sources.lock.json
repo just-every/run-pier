@@ -4919,7 +4919,7 @@
       "executable": false
     },
     "tests/browser/operational-exceptions.spec.ts": {
-      "sha256": "4cce60627ca879592c9de404e9641f01ae54e94b448c9d92d8561b69d7ba8ed3",
+      "sha256": "4e9400b4195b33cb761b870a695ee1f1c88a841978778d530c17bca757f2f747",
       "executable": false
     },
     "tests/browser/playwright.config.ts": {
