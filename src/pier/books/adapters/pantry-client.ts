@@ -63,5 +63,21 @@ export function pantryClient(config: BooksAdapterConfig) {
     }while(cursor);
     return rows;
   };
-  return {request,post,matching,attachment,upload,contact,payments};
+  const journals=async(canRead:()=>boolean)=>{
+    const rows:any[]=[],seen=new Set<string>();
+    let cursor:string|null=null;
+    do {
+      if(!canRead())throw new PantryRefusal('Pantry journal readback did not finish in this sync. Sync again before accepting current ledger evidence.',502);
+      const page=await request('journals?'+new URLSearchParams({limit:'100',...(cursor?{cursor}:{})}));
+      if(!Array.isArray(page.entries)||(page.nextCursor!==null&&typeof page.nextCursor!=='string'))throw new PantryRefusal('Pantry returned an incomplete journal page. Restore journal visibility before reconciling.',502);
+      rows.push(...page.entries);
+      cursor=page.nextCursor;
+      if(cursor){
+        if(seen.has(cursor))throw new PantryRefusal('Pantry repeated a journal cursor. Restore journal visibility before reconciling.',502);
+        seen.add(cursor);
+      }
+    }while(cursor);
+    return rows;
+  };
+  return {request,post,matching,attachment,upload,contact,payments,journals};
 }

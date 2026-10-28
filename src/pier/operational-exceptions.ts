@@ -2,9 +2,25 @@ import { decimal, fail, fresh, get, movementFrontier, requireRole, row, text, ty
 import { receiptBookViews } from './books/receipt-closure';
 
 const policyId = 'operational-exceptions';
+function currentOwner(c: Context, id: string) {
+  const assignedRole = c.s.roles.find(role => role.id === id);
+  return c.automationActors?.[id] === 'owner' && (!assignedRole || assignedRole.role === 'owner');
+}
+function lateDelivery(order: Row, today: string) {
+  if (order.status === 'cancelled' || order.documentType === 'quote' && !order.acceptedAt) return false;
+  return order.lines.some((line: Row) => {
+    const outstanding = decimal(line.quantity) - decimal(line.dispatched) - decimal(line.cancelled);
+    if (outstanding <= 0n) return false;
+    const promisedBackorder = line.backorderPromiseDate ? decimal(line.backorderPromisedQuantity ?? '0') : 0n;
+    // A backorder update covers only its recorded quantity. Other units
+    // retain the original promise, including the already reserved stock.
+    return outstanding > promisedBackorder && order.promiseDate && order.promiseDate < today ||
+      promisedBackorder > 0n && line.backorderPromiseDate < today;
+  });
+}
 function owner(c: Context, value: unknown) {
   const id = text(value, 'Assigned owner');
-  if (c.automationActors?.[id] !== 'owner') fail('EXCEPTION_OWNER', 'Choose a current unrestricted owner.');
+  if (!currentOwner(c, id)) fail('EXCEPTION_OWNER', 'Choose a current unrestricted owner.');
   return id;
 }
 function due(value: unknown) {
@@ -19,9 +35,11 @@ function event(c: Context, record: Row, kind: string, detail: any = {}) {
 
 /** Current stock and completed readback must agree; a retained green result alone is insufficient. */
 export function operationalEvidence(c: Context, record: Row) {
-  const connection = c.s.bookConnections.find(r => r.enabled && !r.problem && c.automationActors?.[r.approvedBy] === 'owner');
+  const connection = c.s.bookConnections.find(r => r.enabled && !r.problem && currentOwner(c, r.approvedBy));
   const reconciliation = c.s.bookJobs.find(r => r.key === 'inventory-reconciliation');
-  const ledger = c.booksCredentialPresent === true && !!connection?.lastSync && reconciliation?.status === 'reconciled' &&
+  const policy = c.s.operationalExceptionPolicies[0];
+  const policyAuthorized = !!policy?.enabled && currentOwner(c, policy.approvedBy);
+  const ledger = policyAuthorized && c.booksCredentialPresent === true && !!connection?.lastSync && reconciliation?.status === 'reconciled' &&
     reconciliation.connectionVersion === connection.version && reconciliation.movementSequence === movementFrontier(c.s) &&
     reconciliation.checkedAt <= connection.lastSync;
   const current = (jobs: Row[]) => jobs.length > 0 && jobs.every(job => job.remoteId && job.checkedAt && job.checkedAt <= connection?.lastSync && ['posted', 'reconciled'].includes(job.status));
@@ -47,29 +65,38 @@ export function operationalEvidence(c: Context, record: Row) {
     source = { promise: record.promise, promiseHistory: order?.promiseHistory ?? [], shipmentIds: shipments.map(r => r.id), jobIds: jobs.map(r => r.id) };
   }
   if (!ledger) reason = 'Check Pantry: current inventory reconciliation and owner authority are required.';
+  if (!policyAuthorized) reason = 'A current owner must renew the overdue case policy before closure.';
   return { ready: ready && ledger, reason, ...source, reconciliation: reconciliation ? { id: reconciliation.id, status: reconciliation.status, checkedAt: reconciliation.checkedAt, movementSequence: reconciliation.movementSequence, connectionVersion: reconciliation.connectionVersion } : null, checkedAt: c.now };
 }
 
 /** No correspondence is created here. Existing exact human message approvals remain separate. */
 export function refreshOperationalExceptions(c: Context, check = false) {
   const policy = c.s.operationalExceptionPolicies[0];
-  if (check && policy?.enabled && c.automationActors?.[policy.approvedBy] === 'owner') {
+  if (check && policy?.enabled && currentOwner(c, policy.approvedBy)) {
     const today = c.now.slice(0, 10);
     const candidates = [
       ...c.s.purchaseOrders.filter(po => po.status === 'committed' && !po.confirmation && po.promiseDate < today && po.lines.some((line: Row) => decimal(line.received) < decimal(line.quantity))).map(po => ({ kind: 'overdue-po-confirmation', source: po })),
-      ...c.s.orders.filter(order => order.status !== 'cancelled' && order.lines.some((line: Row) => (line.backorderPromiseDate ?? order.promiseDate) && (line.backorderPromiseDate ?? order.promiseDate) < today && decimal(line.dispatched) + decimal(line.cancelled) < decimal(line.quantity))).map(order => ({ kind: 'late-customer-delivery', source: order })),
+      ...c.s.orders.filter(order => lateDelivery(order, today)).map(order => ({ kind: 'late-customer-delivery', source: order })),
     ];
     for (const { kind, source } of candidates) {
       if (c.s.operationalExceptions.some(r => r.kind === kind && r.sourceId === source.id)) continue;
       row(c, 'operationalExceptions', { kind, sourceId: source.id, reference: source.reference, status: 'open',
         promise: { date: source.promiseDate, approval: source.approval ?? null, history: structuredClone(source.promiseHistory ?? []) },
-        assigneeId: policy.assigneeId, dueAt: new Date(Date.parse(c.now) + policy.dueHours * 3_600_000).toISOString(),
+        assigneeId: currentOwner(c, policy.assigneeId) ? policy.assigneeId : null,
+        assigneeProblem: currentOwner(c, policy.assigneeId) ? null : 'Choose a current owner: the configured assignee no longer has authority.',
+        dueAt: new Date(Date.parse(c.now) + policy.dueHours * 3_600_000).toISOString(),
         escalationOwnerId: policy.escalationOwnerId, nextAction: kind === 'overdue-po-confirmation' ? 'Obtain supplier confirmation, receive the goods and reconcile Pantry.' : 'Review the customer promise, ship the goods and reconcile Pantry.',
         policyVersion: policy.version, history: [{ kind: 'opened', at: c.now, actorId: c.actor.id, commandId: c.commandId }] });
     }
   }
   for (const record of c.s.operationalExceptions) {
     if (record.status === 'cancelled') continue;
+    if (record.assigneeId && !currentOwner(c, record.assigneeId)) {
+      const previousAssigneeId = record.assigneeId;
+      record.assigneeId = null;
+      record.assigneeProblem = 'Choose a current owner: the assigned owner no longer has authority.';
+      event(c, record, 'unassigned', { previousAssigneeId, reason: record.assigneeProblem });
+    }
     const evidence = operationalEvidence(c, record);
     if (record.status === 'closed' && !evidence.ready) {
       record.status = 'open'; record.reopenedAt = c.now; record.reopenReason = evidence.reason;
@@ -80,11 +107,21 @@ export function refreshOperationalExceptions(c: Context, check = false) {
     }
     if (record.status === 'open' && record.dueAt <= c.now && !record.escalatedAt) {
       record.escalatedAt = c.now;
-      record.escalatedTo = c.automationActors?.[record.escalationOwnerId] === 'owner' ? record.escalationOwnerId : null;
+      record.escalatedTo = currentOwner(c, record.escalationOwnerId) ? record.escalationOwnerId : null;
       record.escalationReason = record.escalatedTo ? 'Task unanswered by its due date.' : 'Task unanswered; the escalation owner no longer has authority. Current owner review is required.';
       event(c, record, 'escalated', { to: record.escalatedTo, reason: record.escalationReason });
     }
   }
+}
+
+/** Reads reflect current authority before the next retained case check. */
+export function operationalCaseView(c: Context, record: Row) {
+  const evidence = operationalEvidence(c, record);
+  const revoked = record.assigneeId && !currentOwner(c, record.assigneeId);
+  return { ...record, evidence,
+    ...(revoked ? { assigneeId: null, assigneeProblem: 'Choose a current owner: the assigned owner no longer has authority.' } : {}),
+    ...(record.status === 'closed' && !evidence.ready ? { status: 'open', reopenReason: evidence.reason } : {}),
+  };
 }
 
 export function operationalExceptions(c: Context, type: string, p: any): Row | undefined {
@@ -102,7 +139,7 @@ export function operationalExceptions(c: Context, type: string, p: any): Row | u
   const record = get(c.s, 'operationalExceptions', p.exceptionId); fresh(record, p.version);
   if (record.status !== 'open') fail('EXCEPTION_STATE', 'Only an open case can be changed.');
   if (type === 'exception.assign') {
-    Object.assign(record, { assigneeId: owner(c, p.assigneeId), dueAt: due(p.dueAt), nextAction: text(p.nextAction, 'Next action'), escalatedAt: null, escalatedTo: null });
+    Object.assign(record, { assigneeId: owner(c, p.assigneeId), assigneeProblem: null, dueAt: due(p.dueAt), nextAction: text(p.nextAction, 'Next action'), escalatedAt: null, escalatedTo: null });
     event(c, record, 'assigned', { assigneeId: record.assigneeId, dueAt: record.dueAt, nextAction: record.nextAction }); return record;
   }
   if (type === 'exception.cancel') {

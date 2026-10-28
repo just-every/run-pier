@@ -8,6 +8,7 @@ import { LiveWork } from './item-agent/bulk'
 import { CustomFields } from './custom-fields'
 import { PrivacyReview } from './privacy'
 import { OperationalExceptions } from './operational-exceptions'
+import { CaseSettings } from './case-settings'
 import { Operators } from './operators'
 
 export function Activity({ state, run, busy, itemId, documentId, refresh }: { state: PierState; run: RunCommand; busy: boolean; itemId: string; documentId: string; refresh: () => Promise<void> }) {
@@ -28,7 +29,7 @@ export function Activity({ state, run, busy, itemId, documentId, refresh }: { st
       {!events.length ? <Empty>No recorded decisions for this selection.</Empty> : <Table headings={['When', 'Action / outcome', 'Actor / input', 'Source / changes']}>{events.slice().reverse().map(event => <tr key={event.id}><td>{when(event.at)}</td><td>{actionName(event.type)}<small>{words(event.outcome)}{event.reason ? ` · ${words(event.reason)}` : ''}</small></td><td>{person(state, event.actorId)}{event.code && <small>{event.code} · {event.device}</small>}{event.connectorId && <small>{event.connectorId} · {event.direction || 'recorded outcome'}</small>}</td><td><small>Command {event.commandId} · version {event.version}</small><details><summary>Recorded change details</summary><Evidence value={{ custody: event.custody, fieldOperation: event.fieldOperation, resolution: event.resolution, changes: event.changes, sourceIds: event.documentIds, rule: event.rule, phase: event.phase, attemptId: event.attemptId, requestId: event.requestId, providerAttemptId: event.providerAttemptId, externalIds: event.externalIds, sourceVersions: event.sourceVersions, approval: event.approval, authority: event.authority, ordinaryCommand: event.ordinaryCommand }} /></details></td></tr>)}</Table>}
     </section>
     {state.actor.role === 'owner' && <PrivacyReview state={state} run={run} busy={busy} />}
-    <section className="panel"><h2>Settings</h2><a href={'#activity' + '/custom-fields'}>Custom fields</a></section>
+    <section className="panel" aria-label="Settings"><h2>Settings</h2><a href={'#activity' + '/custom-fields'}>Custom fields</a><CaseSettings state={state} run={run} busy={busy} /></section>
     <OperationalExceptions state={state} run={run} busy={busy} />
     <LiveWork state={state} run={run} busy={busy} />
     <Proposals state={state} run={run} busy={busy} />

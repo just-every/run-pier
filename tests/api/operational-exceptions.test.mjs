@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { installation, basics, buy } from './harness.mjs';
+import { installation, basics, buy, receive } from './harness.mjs';
 
 test('overdue cases deduplicate, retain assignment after restart, escalate unanswered work and require current owner cancellation', async t => {
   let submissions=0;
@@ -58,4 +58,38 @@ test('overdue cases deduplicate, retain assignment after restart, escalate unans
   assert.equal(cases.length,2); assert.equal(cases.find(r=>r.id===retained.id).status,'cancelled');
   assert.equal(cases.find(r=>r.id===retained.id).cancellation.actorId,id);
   assert.equal(cases.find(r=>r.id===delivery.id).status,'open');
+  await h.command('role.set',{operatorId:member.operator.id,role:'owner'});
+  const policy=(await h.state()).operationalExceptionPolicies[0];
+  await h.command('exception.policy',{version:policy.version,enabled:true,assigneeId:member.operator.id,escalationOwnerId:member.operator.id,dueHours:1});
+  const assigned=(await h.state()).operationalExceptions.find(r=>r.id===delivery.id);
+  await h.command('exception.assign',{exceptionId:assigned.id,version:assigned.version,assigneeId:member.operator.id,dueAt:'2026-11-03T12:00:00.000Z',nextAction:'Review the original delivery promise.'});
+  await h.command('role.set',{operatorId:member.operator.id,role:'viewer'});
+  const unassigned=(await h.state()).operationalExceptions.find(r=>r.id===delivery.id);
+  assert.equal(unassigned.assigneeId,null,'revoked case owners leave visibly unassigned work');
+  assert.match(unassigned.assigneeProblem,/current owner/i);
+  await h.command('supplierItem.save',{supplierId:b.supplier.id,itemId:b.item.id,code:'synthetic-pier-204',packSize:'1',price:'0.25',minimum:'1',leadDays:7});
+  await receive(h,b,po,'1');
+  let supply=(await h.state()).purchaseOrders.find(r=>r.id===po.id);
+  await h.command('po.confirm',{poId:supply.id,version:supply.version,promiseDate:'2026-11-09',source:'Synthetic supplier confirmation',body:'Remaining goods arrive on November 9.',confirm:true});
+  const mixed=await h.command('order.create',{customerId:b.customer.id,promiseDate:'2026-11-01',lines:[{itemId:b.item.id,quantity:'2',price:'1'}]});
+  let mixedView=(await h.state()).orders.find(r=>r.id===mixed.id);
+  assert.deepEqual([mixedView.lines[0].reserved,mixedView.lines[0].backorder],['1','1']);
+  await h.command('order.repromise',{orderId:mixed.id,version:mixedView.version,fingerprint:mixedView.backorderPlan.fingerprint,recipient:edge.bindings.MAIL_FROM,confirm:true});
+  mixedView=(await h.state()).orders.find(r=>r.id===mixed.id);
+  assert.equal(mixedView.promiseDate,'2026-11-01');
+  assert.deepEqual([mixedView.lines[0].backorderPromiseDate,mixedView.lines[0].backorderPromisedQuantity],['2026-11-09','1']);
+  const future=await h.command('order.create',{customerId:b.customer.id,promiseDate:'2026-11-01',lines:[{itemId:b.item.id,quantity:'1',price:'1'}]});
+  const futureView=(await h.state()).orders.find(r=>r.id===future.id);
+  await h.command('order.repromise',{orderId:future.id,version:futureView.version,fingerprint:futureView.backorderPlan.fingerprint,recipient:edge.bindings.MAIL_FROM,confirm:true});
+  const quote=await h.command('quote.create',{customerId:b.customer.id,promiseDate:'2026-11-01',validUntil:'2026-11-30',lines:[{itemId:b.item.id,quantity:'1',price:'1'}]});
+  await h.command('exception.check',{}); await h.command('exception.check',{});
+  cases=(await h.state()).operationalExceptions;
+  assert.deepEqual(cases.filter(r=>r.kind==='late-customer-delivery').map(r=>r.sourceId).sort(),[order.id,mixed.id].sort(),'reserved overdue units stay late; future backorders and unaccepted quotes do not');
+  assert.equal(cases.some(r=>r.sourceId===quote.id),false);
+  assert.equal(cases.some(r=>r.sourceId===future.id),false);
+  const mixedCase=cases.find(r=>r.sourceId===mixed.id);
+  assert.equal(mixedCase.assigneeId,null,'new cases cannot inherit a revoked default owner');
+  assert.match(mixedCase.assigneeProblem,/current owner/i);
+  assert.equal(mixedCase.promise.date,'2026-11-01');
+  assert.equal(mixedCase.promise.history.at(-1).lines[0].quantity,'1');
 });

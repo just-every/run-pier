@@ -142,6 +142,37 @@ test('Pantry connects with a scoped credential and picked accounts; a matched in
     assert.equal((await pier.state()).bookConnections[0].problem,null);
     state=await pier.state();assert.equal(state.bookJobs.filter(j=>['review','uncertain'].includes(j.status)).length,0);
     sales=await pantry.view('sales');assert.equal(sales.invoices.length,1);assert.equal(sales.bills.length,1);assert.equal((await pantry.view('journal')).entries.filter(e=>e.memo.startsWith('PIER-COGS-')).length,1);
+    const entered=await fetch(pier.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':pier.devKey}});
+    const secondOwnerCookie=entered.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
+    const secondOwner=(await(await pier.request('/auth/session',{as:secondOwnerCookie})).json()).operator.id;
+    await pier.command('role.set',{operatorId:secondOwner,role:'owner'});
+    let casePolicy=(await pier.state()).operationalExceptionPolicies[0];
+    await pier.command('exception.policy',{...casePolicy,version:casePolicy.version,assigneeId:ownerId,escalationOwnerId:ownerId},{as:secondOwnerCookie});
+    await pier.command('exception.check',{});
+    state=await pier.state();assert.ok(state.operationalExceptions.every(record=>record.status==='closed'));
+    await pier.command('role.set',{operatorId:secondOwner,role:'viewer'});
+    state=await pier.state();
+    assert.equal(state.bookConnections[0].approvedBy,ownerId,'Books keeps its current owner authority');
+    assert.equal(state.bookJobs.find(job=>job.key==='inventory-reconciliation').status,'reconciled');
+    assert.ok(state.operationalExceptions.every(record=>record.status==='open'),'revoking the case-policy owner immediately invalidates retained closure');
+    await pier.command('exception.check',{});
+    state=await pier.state();assert.ok(state.operationalExceptions.every(record=>record.status==='open'&&record.history.some(event=>event.kind==='reopened')));
+    casePolicy=state.operationalExceptionPolicies[0];
+    await pier.command('exception.policy',{...casePolicy,version:casePolicy.version});
+    await pier.command('exception.check',{});
+    assert.ok((await pier.state()).operationalExceptions.every(record=>record.status==='closed'),'fresh owner policy restores valid closure');
+    await pantry.command('journal.reverse',{id:journal[0].id,date:new Date().toISOString().slice(0,10),memo:'synthetic-pier-201'});
+    const replacement=await pantry.command('journal.save-draft',{date:journal[0].entry_date,memo:'synthetic-pier-202',lines:[{accountId:cogs.id,debit:'1.00'},{accountId:inventory.id,credit:'1.00'}]});
+    await pantry.command('journal.post',{id:replacement.id,revision:replacement.revision});
+    await pier.command('book.sync',{});
+    state=await pier.state();
+    assert.equal(state.bookJobs.find(job=>job.key==='inventory-reconciliation').status,'reconciled','a separate journal can restore the aggregate inventory balance');
+    const reversedJob=state.bookJobs.find(job=>job.key.startsWith('cogs:'));
+    assert.equal(reversedJob.remoteId,journal[0].id);assert.equal(reversedJob.status,'review','the original reversed journal cannot remain accepted posting evidence');
+    assert.equal(state.operationalExceptions.find(record=>record.id===orderCaseId).status,'open','a balanced ledger cannot close delivery using its reversed cost journal');
+    await pier.command('book.sync',{});
+    assert.equal((await pier.state()).bookJobs.find(job=>job.id===reversedJob.id).status,'review');
+    assert.equal((await pantry.view('journal')).entries.filter(entry=>entry.memo.startsWith('PIER-COGS-')).length,1,'checking a reversal never posts a replacement');
     echoFailure=true;
     await pier.command('book.sync',{});
     const safeExport=await(await pier.request('/api/pier/export')).text();
@@ -169,6 +200,7 @@ test('an adjusted connected forecast follows its exact approved send through lan
   const bank = await pantry.command('bank-account.save', { name: 'Operating', institution: 'Synthetic bank', accountId: chart.accounts.find(a => a.code === '1000').id, numberLast4: '4242', routing: '', openingDate: '2026-01-01', openingBalance: '0.00' });
   const credential = await pantry.command('integration.create', { name: 'Forecast closure', scopes: ['contacts:write', 'invoices:write', 'bills:write', 'journals:write', 'documents:write', 'payments:read', 'reports:read', 'post'] });
   const mail = [];
+  let trialBalanceGate;
   const edge = { now: '2026-10-27T00:00:00.000Z', bindings: { MAIL_PROVIDER: 'resend', MAIL_FROM: 'buyer@example.test', MAIL_API_KEY: 'synthetic-pier-closure-2' }, outboundService: async request => {
     const url = new URL(request.url);
     if (url.hostname === 'api.resend.com') { mail.push(await request.json()); return Response.json({ id: `synthetic-pier-mail-${mail.length}` }); }
@@ -177,7 +209,11 @@ test('an adjusted connected forecast follows its exact approved send through lan
       return Response.json(url.pathname.endsWith('/products') ? [{ id: 1, name: 'Brass bolt', type: 'simple', sku: 'BOLT' }] : [{ id: 1, number: 'synthetic-pier-closure-3', status: 'processing', currency: 'USD', billing: { first_name: 'Buyer', last_name: '' }, refunds: [], line_items: [{ id: 1, sku: 'BOLT', quantity: 30, price: 8 }] }]);
     }
     assert.equal(url.origin, pantry.origin);
-    return fetch(request.url, { method: request.method, headers: Object.fromEntries([...request.headers].filter(([key]) => !['transfer-encoding', 'content-length', 'host', 'connection'].includes(key))), redirect: 'manual', ...(request.method === 'GET' ? {} : { body: await request.arrayBuffer() }) });
+    const response=await fetch(request.url, { method: request.method, headers: Object.fromEntries([...request.headers].filter(([key]) => !['transfer-encoding', 'content-length', 'host', 'connection'].includes(key))), redirect: 'manual', ...(request.method === 'GET' ? {} : { body: await request.arrayBuffer() }) });
+    if(trialBalanceGate&&url.pathname.endsWith('/reports/trial-balance')){
+      const gate=trialBalanceGate;trialBalanceGate=undefined;gate.arrived.resolve();await gate.release.promise;
+    }
+    return response;
   } };
   const pier = await installation(edge); t.after(() => pier.close()); const b = await basics(pier);
   await pier.command('business.save', { name: 'Harbor Wholesale', address: '40 Pier Road, Portland OR 97210' });
@@ -223,5 +259,23 @@ test('an adjusted connected forecast follows its exact approved send through lan
   assert.equal(follow.inventoryReconciliation.status, 'reconciled'); assert.equal(follow.landedCostDifference, '0.000000000000');
   const ledger = await pantry.view('reports/trial-balance'); assert.equal(ledger.balanced, true);
   assert.equal((await pier.state()).supplierBills.find(b => b.id === bill.id).books.open, '0.00');
+  const beforeRace=await pier.state(),sampledSequence=beforeRace.movements.at(-1).sequence;
+  const gate={arrived:Promise.withResolvers(),release:Promise.withResolvers()};trialBalanceGate=gate;
+  const syncing=pier.command('book.sync',{});
+  let concurrentReceipt;
+  try{
+    await gate.arrived.promise;
+    concurrentReceipt=await pier.command('receipt.create',{poId:second.id,supplierReference:'synthetic-pier-203',lines:[{poLineId:second.lines[0].id,locationId:b.source.id,quantity:'12',cost:'2'}]});
+    assert.ok((await pier.state()).movements.at(-1).sequence>sampledSequence);
+  }finally{gate.release.resolve();await syncing;}
+  const afterRace=await pier.state(),stale=afterRace.bookJobs.find(job=>job.key==='inventory-reconciliation');
+  assert.equal(stale.movementSequence,sampledSequence,'reconciliation keeps the movement frontier of the sampled amounts');
+  assert.equal(stale.status,'review','matching older amounts cannot certify a concurrent receipt');
+  assert.equal((await pier.command('replenishment.review',{poId:po.id})).followThrough.status,'open');
+  await pier.command('receipt.reverse',{receiptId:concurrentReceipt.id,reason:'Synthetic extra receipt was physically returned before use'});
+  await pier.command('book.sync',{});
+  const recovered=await pier.state(),current=recovered.bookJobs.find(job=>job.key==='inventory-reconciliation');
+  assert.equal(current.status,'reconciled');assert.equal(current.movementSequence,recovered.movements.at(-1).sequence);
+  assert.equal((await pier.command('replenishment.review',{poId:po.id})).followThrough.status,'closed');
   await pier.invariant();
 });

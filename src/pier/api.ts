@@ -93,7 +93,7 @@ import { backorderDates } from './backorders';
 import { purchasingWorkflow, expectedLandedCost, refreshPromises } from './purchasing-workflow';
 import { deliverCorrespondence, correspondenceDeliveries } from './correspondence-delivery';
 import { purchaseSend, invalidatePurchaseSends } from "./purchase-send";
-import { operationalExceptions, refreshOperationalExceptions, operationalEvidence } from "./operational-exceptions";
+import { operationalExceptions, refreshOperationalExceptions, operationalCaseView } from "./operational-exceptions";
 import { slowStock, refreshSlowStock } from "./slow-stock";
 import { pricing } from "./pricing";
 import { lateLandedCost } from './late-landed-cost';
@@ -545,7 +545,7 @@ export async function pierResponse(
         actor,
         people,
         bookConnections,
-        operationalExceptions: actor.role === "owner" ? s.operationalExceptions.map(record => ({ ...record, evidence: operationalEvidence(c, record) })) : [],
+        operationalExceptions: actor.role === "owner" ? s.operationalExceptions.map(record => operationalCaseView(c, record)) : [],
         receiptClosures: receiptBookViews(s, bookConnections.some(row => row.enabled && row.credentialPresent && !row.problem)),
         orders: s.orders.map((o) => ({ ...orderView(c, o),...(actor.role==='owner'?{}:{creditClearance:undefined}), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),
