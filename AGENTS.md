@@ -18,4 +18,7 @@ The installed root is Base's Lobby at `/`. The public run site (`rer build --sit
 
 ## Lander-Regenerate
 
-The inherited pin predates the shared contract-docs generator. For the native strong-authentication and operational-case slices, regenerate each selected legacy acceptance row and all Status counts with `node scripts/contract-docs.mjs write ADMIN-002 AUTO-001`, then `node scripts/contract-docs.mjs check ADMIN-002 AUTO-001`. CONTRACT.md supplies status, evidence and gaps. The bridge preserves unrelated legacy rows and the unchanged homepage projection. Regenerate the edition source lock last.
+CONTRACT.md is the only acceptance text and status source; ACCEPTANCE.md, docs/CLAIMS.md and the Status counts are generated from it. After a rebase or any contract change, regenerate the contract documents, then the edition source lock last:
+
+Lander-Regenerate: node src/base/contract-docs.mjs write
+Lander-Regenerate: node scripts/edition-authoring/cli.mjs lock

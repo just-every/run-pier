@@ -81,9 +81,11 @@
       ]
     },
     "CAT-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "CAT-001"
+        "CAT-001",
+        "CAT-002",
+        "CAT-003"
       ]
     },
     "KIT-001": {
@@ -111,9 +113,11 @@
       ]
     },
     "WMS-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "WMS-001"
+        "WMS-001",
+        "WMS-004",
+        "WMS-005"
       ]
     },
     "WMS-002": {
@@ -135,9 +139,11 @@
       ]
     },
     "SALES-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "SALES-001"
+        "SALES-001",
+        "SALES-008",
+        "SALES-004"
       ]
     },
     "SALES-002": {
@@ -159,9 +165,10 @@
       ]
     },
     "SALES-005": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "SALES-005"
+        "SALES-005",
+        "SALES-009"
       ]
     },
     "SALES-006": {
@@ -171,9 +178,11 @@
       ]
     },
     "SALES-007": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "SALES-007"
+        "SALES-007",
+        "SALES-010",
+        "SALES-011"
       ]
     },
     "TAX-001": {
@@ -195,9 +204,11 @@
       ]
     },
     "BUY-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "BUY-002"
+        "BUY-002",
+        "BUY-006",
+        "BUY-007"
       ]
     },
     "BUY-003": {
@@ -213,15 +224,17 @@
       ]
     },
     "BUY-005": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "BUY-005"
+        "BUY-005",
+        "BUY-008"
       ]
     },
     "COST-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "COST-001"
+        "COST-001",
+        "COST-002"
       ]
     },
     "REPORT-001": {
@@ -231,15 +244,20 @@
       ]
     },
     "REPORT-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "REPORT-002"
+        "REPORT-002",
+        "REPORT-003"
       ]
     },
     "CHANNEL-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "CHANNEL-001"
+        "CHANNEL-001",
+        "CHANNEL-003",
+        "CHANNEL-004",
+        "CHANNEL-005",
+        "CHANNEL-006"
       ]
     },
     "CHANNEL-002": {
@@ -255,9 +273,10 @@
       ]
     },
     "SHIP-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "SHIP-001"
+        "SHIP-001",
+        "SHIP-002"
       ]
     },
     "ACCOUNT-001": {
@@ -339,9 +358,10 @@
       ]
     },
     "ADMIN-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "ADMIN-002"
+        "ADMIN-002",
+        "ADMIN-003"
       ]
     },
     "SEC-001": {
@@ -393,9 +413,9 @@
       ]
     },
     "BASE-001": {
-      "how": "kept",
+      "how": "merged",
       "to": [
-        "BASE-001"
+        "SEC-001"
       ]
     },
     "OPEN-001": {

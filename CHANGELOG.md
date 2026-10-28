@@ -1,5 +1,17 @@
 # Changelog
 
+## 28 October 2026 — contract cleanup to the RER contract standard
+
+CONTRACT.md was rewritten to the RER contract standard from main `b23893e4b0b46c454a14f98a8602ba508f350ddd`. Nothing was cut and no status was promoted; `docs/contract/COVERAGE.json` places every old sentence and `docs/contract/ID-MAP.json` maps every old id.
+
+- Oversized clauses were split into one-capability parts: CAT-001 (CAT-002, CAT-003), WMS-001 (WMS-004, WMS-005), SALES-001 (SALES-008), SALES-005 (SALES-009), SALES-007 (SALES-010, SALES-011), BUY-002 (BUY-006, BUY-007), BUY-005 (BUY-008), COST-001 (COST-002), REPORT-002 (REPORT-003), CHANNEL-001 (CHANNEL-003 to CHANNEL-006), SHIP-001 (SHIP-002) and ADMIN-002 (ADMIN-003). SALES-001's recurring and dropship rider text moved into SALES-004.
+- BASE-001 was merged into SEC-001: a clause id may not carry the Base duty prefix, and its restated Base guarantees are now the Shared duties table.
+- Repeated rules became door rules D-1 to D-4. Rulings moved to RULINGS.md (RL-1 to RL-7), and ct's 28 October rulings RL-101 to RL-103 were copied in verbatim. Mechanism moved to `docs/contract/mechanism.md`, and the hand-written ACCEPTANCE.md is kept as `docs/contract/acceptance-before-cleanup.md`.
+- Real-world-only proof became Field proof register rows R-1 to R-8 (devices and printers, retailer certification, vendor identity tenants, a screen-reader pass, a VPAT, physical warehouse accuracy, a WhatsApp sender and a live receiving domain). Later is empty: no buyer-review "Also noted" list exists for Pier.
+- The Agent surface (SURFACE-001 to SURFACE-007) was added, and every sentence where a person approved an agent's step was reworded as the risk class that step carries.
+- The carried-done audit in `docs/contract/DONE-AUDIT.md` checked every point of every part of the 32 clauses done at the old reference: 20 parts whose cited evidence does not assert every point are now partial, each with a Gap naming what is unasserted, and SEC-001 is partial because it merged the partial BASE-001.
+- Status notes on done rows, history paragraphs of the old Status section and the hand-written docs/CLAIMS.md are kept in "Contract source before b23893e4b0b46c454a14f98a8602ba508f350ddd" below.
+
 ## Unreleased
 
 - Channel setup explains every platform value and account requirement, loads Shopify locations and offers Amazon country choices; each platform has its own guide. EDI separates preparation today from provider-dependent sending that is coming.

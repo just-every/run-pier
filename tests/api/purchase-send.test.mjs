@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { installation, basics, buy } from './harness.mjs';
 
-test('BUY-002: an agent sends only the exact bounded human-approved purchase once', async t => {
+test('BUY-006: an agent sends only the exact bounded human-approved purchase once', async t => {
   const mail = [];
   let uncertain = false;
   const h = await installation({ bindings: { MAIL_PROVIDER: 'resend', MAIL_FROM: 'buyer@example.test', MAIL_API_KEY: 'synthetic-pier-1' }, outboundService: async request => {

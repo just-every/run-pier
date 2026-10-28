@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "2caa79bcae6249f766bd3253dd465cf618fbf2726a657c8088cd6534a3eac42f",
+      "sha256": "2e6ad42fb9462c55db88f38cc3d53f13faba2ec26a9c40b211025f7bef63e466",
       "executable": false
     },
     ".gitignore": {
@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "1d7435beb6936494474ec2e5db63a5bf804eb8c23aca105a4b349cc12d7864a2",
+      "sha256": "8a5c66dd19b425314f821802e7447dc79cc647295d321ccec1b66e0344929a1b",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -327,7 +327,7 @@
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "fe56802c892c26a35f022827d66e1836924c3a5bed8f84b3306e9e0493f4a521",
+      "sha256": "f0d2b5815e6d1209bdceef0b8b60072f5ea9435bd501d7bc3f64fe8cbd3e180c",
       "executable": false
     },
     "API.md": {
@@ -335,11 +335,11 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "e4c0e05f0fb090dff49226041b83f47a2d1d5b91d906e9c10c4b9c6ee8f4010e",
+      "sha256": "eabd82e222c745b8dfd3f8a35a188114613d4127ed13194dacc4ae964f410687",
       "executable": false
     },
     "CHANGELOG.md": {
-      "sha256": "549dad0edccf19c9b12a24b6f1170f9a0a85cbc5f83ca444713433e22c7446ea",
+      "sha256": "c26bfe57b6c480ceee33dde67e57edfc58858a855fec513e8969a5e180b5a78a",
       "executable": false
     },
     "CLAUDE.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "79ea361a8261aebc9f37e65b3158b0e35e6d56515d7f784302df454007d6c8ef",
+      "sha256": "2617ec1f2bc5fe6f05dc5118a0dca65bf78b7c80ba8d046dea65aee923bb7070",
       "executable": false
     },
     "DEMO.md": {
@@ -399,11 +399,23 @@
       "executable": false
     },
     "docs/channels.md": {
-      "sha256": "ca3c28756dac59cdcf5a7ac4a4036da4d8d3e9762843330802a5a3d29286ace3",
+      "sha256": "b137724c74b6d6337f183155953bbb19fea20832006023da0b3cc6571e2b72e4",
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "2d4961e43791a64a3bb77ea368152d934421e3c63310344ff7ff90110aaa108f",
+      "sha256": "b0ebc5adb705adafab804d19f2a873129dc3fc1957d30dc4b9bf4dc2462e01b4",
+      "executable": false
+    },
+    "docs/contract/acceptance-before-cleanup.md": {
+      "sha256": "1d7435beb6936494474ec2e5db63a5bf804eb8c23aca105a4b349cc12d7864a2",
+      "executable": false
+    },
+    "docs/contract/COVERAGE.json": {
+      "sha256": "31affbf52cd601a76ca99eaf90d907279a3b6f3e5f00a3c2f91dccd94d7d84a9",
+      "executable": false
+    },
+    "docs/contract/ID-MAP.json": {
+      "sha256": "4f51be46c66596a24381b17d8e3b81cffe663d3a511441cf6cddf67662f6abb2",
       "executable": false
     },
     "docs/edi-bridge.md": {
@@ -643,7 +655,7 @@
       "executable": false
     },
     "OPERATIONS.md": {
-      "sha256": "4208a7ad996801e27647dc9944e45708a7e89084ea5b13f583844235a344798c",
+      "sha256": "d59dd54ec960fc57611aaefc278272c87bf277c2b4c396cc36d19f5dce5aeeb6",
       "executable": false
     },
     "package.json": {
@@ -955,7 +967,7 @@
       "executable": false
     },
     "RULINGS.md": {
-      "sha256": "d98b2181e5cd3e701c73657ca0eb7c25a0bf4904c43e5c0567e885464be536cf",
+      "sha256": "7bf40661b8796f9e25592a2ab949eece7a062b3dbc9cccee9f51f259c7181f7e",
       "executable": false
     },
     "RUN-LOCALLY.md": {
@@ -968,10 +980,6 @@
     },
     "scripts/ci/chromium-probe.mjs": {
       "sha256": "85f6ee1bc7134802c8661208fd095b9ae2a01d7869872e911a4c220c98080a6e",
-      "executable": false
-    },
-    "scripts/contract-docs.mjs": {
-      "sha256": "048038bac1f39d75f7af98ce5421745efa4df8b1495262284a44087d6e2986a8",
       "executable": false
     },
     "scripts/delivery/base/artifact.mjs": {
@@ -1164,6 +1172,10 @@
     },
     "src/auth.server.ts": {
       "sha256": "9db72d3c6cb03d2e00b2039e78dd18dcc6f749710930148180e13cd67c203143",
+      "executable": false
+    },
+    "src/base/contract-docs.mjs": {
+      "sha256": "d98e14f489c57f60446c2cc68310db09f298f7974d77026dbaa2c62868cc4838",
       "executable": false
     },
     "src/base/contract-filter.ts": {
@@ -4763,7 +4775,7 @@
       "executable": false
     },
     "tests/api/purchase-send.test.mjs": {
-      "sha256": "ac043ddf34dead462fd504f6a71269988534980c5f7cb5ad9575aaeefa9aa530",
+      "sha256": "74022d41effaaa40ac6fd9003c53e9804ad168a2224d803b44ff48ed39df0454",
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
