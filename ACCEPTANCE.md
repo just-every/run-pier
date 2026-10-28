@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 18 | 69 | 4 | 91 |
+| Core | 19 | 68 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 18 | 69 | 11 | 98 |
+| Full target | 19 | 68 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-011 proof is re-run on the exact landing candidate; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `589c35420c4bcb12d807abefebfd22df197146d0` (28 October 2026). PIER-006 and PIER-011 proofs are re-run on the exact landing candidate; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -90,7 +90,7 @@ Core · published · **partial** · Cites BASE-AGENT-008
 
 #### PIER-006 — Receive partial purchases atomically
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Warehouse staff receive some or all of a committed purchase into named bins, recording supplier reference and exact receipt cost. The remainder stays expected. Invalid or over-received lines cannot partially post an otherwise valid multi-line receipt.
 
@@ -98,8 +98,8 @@ Core · published · **partial**
 1. Journey 6: partially receive a multi-line PO, repeat the command, then submit one invalid line.
 2. The first receipt posts once, exact cost is retained, remaining expected quantities reconcile and the invalid receipt leaves every line unchanged.
 
-**Evidence.** `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (06)
-**Gap.** Unasserted: the remaining expected quantity after a partial receipt, and partial receipt of a multi-line PO (the PO received has one line). Asserted: the partial receipt posts once on replay with its exact cost, and a receipt carrying an invalid second line leaves movements unchanged.
+**Evidence.** `tests/api/flows.test.mjs` — “06 partial receipts and failed multi-line receipt are atomic” in “Pier public Worker and D1 wholesale journey” proves two committed SKU lines received across two partial deliveries, independently reconciled cumulative and remaining expected quantities, exact per-line costs and linked stock increases, unchanged complete business export on identical replay, and complete refusal atomicity for an invalid line and for a valid first line followed by an over-received second line. `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” proves native receiving and exact interrupted-command recovery, with receipt screens captured at 1440 and 390.
+**Gap.** None.
 
 #### PIER-007 — Correct receipts with physical evidence
 

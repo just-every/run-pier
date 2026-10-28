@@ -1410,13 +1410,13 @@ Inherits BASE-AGENT-001 to BASE-AGENT-013. The company's policy decides every ca
 
 ## Status
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-011 proof is re-run on the exact landing candidate; other status judgments are preserved.
+Judged from the code and tests at commit `589c35420c4bcb12d807abefebfd22df197146d0` (28 October 2026). PIER-006 and PIER-011 proofs are re-run on the exact landing candidate; other status judgments are preserved.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 4 | 8 | 0 | 12 |
+| Published | 5 | 7 | 0 | 12 |
 | Target and push further | 14 | 61 | 11 | 86 |
-| All | 18 | 69 | 11 | 98 |
+| All | 19 | 68 | 11 | 98 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -1425,7 +1425,7 @@ Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e7637
 | `PIER-003` | Review native opening inventory | published | partial | `src/pier/imports.ts`; `src/pier/import-currency.ts`; `src/pier/native-export.ts`; `tests/api/security-import.test.mjs`; `tests/api/native-exit.test.mjs` | Unasserted: reading the USD unit cost of an imported native opening in COST-001's ledger; `tests/api/security-import.test.mjs` asserts the resulting valuation total only. Every other point is asserted in the cited files. |
 | `PIER-004` | Commit sales demand without overselling | published | done | `src/pier/orders.ts`; `tests/api/flows.test.mjs` (04) |  |
 | `PIER-005` | Approve exact purchase commitments | published | partial | `src/pier/purchasing.ts`; `src/pier/proposals.ts`; `tests/api/flows.test.mjs` (05) | Unasserted in the cited evidence: preparing the PO as an agent, the refused approval attempted with the agent's credential, a commit of the freshly approved version and its effect on expected rather than on-hand stock. Asserted: the buyer's approval and refusal of the stale and the unapproved revised version. `tests/api/security-import.test.mjs` ('roles, agent preparation, revoked session, stale human approval and direct HTTP denial') holds agent refusals outside this clause's evidence. |
-| `PIER-006` | Receive partial purchases atomically | published | partial | `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (06) | Unasserted: the remaining expected quantity after a partial receipt, and partial receipt of a multi-line PO (the PO received has one line). Asserted: the partial receipt posts once on replay with its exact cost, and a receipt carrying an invalid second line leaves movements unchanged. |
+| `PIER-006` | Receive partial purchases atomically | published | done | `tests/api/flows.test.mjs` — “06 partial receipts and failed multi-line receipt are atomic” in “Pier public Worker and D1 wholesale journey” proves two committed SKU lines received across two partial deliveries, independently reconciled cumulative and remaining expected quantities, exact per-line costs and linked stock increases, unchanged complete business export on identical replay, and complete refusal atomicity for an invalid line and for a valid first line followed by an over-received second line. `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” proves native receiving and exact interrupted-command recovery, with receipt screens captured at 1440 and 390. |  |
 | `PIER-007` | Correct receipts with physical evidence | published | done | `src/pier/purchasing.ts`; `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (07) |  |
 | `PIER-008` | Transfer through visible transit | published | partial | `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (08) — partial arrival, exact replay, stale/excess refusal and conserved transit; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” enters a partial destination receipt through Transfers. | Unasserted in the cited evidence: the source position, and with it source plus transit plus destination reconciling throughout the transfer (no source figure is read, and transit and destination are read once, mid-transfer, not after the send or after the full receipt), and an attempted sale of the in-transit units (the test reads transit availability as 0 but attempts no sale). Asserted: the transfer dispatches through transit with transit availability 0, a partial destination receipt of 0.2 leaves transit 0.3 and destination 0.2, the retried receipt returns the same result, and stale or excess receipts are refused with movements unchanged. |
 | `PIER-009` | Dispatch only owned reservations | published | partial | `src/pier/orders.ts`; `tests/api/flows.test.mjs` (09); `tests/browser/journey.spec.ts` | Unasserted: an attempt to dispatch against another order's reservation (the test over-dispatches its own line instead), and the remaining order's outstanding demand after the partial dispatch. Asserted: the partial dispatch, its replay and its reservation link. |
