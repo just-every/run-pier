@@ -1,11 +1,11 @@
+import { shareBuild } from './shared-build.mjs';
 import { authenticatorCode } from './api/strong-auth-fixture.mjs';
 // Full public-command portability proof. Runs sequential fresh installations;
 // every child and directory is owned by this script and closed in finally.
 import assert from "node:assert/strict";
-import { admittedServer } from "./server-admission.mjs";
 import { spawn } from "node:child_process";
 import { mkdtemp, readdir, cp, rm, readFile, writeFile } from "node:fs/promises";
-import { resolve, join } from "node:path";
+import { resolve, join, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { createServer } from "node:net";
 import { inactiveRecord, inactiveValue } from "../scripts/installer/archive-policy.mjs";
@@ -32,6 +32,7 @@ const clean = (s) =>
     .replace(/token=[^\s"&<>]+/g, "token=[private]")
     .replace(/rer-dev=[^\s"&<>]+/g, "rer-dev=[private]");
 async function copy(name) {
+  console.log('Portability: prepare ' + name);
   const root = join(parent, name);
   await cp(workspace, root, {
     recursive: true,
@@ -51,9 +52,13 @@ async function copy(name) {
     ["pnpm", "install", "--frozen-lockfile"],
     "corepack",
   );
+  await shareBuild(workspace, root);
   return root;
 }
 function child(root, args, executable = join(root, "node_modules/.bin/rer")) {
+  // Each CI shard owns its machine; retain local state locks, skip machine queues.
+  if (executable === join(root, "node_modules/.bin/rer") && ['setup', 'export', 'import'].includes(args[0]))
+    args = [...args, '--no-queue'];
   const environment = { ...process.env };
   // Each scratch installation owns a new operation; the outer verification
   // token belongs to the source checkout and is invalid at another root.
@@ -83,6 +88,7 @@ function child(root, args, executable = join(root, "node_modules/.bin/rer")) {
   return { proc, done, output: () => output };
 }
 async function command(root, args, executable) {
+  console.log('Portability: ' + args[0] + ' in ' + basename(root));
   const p = child(root, args, executable),
     code = await p.done;
   assert.equal(code, 0, clean(p.output()).slice(-5000));
@@ -100,13 +106,13 @@ async function interrupt(runtime) {
   await runtime.done;
 }
 async function start(root, p) {
-  let launched;
-  const runtime = await admittedServer(
-    () => (launched = child(root, ["dev", "--port", String(p), "--foreground"])),
-    () => interrupt(launched),
-    clean,
-  );
+  console.log('Portability: dev in ' + basename(root));
+  const runtime = child(root, ["dev", "--port", String(p), "--foreground"]);
   try {
+    const deadline = Date.now() + 120000;
+    while (!runtime.output().includes('RER_READY') && runtime.proc.exitCode === null && Date.now() < deadline)
+      await new Promise(resolve => setTimeout(resolve, 200));
+    assert.ok(runtime.output().includes('RER_READY'), clean(runtime.output()).slice(-3000));
     const origin = `http://127.0.0.1:${p}`;
     let cookie = "";
     const request = (path, method = "GET", body, as = cookie) =>
@@ -173,8 +179,43 @@ async function verifyNative(runtime, secret) {
   assert.equal(response.status,200,await response.clone().text());
   return secret;
 }
+  const importInput = {
+    namespace: "portable-csv",
+    sourceVersion: "1",
+    exportedAt: "2026-10-13T00:00:00Z",
+    filters: "all",
+    cutoffTimezone: "Australia/Brisbane",
+    currency: "USD",
+    mappingRevision: "1",
+    files: [
+      {
+        kind: "items",
+        name: "items.csv",
+        csv: "key,sku,name,barcode,unit,packSize\ni,RESTORE-IMPORT,Restore import,,each,1\n",
+      },
+      {
+        kind: "locations",
+        name: "locations.csv",
+        csv: "key,name,warehouse,kind\nl,Restore bin,Main,bin\n",
+      },
+      {
+        kind: "positions",
+        name: "positions.csv",
+        csv: "key,itemKey,locationKey,status,quantity,unit,cost\np,i,l,sellable,0.2,each,0.1\n",
+      },
+    ],
+  };
+  const csv = cells => cells.map(row => row.map(value => '"' + String(value).replaceAll('"','""') + '"').join(',')).join('\n') + '\n';
+  importInput.files[0].csv=csv([['key','sku','name','barcode','unit','packSize','metadata'],['i','RESTORE-IMPORT','Restore import','','each','1',JSON.stringify({customFields:{private_value:'synthetic-pier-private-item'}})]]);
+  importInput.files.push(
+    {kind:'customFieldDefinitions',name:'fields.csv',csv:csv([['key','ownerType','fieldKey','label','type','options'],...['item','customer','supplier','order'].map(kind=>[kind,kind,'private_value','Private value','text','[]'])])},
+    {kind:'parties',name:'parties.csv',csv:csv([['key','name','kind','metadata'],['typed-customer','Typed customer','customer',JSON.stringify({customFields:{private_value:'synthetic-pier-private-customer'}})],['typed-supplier','Typed supplier','supplier',JSON.stringify({customFields:{private_value:'synthetic-pier-private-supplier'}})]])},
+    {kind:'orders',name:'orders.csv',csv:csv([['key','orderKey','customerKey','itemKey','quantity','unit','promiseDate','metadata'],['typed-line','typed-order','typed-customer','i','0.1','each','2026-11-01',JSON.stringify({customFields:{private_value:'synthetic-pier-private-order'}})]])}
+  );
+
 let running;
 try {
+  if (!process.argv.includes('--custody')) {
   const source = await copy("source"),
     destination = await copy("destination"),
     p = await port();
@@ -234,39 +275,6 @@ try {
   });
   assert.equal(order.lines[0].reserved, "0.1");
   assert.equal(order.lines[0].backorder, "0.1");
-  const importInput = {
-    namespace: "portable-csv",
-    sourceVersion: "1",
-    exportedAt: "2026-10-13T00:00:00Z",
-    filters: "all",
-    cutoffTimezone: "Australia/Brisbane",
-    currency: "USD",
-    mappingRevision: "1",
-    files: [
-      {
-        kind: "items",
-        name: "items.csv",
-        csv: "key,sku,name,barcode,unit,packSize\ni,RESTORE-IMPORT,Restore import,,each,1\n",
-      },
-      {
-        kind: "locations",
-        name: "locations.csv",
-        csv: "key,name,warehouse,kind\nl,Restore bin,Main,bin\n",
-      },
-      {
-        kind: "positions",
-        name: "positions.csv",
-        csv: "key,itemKey,locationKey,status,quantity,unit,cost\np,i,l,sellable,0.2,each,0.1\n",
-      },
-    ],
-  };
-  const csv = cells => cells.map(row => row.map(value => '"' + String(value).replaceAll('"','""') + '"').join(',')).join('\n') + '\n';
-  importInput.files[0].csv=csv([['key','sku','name','barcode','unit','packSize','metadata'],['i','RESTORE-IMPORT','Restore import','','each','1',JSON.stringify({customFields:{private_value:'synthetic-pier-private-item'}})]]);
-  importInput.files.push(
-    {kind:'customFieldDefinitions',name:'fields.csv',csv:csv([['key','ownerType','fieldKey','label','type','options'],...['item','customer','supplier','order'].map(kind=>[kind,kind,'private_value','Private value','text','[]'])])},
-    {kind:'parties',name:'parties.csv',csv:csv([['key','name','kind','metadata'],['typed-customer','Typed customer','customer',JSON.stringify({customFields:{private_value:'synthetic-pier-private-customer'}})],['typed-supplier','Typed supplier','supplier',JSON.stringify({customFields:{private_value:'synthetic-pier-private-supplier'}})]])},
-    {kind:'orders',name:'orders.csv',csv:csv([['key','orderKey','customerKey','itemKey','quantity','unit','promiseDate','metadata'],['typed-line','typed-order','typed-customer','i','0.1','each','2026-11-01',JSON.stringify({customFields:{private_value:'synthetic-pier-private-order'}})]])}
-  );
   let imported = await running.cmd("import.stage", importInput);
   for (const stage of ["mapped", "reconciled", "shadow", "frozen"])
     imported = await running.cmd("import.review", {
@@ -313,7 +321,9 @@ try {
   await running.cmd('report.run', { reportId: savedReport.id, version: savedReport.version });
   await running.cmd('print.delivery.configure', { version: 0, provider: 'resend', verificationKey: 'synthetic-pier-7', consent: true });
   const original = documentOriginal([['synthetic-pier-1'], ['Private portable source original']]);
-  await running.cmd('document.upload', { name: 'source.pdf', mimeType: 'application/pdf', base64: original.toString('base64') });
+  const originalDocument = await running.cmd('document.upload', { name: 'source.pdf', mimeType: 'application/pdf', base64: original.toString('base64') });
+  const retainedOriginal = documentOriginal([['retained-source'], ['Original retained through restore']]);
+  await running.cmd('document.upload', { name: 'retained-source.pdf', mimeType: 'application/pdf', base64: retainedOriginal.toString('base64') });
   await running.cmd('document.configure', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-2', consent: true });
   await running.cmd('ai.save', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-3', consent: true });
   await running.cmd('channel.save', { name: 'Portable channel', provider: 'woocommerce', baseUrl: 'https://synthetic-pier.example', warehouse: 'Main', enabled: false, credentials: { consumerKey: 'synthetic-pier-4', consumerSecret: 'synthetic-pier-5' } });
@@ -350,7 +360,7 @@ try {
   const securityGrant=await running.request('/auth/strong-auth/grant','POST',{delegateId:securityAdmin.session.operator.id,operatorId:securityTarget.session.operator.id,minutes:1440});
   assert.equal(securityGrant.status,200,await securityGrant.clone().text());
   assert.equal((await securityGrant.json()).grants.length,1,'source has a live human security grant');
-  const before=await(await running.request('/api/pier/export')).json();
+  let before=await(await running.request('/api/pier/export')).json();
   const oldSession = running.sessionCookie();
   assert.ok(before.importJournal.jobs.length > 0);
   assert.ok(
@@ -361,8 +371,22 @@ try {
   assert.ok(before.importJournal.originals.length > 0);
   await running.close();
   running = null;
-  const archive = join(parent, "installation.rer");
-  await command(source, ["export", "--output", archive]);
+  const oldArchive = join(parent, 'before-erasure.rer');
+  await command(source, ['export', '--output', oldArchive]);
+  // One restore carries both retained source custody and an erasure checkpoint.
+  // The earlier archive must refuse before it can republish the erased original.
+  running = await start(source, p);
+  await verifyNative(running, nativeSecret);
+  const erasurePlan = await (await running.request('/api/pier/privacy?kind=attachment&subjectId=' + originalDocument.id)).json();
+  await running.cmd('privacy.eraseAttachment', { documentId: originalDocument.id, planHash: erasurePlan.planHash, confirm: true });
+  before = await (await running.request('/api/pier/export')).json();
+  await running.close(); running = null;
+  const archive = join(parent, 'installation.rer');
+  await command(source, ['export', '--output', archive]);
+  await cp(archive, join(destination, 'later-journal.rer'));
+  const older = child(destination, ['import', '--input', oldArchive, '--journal', 'later-journal.rer', '--yes']);
+  assert.notEqual(await older.done, 0, 'the later journal refuses a pre-erasure archive');
+  assert.match(clean(older.output()), /erasure_epoch/);
   const corrupt = join(parent, 'corrupt.rer');
   const archiveBytes = await readFile(archive);
   for (const secret of ['synthetic-pier-2','synthetic-pier-3','synthetic-pier-4','synthetic-pier-5','synthetic-pier-7', ...oldSession.split(';').map(part=>part.trim().slice(part.indexOf('=')+1))])
@@ -441,7 +465,11 @@ try {
       assert.deepEqual(await response.json(), { ok: true, cart: { cartId, status: index === 0 ? 'suppressed' : cartId === 'retained-cart' ? 'purchased' : 'no-consent' }, reminderSent: false });
     }
   }
-  assert.equal(after.evidenceDocuments[0].original, original.toString('base64'));
+  assert.equal(after.evidenceDocuments.length, 1);
+  assert.equal(after.evidenceDocuments[0].original, retainedOriginal.toString('base64'));
+  assert.ok(!JSON.stringify(after).includes(original.toString('base64')), 'the erased original cannot return through restore');
+  assert.equal((await running.request('/api/pier/documents/' + originalDocument.id + '/original')).status, 404);
+  assert.deepEqual(after.movements, before.movements, 'erasure and restore preserve physical stock');
   assert.equal(after.salesDocuments.find(d=>d.id===typedDocument.id).pdf,typedDocument.pdf);
   const typedPlan=await(await running.request('/api/pier/privacy?kind=customer&subjectId='+customer.id)).json();
   assert.match(typedPlan.refusal,/Erasure refused: subject attribution/);
@@ -507,33 +535,9 @@ try {
     "--output",
     join(parent, "restored.rer"),
   ]);
-  // A later journal is a real public archive made after explicit erasure.
-  // Its checkpoint refuses the older source archive before any private row
-  // returns. A current archive restores normally with the source absent.
-  running = await start(source, p);
-  await verifyNative(running,nativeSecret);
-  const erasurePlan = await (await running.request('/api/pier/privacy?kind=attachment&subjectId=' + before.evidenceDocuments[0].id)).json();
-  await running.cmd('privacy.eraseAttachment', { documentId: before.evidenceDocuments[0].id, planHash: erasurePlan.planHash, confirm: true });
-  await running.close(); running = null;
-  const later = join(parent, 'later-journal.rer');
-  await command(source, ['export', '--output', later]);
-  const fenced = await copy('fenced-destination');
-  await cp(later, join(fenced, 'later-journal.rer'));
-  const older = child(fenced, ['import', '--input', archive, '--journal', 'later-journal.rer', '--yes']);
-  assert.notEqual(await older.done, 0, 'later erasure checkpoint refuses the older archive');
-  assert.match(clean(older.output()), /erasure_epoch/, 'refusal identifies the later-journal fence');
-  await command(fenced, ['import', '--input', later, '--yes']);
-  const p3 = await port();
-  await command(fenced, ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(p3)]);
-  running = await start(fenced, p3);
-  await verifyNative(running);
-  const fencedExport = await (await running.request('/api/pier/export')).json();
-  assert.equal(fencedExport.evidenceDocuments.length, 0);
-  assert.ok(!JSON.stringify(fencedExport).includes(original.toString('base64')));
-  assert.deepEqual(fencedExport.movements, before.movements);
-  assert.ok(fencedExport.workflowRules.every(rule => !rule.enabled));
-  assert.equal((await running.request('/api/pier/documents/' + before.evidenceDocuments[0].id + '/original')).status, 404);
-  await running.close(); running = null;
+  console.log('Public export, corrupt refusal, inactive restore, new stock work and later-journal erasure fence passed.');
+  } else {
+  importInput.files[2].csv = importInput.files[2].csv.replace('sellable,0.2', 'sellable,0.4');
   // A separate fresh installation proves retained custody with no live definitions.
   const undoRoot=await copy('typed-undo'), undoPort=await port();
   await command(undoRoot,['setup','--owner-email','owner@example.test','--non-interactive','--port',String(undoPort)]);
@@ -594,9 +598,8 @@ try {
   assert.deepEqual(undoAfter.imports,undoBefore.imports);
   assert.deepEqual(undoAfter.importJournal,undoBefore.importJournal);
   await running.close();running=null;
-  console.log(
-    "Fresh rer export/import retained business identity and exact history; a new native session continued receipt to 0.3.",
-  );
+  console.log('Undone typed-field custody and inactive identity survive restart, reset and public archive restore.');
+  }
 } finally {
   if (running) await running.close().catch(() => {});
   for (const proc of children) {
