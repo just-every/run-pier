@@ -5,6 +5,8 @@ import { compareReplenishment } from './replenishment-alternatives';
 import { effectivePolicy } from './replenishment-scope';
 import { signedQuantity, supplyPosition } from './replenishment-position';
 import { valuationLedger } from './valuation-ledger';
+import { reviewedTransfers } from './replenishment-transfers';
+import { returnCost } from './returns-cost';
 
 const positive = (n: bigint) => n > 0n ? n : 0n;
 
@@ -30,7 +32,8 @@ function realizedMargin(c: Context, itemId: string) {
     basis: 'Current owner authority is required for sales revenue and realized margin. No wider commercial read grant is introduced by a forecast.' };
   const ledger = valuationLedger(c.s, c.now);
   let quantity = 0n, revenue = 0n, cost = 0n;
-  const shipmentIds: string[] = [];
+  const shipmentIds: string[] = [], returnIds: string[] = [];
+  let returnedQuantity = 0n, returnValue = 0n, recoveredCost = 0n;
   for (const shipment of c.s.shipments.filter(sh => sh.createdAt <= c.now)) {
     const lines = shipment.lines.filter((l: any) => l.itemId === itemId && !l.components);
     if (!lines.length) continue;
@@ -42,12 +45,25 @@ function realizedMargin(c: Context, itemId: string) {
     revenue += lines.reduce((n: bigint, line: any, index: number) => n + decimal(line.quantity) * decimal(prices[index]), 0n);
     cost += layers.reduce((n, l) => n + l.value!, 0n); shipmentIds.push(shipment.id);
   }
-  return { quantity: format(quantity), revenue: money(revenue), cost: money(cost), margin: money(revenue - cost), shipmentIds,
-    unitRevenue: quantity ? format(revenue / quantity) : null,
-    basis: 'Retained priced native shipments with known consumed valuation layers; unpriced, unvalued and kit lines are excluded and no margin is invented.' };
+  for (const returned of c.s.returns.filter(r => shipmentIds.includes(r.shipmentId) && r.itemId === itemId && r.createdAt <= c.now)) {
+    const shipment = c.s.shipments.find(sh => sh.id === returned.shipmentId)!;
+    const line = shipment.lines.find((l: any) => l.id === returned.shipmentLineId)!;
+    const price = c.s.orders.find(o => o.id === shipment.orderId)?.lines.find((l: any) => l.id === line.orderLineId)?.price;
+    const restored = returnCost(c.s, returned, c.now);
+    if (typeof price !== 'string' || restored === null) continue;
+    returnedQuantity += decimal(returned.quantity); returnValue += decimal(returned.quantity) * decimal(price);
+    // Quarantined and damaged goods do not recover sellable cost for planning.
+    recoveredCost += decimal(returned.quantity) ? amount(restored) * decimal(returned.restocked ?? '0') / decimal(returned.quantity) : 0n;
+    returnIds.push(returned.id);
+  }
+  const netRevenue = revenue - returnValue, netCost = cost - recoveredCost;
+  return { quantity: format(quantity), revenue: money(netRevenue), cost: money(netCost), margin: money(netRevenue - netCost), shipmentIds,
+    returnedQuantity: format(returnedQuantity), returnValue: money(returnValue), recoveredCost: money(recoveredCost), returnIds,
+    unitRevenue: quantity ? format(netRevenue / quantity) : null,
+    basis: 'Retained priced native shipments with known consumed valuation layers, less returned sales at their original price and sellable recovered cost. Return value is conservatively reserved before a refund settles. Unpriced, unvalued and kit lines are excluded; no margin is invented.' };
 }
 
-export function optimization(c: Context, f: any, cashCeiling: string) {
+export function optimization(c: Context, f: any, cashCeiling: string, transferQuotes?: any) {
   const forecast = adjustedForecast(c, { ...f, includedWarehousesForDemand: f.scope === 'company' ? f.includedWarehouses : [f.warehouse] });
   const margin = realizedMargin(c, f.itemId);
   const budget = decimal(cashCeiling) * SCALE;
@@ -75,16 +91,17 @@ export function optimization(c: Context, f: any, cashCeiling: string) {
       reason: 'Review source and destination bins, transit location, arrival date and transport cost through the transfer door. No unreviewed timing or cost assumption competes with a priced purchase.',
       sourcePosition: position }];
   });
-  const ranked = (objective: string) => purchases.filter(o => o.objective === objective && o.executable && (objective !== 'cash' || amount(o.expectedLandedCost) <= budget))
+  const reviewed = reviewedTransfers(c, f, forecast, transferQuotes, margin.unitRevenue);
+  const ranked = (objective: string) => [...purchases, ...reviewed].filter(o => o.objective === objective && o.executable && (objective !== 'cash' || amount(o.expectedLandedCost) <= budget))
     .sort((a, b) => {
       if (objective === 'cash' && a.expectedContribution !== null && b.expectedContribution !== null) {
         const score = amount(a.expectedContribution) * (amount(b.expectedLandedCost) || 1n) - amount(b.expectedContribution) * (amount(a.expectedLandedCost) || 1n);
         if (score) return score > 0n ? -1 : 1;
       }
       const shortage = decimal(a.uncoveredAtHorizon) - decimal(b.uncoveredAtHorizon);
-      return shortage ? shortage < 0n ? -1 : 1 : a.leadDays - b.leadDays || (amount(a.expectedLandedCost) < amount(b.expectedLandedCost) ? -1 : amount(a.expectedLandedCost) > amount(b.expectedLandedCost) ? 1 : a.supplierId.localeCompare(b.supplierId));
+      return shortage ? shortage < 0n ? -1 : 1 : a.leadDays - b.leadDays || (amount(a.expectedLandedCost) < amount(b.expectedLandedCost) ? -1 : amount(a.expectedLandedCost) > amount(b.expectedLandedCost) ? 1 : String('supplierId' in a ? a.supplierId : a.fromWarehouse).localeCompare(String('supplierId' in b ? b.supplierId : b.fromWarehouse)));
     });
-  return { forecast, realizedMargin: margin, alternatives: purchases, transfers,
+  return { forecast, realizedMargin: margin, alternatives: purchases, transfers: transferQuotes === undefined ? transfers : reviewed,
     rankings: { cash: ranked('cash'), service: ranked('service') },
-    limits: 'Single-item scenario comparison. Cash ranks expected contribution per dollar where realized pricing exists, then uncovered demand, delay and cost. Service covers the upper scenario over two review periods. Transfers await reviewed timing and cost; no global optimum or service probability is claimed.' };
+    limits: 'Single-item scenario comparison. Cash ranks expected contribution per dollar where realized pricing exists, then uncovered demand, delay and cost. Service covers the upper scenario over two review periods. Reviewed transfers compete on incremental transport cash, retained stock cost, arrival and source-safe quantity. Estimates grant no stock or spending authority; no global optimum or service probability is claimed.' };
 }

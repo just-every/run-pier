@@ -1256,3 +1256,75 @@ test('native authenticator enrollment, required sessions and owner recovery are 
   expect(prepared.operators.some((operator:any)=>operator.display_name==='Dev admin'&&operator.role==='owner')).toBe(true);
   await capture('recovery-readiness');
 });
+
+test('buyers compare reviewed replenishment scenarios and follow selected receipts to current ledger evidence', async ({ page, context }) => {
+  const h = await salesHarness(page, context), b = await h.fixture(1440);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const source = await h.command('location.save', { name: `${b.name} reserve`, warehouse: `${b.name} reserve`, kind: 'bin' });
+  const transit = await h.command('location.save', { name: `${b.name} transit`, warehouse: b.name, kind: 'transit' });
+  let reservePo = await h.command('po.draft', { supplierId: b.supplier.id, destinationWarehouse: source.warehouse, promiseDate: '2026-11-01', reason: 'Transfer reserve', lines: [{ itemId: b.item.id, quantity: '40', price: '2' }] });
+  await h.command('po.approve', { poId: reservePo.id, version: reservePo.version }); reservePo = await h.command('po.commit', { poId: reservePo.id, version: reservePo.version });
+  await h.command('receipt.create', { poId: reservePo.id, supplierReference: `${b.name} reserve stock`, lines: [{ poLineId: reservePo.lines[0].id, locationId: source.id, quantity: '40', cost: '2' }] });
+  const sold = await h.command('order.create', { customerId: b.customer.id, warehouse: b.name, lines: [{ itemId: b.item.id, quantity: '100', price: '8' }] });
+  await h.command('dispatch.create', { orderId: sold.id, shipmentReference: `${b.name} captured sales`, lines: [{ orderLineId: sold.lines[0].id, quantity: '100' }] });
+  await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: b.name, packSize: '6', minimum: '12', price: '2', leadDays: 6 });
+  await h.command('replenishment.save', { version: 0, itemId: b.item.id, warehouse: b.name, supplierId: b.supplier.id, method: 'fixed', safetyStock: '0', leadDays: 6, windowDays: 30, reviewDays: 10, reorderPoint: '20', reorderQuantity: '30' });
+  await h.command('replenishment.save', { version: 0, itemId: b.item.id, warehouse: source.warehouse, supplierId: b.supplier.id, method: 'fixed', safetyStock: '5', leadDays: 6, windowDays: 30, reviewDays: 10, reorderPoint: '0', reorderQuantity: '1' });
+  await page.goto(`${h.base}/app#purchasing`); await page.reload();
+  const row = h.panel('Demand and replenishment').getByRole('row').filter({ hasText: b.item.sku }).filter({ hasText: b.name }).filter({ has: page.getByRole('button', { name: 'Review policy', exact: true }) });
+  await row.filter({ hasNotText: source.warehouse }).getByRole('button', { name: 'Review policy', exact: true }).click();
+  let settings = h.panel('Replenishment policy');
+  await settings.getByText('Forecast settings', { exact: true }).click();
+  await settings.getByLabel('Use reviewed forecast factors', { exact: true }).check();
+  for (const [factor, expected, high] of [['Seasonality', '1.5', '2'], ['Promotion', '2', '3']]) {
+    await settings.getByLabel(`${factor} expected`, { exact: true }).fill(expected);
+    await settings.getByLabel(`${factor} high`, { exact: true }).fill(high);
+    await settings.getByLabel(`${factor} source`, { exact: true }).fill(`${b.name} reviewed ${factor.toLowerCase()}`);
+  }
+  await h.saved(settings, 'Save buyer policy');
+  const policy = (await h.state()).replenishmentPolicies.find((p: any) => p.itemId === b.item.id && p.warehouse === b.name);
+  expect(policy.forecastAssumptions.seasonality.expected).toBe('1.5'); expect(policy.forecastAssumptions.promotion.expected).toBe('2');
+  const form = h.panel('Compare cash and service plans');
+  await form.getByLabel('Include a reviewed transfer', { exact: true }).check();
+  await form.getByLabel('Transfer source bin', { exact: true }).selectOption(source.id);
+  await form.getByLabel('Transfer destination bin', { exact: true }).selectOption(b.bin.id);
+  await form.getByLabel('Transfer transit location', { exact: true }).selectOption(transit.id);
+  await form.getByLabel('Reviewed arrival date', { exact: true }).fill(new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10));
+  await form.getByLabel('Transport estimate USD', { exact: true }).fill('-1');
+  await form.getByLabel('Transport estimate source', { exact: true }).fill('Reviewed internal transport estimate');
+  await submit(page, form, 'Compare current options', false);
+  await expect(page.getByRole('alert')).toContainText('decimal');
+  await form.getByLabel('Transport estimate USD', { exact: true }).fill('10');
+  await h.saved(form, 'Compare current options');
+  const comparison = h.panel('Current replenishment comparison');
+  await expect(comparison).toContainText('Forecast expected'); await expect(comparison).toContainText('300');
+  await expect(comparison).toContainText('600'); await expect(comparison).toContainText('Held-out backtest');
+  await expect(comparison).toContainText(`Transfer from ${source.warehouse}`);
+  await expect(comparison.getByRole('button', { name: 'Dispatch cash transfer', exact: true })).toBeEnabled();
+  const capture = async (name: string) => {
+    if (shots) for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await h.shot(width, name);
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  };
+  await capture('replenishment-comparison');
+  await comparison.getByRole('button', { name: 'Draft cash purchase', exact: true }).click();
+  await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false');
+  const state = await h.state(), po = state.purchaseOrders.find((p: any) => p.replenishment?.evidence.some((e: any) => e.itemId === b.item.id));
+  expect(po.lines[0].quantity).toBe('48'); expect(po.replenishment.evidence[0].forecast.expected).toBe('300');
+  await page.goto(`${h.base}/app#purchasing/${po.id}`); await page.reload();
+  let review = h.panel('Forecast versus actual');
+  await review.getByRole('button', { name: 'Review current receipt and ledger', exact: true }).click();
+  await expect(review).toContainText('Remaining goods'); await expect(review).toContainText('48');
+  await expect(review).toContainText('Not reconciled');
+  await h.command('po.approve', { poId: po.id, version: po.version });
+  const committed = await h.command('po.commit', { poId: po.id, version: po.version });
+  await h.command('receipt.create', { poId: committed.id, supplierReference: `${b.name} actual arrival`, lines: [{ poLineId: po.lines[0].id, locationId: b.bin.id, quantity: '48', cost: '2' }] });
+  await page.reload(); review = h.panel('Forecast versus actual');
+  await review.getByRole('button', { name: 'Review current receipt and ledger', exact: true }).click();
+  await expect(review).toContainText('96.00'); await expect(review).toContainText('Open');
+  await expect(review.getByRole('row').filter({ hasText: b.item.sku })).toContainText('48');
+  await expect(review).toContainText('absolute error'); await expect(review).toContainText('paid receipt obligations');
+  await capture('replenishment-follow-through');
+});

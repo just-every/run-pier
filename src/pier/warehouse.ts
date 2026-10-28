@@ -1,3 +1,4 @@
+import { transferSurplus } from './replenishment-transfers';
 import {
   decimal,
   format,
@@ -71,6 +72,13 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
         "TRANSFER",
         "Use different source/destination bins and a real transit location.",
       );
+    if (p.replenishment === true) {
+      if (p.stateVersion !== c.s.version) fail('STALE', 'Demand, stock or planning inputs changed. Compare transfers again.');
+      if (q > transferSurplus(c, p.itemId, from.warehouse).quantity) fail('TRANSFER_REVIEW', 'The transfer would consume protected source demand or safety stock.');
+      const date = text(p.expectedDate, 'Arrival date');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date || date < c.now.slice(0, 10)) fail('DATE', 'Review a valid transfer arrival today or later.');
+      decimal(p.transportCost);
+    }
     if (available(c.s, p.itemId, from.id) < q)
       fail("AVAILABLE", "Transfer exceeds unreserved sellable stock.");
     const t = row(c, "transfers", {
@@ -82,6 +90,8 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
       received: "0",
       reason: text(p.reason),
       status: "transit",
+      ...(p.replenishment === true ? { expectedDate: p.expectedDate, transportCost: format(decimal(p.transportCost)),
+        planningVersion: p.stateVersion, reviewedBy: c.actor.id, reviewedAt: c.now } : {}),
     });
     move(c, {
       itemId: t.itemId,

@@ -6,7 +6,7 @@ export type RecordData = { id: string; version: number; [key: string]: any }
 export type PierState = { version: number; actor: { id: string; name: string; role: string }; [key: string]: any }
 // `onRefused` keeps a refused command's message beside the control that sent it instead of the page banner.
 export type Refusal = { code: string; message: string }
-export type RunCommand = (type: string, payload: object, options?: { onRefused?: (refusal: Refusal) => void }) => Promise<boolean>
+export type RunCommand = (type: string, payload: object, options?: { onRefused?: (refusal: Refusal) => void; onResult?: (result: any) => void }) => Promise<boolean>
 
 type PendingCommand = { signature: string; commandId: string; actorId?: string; frontier?: string; scan?: ScanLink }
 const pendingKey = 'pier.pending-command'
@@ -105,6 +105,7 @@ export function usePier() {
         else { setError(body.error?.message || 'This action could not be completed.'); setDetails(body.error?.details) }
         await refresh(); return false
       }
+      options?.onResult?.(body.result)
       settleScan(pending.current.scan, true)
       pending.current = null
       sessionStorage.removeItem(pendingKey); setRecoverable(null)

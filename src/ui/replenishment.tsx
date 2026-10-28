@@ -1,3 +1,4 @@
+import { ReplenishmentComparison } from './replenishment-comparison';
 import { ReorderBatch, ReorderScope } from './reorder-batch';
 import { useState } from 'react';
 import { label, records, unit, type PierState, type RunCommand } from './api';
@@ -80,6 +81,7 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
       {policy ? <div className="actions"><button disabled={busy || !canBuy(state)} onClick={() => { const target = f.scope === 'company' ? f.defaults : f.localPolicy; return run('replenishment.save', { ...policy, id: target?.id, version: target?.version ?? 0, warehouse: f.warehouse, scope: f.scope === 'company' ? 'sku' : 'location', applyLearned: true, stateVersion: state.version }) }}>Apply proposed points and quantities</button></div> : <p className="muted">Save supplier and planning settings before applying this proposal.</p>}
       {f.draftIds.length > 0 && <p>Purchase drafts: {f.draftIds.map((id: string) => <a key={id} href={`#purchasing/${id}`}>{reference(records(state, 'purchaseOrders').find(po => po.id === id))} </a>)}</p>}
     </section>
+    <ReplenishmentComparison state={state} run={run} busy={busy} forecast={f} />
     <Form key={`${f.policyVersion}-${supplierId}`} title="Replenishment policy" submit="Save buyer policy" busy={busy} disabled={!canBuy(state)} note="Policies are versioned per item and warehouse. Enabling automatic drafts never approves or commits a purchase. Leave the point and quantity/maximum blank to save planning settings without a reorder trigger. Freight and duty are total USD estimates contributed by this item to each generated supplier draft."
       onSubmit={data => { const asDefault = data.get('skuDefault') === 'on', saved = asDefault ? f.defaults : f.localPolicy; return run('replenishment.save', {
         ...(saved ? { id: saved.id } : {}), version: saved?.version ?? 0, itemId: f.itemId, warehouse: f.warehouse, scope: asDefault ? 'sku' : 'location', companyReorderPoint: text(data, 'companyReorderPoint'),
@@ -87,6 +89,8 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
         windowDays: text(data, 'windowDays'), reviewDays: text(data, 'reviewDays'), method: text(data, 'method'),
         reorderPoint: text(data, 'reorderPoint'), reorderQuantity: text(data, 'reorderQuantity'), maximum: text(data, 'maximum'),
         freight: text(data, 'freight'), duty: text(data, 'duty'), autoDraft: data.get('autoDraft') === 'on',
+        forecastAssumptions: data.get('useForecastFactors') === 'on' ? Object.fromEntries(['seasonality', 'promotion'].map(factor => [factor,
+          Object.fromEntries(['low', 'expected', 'high', 'source'].map(bound => [bound, text(data, `${factor}-${bound}`)]))])) : null,
       }) }}>
       <Select label="Replenishment supplier" name="supplierId" rows={suppliers} value={supplierId} onChange={setSupplierId} />
       <Field label={`Safety stock (${unit(state, f.itemId)})`} name="safetyStock" defaultValue={policy?.safetyStock ?? '0'} inputMode="decimal" />
@@ -100,6 +104,14 @@ function PolicyEditor({ state, run, busy, forecast: f }: Props & { forecast: For
       <Field label="Applied order-up-to maximum" name="maximum" defaultValue={policy?.maximum ?? ''} required={false} inputMode="decimal" />
       <Field label="Freight estimate (USD total)" name="freight" defaultValue={policy?.freight ?? '0'} inputMode="decimal" />
       <Field label="Duty estimate (USD total)" name="duty" defaultValue={policy?.duty ?? '0'} inputMode="decimal" />
+      <details className="line-editor"><summary>Forecast settings</summary>
+        <Field label="Use reviewed forecast factors" name="useForecastFactors" type="checkbox" required={false} defaultChecked={Boolean(policy?.forecastAssumptions)} />
+        {['seasonality', 'promotion'].map(factor => <fieldset key={factor}><legend>{factor === 'seasonality' ? 'Seasonality' : 'Promotion'}</legend>
+          {['low', 'expected', 'high', 'source'].map(bound => <Field key={bound} label={`${factor === 'seasonality' ? 'Seasonality' : 'Promotion'} ${bound}`} name={`${factor}-${bound}`} required={false}
+            defaultValue={policy?.forecastAssumptions?.[factor]?.[bound] ?? (bound === 'source' ? '' : '1')} />)}
+        </fieldset>)}
+        <p>Positive factors from low to high, at most ten. Record the source you reviewed. These bounds express uncertainty; they do not promise a service level.</p>
+      </details>
       <Field label="Automatically prepare purchase drafts" name="autoDraft" type="checkbox" defaultChecked={policy?.autoDraft === true} required={false} />
     </Form>
     <p className="muted">Supplier: {label(suppliers, supplierId)}. Policy version {f.policyVersion}. Buyer-applied parameters stay fixed when new demand arrives.</p>

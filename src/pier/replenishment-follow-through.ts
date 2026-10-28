@@ -14,7 +14,8 @@ export function replenishmentFollowThrough(c: Context, po: Row) {
   const actualCost = receipts.reduce((n, r) => n + amount(r.landedCost.total) + (r.lateBills ?? []).reduce((sum: bigint, bill: any) => sum + bill.shares.reduce((v: bigint, share: any) => v + amount(share.amount), 0n), 0n), 0n);
   const elapsed = Math.max(0, Date.parse(c.now) - Date.parse(plan.plannedAt));
   const lines = plan.evidence.map((e: any) => {
-    const predicted = decimal(e.forecast?.expected ?? e.observedSold) * BigInt(elapsed) / BigInt(e.windowDays * 86_400_000);
+    const prediction = (bound: string) => decimal(e.forecast?.[bound] ?? e.observedSold) * BigInt(elapsed) / BigInt(e.windowDays * 86_400_000);
+    const predicted = prediction('expected'), predictedLow = prediction('low'), predictedHigh = prediction('high');
     // The public capture clock and source identities define actual demand, never provider timestamps.
     const days = Math.max(1, Math.ceil(elapsed / 86_400_000));
     const windows = (e.demandWarehouses ?? [e.warehouse]).map((warehouse: string) => sellThrough(c, e.itemId, warehouse, days, plan.plannedAt).find(w => w.days === days)!);
@@ -22,6 +23,9 @@ export function replenishmentFollowThrough(c: Context, po: Row) {
       channelOrderIds: [...new Set(windows.flatMap((window: any) => window.channelOrderIds))],
       shipmentIds: [...new Set(windows.flatMap((window: any) => window.shipmentIds))], through: c.now };
     return { itemId: e.itemId, warehouse: e.warehouse, forecast: e.forecast ?? null, predicted: format(predicted), actual: actual.sold,
+      predictedLow: format(predictedLow), predictedHigh: format(predictedHigh),
+      absoluteError: format(decimal(actual.sold) > predicted ? decimal(actual.sold) - predicted : predicted - decimal(actual.sold)),
+      withinScenario: decimal(actual.sold) >= predictedLow && decimal(actual.sold) <= predictedHigh,
       difference: format(decimal(actual.sold) - predicted), channelOrderIds: actual.channelOrderIds, shipmentIds: actual.shipmentIds,
       received: format(receipts.flatMap(r => r.lines).filter((l: any) => l.itemId === e.itemId).reduce((n: bigint, l: any) => n + decimal(l.quantity), 0n)),
       actualsThrough: actual.through };
