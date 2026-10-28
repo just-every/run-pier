@@ -8,10 +8,10 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 20 | 67 | 4 | 91 |
+| Core | 16 | 71 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 20 | 67 | 11 | 98 |
+| Full target | 16 | 71 | 11 | 98 |
 
 Judged from the code and tests at commit `c2f094b96a3444189bfb3d14b2100c59d5a02cf3` (27 October 2026). Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
@@ -116,7 +116,7 @@ Core · published · **done**
 
 #### PIER-008 — Transfer through visible transit
 
-Core · published · **done** · Register R-6
+Core · published · **partial** · Register R-6
 
 **Requirement.** Warehouse staff dispatch available units through a real transit location and separately confirm destination receipt. Transit stock is unavailable to sales and transfers conserve quantity. Repeated commands cannot dispatch or receive twice.
 
@@ -125,7 +125,7 @@ Core · published · **done** · Register R-6
 2. Source plus transit plus destination reconciles throughout and transit cannot be promised as current sellable stock.
 
 **Evidence.** `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (08) — partial arrival, exact replay, stale/excess refusal and conserved transit; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” enters a partial destination receipt through Transfers.
-**Gap.** None.
+**Gap.** Unasserted in the cited evidence: the source position, and with it source plus transit plus destination reconciling throughout the transfer (no source figure is read, and transit and destination are read once, mid-transfer, not after the send or after the full receipt), and an attempted sale of the in-transit units (the test reads transit availability as 0 but attempts no sale). Asserted: the transfer dispatches through transit with transit availability 0, a partial destination receipt of 0.2 leaves transit 0.3 and destination 0.2, the retried receipt returns the same result, and stale or excess receipts are refused with movements unchanged.
 
 #### PIER-009 — Dispatch only owned reservations
 
@@ -241,7 +241,7 @@ Core · target · **partial** · From CAT-001 · Cites BASE-DATA-003 · Rules D-
 
 #### KIT-001 — Kits and bundles from stocked components
 
-Core · target · **done**
+Core · target · **partial**
 
 **Requirement.** Owners define a kit SKU from stocked component SKUs with exact per-kit quantities and units, as Cin7 Core assembly kits and inFlow bundles do. A kit has its own price, barcode, documents and channel mapping but no independent physical stock unless pre-assembled. Selling a kit on a quote, sales order or channel order reserves every component atomically at one warehouse; a shortage of any component backorders or blocks the whole kit under the configured policy and never reserves a partial set. Published kit availability is the lowest whole-kit count buildable from each component’s sellable availability net of reservations and channel buffers, recalculated whenever a component moves. Pick lists and packing slips show the kit line with its component picks and bins; dispatch consumes each component reservation once; COGS is the sum of the component cost layers actually consumed, and margin is reported per kit. Owners may pre-assemble kits through a reviewed kitting task that consumes components and receives the kit SKU at a rolled-up cost, and disassemble them the same way. Kit returns are inspected per component. Kit definitions are versioned and an order keeps the version it reserved. Kitting changes no material, so it is inventory work in Pier, not Larder manufacturing.
 
@@ -252,7 +252,7 @@ Core · target · **done**
 4. Pre-assemble five display kits, ship two, return one and inspect its components: rolled-up kit cost, component stock and kit margin reconcile, and no component is reserved twice.
 
 **Evidence.** `tests/api/floor.test.mjs` — “KIT-001: concurrent channel kits, whole shortages, versioned picks, assembly, returns and exact cost” proves definition versions, concurrent sales/channel reservations, published availability/buffers, complete picks/dispatch, shortage backorder/block, quotes/documents, five-kit assembly, two-kit shipment, inspected return/disassembly, per-kit cost/margin and export; “KIT-001: splitting and disassembling cent-valued kits conserves every cost layer” proves split-cost conservation. `tests/browser/stock.spec.ts` — “KIT-001: define, assemble, pick, pack, print and inspect kits at 1440 and 390” covers the public screens. `src/pier/kits.ts`; [Kits](docs/kits.md)
-**Gap.** None.
+**Gap.** Unasserted in the cited evidence: no component reserved twice across pre-assembly and shipment (the cited check that every position's availability is at least zero still passes with a duplicate reservation, because the fixture holds 30 of each component), and component stock reconciling after assembly, shipment and return (no assertion reads component positions after them; only the valuation-to-ledger difference is read). Asserted: the two-component and three-component kit definitions, concurrent sales-order and channel reservations of exact component sums, published availability at the lowest buildable count, the pick list's component lines, COGS, the drain to zero and whole-kit backorder, the five-kit assembly and two-kit shipment, per-component return inspection, and rolled-up kit cost and margin.
 
 #### TRACE-001 — Serial, lot and expiry traceability
 
@@ -703,7 +703,7 @@ Core · target · **done**
 
 #### BUY-005 — Reorder-point list and suggested quantities
 
-Core · target · **done**
+Core · target · **partial**
 
 **Requirement.** Most weeks a buyer replenishes from the reorder list, as Cin7 Core’s low-stock reorder does. Parameters are kept per SKU and location: the reorder point (minimum before reorder), safety stock, and a replenishment method, either a **fixed reorder quantity** or an **order-up-to maximum**. A SKU-level default fills any location without its own values. Each supplier-SKU term (PIER-002) adds the supplier’s case pack, minimum order quantity, optional minimum order value, lead time and an optional supplier reorder quantity. Each SKU has one default supplier, with an optional per-location override. The trigger, position and suggested quantity are defined below; the company-mode and supplier-switch details are in [the contract mechanism notes](docs/contract/mechanism.md#buy-005).
 
@@ -723,11 +723,11 @@ Core · target · **done**
 7. The list shows exactly A, B, C and E with those quantities and every calculation term.
 
 **Evidence.** `src/pier/replenishment.ts`; `src/pier/replenishment-position.ts`; `src/pier/replenishment-scope.ts`; `src/pier/reports.ts`; `src/ui/reorder-batch.tsx`; `src/ui/replenishment.tsx`; `src/ui/reports.tsx`; `tests/api/reorder-list.test.mjs`; `tests/api/replenishment.test.mjs`; `tests/browser/reorder-list.spec.ts`
-**Gap.** None.
+**Gap.** Unasserted in the cited evidence: the on-order term, and the reorder point and method, shown on each A, B, C and E line (the test reads on-hand, reserved, backorders, inbound transfers, position, unrounded need, rounded and final quantity against an independent calculator, but never the on-order figure, and reads the applied reorder point only for SKU E in later settings). Asserted: the East and West scenario built through public commands, exactly A 48, B 66 from S2, C 10 and E 13 at East, D not listed, and those other calculation terms on each listed line.
 
 #### BUY-008 — Reorder drafts, coverage and one low-stock definition
 
-Core · target · **done** · From BUY-005
+Core · target · **partial** · From BUY-005
 
 **Requirement.** Each reorder line shows the SKU, location, supplier, lead time and every term of the calculation: on-hand, reserved, backorders, on order, inbound transfers, position, reorder point, method, unrounded need, rounding applied and the final quantity. When sales history exists, the line also shows BUY-001 days of cover and the projected stockout date. The buyer ticks lines and may edit a quantity or switch to another supplier; a supplier switch recalculates rounding with that supplier’s terms. One action creates one PO draft per supplier and destination warehouse. The drafts go through PIER-005 and BUY-002 approval, and on-hand stock does not change. A SKU-location already covered by an uncommitted PO draft or approved PO stays on the list, marked with that document, and its remaining suggestion is the suggested quantity less the quantity on that document, never below zero. A rerun therefore suggests nothing twice, and deleting a draft restores the full suggestion. A line leaves the list when committed supply or a receipt lifts its position above the reorder point. This trigger and position are the single definition used by the AUTO-001 low-stock check and the REPORT-002 low-stock report, so all three list the same SKU-locations. AUTO-002 may create the drafts on a schedule within a bounded policy; it never approves them.
 
@@ -741,7 +741,7 @@ Core · target · **done** · From BUY-005
 7. An independent calculator in the test computes every expected quantity from the exported stock, orders, POs, transfers and terms.
 
 **Evidence.** `src/pier/replenishment.ts`; `src/pier/replenishment-position.ts`; `src/pier/replenishment-scope.ts`; `src/pier/reports.ts`; `src/ui/reorder-batch.tsx`; `src/ui/replenishment.tsx`; `src/ui/reports.tsx`; `tests/api/reorder-list.test.mjs`; `tests/api/replenishment.test.mjs`; `tests/browser/reorder-list.spec.ts`
-**Gap.** None.
+**Gap.** Unasserted in the cited evidence: that deleting the S2 draft leaves every other line's suggestion and draft mark unchanged (only B's restored 66 is read after the delete). Asserted: one action creates the two drafts with their lines, a rerun shows the four lines each marked with its draft and zero remaining, B's 66 is restored, committing B's PO removes B, company-wide replenishment removes E, the AUTO-001 exceptions and the REPORT-002 low-stock report match the list in each setting, and an independent calculator computes every expected quantity.
 
 ### Costing and reports
 
@@ -1337,7 +1337,7 @@ Core · push-further · **partial** · Rules D-3
 **Acceptance.**
 1. Leave a supplier confirmation overdue, authorize a chase, ingest a changed ASN and compare affected customer promises.
 2. Under the held policy, a person approves one change and declines another; only the approved messages and actions occur.
-3. A partial late receipt keeps the case open until the remaining supply/customer outcome and ledger reconcile or a person authorizes cancellation.
+3. A partial late receipt keeps the case open until the remaining supply/customer outcome and ledger reconcile or an authorized cancellation closes it; under the held policy, a person authorizes that cancellation.
 
 **Evidence.** `src/pier/replenishment.ts`; `src/pier/backorders.ts`; `src/pier/purchasing-workflow.ts`; `src/pier/correspondence-delivery.ts`; `tests/api/replenishment.test.mjs`
 **Gap.** Bounded approved supplier chases, recorded replies/confirmations, quantity-aware customer dates and approved re-promises/customer mail are implemented. Native receipt accounting now keeps unbilled goods, missing receipt quantities, uncertain posting and open payables visible through paid Pantry closure and reversal reopening (`src/pier/books/receipt-closure.ts`; `src/ui/books/receipt-closure.tsx`; `tests/api/books.test.mjs`). Direct Gmail/Microsoft 365 intake, ASN extraction, substitutes and complete supply/customer/ledger case closure remain incomplete.
@@ -1364,7 +1364,7 @@ Core · push-further · **partial**
 
 **Acceptance.**
 1. Use a named-source cutover with a duplicate SKU, unit conflict, open backorder and accounting difference.
-2. Inspect source-cited proposed mappings and totals, reject a merge, approve corrected mappings and cut over once.
+2. Under the held policy, inspect source-cited proposed mappings and totals; a person rejects a merge and approves corrected mappings, and the cutover runs once.
 3. Replay and final-delta reconciliation show no duplicate opening or unaccounted field/value.
 
 **Evidence.** `src/pier/imports.ts`; `src/pier/import-incumbent.ts`; `tests/api/movein.test.mjs`

@@ -1,6 +1,6 @@
 Carried-done audit against main `b23893e4b0b46c454a14f98a8602ba508f350ddd`.
 
-Every part of a clause that was done at that commit has one row per acceptance point, and one row per outcome where a point names several. **Asserting test** is the line of the assertion in a file the clause's Evidence cell lists; where a cited test passes an expected error code to its command helper, the line is that call, and the helper asserts the code. **Result** is `asserted`, `none` (the part is partial and its Gap names the outcome) or `moved` (a pointer or proof boundary left the point). SEC-001 is partial because it merged the partial BASE-001, whatever its rows say.
+Every part of a clause that was done at that commit has one row per acceptance point, and one row per outcome where a point names several. **Asserting test** is the line of the assertion in a file the clause's Evidence cell lists; where a cited test calls a helper that asserts the outcome (an expected error code passed to its command helper, the state helper's 200, or the kit floor helper's wave lines), the line is that call, and the helper asserts it. **Result** is `asserted`, `none` (the part is partial and its Gap names the outcome) or `moved` (a pointer or proof boundary left the point). SEC-001 is partial because it merged the partial BASE-001, whatever its rows say.
 
 | Clause | Point | Outcome | Asserting test | Result |
 | --- | --- | --- | --- | --- |
@@ -59,12 +59,14 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | PIER-007 | 1 | Reversal after dispatch is refused | `tests/api/flows.test.mjs:337` | asserted |
 | PIER-007 | 1 | Correction against an approved physical count posts | `tests/api/flows.test.mjs:526` | asserted |
 | PIER-007 | 2 | Intervening movement invalidates the old count | `tests/api/flows.test.mjs:422` | asserted |
-| PIER-007 | 2 | The correction retains the original and its compensating link | `tests/api/flows.test.mjs:532` | asserted |
+| PIER-007 | 2 | The original receipt is retained, with the correction recorded on it | `tests/api/flows.test.mjs:535` | asserted |
+| PIER-007 | 2 | The compensating adjustment links the original receipt movement | `tests/api/flows.test.mjs:532` | asserted |
 | PIER-008 | 1 | A transfer dispatches through transit | `tests/api/flows.test.mjs:298` | asserted |
-| PIER-008 | 1 | In-transit units cannot be sold | `tests/api/flows.test.mjs:288` | asserted |
+| PIER-008 | 1 | An attempted sale of the in-transit units is refused (no sale is attempted; transit availability 0 is read instead) | none | none |
 | PIER-008 | 1 | Partial destination receipt | `tests/api/flows.test.mjs:294` | asserted |
 | PIER-008 | 1 | The retry returns the same receipt | `tests/api/flows.test.mjs:296` | asserted |
-| PIER-008 | 2 | Source, transit and destination reconcile | `tests/api/flows.test.mjs:299` | asserted |
+| PIER-008 | 2 | Transit and destination read once, mid-transfer, after the partial receipt | `tests/api/flows.test.mjs:299` | asserted |
+| PIER-008 | 2 | The source position, and source plus transit plus destination reconciling throughout the transfer | none | none |
 | PIER-008 | 2 | Transit cannot be promised as current sellable stock | `tests/api/flows.test.mjs:288` | asserted |
 | PIER-009 | 1 | A partial dispatch posts | `tests/api/flows.test.mjs:325` | asserted |
 | PIER-009 | 1 | Use of another order's reservation is refused | none | none |
@@ -116,8 +118,10 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | CAT-002 | 1 | The field prints on a packing slip | `tests/api/catalogue.test.mjs:105` | asserted |
 | CAT-002 | 1 | The field is found in export | `tests/api/catalogue.test.mjs:110` | asserted |
 | CAT-002 | 2 | The owner defines and imports exact typed values for all four record types | `tests/api/catalogue.test.mjs:94` | asserted |
-| CAT-002 | 2 | The owner edits a typed value | `tests/api/catalogue.test.mjs:112` | asserted |
-| CAT-002 | 2 | The owner exports exact typed values | `tests/api/catalogue.test.mjs:109` | asserted |
+| CAT-002 | 2 | The owner filters exact typed values for all four record types | `tests/api/catalogue.test.mjs:93` | asserted |
+| CAT-002 | 2 | The owner edits a typed value on each of the four record types, and the saved value is read back | `tests/browser/catalogue.spec.ts:155` | asserted |
+| CAT-002 | 2 | The owner exports exact typed values (items and orders in the business export) | `tests/api/catalogue.test.mjs:109` | asserted |
+| CAT-002 | 2 | The owner exports exact typed values for each of the four record types (field records download) | `tests/browser/catalogue.spec.ts:175` | asserted |
 | CAT-002 | 2 | The owner generates and retrieves field-bearing documents | `tests/api/catalogue.test.mjs:113` | asserted |
 | CAT-003 | 1 | Non-owner direct reads disclose no protected content | `tests/api/catalogue.test.mjs:130` | asserted |
 | CAT-003 | 1 | Non-owner filters are refused | `tests/api/catalogue.test.mjs:132` | asserted |
@@ -148,14 +152,15 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | KIT-001 | 1 | A two-component and a three-component kit are defined from stocked SKUs | `tests/api/floor.test.mjs:206` | asserted |
 | KIT-001 | 2 | Concurrent sales-order and channel kit sales reserve components | `tests/api/floor.test.mjs:205` | asserted |
 | KIT-001 | 2 | Published kit availability is the lowest buildable count | `tests/api/floor.test.mjs:207` | asserted |
-| KIT-001 | 2 | The pick list carries the component lines | `tests/browser/stock.spec.ts:89` | asserted |
+| KIT-001 | 2 | The pick list carries the component lines (the kitFloor helper this line calls asserts the wave's component lines and quantities) | `tests/api/floor.test.mjs:213` | asserted |
 | KIT-001 | 2 | COGS agrees | `tests/api/floor.test.mjs:216` | asserted |
 | KIT-001 | 3 | Kit availability drops to zero when a component drains | `tests/api/floor.test.mjs:220` | asserted |
 | KIT-001 | 3 | A further kit order backorders as a whole kit | `tests/api/floor.test.mjs:227` | asserted |
 | KIT-001 | 4 | Five display kits are pre-assembled and two shipped | `tests/api/floor.test.mjs:275` | asserted |
 | KIT-001 | 4 | A returned kit is inspected per component | `tests/api/floor.test.mjs:272` | asserted |
 | KIT-001 | 4 | Rolled-up kit cost and margin reconcile | `tests/api/floor.test.mjs:266` | asserted |
-| KIT-001 | 4 | No component is reserved twice | `tests/api/floor.test.mjs:274` | asserted |
+| KIT-001 | 4 | No component is reserved twice across pre-assembly and shipment (the cited line, every availability at least zero, passes with a duplicate reservation) | none | none |
+| KIT-001 | 4 | Component stock reconciles after assembly, shipment and return | none | none |
 | TRACE-001 | 1 | Two dated lots and serials are received | `tests/api/floor.test.mjs:312` | asserted |
 | TRACE-001 | 1 | Transfer of a lot | `tests/api/floor.test.mjs:315` | asserted |
 | TRACE-001 | 1 | Split dispatch | `tests/api/floor.test.mjs:342` | asserted |
@@ -175,26 +180,30 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | WMS-001 | 1 | Phone and desktop receiving and put-away of a partial PO | `tests/browser/warehouse-returns.spec.ts:65` | asserted |
 | WMS-001 | 1 | A pick list across bins | `tests/browser/warehouse-waves.spec.ts:52` | asserted |
 | WMS-001 | 1 | A wrong SKU scan is refused | `tests/api/floor.test.mjs:105` | asserted |
+| WMS-001 | 1 | A wrong item scan is refused on phone and desktop | `tests/browser/warehouse-waves.spec.ts:87` | asserted |
 | WMS-001 | 1 | A split pack and shipment | `tests/browser/warehouse-waves.spec.ts:145` | asserted |
 | WMS-001 | 1 | The packing slip prints at the pack step | `tests/browser/warehouse-waves.spec.ts:95` | asserted |
 | WMS-001 | 1 | A transfer | `tests/browser/warehouse-returns.spec.ts:74` | asserted |
-| WMS-001 | 1 | A cycle count | `tests/browser/warehouse-returns.spec.ts:79` | asserted |
+| WMS-001 | 1 | A cycle count | `tests/browser/warehouse-returns.spec.ts:84` | asserted |
 | WMS-001 | 2 | Ten orders batch-picked in one walk to their own totes | `tests/api/warehouse-waves.test.mjs:51` | asserted |
 | WMS-001 | 2 | Each shipment consumes only its own reservations | `tests/api/warehouse-waves.test.mjs:82` | asserted |
 | WMS-001 | 2 | Only the short order stays open | `tests/api/warehouse-waves.test.mjs:85` | asserted |
 | WMS-001 | 3 | A zone pick across two zones merges at pack | `tests/api/warehouse-waves.test.mjs:38` | asserted |
 | WMS-001 | 4 | Interrupted connectivity resumes without double movement | `tests/browser/warehouse-offline.spec.ts:98` | asserted |
 | WMS-001 | 4 | No stale allocation posts | `tests/browser/warehouse-offline.spec.ts:126` | asserted |
-| WMS-001 | 5 | Wave lines retain their zones and each order its tote | `tests/api/warehouse-waves.test.mjs:26` | asserted |
+| WMS-001 | 5 | Wave lines retain their zones | `tests/api/warehouse-waves.test.mjs:26` | asserted |
+| WMS-001 | 5 | Each order keeps its own tote through pack | `tests/api/warehouse-waves.test.mjs:38` | asserted |
 | WMS-001 | 5 | Closing the pack records the completed zone contributions | `tests/api/warehouse-waves.test.mjs:38` | asserted |
 | WMS-001 | 6 | Interrupted scan intent stays in the same tab | `tests/browser/warehouse-offline.spec.ts:52` | asserted |
 | WMS-001 | 6 | Reconnecting sends no write automatically | `tests/browser/warehouse-offline.spec.ts:53` | asserted |
 | WMS-001 | 7 | Recovery replays an already-recorded command by its exact identity | `tests/browser/warehouse-offline.spec.ts:56` | asserted |
 | WMS-001 | 7 | An unrecorded intent is refused when stock or task evidence changed | `tests/browser/warehouse-offline.spec.ts:122` | asserted |
-| WMS-004 | 1 | The released wave's pick list shows the wave and dock | `tests/api/floor.test.mjs:99` | asserted |
+| WMS-004 | 1 | The released wave's pick list shows the dock | `tests/api/floor.test.mjs:99` | asserted |
+| WMS-004 | 1 | The released wave's pick list shows the wave | `tests/browser/warehouse-waves.spec.ts:52` | asserted |
 | WMS-004 | 1 | Each line confirms only after its bin and item scans | `tests/api/floor.test.mjs:103` | asserted |
 | WMS-004 | 2 | The picker is directed to the overflow bin | `tests/api/floor.test.mjs:110` | asserted |
-| WMS-004 | 2 | Only that line's reservation moves | `tests/api/floor.test.mjs:112` | asserted |
+| WMS-004 | 2 | That line's reservation moves to the overflow bin | `tests/api/floor.test.mjs:110` | asserted |
+| WMS-004 | 2 | Every other order's reservations are unchanged | `tests/api/floor.test.mjs:112` | asserted |
 | WMS-004 | 2 | A count opens for the reported bin | `tests/api/floor.test.mjs:113` | asserted |
 | WMS-005 | 1 | One authorized scan restocks a sellable return into the bin | `tests/browser/warehouse-returns.spec.ts:97` | asserted |
 | WMS-005 | 2 | A damaged scan with a reason posts the write-off to its mapped account | `tests/browser/warehouse-returns.spec.ts:104` | asserted |
@@ -235,12 +244,14 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | SALES-008 | 1 | Blank prices come from each customer's price list | `tests/api/costing.test.mjs:201` | asserted |
 | SALES-008 | 1 | The unknown row and its routed warehouse are named | `tests/api/costing.test.mjs:193` | asserted |
 | SALES-008 | 1 | Approval creates three orders once | `tests/api/costing.test.mjs:202` | asserted |
-| SALES-008 | 1 | Importing the same file again creates none | `tests/api/costing.test.mjs:204` | asserted |
+| SALES-008 | 1 | Importing the same file again creates none (the same batch returns and the order count stays three) | `tests/api/costing.test.mjs:203` | asserted |
 | SALES-004 | 1 | A recurring order across a price change | `tests/api/costing.test.mjs:217` | asserted |
 | SALES-004 | 1 | A recurring order across a credit hold | `tests/api/costing.test.mjs:218` | asserted |
-| SALES-004 | 1 | Pause stops further orders | `tests/api/costing.test.mjs:221` | asserted |
-| SALES-004 | 2 | Dropship confirmation, tracking and customer credit | `tests/api/costing.test.mjs:277` | asserted |
-| SALES-004 | 2 | Local on-hand stock is unchanged | `tests/api/costing.test.mjs:280` | asserted |
+| SALES-004 | 1 | Pause stops further orders (a paused schedule holds as paused with no occurrence, while its credit, due date and price would otherwise create one) | `tests/api/costing.test.mjs:230` | asserted |
+| SALES-004 | 2 | Dropship supplier confirmation is recorded, and shipping requires it | `tests/api/costing.test.mjs:264` | asserted |
+| SALES-004 | 2 | Dropship tracking is retained | `tests/api/costing.test.mjs:280` | asserted |
+| SALES-004 | 2 | Customer credit is posted | `tests/api/costing.test.mjs:277` | asserted |
+| SALES-004 | 2 | Local on-hand stock is unchanged | `tests/api/costing.test.mjs:279` | asserted |
 | BUY-002 | 1 | A threshold-crossing PO routes to the correct buyer | `tests/api/purchase-send.test.mjs:122` | asserted |
 | BUY-002 | 1 | An approval recorded with an agent’s credential is refused | `tests/api/purchase-send.test.mjs:157` | asserted |
 | BUY-002 | 2 | Routing uses owner-saved named human approvers | `tests/api/purchase-send.test.mjs:155` | asserted |
@@ -283,7 +294,8 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | BUY-004 | 1 | A wrong pack on the invoice is a named difference | `tests/api/supplier-bill-documents.test.mjs:18` | asserted |
 | BUY-004 | 1 | A wrong freight line is a named difference | `tests/api/supplier-bill-documents.test.mjs:68` | asserted |
 | BUY-004 | 1 | The bill compares against the partial receipt and PO | `tests/api/books.test.mjs:63` | asserted |
-| BUY-004 | 1 | Only the approved bill posts | `tests/api/supplier-bill-documents.test.mjs:33` | asserted |
+| BUY-004 | 1 | A held, unapproved bill posts nothing | `tests/api/books.test.mjs:68` | asserted |
+| BUY-004 | 1 | The approved bill posts | `tests/api/books.test.mjs:73` | asserted |
 | BUY-004 | 2 | Scorecards reproduce on-time | `tests/api/supplier-performance.test.mjs:90` | asserted |
 | BUY-004 | 2 | Scorecards reproduce fill | `tests/api/supplier-performance.test.mjs:89` | asserted |
 | BUY-004 | 2 | Scorecards reproduce defects | `tests/api/supplier-performance.test.mjs:88` | asserted |
@@ -293,11 +305,16 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | BUY-005 | 3 | SKU B suggests 66 from S2 | `tests/api/reorder-list.test.mjs:83` | asserted |
 | BUY-005 | 4 | SKU C's supplier quantity and minimum give 10 | `tests/api/reorder-list.test.mjs:62` | asserted |
 | BUY-005 | 5 | SKU D is not listed | `tests/api/reorder-list.test.mjs:62` | asserted |
-| BUY-005 | 6 | SKU E is listed at East for 13 | `tests/api/reorder-list.test.mjs:62` | asserted |
-| BUY-005 | 7 | Exactly A, B, C and E with every calculation term | `tests/api/reorder-list.test.mjs:65` | asserted |
+| BUY-005 | 6 | SKU E is listed at East for 13 | `tests/api/reorder-list.test.mjs:82` | asserted |
+| BUY-005 | 7 | Exactly A, B, C and E with those quantities | `tests/api/reorder-list.test.mjs:62` | asserted |
+| BUY-005 | 7 | On-hand, reserved, backorders and position on each line | `tests/api/reorder-list.test.mjs:65` | asserted |
+| BUY-005 | 7 | Inbound transfers, unrounded need, rounding applied and final quantity on each line | `tests/api/reorder-list.test.mjs:66` | asserted |
+| BUY-005 | 7 | The on-order term on each line | none | none |
+| BUY-005 | 7 | The reorder point and method on each line | none | none |
 | BUY-008 | 1 | One action creates exactly the two drafts | `tests/api/reorder-list.test.mjs:82` | asserted |
 | BUY-008 | 2 | A rerun shows the four lines marked with drafts and zero remaining | `tests/api/reorder-list.test.mjs:84` | asserted |
 | BUY-008 | 3 | Deleting the S2 draft restores B's 66 | `tests/api/reorder-list.test.mjs:87` | asserted |
+| BUY-008 | 3 | Deleting the S2 draft leaves every other line's suggestion and draft mark unchanged | none | none |
 | BUY-008 | 4 | Committing B's PO removes B | `tests/api/reorder-list.test.mjs:95` | asserted |
 | BUY-008 | 5 | Company-wide replenishment removes E | `tests/api/reorder-list.test.mjs:98` | asserted |
 | BUY-008 | 6 | AUTO-001 exceptions and the REPORT-002 low-stock report list the same SKU-locations | `tests/api/reorder-list.test.mjs:58` | asserted |
@@ -319,11 +336,15 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | COST-002 | 2 | A write-off without a reason mapping is refused | none | none |
 | COST-002 | 2 | The default approval limit is zero USD and equality is within it | none | none |
 | COST-002 | 2 | Amounts above the limit need explicit owner approval | `tests/api/returns.test.mjs:72` | asserted |
-| API-001 | 1 | Authenticate and read state | `tests/api/flows.test.mjs:584` | asserted |
+| API-001 | 1 | Authenticate and read state (the state helper this line calls asserts 200) | `tests/api/flows.test.mjs:121` | asserted |
+| API-001 | 1 | A signed-out state read is refused | `tests/api/flows.test.mjs:584` | asserted |
 | API-001 | 1 | Create and reserve an order, then repeat the command | `tests/api/flows.test.mjs:133` | asserted |
 | API-001 | 1 | A stale mutation is refused | `tests/api/flows.test.mjs:170` | asserted |
 | API-001 | 1 | An unauthorized mutation is refused | `tests/api/flows.test.mjs:581` | asserted |
-| API-001 | 2 | Responses expose the durable result and public errors without duplicate effects | `tests/api/flows.test.mjs:139` | asserted |
+| API-001 | 2 | A repeated command returns the durable result | `tests/api/flows.test.mjs:133` | asserted |
+| API-001 | 2 | A reused command identity with a changed payload returns a public error | `tests/api/flows.test.mjs:139` | asserted |
+| API-001 | 2 | A repeated command adds no duplicate business effect (the retried transfer receipt leaves destination at 0.2) | `tests/api/flows.test.mjs:299` | asserted |
+| API-001 | 2 | A refused unauthorized mutation changes nothing | `tests/api/flows.test.mjs:582` | asserted |
 | SEC-001 | 1 | Reusing a command ID with changed content is refused | `tests/api/flows.test.mjs:139` | asserted |
 | SEC-001 | 1 | Invalid decimals are refused | `tests/api/flows.test.mjs:24` | asserted |
 | SEC-001 | 1 | A revoked prepared actor is refused | `tests/api/security-import.test.mjs:603` | asserted |
@@ -333,13 +354,18 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | SEC-001 | 3 | A generic edit that would bypass stock admission is refused | `tests/api/security-import.test.mjs:449` | asserted |
 | DATA-001 | 1 | A corrupt archive is refused | `tests/portable.mjs:373` | asserted |
 | DATA-001 | 1 | The valid archive restores into a fresh installation | `tests/portable.mjs:418` | asserted |
-| DATA-001 | 2 | Complete records, source bytes and history compare | `tests/portable.mjs:444` | asserted |
+| DATA-001 | 2 | Complete business records compare | `tests/portable.mjs:418` | asserted |
+| DATA-001 | 2 | Source bytes compare | `tests/portable.mjs:444` | asserted |
+| DATA-001 | 2 | Import journals and command history compare | `tests/portable.mjs:404` | asserted |
 | DATA-001 | 2 | Fresh owner authority is required | `tests/portable.mjs:397` | asserted |
 | DATA-001 | 2 | Reconnection is deliberate | `tests/portable.mjs:458` | asserted |
 | DATA-001 | 2 | No outbound effect occurs | `tests/portable.mjs:455` | asserted |
 | DATA-001 | 2 | No duplicate opening occurs | `tests/portable.mjs:472` | asserted |
 | OPEN-001 | 1 | LICENSE is MIT and package.json declares MIT | `tests/api/open.test.mjs:11` | asserted |
-| OPEN-001 | 1 | Every area is reached with three warehouses and 25 staff | `tests/api/open.test.mjs:28` | asserted |
+| OPEN-001 | 1 | Three warehouses | `tests/api/open.test.mjs:27` | asserted |
+| OPEN-001 | 1 | 25 active staff | `tests/api/open.test.mjs:28` | asserted |
+| OPEN-001 | 1 | Every product area is reached at both widths | `tests/browser/open.spec.ts:25` | asserted |
+| OPEN-001 | 1 | A production install with no account or key from Pier's authors signs staff in | `tests/api/open.test.mjs:24` | asserted |
 | OPEN-001 | 1 | No payment, upgrade or license prompt appears | `tests/browser/open.spec.ts:26` | asserted |
 | OPEN-001 | 1 | A paid provider's cost shows before activation | `tests/browser/open.spec.ts:34` | asserted |
 | OPEN-001 | Requirement | "This proof changes no other clause's status" left point 2 for the Requirement | n/a | moved |
@@ -353,6 +379,8 @@ Every part of a clause that was done at that commit has one row per acceptance p
 | AGENT-006 | 1 | A restricted warehouse user asks why an order is short | `tests/api/item-agent.test.mjs:240` | asserted |
 | AGENT-006 | 1 | Bulk promise and PO changes are proposed | `tests/api/item-agent.test.mjs:156` | asserted |
 | AGENT-006 | 2 | Answers cite allowed evidence without forbidden costs | `tests/api/item-agent.test.mjs:253` | asserted |
-| AGENT-006 | 2 | The plan is previewed, edited and approved | `tests/api/item-agent.test.mjs:169` | asserted |
+| AGENT-006 | 2 | The plan is previewed with exact rows | `tests/api/item-agent.test.mjs:156` | asserted |
+| AGENT-006 | 2 | The plan is edited | `tests/browser/journey.spec.ts:879` | asserted |
+| AGENT-006 | 2 | The approved plan applies its edited value | `tests/browser/journey.spec.ts:924` | asserted |
 | AGENT-006 | 3 | The stale action is refused | `tests/api/item-agent.test.mjs:176` | asserted |
 | AGENT-006 | 3 | Applied results keep ordinary command and audit links | `tests/api/item-agent.test.mjs:183` | asserted |

@@ -6,14 +6,14 @@ A claim is done when every clause behind it is done, missing when every one is m
 
 | # | Claim | Clauses | Status |
 | --- | --- | --- | --- |
-| 1 | "Pier tracks stock across your warehouses" | `STOCK-001` partial; `PIER-001` partial; `PIER-008` done | partial |
+| 1 | "Pier tracks stock across your warehouses" | `STOCK-001` partial; `PIER-001` partial; `PIER-008` partial | partial |
 | 2 | "runs orders from channel to carrier" | `CHANNEL-001` partial; `PIER-004` done; `PIER-009` partial; `WMS-001` done; `SHIP-001` partial | partial |
-| 3 | "reorders before you run out" | `BUY-005` done; `BUY-008` done; `BUY-001` partial; `AUTO-001` partial | partial |
+| 3 | "reorders before you run out" | `BUY-005` partial; `BUY-008` partial; `BUY-001` partial; `AUTO-001` partial | partial |
 | 4 | "and keeps the books in step" | `ACCOUNT-001` partial; `ACCOUNT-002` partial | partial |
 | 5 | "100% free, open source alternative to the supported source inventory systems" | `OPEN-001` done; `MIGRATE-001` partial | partial |
-| 6 | The six hero tags, each a stage below | `PIER-006` partial; `EDI-001` partial; `PIER-011` partial; `WMS-001` done; `STOCK-001` partial; `BUY-005` done | partial |
+| 6 | The six hero tags, each a stage below | `PIER-006` partial; `EDI-001` partial; `PIER-011` partial; `WMS-001` done; `STOCK-001` partial; `BUY-005` partial | partial |
 | 7 | "The inventory agent reads sell-through across your channels, sees the gap" | `AGENT-002` partial; `BUY-001` partial | partial |
-| 8 | "Order 500 by Oct 7 · 12 days safety" | `BUY-001` partial; `BUY-005` done | partial |
+| 8 | "Order 500 by Oct 7 · 12 days safety" | `BUY-001` partial; `BUY-005` partial | partial |
 | 9 | "… and sends the purchase order" (PO-1048 sent, confirmed) | `AGENT-002` partial; `BUY-006` partial | partial |
 | 10 | "The supplier's ship notice drops to 480" (inbound EDI 856) | `BUY-007` partial; `EDI-001` partial | partial |
 | 11 | "20 follow on PO-1048-B · due Nov 12" | `PIER-006` partial; `BUY-007` partial | partial |
@@ -43,7 +43,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 35 | "… to QuickBooks Online or Xero" | `ACCOUNT-001` partial; `ACCOUNT-002` partial | partial |
 | 36 | "Each scan, sale, count and bill writes a line" | `PIER-012` done; `AUDIT-001` partial | partial |
 | 37 | "Value moves with it" (FIFO · USD) | `COST-001` partial; `REPORT-002` partial | partial |
-| 38 | Reorder row: "571 available = 36 days; 40 needed (28 lead + 12 safety)" | `BUY-001` partial; `BUY-005` done | partial |
+| 38 | Reorder row: "571 available = 36 days; 40 needed (28 lead + 12 safety)" | `BUY-001` partial; `BUY-005` partial | partial |
 | 39 | "Items, bins, stock on hand, customers, suppliers and open orders come across from a supported source inventory system" | `MIGRATE-001` partial; `PIER-003` partial | partial |
 | 40 | "Channels reconnect to the same listings" | `CHANNEL-001` partial; `MIGRATE-001` partial | partial |
 | 41 | The one-line start `npx -y @runeditrun/rer dev just-every/run-pier` and what it does | `OPS-001` partial | partial |
