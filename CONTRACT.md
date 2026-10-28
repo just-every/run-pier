@@ -1410,18 +1410,18 @@ Inherits BASE-AGENT-001 to BASE-AGENT-013. The company's policy decides every ca
 
 ## Status
 
-Judged from the code and tests at commit `2795306bf0090a139f5f220dbe7ee592c92ec51a` (28 October 2026). AGENT-002 proof is re-run on the exact landing candidate; other status judgments are preserved.
+Judged from the code and tests at commit `2cb52166c58a095f22811325a416456d81a6dec8` (28 October 2026). PIER-002 snapshot proof is extended with restart readback and re-run on the exact landing candidate. AGENT-002 proof is re-run on the exact landing candidate; other status judgments are preserved.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 3 | 9 | 0 | 12 |
+| Published | 4 | 8 | 0 | 12 |
 | Target and push further | 14 | 61 | 11 | 86 |
-| All | 17 | 70 | 11 | 98 |
+| All | 18 | 69 | 11 | 98 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
 | `PIER-001` | Define stock | published | partial | `src/pier/catalogue.ts`; `tests/api/flows.test.mjs` (01); `tests/api/security-import.test.mjs`; `tests/browser/journey.spec.ts` | Unasserted in the cited evidence: refusal of unit, pack and location-kind edits once a record is used, the atomicity of those refusals, and readable history after archiving. Asserted: fractional-pack items and bin and transit locations through the UI and authenticated commands, their use by purchase documents and counts, and archiving a used SKU, which then refuses new orders. `tests/api/catalogue.test.mjs` asserts a used item's pack-barcode change refused, outside this clause's evidence. |
-| `PIER-002` | Maintain counterparties and supplier terms | published | partial | `src/pier/catalogue.ts`; `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (02, 05) | Unasserted in the cited evidence: revising the supplier terms after the PO, reading the original PO and receipt after that revision with their quantities, price and source version, and refusal of a duplicate supplier-item pair. Asserted: supplier terms are saved and the committed PO line snapshots that terms record and its price. |
+| `PIER-002` | Maintain counterparties and supplier terms | published | done | `src/pier/catalogue.ts`; `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` — “Pier public Worker and D1 wholesale journey”, subtest “02 supplier terms are exact snapshots”: authenticated terms creation, committed purchase and receipt, explicit terms revision, independent original quantity, price and source-version checks through public state and business export, receipt links to the original PO line and movement, duplicate-pair refusal with unchanged business records and successful command results, and retained history after restart; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px”: native supplier terms, exact PO approval, receipt and interrupted-response recovery, with desktop and phone purchasing screens |  |
 | `PIER-003` | Review native opening inventory | published | partial | `src/pier/imports.ts`; `src/pier/import-currency.ts`; `src/pier/native-export.ts`; `tests/api/security-import.test.mjs`; `tests/api/native-exit.test.mjs` | Unasserted: reading the USD unit cost of an imported native opening in COST-001's ledger; `tests/api/security-import.test.mjs` asserts the resulting valuation total only. Every other point is asserted in the cited files. |
 | `PIER-004` | Commit sales demand without overselling | published | done | `src/pier/orders.ts`; `tests/api/flows.test.mjs` (04) |  |
 | `PIER-005` | Approve exact purchase commitments | published | partial | `src/pier/purchasing.ts`; `src/pier/proposals.ts`; `tests/api/flows.test.mjs` (05) | Unasserted in the cited evidence: preparing the PO as an agent, the refused approval attempted with the agent's credential, a commit of the freshly approved version and its effect on expected rather than on-hand stock. Asserted: the buyer's approval and refusal of the stale and the unapproved revised version. `tests/api/security-import.test.mjs` ('roles, agent preparation, revoked session, stale human approval and direct HTTP denial') holds agent refusals outside this clause's evidence. |

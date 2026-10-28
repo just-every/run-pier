@@ -142,6 +142,11 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
       assert.deepEqual(refusedState.supplierItems, state.supplierItems);
       assert.deepEqual(refusedState.purchaseOrders, state.purchaseOrders);
       assert.deepEqual(refusedState.receipts, state.receipts);
+      await history.restart();
+      const restarted = await exported();
+      for (const key of ["supplierItems", "purchaseOrders", "receipts", "movements", "reservations", "commands"])
+        assert.deepEqual(restarted[key], afterRefusal[key], `restart retains ${key} after duplicate refusal`);
+      assert.deepEqual((await history.invariant()).positions, state.positions);
     } finally {
       await history.close();
     }

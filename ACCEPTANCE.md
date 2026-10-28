@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 17 | 70 | 4 | 91 |
+| Core | 18 | 69 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 17 | 70 | 11 | 98 |
+| Full target | 18 | 69 | 11 | 98 |
 
-Judged from the code and tests at commit `2795306bf0090a139f5f220dbe7ee592c92ec51a` (28 October 2026). AGENT-002 proof is re-run on the exact landing candidate; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `2cb52166c58a095f22811325a416456d81a6dec8` (28 October 2026). PIER-002 snapshot proof is extended with restart readback and re-run on the exact landing candidate. AGENT-002 proof is re-run on the exact landing candidate; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -34,7 +34,7 @@ Core · published · **partial**
 
 #### PIER-002 — Maintain counterparties and supplier terms
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Operators link suppliers and customers. Each supplier/item pair has one versioned terms record with supplier code, pack, price, minimum order and lead time. Purchase commitments and receipts retain their exact terms snapshot when the supplier later changes terms.
 
@@ -42,8 +42,8 @@ Core · published · **partial**
 1. Journey 2: create supplier terms, commit a PO, revise terms and read the original PO/receipt.
 2. The commitment retains its original quantities, price and source version; duplicate-pair creation cannot bypass the versioned record.
 
-**Evidence.** `src/pier/catalogue.ts`; `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (02, 05)
-**Gap.** Unasserted in the cited evidence: revising the supplier terms after the PO, reading the original PO and receipt after that revision with their quantities, price and source version, and refusal of a duplicate supplier-item pair. Asserted: supplier terms are saved and the committed PO line snapshots that terms record and its price.
+**Evidence.** `src/pier/catalogue.ts`; `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` — “Pier public Worker and D1 wholesale journey”, subtest “02 supplier terms are exact snapshots”: authenticated terms creation, committed purchase and receipt, explicit terms revision, independent original quantity, price and source-version checks through public state and business export, receipt links to the original PO line and movement, duplicate-pair refusal with unchanged business records and successful command results, and retained history after restart; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px”: native supplier terms, exact PO approval, receipt and interrupted-response recovery, with desktop and phone purchasing screens
+**Gap.** None.
 
 #### PIER-003 — Review native opening inventory
 
