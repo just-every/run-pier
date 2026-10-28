@@ -347,6 +347,10 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         reason: "Customer cancels remainder",
       });
       assert.equal(cancelled.lines[0].dispatched, "0.4");
+      assert.equal(cancelled.lines[0].cancelled, "0.6");
+      const cancelledState = await h.state();
+      assert.deepEqual(cancelledState.shipments.find((s) => s.id === shipment.id), shipment);
+      assert.deepEqual(cancelledState.reservations.filter((r) => r.orderId === order.id), []);
       returned = await h.command("return.create", {
         shipmentId: shipment.id,
         shipmentLineId: shipment.lines[0].id,
@@ -389,6 +393,89 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         },
         { error: "RETURN_LIMIT" },
       );
+
+      // No other SKU or leftover sellable stock can satisfy this demand.
+      const isolatedItem = await h.command("item.save", {
+        sku: "synthetic-pier-10", name: "Quarantine isolation", unit: "each", packSize: "0.1",
+      });
+      const isolated = { ...b, item: isolatedItem };
+      const isolatedPo = await buy(h, isolated, "0.3");
+      await receive(h, isolated, isolatedPo, "0.3");
+      const originalOrder = await h.command("order.create", {
+        customerId: b.customer.id, lines: [{ itemId: isolatedItem.id, quantity: "0.3" }],
+      });
+      const originalShipment = await h.command("dispatch.create", {
+        orderId: originalOrder.id, shipmentReference: "synthetic-pier-10-dispatch",
+        lines: [{ orderLineId: originalOrder.lines[0].id, quantity: "0.3" }],
+      });
+      const quarantined = await h.command("return.create", {
+        shipmentId: originalShipment.id, shipmentLineId: originalShipment.lines[0].id,
+        locationId: b.source.id, quantity: "0.3", reason: "Inspect returned units before release",
+      });
+      assert.equal(quarantined.shipmentId, originalShipment.id);
+      assert.equal(quarantined.shipmentLineId, originalShipment.lines[0].id);
+      const stock = (s, sellable, quarantine, reserved) => {
+        const movements = s.movements.filter((m) => m.itemId === isolatedItem.id);
+        const reservations = s.reservations.filter((r) => r.itemId === isolatedItem.id);
+        for (const [status, quantity] of [["sellable", sellable], ["quarantine", quarantine]]) {
+          const sum = movements.filter((m) => m.status === status).reduce((n, m) => n + BigInt(m.quantity), 0n);
+          assert.equal(sum, parse(quantity), status);
+          const positions = s.positions.filter((p) => p.itemId === isolatedItem.id && p.status === status);
+          assert.equal(positions.reduce((n, p) => n + parse(p.quantity), 0n), sum);
+          assert.equal(positions.reduce((n, p) => n + parse(p.available), 0n), status === "sellable" ? sum - parse(reserved) : 0n);
+        }
+        assert.equal(reservations.reduce((n, r) => n + BigInt(r.quantity), 0n), parse(reserved));
+      };
+      const business = (s) => ({
+        positions: s.positions, movements: s.movements, reservations: s.reservations,
+        shipments: s.shipments, orders: s.orders, returns: s.returns,
+      });
+      stock(await h.state(), "0", "0.3", "0");
+      const demand = await h.command("order.create", {
+        customerId: b.customer.id, lines: [{ itemId: isolatedItem.id, quantity: "0.3" }],
+      });
+      assert.equal(demand.lines[0].reserved, "0");
+      assert.equal(demand.lines[0].backorder, "0.3");
+      stock(await h.state(), "0", "0.3", "0");
+      const dispatch = {
+        orderId: demand.id, shipmentReference: "synthetic-pier-10-new-demand",
+        lines: [{ orderLineId: demand.lines[0].id, quantity: "0.1" }],
+      };
+      const beforeDispatch = business(await h.state());
+      await h.command("dispatch.create", dispatch, { error: "RESERVATION" });
+      assert.deepEqual(business(await h.state()), beforeDispatch);
+
+      const exactReview = { returnId: quarantined.id, version: quarantined.version, quantity: "0.1" };
+      await h.command("return.approve", exactReview);
+      const approvedOnly = await h.command("order.reserve", { orderId: demand.id });
+      assert.equal(approvedOnly.lines[0].reserved, "0");
+      assert.equal(approvedOnly.lines[0].backorder, "0.3");
+      stock(await h.state(), "0", "0.3", "0");
+      const released = await h.command("return.restock", exactReview);
+      assert.equal(released.status, "quarantine");
+      assert.equal(released.restocked, "0.1");
+      assert.equal(released.restockReviews[0].quantity, "0.1");
+      assert.equal(released.restockReviews[0].actorId, released.restockReviews[0].postedBy);
+      stock(await h.state(), "0.1", "0.2", "0");
+      const allocated = await h.command("order.reserve", { orderId: demand.id });
+      assert.equal(allocated.lines[0].reserved, "0.1");
+      assert.equal(allocated.lines[0].backorder, "0.2");
+      stock(await h.state(), "0.1", "0.2", "0.1");
+      const beforeExcessDispatch = business(await h.state());
+      await h.command("dispatch.create", {
+        ...dispatch, lines: [{ orderLineId: demand.lines[0].id, quantity: "0.2" }],
+      }, { error: "RESERVATION" });
+      assert.deepEqual(business(await h.state()), beforeExcessDispatch);
+      const allowedShipment = await h.command("dispatch.create", dispatch);
+      assert.equal(allowedShipment.lines[0].quantity, "0.1");
+      stock(await h.state(), "0", "0.2", "0");
+      const stillShort = await h.command("order.reserve", { orderId: demand.id });
+      assert.equal(stillShort.lines[0].reserved, "0");
+      assert.equal(stillShort.lines[0].backorder, "0.2");
+      const finalState = await h.state();
+      assert.deepEqual(finalState.shipments.find((s) => s.id === originalShipment.id), originalShipment);
+      assert.deepEqual(finalState.returns.find((r) => r.id === quarantined.id), released);
+      assert.equal(finalState.movements.filter((m) => m.itemId === isolatedItem.id && m.status === "quarantine").every((m) => m.documentId === quarantined.id), true);
       await h.invariant();
     },
   );
