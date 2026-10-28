@@ -483,7 +483,7 @@
       "executable": false
     },
     "docs/replenishment.md": {
-      "sha256": "c5889cc7245d5eae1f0e1e231750604744d0eff33926c7920a8d5221cb3429df",
+      "sha256": "f68f12869b84c9cb0392530a64d78489f13bb0dbaa6fa3a9267a886464a59fb7",
       "executable": false
     },
     "docs/returns.md": {
@@ -3711,7 +3711,7 @@
       "executable": false
     },
     "src/pier/replenishment-margin.ts": {
-      "sha256": "47856cb2432a2d5cf7cc78ef7e39109edb6ef83ec603063ae3f5103190d8059e",
+      "sha256": "c984b7f74de676523aa315f78b520b83cd73fadeb526560b526115ed31c8561e",
       "executable": false
     },
     "src/pier/replenishment-optimization.ts": {
@@ -4803,7 +4803,7 @@
       "executable": false
     },
     "tests/api/replenishment.test.mjs": {
-      "sha256": "61c46699a5a616f2aea7d1fb427fbc4e800a09124e76c8b9f7962fcb400695a2",
+      "sha256": "7ea238f9cbcd8779acae5433442c20f37b146ffe06dc1b07606c4e20aabffae3",
       "executable": false
     },
     "tests/api/returns.test.mjs": {

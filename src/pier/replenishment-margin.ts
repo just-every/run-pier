@@ -35,7 +35,9 @@ export function realizedMargin(c: Context, itemId: string) {
       for (const credit of c.s.invoiceCredits.filter(cr => cr.invoiceId === invoice.id && cr.status === 'authorized' && cr.authorizedAt <= c.now)) {
         const value = credit.lines.filter((l: any) => l.invoiceLineId === priced.id).reduce((n: bigint, l: any) => n + amount(l.amount), 0n);
         if (!value) continue;
-        const share = convert(value * q / decimal(priced.quantity));
+        const returned = credit.kind === 'return' ? c.s.returns.find(r => r.id === credit.returnId) : null;
+        if (credit.kind === 'return' && (returned?.shipmentId !== shipment.id || returned?.shipmentLineId !== line.id)) continue;
+        const share = convert(credit.kind === 'return' ? value : value * q / decimal(priced.quantity));
         credits += share; creditIds.add(credit.id);
         if (credit.kind === 'return') returnCredits.set(credit.returnId, (returnCredits.get(credit.returnId) ?? 0n) + share);
       }
