@@ -234,6 +234,13 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         r,
       );
       assert.equal(r.lines[0].costTotal, "0.020000000000");
+      const businessState = async () => {
+        const response = await h.request("/api/pier/export");
+        assert.equal(response.status, 200);
+        const { exportedAt, auditEvents, ...business } = await response.json();
+        return business;
+      };
+      const beforeInvalid = await businessState();
       const before = (await h.state()).movements.length;
       await h.command(
         "receipt.create",
@@ -252,7 +259,117 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         { error: "LINE" },
       );
       assert.equal((await h.state()).movements.length, before);
-      await h.invariant();
+      assert.deepEqual(await businessState(), beforeInvalid);
+
+      const first = await h.command("item.save", {
+        sku: "synthetic-pier-1", name: "Partial receipt first SKU", unit: "each", packSize: "1",
+      });
+      const second = await h.command("item.save", {
+        sku: "synthetic-pier-2", name: "Partial receipt second SKU", unit: "each", packSize: "1",
+      });
+      const multi = await h.command("po.draft", {
+        supplierId: b.supplier.id,
+        destinationWarehouse: b.source.warehouse,
+        promiseDate: "2026-11-01",
+        reason: "Reconcile independent partial deliveries for two SKUs",
+        lines: [
+          { itemId: first.id, quantity: "3.5", price: "0.2" },
+          { itemId: second.id, quantity: "7.25", price: "1.2" },
+        ],
+      });
+      await h.command("po.approve", { poId: multi.id, version: multi.version });
+      await h.command("po.commit", { poId: multi.id, version: multi.version });
+      const assertRemaining = async (received, remaining) => {
+        const state = await h.invariant();
+        const current = state.purchaseOrders.find(row => row.id === multi.id);
+        assert.equal(current.status, "committed");
+        for (const [index, item, original] of [[0, first, "3.5"], [1, second, "7.25"]]) {
+          const line = current.lines.find(row => row.id === multi.lines[index].id);
+          assert.equal(line.itemId, item.id);
+          assert.equal(line.quantity, original);
+          assert.equal(line.received, received[index]);
+          assert.equal(parse(original) - parse(line.received), parse(remaining[index]));
+          const company = state.companyStocks.find(row => row.itemId === item.id);
+          const warehouse = state.warehouseStocks.find(row => row.itemId === item.id && row.warehouse === b.source.warehouse);
+          assert.equal(company.expected, remaining[index]);
+          assert.equal(warehouse.expected, remaining[index]);
+          assert.equal(company.onHand, received[index]);
+          assert.equal(company.available, received[index]);
+          assert.equal(company.reserved, "0");
+          const movements = state.movements.filter(row => row.itemId === item.id);
+          assert.equal(movements.reduce((sum, row) => sum + BigInt(row.quantity), 0n), parse(received[index]));
+          assert.ok(movements.every(row => row.locationId === b.source.id && row.status === "sellable"));
+          const positions = state.positions.filter(row => row.itemId === item.id);
+          assert.equal(positions.length, received[index] === "0" ? 0 : 1);
+          if (positions.length) assert.equal(positions[0].quantity, received[index]);
+        }
+        return state;
+      };
+      await assertRemaining(["0", "0"], ["3.5", "7.25"]);
+      const partial = {
+        poId: multi.id,
+        supplierReference: "synthetic-pier-3",
+        lines: [
+          { poLineId: multi.lines[0].id, locationId: b.source.id, quantity: "0.75", cost: "0.2" },
+          { poLineId: multi.lines[1].id, locationId: b.source.id, quantity: "2.5", cost: "1.2" },
+        ],
+      };
+      const partialKey = randomUUID();
+      const posted = await h.command("receipt.create", partial, { commandId: partialKey });
+      const assertReceipt = (state, receipt, quantities, costs, totals) => {
+        const retained = state.receipts.find(row => row.id === receipt.id);
+        assert.equal(retained.poId, multi.id);
+        assert.equal(retained.supplierReference, receipt.supplierReference);
+        assert.equal(retained.status, "posted");
+        assert.equal(retained.lines.length, 2);
+        for (const [index, item] of [first, second].entries()) {
+          const line = retained.lines.find(row => row.poLineId === multi.lines[index].id);
+          assert.equal(line.itemId, item.id);
+          assert.equal(line.locationId, b.source.id);
+          assert.equal(line.quantity, quantities[index]);
+          assert.equal(line.cost, costs[index]);
+          assert.equal(line.costTotal, totals[index]);
+          assert.equal(line.costTotalScale, 12);
+          const movements = state.movements.filter(row => row.documentId === receipt.id && row.itemId === item.id);
+          assert.equal(movements.length, 1);
+          assert.equal(movements[0].id, line.movementId);
+          assert.equal(movements[0].quantity, parse(quantities[index]).toString());
+        }
+      };
+      assertReceipt(await assertRemaining(["0.75", "2.5"], ["2.75", "4.75"]), posted,
+        ["0.75", "2.5"], ["0.2", "1.2"], ["0.150000000000", "3.000000000000"]);
+      const beforeReplay = await businessState();
+      assert.equal(beforeReplay.commands.filter(row => row.id === partialKey).length, 1);
+      assert.deepEqual(await h.command("receipt.create", partial, { commandId: partialKey }), posted);
+      assert.deepEqual(await businessState(), beforeReplay, "replay adds no receipt, stock movement or successful command result");
+
+      const next = await h.command("receipt.create", {
+        ...partial,
+        supplierReference: "synthetic-pier-4",
+        lines: [
+          { ...partial.lines[0], quantity: "0.5", cost: "0.3" },
+          { ...partial.lines[1], quantity: "1.25", cost: "1.6" },
+        ],
+      });
+      assertReceipt(await assertRemaining(["1.25", "3.75"], ["2.25", "3.5"]), next,
+        ["0.5", "1.25"], ["0.3", "1.6"], ["0.150000000000", "2.000000000000"]);
+      const beforeExcess = await businessState();
+      const beforeExcessView = await h.state();
+      const excessKey = randomUUID();
+      await h.command("receipt.create", {
+        ...partial,
+        supplierReference: "synthetic-pier-5",
+        lines: [
+          { ...partial.lines[0], quantity: "0.25" },
+          { ...partial.lines[1], quantity: "3.75" },
+        ],
+      }, { commandId: excessKey, error: "RECEIPT_LIMIT" });
+      const afterExcess = await businessState();
+      assert.deepEqual(afterExcess, beforeExcess, "valid first line and excessive second line post no business effects");
+      assert.ok(!afterExcess.commands.some(row => row.id === excessKey));
+      const afterExcessView = await assertRemaining(["1.25", "3.75"], ["2.25", "3.5"]);
+      for (const key of ["positions", "companyStocks", "warehouseStocks", "movements", "reservations", "receipts", "purchaseOrders", "commands"])
+        assert.deepEqual(afterExcessView[key], beforeExcessView[key], key);
     },
   );
   await t.test(
