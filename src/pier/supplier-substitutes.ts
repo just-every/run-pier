@@ -3,7 +3,7 @@ import { canonicalJson, sha256 } from './import-kit';
 import { route } from './routing';
 import { kitDefinition } from './kits';
 import { policyFor } from './trace-core';
-import { available, balance, decimal, fail, format, fresh, get, held, min, reserved, row, text, type Context, type Row, type State } from './model';
+import { collections, available, balance, decimal, fail, format, fresh, get, held, min, reserved, row, text, type Context, type Row, type State } from './model';
 
 type NativeActor = { id: string; version: number; status: string };
 export async function substituteActors(db: D1Database): Promise<NativeActor[]> {
@@ -26,7 +26,20 @@ function compatible(s: State, originalId: string, alternativeId: string) {
     fail('SUBSTITUTE_MAPPING', 'Choose two active untracked, non-kit SKUs with the exact same base unit.');
   return { original, alternative };
 }
-const source = (collection: string, record: any, extra: object = {}) => ({ collection, id: record.id, version: record.version ?? record.sequence, href: '/api/pier/export', ...extra });
+const source = (collection: string, record: any, extra: object = {}) => {
+  const digest = sha256(canonicalJson(record));
+  return { collection, id: record.id, version: record.version ?? record.sequence, digest,
+    href: '/api/pier/export?' + new URLSearchParams({ source: collection, id: record.id, digest }), ...extra };
+};
+export function substituteSource(s: State, query: URLSearchParams) {
+  const collection = query.get('source') ?? '';
+  if (![...collections, 'movements', 'reservations'].includes(collection)) fail('NOT_FOUND', 'Choose an exported business source.');
+  const record = (s as any)[collection].find((record: any) => record.id === query.get('id'));
+  if (!record) fail('NOT_FOUND', 'The exported source no longer exists.');
+  const evidence = source(collection, record);
+  if (evidence.digest !== query.get('digest')) fail('STALE_SOURCE', 'The source changed since preparation. Review the retained comparison and prepare again.');
+  return { format: 'pier-source-v1', ...evidence, record };
+}
 
 /** The digest is conservative: a new input requires a fresh comparison, never a
  * guessed continuation. Proposals themselves are inert and are not inputs. */
@@ -34,6 +47,7 @@ function frontier(c: Context) {
   return sha256(canonicalJson({ items: c.s.items, locations: c.s.locations, mappings: c.s.substituteMappings,
     purchaseOrders: c.s.purchaseOrders, orders: c.s.orders, movements: c.s.movements, reservations: c.s.reservations,
     holds: c.s.channelHolds, routingRules: c.s.routingRules, policies: c.s.replenishmentPolicies,
+    priorities: c.s.backorderPolicies, parties: c.s.parties, transfers: c.s.transfers,
     kits: c.s.kitDefinitions, roles: c.s.roles, actors: c.substituteActors, authority: c.automationActors }));
 }
 export function supplierSubstitutes(c: Context, type: string, p: any): Row | undefined {
@@ -65,7 +79,8 @@ export function supplierSubstitutes(c: Context, type: string, p: any): Row | und
     const evidence: any[] = [source('purchaseOrders', po), source('purchaseOrders', po, { field: 'supplierReplies', entryId: reply.id }),
       source('purchaseOrders', po, { field: 'confirmation', entryId: reply.id })];
     const lines: any[] = [];
-    for (const dated of backorderDates(c)) {
+    const demandContext = { ...c, s: { ...c.s, orders: c.s.orders.filter(order => order.documentType !== 'quote' || order.acceptedAt) } };
+    for (const dated of backorderDates(demandContext)) {
       const order = get(c.s, 'orders', dated.orderId);
       if (order.status === 'cancelled' || order.fulfilment === 'dropship') continue;
       for (const datedLine of dated.lines) {
@@ -79,7 +94,7 @@ export function supplierSubstitutes(c: Context, type: string, p: any): Row | und
         // Use the current routing rule, rather than expanding the order's grant.
         const warehouses: string[] = route(c.s, order.routing?.source ?? 'manual', order.shipTo, order.channelLocation, order.warehouse).eligible;
         evidence.push(source('orders', order, { orderLineId: line.id }), source('items', get(c.s, 'items', line.itemId)));
-        evidence.push(...po.lines.filter((purchaseLine: any) => purchaseLine.itemId === line.itemId).map((purchaseLine: any) => source('purchaseOrders', po, { poLineId: purchaseLine.id }))); 
+        evidence.push(...po.lines.filter((purchaseLine: any) => purchaseLine.itemId === line.itemId).map((purchaseLine: any) => source('purchaseOrders', po, { poLineId: purchaseLine.id })));
         const mappings = c.s.substituteMappings.filter(mapping => mapping.itemId === line.itemId && mapping.enabled)
           .sort((a, b) => get(c.s, 'items', a.alternativeItemId).sku.localeCompare(get(c.s, 'items', b.alternativeItemId).sku) || a.id.localeCompare(b.id));
         for (const mapping of mappings) {
@@ -113,7 +128,7 @@ export function supplierSubstitutes(c: Context, type: string, p: any): Row | und
       }
     }
     if (!lines.length) fail('SUBSTITUTE_DEMAND', 'No delayed confirmed supply from this PO is linked to an affected customer shortage.');
-    for (const collection of ['movements', 'reservations', 'channelHolds', 'routingRules'] as const)
+    for (const collection of ['movements', 'reservations', 'channelHolds', 'routingRules', 'backorderPolicies', 'parties', 'transfers', 'replenishmentPolicies', 'purchaseOrders'] as const)
       evidence.push(...c.s[collection].map(record => source(collection, record)));
     return row(c, 'proposals', { kind: 'supplier-substitutes', status: 'prepared', poId: po.id, poVersion: po.version,
       preparation: { actorId: c.actor.id, at: c.now }, preparationAuthority, inputDigest: frontier(c),

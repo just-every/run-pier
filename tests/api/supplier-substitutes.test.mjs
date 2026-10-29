@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { installation } from './harness.mjs';
 import { substituteScenario } from './supplier-substitutes-fixture.mjs';
 
 const exported = async h => { const { exportedAt, ...result } = await (await h.request('/api/pier/export')).json(); return result; };
+const sorted = value => Array.isArray(value) ? value.map(sorted) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, value]) => [key, sorted(value)])) : value;
 const business = result => Object.fromEntries(['items', 'locations', 'orders', 'purchaseOrders', 'receipts', 'movements', 'reservations', 'shipments', 'transfers', 'channelHolds', 'correspondence', 'bookJobs', 'supplierBills'].map(key => [key, result[key]]));
 async function persona(h) {
   const entered = await fetch(h.origin + '/auth/dev/enter?as=member', { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
@@ -58,11 +59,20 @@ test('native agents retain source-validated substitute comparisons and owners de
     assert.equal(candidate.itemVersion, b.alternative.version); assert.equal(candidate.unit, 'each');
   }
   for (const evidence of proposal.evidence) {
-    assert.equal(evidence.href, '/api/pier/export');
+    const link = new URL(evidence.href, h.origin);
+    assert.equal(link.pathname, '/api/pier/export');
+    assert.equal(link.searchParams.get('source'), evidence.collection);
+    assert.equal(link.searchParams.get('id'), evidence.id);
+    assert.equal(link.searchParams.get('digest'), evidence.digest);
     const source = retained[evidence.collection].find(row => row.id === evidence.id);
     assert.ok(source, 'every source resolves in the authenticated public export');
+    assert.equal(evidence.digest, createHash('sha256').update(JSON.stringify(sorted(source))).digest('hex'), 'the retained content digest identifies the exact exported source');
     if (evidence.version !== undefined) assert.equal(evidence.version, source.version ?? source.sequence);
     if (evidence.entryId) assert.ok(source.supplierReplies.some(reply => reply.id === evidence.entryId));
+    const sourceResponse = await h.request(evidence.href);
+    assert.equal(sourceResponse.status, 200);
+    assert.deepEqual((await sourceResponse.json()).record, source);
+    assert.equal((await h.request(evidence.href, { as: member.cookie })).status, 403, 'source links confer no extra commercial grant');
   }
   assert.ok(proposal.evidence.some(e => e.collection === 'movements' && e.id === retained.movements.at(-1).id));
   assert.ok(proposal.evidence.some(e => e.collection === 'reservations' && e.id === retained.reservations[0].id));
@@ -86,6 +96,7 @@ test('native agents retain source-validated substitute comparisons and owners de
   assert.deepEqual(business(await exported(h)), business(beforePreparation));
   const stale = await h.command('substitute.prepare', preparationPayload);
   await h.command('channel.release', { holdId: b.hold.id, version: b.hold.version });
+  assert.equal((await h.request(proposal.evidence.find(source => source.collection === 'channelHolds' && source.id === b.hold.id).href)).status, 409, 'an old source link cannot silently return changed evidence');
   await refuse('substitute.review', { ...review, proposalId: stale.id, version: stale.version }, 'STALE');
   assert.equal((await h.state()).proposals.find(row => row.id === stale.id).reviewCurrent, false);
   const afterHold = await h.command('substitute.prepare', preparationPayload);
@@ -100,10 +111,39 @@ test('native agents retain source-validated substitute comparisons and owners de
   await refuse('substitute.prepare', preparationPayload, 'FORBIDDEN', asAgent);
   const recovered = await h.request('/api/pier/commands', { method: 'POST', as: member.cookie, body: { commandId: preparationId, type: 'substitute.prepare', payload: preparationPayload } });
   assert.equal(recovered.status, 403, 'demotion prevents recovery of an earlier preparation result');
+  await h.command('role.set', { operatorId: member.id, role: 'buyer', visibility: { costs: false } });
+  await refuse('substitute.prepare', preparationPayload, 'FORBIDDEN', asAgent);
+  await h.command('role.set', { operatorId: member.id, role: 'agent', permissions: { warehouses: ['North'], locationIds: [b.source.id] } });
+  await refuse('substitute.prepare', preparationPayload, 'SCOPE', asAgent);
+  await h.command('role.set', { operatorId: member.id, role: 'owner' });
+  const ownerPreparation = await asAgent('substitute.prepare', preparationPayload);
+  await h.command('role.set', { operatorId: member.id, role: 'viewer' });
+  await refuse('substitute.review', { ...review, proposalId: ownerPreparation.id, version: ownerPreparation.version }, 'FORBIDDEN', asAgent);
+  const changedPriority = await h.command('substitute.prepare', preparationPayload);
+  const customer = (await h.state()).parties.find(party => party.id === b.customer.id);
+  await h.command('backorder.customerPriority', { customerId: customer.id, version: customer.version, priority: 10, reason: 'synthetic-pier-current-priority' });
+  await refuse('substitute.review', { ...review, proposalId: changedPriority.id, version: changedPriority.version }, 'STALE');
+  const changedEvidence = await h.command('substitute.prepare', preparationPayload);
+  await h.command('po.reply', { ...preparationPayload, source: 'synthetic-pier-later-reply', body: 'Retained later supplier evidence.' });
+  await refuse('substitute.review', { ...review, proposalId: changedEvidence.id, version: changedEvidence.version }, 'STALE');
+  const sourcePO = (await h.state()).purchaseOrders.find(po => po.id === b.po.id);
+  const reconfirmed = await h.command('po.confirm', { poId: sourcePO.id, version: sourcePO.version, promiseDate: '2099-02-02', source: 'synthetic-pier-reconfirmed', body: 'New manual confirmation.', confirm: true });
+  const currentPayload = { poId: reconfirmed.id, version: reconfirmed.version };
+  let additional = await h.command('po.draft', { supplierId: b.supplier.id, promiseDate: '2099-03-01', reason: 'synthetic-pier-extra-stock', lines: [{ itemId: b.alternative.id, quantity: '1', price: '7.37' }] });
+  await h.command('po.approve', { poId: additional.id, version: additional.version });
+  additional = await h.command('po.commit', { poId: additional.id, version: additional.version });
+  const changedMovement = await h.command('substitute.prepare', currentPayload);
+  await h.command('receipt.create', { poId: additional.id, supplierReference: 'synthetic-pier-later-receipt', lines: [{ poLineId: additional.lines[0].id, locationId: b.source.id, quantity: '1', cost: '7.37' }] });
+  await refuse('substitute.review', { ...review, proposalId: changedMovement.id, version: changedMovement.version }, 'STALE');
+  const changedOrder = await h.command('substitute.prepare', currentPayload);
+  await h.command('order.cancel', { orderId: b.second.id, reason: 'synthetic-pier-cancel-demand' });
+  await refuse('substitute.review', { ...review, proposalId: changedOrder.id, version: changedOrder.version }, 'STALE');
+  await h.restart();
   const final = await exported(h);
   for (const command of beforePreparation.commands) assert.deepEqual(final.commands.find(row => row.id === command.id), command);
-  assert.equal(final.movements.length, beforePreparation.movements.length);
-  assert.deepEqual(final.orders, beforePreparation.orders);
-  assert.deepEqual(final.purchaseOrders, beforePreparation.purchaseOrders);
+  assert.equal(final.movements.length, beforePreparation.movements.length + 1, 'only the explicit independent receipt posted a movement');
+  assert.equal(final.orders.length, beforePreparation.orders.length);
+  assert.equal(final.proposals.find(row => row.id === declined.id).status, 'declined');
+  assert.equal(final.proposals.find(row => row.id === accepted.id).status, 'accepted');
   assert.ok(final.auditEvents.some(event => event.type === 'substitute.review' && event.documentIds.includes(accepted.id)));
 });

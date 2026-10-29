@@ -1,4 +1,4 @@
-import { supplierSubstitutes, substituteActors, supplierSubstituteView } from './supplier-substitutes';
+import { supplierSubstitutes, substituteActors, supplierSubstituteView, substituteSource } from './supplier-substitutes';
 import { requireAssurance } from '../strong-auth/assurance';
 import { trade, tradeResponse } from './trade';
 import { integrationHealth } from './integration-health';
@@ -493,6 +493,7 @@ export async function pierResponse(
         );
       if (url.pathname === "/api/pier/export") {
         if(actor.role!=='owner')throw new Problem('FORBIDDEN','Only an owner can export the complete business record and commercial source artifacts.',null,403);
+        if (url.searchParams.has('source')) return reply(substituteSource(s, url.searchParams));
         const audit = await env.DB.batch([
           env.DB.prepare(
             "SELECT id,actor_id AS actorId,digest,result,created_at AS createdAt FROM pier_commands ORDER BY created_at,id",
