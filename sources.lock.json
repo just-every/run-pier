@@ -4855,7 +4855,7 @@
       "executable": false
     },
     "tests/browser/flows.ts": {
-      "sha256": "74cf3342ce5ba532907960c6661dfdd3312ea222d1b33c1d15dfe1fd569337f3",
+      "sha256": "29ac73f8b2650c5692bef0074a2b6b8b461c2a4a071cea8e0f381523a15827c1",
       "executable": false
     },
     "tests/browser/installation.mjs": {
