@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b6378a817fab859efffd687b00e47279d8f172ff6d15ec499ddde6cbd4c385cd",
+      "sha256": "81ad090aa831af478f3ab0dbfccba7f6623c082fbd90796a3d018d5a8232bf62",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "efbd523c82c01c09b8d846f09d2be939450872aee22d210357026c76cec9b49a",
+      "sha256": "4fab54dab68c7f55e02b39efcae3935f5de2dbd5704af890f7f345e4565d6f22",
       "executable": false
     },
     "DEMO.md": {
@@ -403,7 +403,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "601bb8aad44d86c82da8708890f843b6b5ec2e55f01c8f501e53cbfe279b2748",
+      "sha256": "ad41c4b3de702fe498f4303e216452b6d5517c88bf0f3d668f1cda7d72bb935c",
       "executable": false
     },
     "docs/contract/acceptance-before-cleanup.md": {
@@ -4711,7 +4711,7 @@
       "executable": false
     },
     "tests/api/books-landed.test.mjs": {
-      "sha256": "f01e943575d92135067cb0aaefce974c519ae908305c58e2b44d73e1af752373",
+      "sha256": "3e2f8f7f5c21e454408ac31e9d7c0fc4cbdb1479daf4736efbf2c2928cc43e79",
       "executable": false
     },
     "tests/api/books-shop.test.mjs": {
@@ -4923,7 +4923,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "24d7e2f82241920f09cfa3346cb7cd80542eb8dc9df5d6f1f7435441c116dab2",
+      "sha256": "f4cc09a8092ccdadc61214ab5a0fe66573518f4035a6b75f51e39d5352afee1a",
       "executable": false
     },
     "tests/browser/open.spec.ts": {

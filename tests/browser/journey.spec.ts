@@ -1008,6 +1008,7 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       await expect(form).toContainText('adjustments without a mapping require review')
       await form.getByLabel('Late bill reference',{exact:true}).fill('synthetic-pier-225')
       await form.getByLabel('Late freight USD',{exact:true}).fill('4')
+      await form.getByLabel('Late cost allocation',{exact:true}).selectOption('quantity')
       await form.getByLabel('Late bill approval reason',{exact:true}).fill('Owner reviewed supplemental cost')
       const before = (await h.state()).receipts.find((r:any)=>r.id===receipt.id)
       const response = page.waitForResponse(r=>r.url()===`${h.base}/api/pier/commands`&&r.request().postDataJSON()?.type==='receipt.landed')

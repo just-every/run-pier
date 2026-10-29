@@ -39,10 +39,10 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 31 | "Pier matches each bill to its PO and receipt, holds the difference" | `BUY-004` done | done |
 | 32 | "Agent requested a credit" | `BUY-003` partial; `AGENT-003` partial | partial |
 | 33 | "Credit memo CM-311" and "Paid $2,016.00 for 480" | `BUY-003` partial; `BUY-004` done | partial |
-| 34 | "posts landed cost" (Landed cost $4.38 a unit) | `COST-001` partial | partial |
+| 34 | "posts landed cost" (Landed cost $4.38 a unit) | `COST-001` done | done |
 | 35 | "… to QuickBooks Online or Xero" | `ACCOUNT-001` partial; `ACCOUNT-002` partial | partial |
 | 36 | "Each scan, sale, count and bill writes a line" | `PIER-012` done; `AUDIT-001` partial | partial |
-| 37 | "Value moves with it" (FIFO · USD) | `COST-001` partial; `REPORT-002` partial | partial |
+| 37 | "Value moves with it" (FIFO · USD) | `COST-001` done; `REPORT-002` partial | partial |
 | 38 | Reorder row: "571 available = 36 days; 40 needed (28 lead + 12 safety)" | `BUY-001` partial; `BUY-005` partial | partial |
 | 39 | "Items, bins, stock on hand, customers, suppliers and open orders come across from a supported source inventory system" | `MIGRATE-001` partial; `PIER-003` done | partial |
 | 40 | "Channels reconnect to the same listings" | `CHANNEL-001` partial; `MIGRATE-001` partial | partial |
@@ -53,4 +53,4 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 45 | Tag "PO-1061 sent · 600 Blue Mug 12oz" | `AGENT-002` done; `BUY-006` partial | partial |
 | 46 | "Free and open source, MIT licensed" | `OPEN-001` done | done |
 
-Claims: 46; 6 done, 40 partial, 0 missing.
+Claims: 46; 7 done, 39 partial, 0 missing.
