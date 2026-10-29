@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 25 | 62 | 4 | 91 |
+| Core | 26 | 61 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 25 | 62 | 11 | 98 |
+| Full target | 26 | 61 | 11 | 98 |
 
-Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `50f3e37ef282033afbfca7f72308f7415eac5768` (29 October 2026). BUY-003 is revalidated on the exact final sx-pier-c-f59 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -673,7 +673,7 @@ Core · target · **done** · From BUY-002
 
 #### BUY-003 — Supplier returns and purchase credits
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** Warehouse and purchasing staff create supplier return authorizations against receipts, quarantine rejected goods, dispatch approved returns and reconcile replacements or supplier credits. Quantities cannot exceed the received unreturned amount or remove stock committed elsewhere. Returning physical goods and correcting an erroneous receipt are distinct, linked actions. COST-001 and ACCOUNT-001 and ACCOUNT-002 inherit this retained valuation and once-only posting obligation for future cost and ledger doors.
 
@@ -685,8 +685,8 @@ Core · target · **partial**
 5. Replacements debit Inventory and clear the same expense using the original receipt's retained unit cost and cumulative whole-cent freight and duty shares, without another payable or reopening the PO.
 6. A remaining clearing expense states a non-credited cost, never an invented supplier refund.
 
-**Evidence.** `tests/api/supplier-returns.test.mjs` — “BUY-003: quarantine, supplier authority, once-only dispatch, credit and replacement evidence preserve receipt and outstanding PO” proves partial receipt rejection, authorization, dispatch, matched supplier credit allocation and readback after response loss, duplicate and excess refusal, return journals, original landed-cost replacement shares, one payable, unchanged original receipt and PO, and preserved physical history. `tests/browser/supplier-returns.spec.ts` — “BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evidence with connector recovery” proves the same operator flow and explicit owner posting at both widths. The supplier-credit journey uses Pantry revision e987ba0a2270a81c62d399c44c6e05d3b504bb07 through authenticated HTTP, with explicit native owner review of Pantry duplicate evidence and only response loss injected at the network edge.
-**Gap.** Unasserted: an insufficient open balance or mismatched readback keeping a supplier credit in review, and a remaining clearing expense stated as a non-credited cost. Asserted: partial rejection, authorization, dispatch, credit and replacement, duplicate and excess refusal, preserved receipt, PO and stock, matched credit allocation after response loss and replacement landed-cost shares.
+**Evidence.** `tests/api/supplier-returns.test.mjs` — “BUY-003: quarantine, supplier authority, once-only dispatch, credit and replacement evidence preserve receipt and outstanding PO” proves acceptance 1 and 2 through quarantine, authorization, once-only dispatch, credit, replacement, duplicate and excess refusal, unchanged original receipt and outstanding PO, preserved reservations and stock history; acceptance 3 and 5 through independent Pantry journal debits and credits and retained whole-cent replacement landed shares; acceptance 4 through owner-only posting, a paid-down payable staying in review across sync and restart without another remote credit or allocation, and schema-correct mismatched readback staying in review before recovery of the accepted response-loss baseline; acceptance 6 through source-linked business exports and independent Pantry credits, allocations, journals and trial balance: USD 1.14 clearing less USD 0.76 replacement and USD 0.25 accepted credit leaves USD 0.13 non-credited expense with no refund. `tests/browser/supplier-returns.spec.ts` — “BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evidence with connector recovery” completes the operator flow, insufficient-balance review, mismatched readback, explicit recovery and residual-cost source inspection at 1440 and 390. Pantry revision e987ba0a2270a81c62d399c44c6e05d3b504bb07 runs its real Worker through authenticated HTTP; only response loss and readback mismatch are injected at the external network edge.
+**Gap.** None.
 
 #### BUY-004 — Three-way matching and supplier performance
 
