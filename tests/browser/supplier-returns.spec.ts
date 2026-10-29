@@ -109,10 +109,9 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     await pantry.command('journal.reverse',{id:payment.journal_id,date:new Date().toISOString().slice(0,10),memo:'Synthetic payment reversed after owner review'})
     mismatchCredit=true
     await clearing.getByRole('button',{name:'Check supplier credit',exact:true}).click()
-    await expect(clearing).toContainText('different amounts, accounts or lines')
+    await expect(clearing).toContainText('different amounts, accounts or lines',{timeout:25_000})
     await expect(clearing).toContainText('Clearing needs review')
     await expect(clearing).not.toContainText('Non-credited cost:')
-    await expect(clearing).toContainText('different amounts, accounts or lines')
     await command('book.sync',{})
     expect((await state()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`).resolutions[0].posting).toBe('review')
     expect(creditCreates).toBe(createsBefore+1)

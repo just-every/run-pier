@@ -4891,7 +4891,7 @@
       "executable": false
     },
     "tests/api/supplier-returns.test.mjs": {
-      "sha256": "6cb00ecd9b1d00b566b59c809afcfac5a2923826a88fb6cbd54693179f58db27",
+      "sha256": "87d4012789bc815aece9231ded534af0c3c7341d87ca88ea2422a51631d87d83",
       "executable": false
     },
     "tests/api/trace-fixture.mjs": {
@@ -4975,7 +4975,7 @@
       "executable": false
     },
     "tests/browser/supplier-returns.spec.ts": {
-      "sha256": "1a62c82e54a957b06874aafa78924795935e73182045e01228d5e7798cc40ede",
+      "sha256": "7683145c1c954007c496f3b502cc0261d52317cb0e1cc97baa1d626492840dc9",
       "executable": false
     },
     "tests/browser/warehouse-offline.spec.ts": {
