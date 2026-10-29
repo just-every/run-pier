@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "9099b771edd1cab2d3f10c11e1aba16396db0b3fd4515d48702db936aa859fdb",
+      "sha256": "73abe5d2e2414af57d118bb7b990dfd32488889e5b1d6f97dd73ffbd7c373573",
       "executable": false
     },
     ".gitignore": {
@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "8340561b3029b70ad634dcedc9225c2f2c18c9a5091c3b423f8c4e432d37a8c0",
+      "sha256": "fb46ac8ca8bb54db87cd051741a79413d0a5667901a544e807b9b2fe6a966b2c",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "28de30853ee064b01ea9c92a74330ee444490757cca3e34e23a59cea4f0da373",
+      "sha256": "bf2a252d57a64c3a3750754595dda3b12642bf80811aa981052614200c5f7f35",
       "executable": false
     },
     "DEMO.md": {
@@ -4715,7 +4715,7 @@
       "executable": false
     },
     "src/ui/webhooks.tsx": {
-      "sha256": "c3c297be66c6cb8e0390e8b9d5779e2be545af496f6ffe861b477f470365c302",
+      "sha256": "33dfda1778b2611dfb14c068683e084eeb6fca2bcb887aa511da7a606d9311e9",
       "executable": false
     },
     "src/ui/wire.ts": {
@@ -5015,7 +5015,7 @@
       "executable": false
     },
     "tests/browser/webhooks.spec.ts": {
-      "sha256": "188ce60c570e134e4f18edf7561907cccd6918caee7fb1333535d45b39e5710e",
+      "sha256": "5fc6b24571026e2fb65baed0163348bf0dacb67af763db6759e80843b35e9bec",
       "executable": false
     },
     "tests/email-link.mjs": {

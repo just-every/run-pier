@@ -32,7 +32,7 @@ function Subscription({ subscription: s, state, run, busy }: { subscription: Rec
       { label: 'Fields', value: s.fields.join(', ') }, { label: 'Signing key version', value: s.secretVersion },
     ]} /><p>Every notification retains its event identity, source order version and command identity. It cannot approve purchases, post stock or record receipts.</p></section>
     {!s.enabled && <Form title="Preview exact payload" submit="Preview order payload" busy={busy} onSubmit={data => run('webhook.preview', { ...args, orderId: text(data, 'orderId') })}>
-      <Select label="Preview order" name="orderId" rows={records(state, 'orders').filter(row => row.documentType !== 'quote').map(row => ({ ...row, name: row.reference }))} />
+      <Select label="Preview order" name="orderId" rows={records(state, 'orders').filter(row => row.documentType !== 'quote' || row.acceptedAt).map(row => ({ ...row, name: row.reference }))} />
     </Form>}
     {s.preview && <section className="panel" aria-label="Payload preview"><h2>Payload preview</h2><p>Exact destination: {s.preview.destination}</p><pre className="webhook-payload">{JSON.stringify(s.preview.payload, null, 2)}</pre>
       {!s.enabled && <><label><input type="checkbox" checked={checked} onChange={event => setChecked(event.target.checked)} /> I approve this destination and these fields for future order events.</label><button className="primary" disabled={busy || !checked} onClick={() => void run('webhook.approve', { ...args, destination: s.destination, fields: s.fields, previewDigest: s.preview.digest, confirm: checked })}>Approve exact destination</button></>}
