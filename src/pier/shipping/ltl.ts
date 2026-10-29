@@ -29,7 +29,7 @@ export function ltl(c: Context, type: string, p: any): Row | undefined {
     const pack = get(c.s, 'packs', p.packId);
     if (pack.status !== 'packed') fail('LTL_STATE', 'Choose a closed, unshipped pack.');
     fresh(pack, p.packVersion);
-    if (c.s.ltlManifests.some(m => m.id !== old?.id && m.packId === pack.id && m.status !== 'dispatched')) fail('LTL_EXISTS', 'Revise the retained manifest for this pack.');
+    if (c.s.ltlManifests.some(m => m.id !== old?.id && m.orderId === pack.orderId && m.status !== 'dispatched')) fail('LTL_EXISTS', 'Complete or revise the retained manifest for this order before preparing another pack.');
     if (c.s.shippingJobs.some(job => job.packId === pack.id)) fail('LTL_LABELS', 'This pack already has parcel shipping work.');
     if (!Array.isArray(p.pallets) || !p.pallets.length || p.pallets.length > 32) fail('LTL_PALLETS', 'Add between one and 32 pallets.');
     const seen = new Set<number>();
@@ -52,8 +52,8 @@ export function ltl(c: Context, type: string, p: any): Row | undefined {
     if (!Array.isArray(accessorials) || accessorials.some((value: unknown) => !['liftgate','residential','appointment','inside delivery'].includes(String(value)))) fail('LTL_ACCESSORIAL', 'Choose the listed freight accessorials.');
     const value = { packId: pack.id, packVersion: pack.version, orderId: pack.orderId, warehouse: get(c.s, 'waves', pack.waveId).warehouse,
       reference: text(p.reference, 'Manifest reference'), shipFrom: text(p.shipFrom, 'Ship from'), shipTo: text(p.shipTo, 'Ship to'), commodity: text(p.commodity, 'Commodity'),
-      pallets, accessorials: [...new Set(accessorials)], revision: (old?.revision ?? 0) + 1, status: 'manifest', quote: null, review: null, createdBy: c.actor.id };
-    if (!old) return row(c, 'ltlManifests', { ...value, history: [] });
+      pallets, accessorials: [...new Set(accessorials)], revision: (old?.revision ?? 0) + 1, status: 'manifest', quote: null, review: null, updatedBy: c.actor.id };
+    if (!old) return row(c, 'ltlManifests', { ...value, createdBy: c.actor.id, history: [] });
     old.history.push({ revision: old.revision, pallets: old.pallets, accessorials: old.accessorials, shipFrom: old.shipFrom, shipTo: old.shipTo, quote: old.quote, review: old.review, changedAt: c.now, changedBy: c.actor.id });
     return Object.assign(old, value, { version: old.version + 1 });
   }
@@ -64,11 +64,13 @@ export function ltl(c: Context, type: string, p: any): Row | undefined {
     const amount = measure(p.amount, 'quote amount in USD');
     manifest.quoteHistory = [...(manifest.quoteHistory ?? []), ...(manifest.quote ? [manifest.quote] : [])];
     manifest.quote = { version: (manifest.quote?.version ?? manifest.quoteHistory.at(-1)?.version ?? 0) + 1, revision: manifest.revision, carrier: text(p.carrier, 'Carrier'), scac: text(p.scac, 'SCAC'), reference: text(p.quoteReference, 'Carrier quote reference'), amount, currency: 'USD', freightTerms: text(p.freightTerms, 'Freight terms'), evidence: text(p.evidence, 'Carrier quote evidence'), enteredBy: c.actor.id, enteredAt: c.now };
+    manifest.reviewHistory = [...(manifest.reviewHistory ?? []), ...(manifest.review ? [manifest.review] : [])];
     manifest.review = null; manifest.status = 'quote';
   } else if (type === 'ltl.review') {
     if (!manifest.quote) fail('LTL_QUOTE', 'Retain the carrier quote first.');
     const pickupDate = text(p.pickupDate, 'Pickup date');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate) || new Date(pickupDate).toISOString().slice(0,10) !== pickupDate) fail('LTL_DATE', 'Enter a valid pickup date.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate) || !Number.isFinite(Date.parse(pickupDate)) || new Date(pickupDate).toISOString().slice(0,10) !== pickupDate) fail('LTL_DATE', 'Enter a valid pickup date.');
+    manifest.reviewHistory = [...(manifest.reviewHistory ?? []), ...(manifest.review ? [manifest.review] : [])];
     manifest.review = { revision: manifest.revision, quoteVersion: manifest.quote.version, proNumber: text(p.proNumber, 'PRO number'), pickupDate, reason: text(p.reason, 'Review reason'), actorId: c.actor.id, reviewedAt: c.now };
     manifest.status = 'reviewed';
   } else if (type === 'ltl.pickup') {

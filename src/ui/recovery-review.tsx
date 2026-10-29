@@ -5,6 +5,7 @@ import { Facts, Table } from './controls'
 /** Retain the exact command privately; explain its consequence using live names. */
 export function RecoveryReview({ state, type, payload }: { state: PierState | null; type: string; payload: object }) {
   const actions: Record<string, string> = {
+    'ltl.pickup': 'Recover the exact reviewed LTL pickup and its once-only dispatch',
     'receipt.create': 'Record a purchase receipt', 'transfer.send': 'Dispatch stock into transit',
     'transfer.receive': 'Receive stock at its destination', 'return.create': 'Receive returned goods into quarantine',
     'return.approve': 'Approve inspected stock for restocking', 'return.restock': 'Restock an approved return',
@@ -17,6 +18,7 @@ export function RecoveryReview({ state, type, payload }: { state: PierState | nu
     if (!state || typeof value !== 'string' || !value) return []
     const kind = ({ itemId: 'items', locationId: 'locations', fromLocationId: 'locations', toLocationId: 'locations', supplierId: 'parties', customerId: 'parties' } as Record<string, string>)[key]
     if (kind) return [{ label: ({ itemId: 'Item', locationId: 'Bin', fromLocationId: 'Source bin', toLocationId: 'Destination bin', supplierId: 'Supplier', customerId: 'Customer' } as Record<string, string>)[key], value: records(state, kind).find(row => row.id === value)?.name || 'Removed record' }]
+    if (key === 'manifestId') return [{ label: 'Freight manifest', value: records(state, 'ltlManifests').find(row => row.id === value)?.reference || 'Manifest not available' }]
     if (['poId', 'orderId', 'shipmentId', 'returnId', 'transferId', 'countId'].includes(key)) return [{ label: 'Document', value: sourceDocument(state, value).name }]
     if (['quantity', 'supplierReference', 'shipmentReference', 'reason'].includes(key)) return [{ label: ({ quantity: 'Quantity (base units)', supplierReference: 'Supplier receipt reference', shipmentReference: 'Shipment reference', reason: 'Reason' } as Record<string, string>)[key], value }]
     return []
