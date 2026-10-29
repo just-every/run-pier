@@ -1,3 +1,4 @@
+import { SubstituteSettings, SupplierSubstitutes } from './supplier-substitutes'
 import { useEffect, useState } from 'react'
 import { label, records, unit, type PierState, type RecordData, type RunCommand } from './api'
 import { actionName, ItemName, money, person, sourceDocument, when, words } from './display'
@@ -29,9 +30,10 @@ export function Activity({ state, run, busy, itemId, documentId, refresh }: { st
       {!events.length ? <Empty>No recorded decisions for this selection.</Empty> : <Table headings={['When', 'Action / outcome', 'Actor / input', 'Source / changes']}>{events.slice().reverse().map(event => <tr key={event.id}><td>{when(event.at)}</td><td>{actionName(event.type)}<small>{words(event.outcome)}{event.reason ? ` · ${words(event.reason)}` : ''}</small></td><td>{person(state, event.actorId)}{event.code && <small>{event.code} · {event.device}</small>}{event.connectorId && <small>{event.connectorId} · {event.direction || 'recorded outcome'}</small>}</td><td><small>Command {event.commandId} · version {event.version}</small><details><summary>Recorded change details</summary><Evidence value={{ custody: event.custody, fieldOperation: event.fieldOperation, resolution: event.resolution, changes: event.changes, sourceIds: event.documentIds, rule: event.rule, phase: event.phase, attemptId: event.attemptId, requestId: event.requestId, providerAttemptId: event.providerAttemptId, externalIds: event.externalIds, sourceVersions: event.sourceVersions, approval: event.approval, authority: event.authority, ordinaryCommand: event.ordinaryCommand }} /></details></td></tr>)}</Table>}
     </section>
     {state.actor.role === 'owner' && <PrivacyReview state={state} run={run} busy={busy} />}
-    <section className="panel" aria-label="Settings"><h2>Settings</h2><a href={'#activity' + '/custom-fields'}>Custom fields</a><CaseSettings state={state} run={run} busy={busy} /></section>
+    <section className="panel" aria-label="Settings"><h2>Settings</h2><a href={'#activity' + '/custom-fields'}>Custom fields</a><CaseSettings state={state} run={run} busy={busy} /><SubstituteSettings state={state} run={run} busy={busy} /></section>
     <OperationalExceptions state={state} run={run} busy={busy} />
     <LiveWork state={state} run={run} busy={busy} />
+    <SupplierSubstitutes state={state} run={run} busy={busy} />
     <Proposals state={state} run={run} busy={busy} />
     {state.actor.role === 'owner' && <Operators state={state} run={run} busy={busy} refresh={refresh} />}
     <section className="panel"><details className="technical-log"><summary>Technical log</summary><p className="muted">The latest commands. Durable command identities make exact retries recover their original result.</p><Table headings={['Recorded', 'Actor', 'Command identity']}>{records(state, 'commands').map(command => <tr key={command.id}><td><span className="nowrap">{when(command.createdAt)}</span></td><td>{person(state, command.actorId)}</td><td><small>{command.id}</small></td></tr>)}</Table></details></section>

@@ -70,6 +70,7 @@ const privateCosts = new Set(['cost', 'costs', 'unitCost', 'costTotal', 'costTot
 const moneyFields = new Set(['price', 'unitPrice', 'listPrice', 'freight', 'duty', 'tax', 'total', 'maxSpend', 'approvalRoute', 'priceSnapshot', 'quoteHistory', 'quoteApproval']);
 export function commandProjection(value: any, actor: Actor): any {
   if (actor.role === 'owner' || !value || typeof value !== 'object') return value;
+  if (value.kind === 'supplier-substitutes') return pickFields(value, ['kind', 'status', 'preparation']);
   if (Array.isArray(value)) return value.map(entry => commandProjection(entry, actor));
   if (!costsVisible(actor) && Array.isArray(value.lines) && (value.supplierId || value.poId)) value = {
     ...pickFields(value, ['reference', 'supplierId', 'approved', 'status', 'promiseDate', 'destinationWarehouse', 'poId', 'supplierReference', 'receivingId', 'variance', 'overReason']),

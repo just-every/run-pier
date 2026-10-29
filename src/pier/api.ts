@@ -1,3 +1,4 @@
+import { supplierSubstitutes, substituteActors, supplierSubstituteView } from './supplier-substitutes';
 import { requireAssurance } from '../strong-auth/assurance';
 import { trade, tradeResponse } from './trade';
 import { integrationHealth } from './integration-health';
@@ -215,6 +216,7 @@ export async function execute(
     const before = await load(env.DB),
       s = structuredClone(before),
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, installationScope:sha256('pier-recurring-authority\0'+env.SESSION_SECRET), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
+    if (type.startsWith('substitute.')) c.substituteActors = await substituteActors(env.DB);
     await approver(env, c, type, payload);
     let result: any = await privacy(c, type, payload, env);
     if (result === undefined) result = supplierBills(c, type, payload);
@@ -234,6 +236,7 @@ export async function execute(
       customFieldCommands,
       purchaseApproval,
       purchaseChanges,
+      supplierSubstitutes,
       savedReports,
       workflowRules,
       trace,
@@ -304,7 +307,7 @@ export async function execute(
       return outcome;
     }
     // Retaining and reviewing untrusted evidence never triggers unrelated plans.
-    if (!type.startsWith('trade.') && !['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && !['replenishment.compare', 'replenishment.review'].includes(type) && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
+    if (!type.startsWith('substitute.') && !type.startsWith('trade.') && !['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && !['replenishment.compare', 'replenishment.review'].includes(type) && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -314,8 +317,10 @@ export async function execute(
     refreshSlowStock(c, backgroundPolicy?.collection === "slowStockPolicies");
     markChannelPending(c, before);
     }
-    refreshOperationalExceptions(c, backgroundPolicy?.collection === "operationalExceptionPolicies");
-    invalidatePurchaseSends(c);
+    if (!type.startsWith('substitute.')) {
+      refreshOperationalExceptions(c, backgroundPolicy?.collection === "operationalExceptionPolicies");
+      invalidatePurchaseSends(c);
+    }
     if (type === 'itemAgent.bulkApply') result.sourceDigest = bulkInputDigest(c);
     const visibleResult = physicalResult(s, actor, result);
     c.audit = auditEvent(c, before, type, payload, result, type.endsWith(".failed") ? "failed" : "accepted");
@@ -377,7 +382,7 @@ export async function pierResponse(
     if (request.method === "GET") {
       admitRead(actor, url);
       const full = await load(env.DB), s = physicalState(full, actor),
-        c = { s, actor, commandId: "", now: new Date().toISOString(), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
+        c: Context = { s, actor, commandId: "", substituteActors: actor.role === 'owner' ? await substituteActors(env.DB) : undefined, now: new Date().toISOString(), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
       privateFields = privateFieldCustody(full);
       const gate = authority(actor);
       if (
@@ -552,6 +557,7 @@ export async function pierResponse(
         documentInbox: actor.role === 'owner' ? documentViews(s).inbox : [],
         ...(actor.role==='owner'?{}:{savedReports:[],reportSnapshots:[],workflowRules:[],workflowJobs:[],privacyHolds:[],privacyPolicies:[],privacyReceipts:[],salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,contacts,addresses,paymentTerms,salesRepId,...party})=>party)}),
         actor,
+        proposals: s.proposals.map(proposal => supplierSubstituteView(c, proposal)),
         people,
         bookConnections,
         operationalExceptions: actor.role === "owner" ? s.operationalExceptions.map(record => operationalCaseView(c, record)) : [],
@@ -703,7 +709,7 @@ export async function pierResponse(
       if (error instanceof Problem) await refusedScan(env.DB, actor, commandId, type, payload, error.code, await load(env.DB));
       throw error;
     }
-    if (outcome && (type.startsWith('trade.') || ['replenishment.compare', 'replenishment.review'].includes(type) || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return reply(outcome);
+    if (outcome && (type.startsWith('substitute.') || type.startsWith('trade.') || ['replenishment.compare', 'replenishment.review'].includes(type) || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return reply(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'print.send' && outcome.result.kind === 'purchase-order') await deliverCorrespondence(env, new Date().toISOString(), outcome.result.id, actor);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {

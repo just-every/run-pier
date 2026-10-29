@@ -15,6 +15,8 @@ export function parseVisibility(value: any, role: string): Visibility | undefine
 
 export function admitCommercialCommand(actor: Actor, type: string) {
   if (actor.role === 'owner') return;
+  if (type.startsWith('substitute.') && (type !== 'substitute.prepare' || actor.role !== 'agent' || actor.permissions))
+    throw new Problem('FORBIDDEN', 'Only a current owner can configure or review substitute recommendations.', null, 403);
   if (type === 'quote.approve' && actor.visibility?.prices === false)
     throw new Problem('VISIBILITY', 'Quote approval requires current sales price visibility.', null, 403);
   if (['supplierItem.save', 'itemAgent.explain'].includes(type) && !costsVisible(actor) || type === 'priceList.save' && !pricesVisible(actor))
