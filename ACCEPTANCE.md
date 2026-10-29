@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 23 | 64 | 4 | 91 |
+| Core | 25 | 62 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 23 | 64 | 11 | 98 |
+| Full target | 25 | 62 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010, PIER-011 and WMS-003 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010, PIER-011 and WMS-003 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. BUY-005 and BUY-008 are updated against the exact candidate identified by this round’s branch Verify receipt (29 October 2026); their journeys and desktop and phone proof run on that candidate, with the full commit identity reported for guarded landing. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -703,7 +703,7 @@ Core · target · **done**
 
 #### BUY-005 — Reorder-point list and suggested quantities
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** Most weeks a buyer replenishes from the reorder list, as Cin7 Core’s low-stock reorder does. Parameters are kept per SKU and location: the reorder point (minimum before reorder), safety stock, and a replenishment method, either a **fixed reorder quantity** or an **order-up-to maximum**. A SKU-level default fills any location without its own values. Each supplier-SKU term (PIER-002) adds the supplier’s case pack, minimum order quantity, optional minimum order value, lead time and an optional supplier reorder quantity. Each SKU has one default supplier, with an optional per-location override. The trigger, position and suggested quantity are defined below; the company-mode and supplier-switch details are in [the contract mechanism notes](docs/contract/mechanism.md#buy-005).
 
@@ -722,12 +722,12 @@ Core · target · **partial**
 6. SKU E has 2 on hand at East (reorder point 5, reorder quantity 10, supplier S1) and 40 at West: per location it is listed at East for 13.
 7. The list shows exactly A, B, C and E with those quantities and every calculation term.
 
-**Evidence.** `src/pier/replenishment.ts`; `src/pier/replenishment-position.ts`; `src/pier/replenishment-scope.ts`; `src/pier/reports.ts`; `src/ui/reorder-batch.tsx`; `src/ui/replenishment.tsx`; `src/ui/reports.tsx`; `tests/api/reorder-list.test.mjs`; `tests/api/replenishment.test.mjs`; `tests/browser/reorder-list.spec.ts`
-**Gap.** Unasserted in the cited evidence: the on-order term, and the reorder point and method, shown on each A, B, C and E line (the test reads on-hand, reserved, backorders, inbound transfers, position, unrounded need, rounded and final quantity against an independent calculator, but never the on-order figure, and reads the applied reorder point only for SKU E in later settings). Asserted: the East and West scenario built through public commands, exactly A 48, B 66 from S2, C 10 and E 13 at East, D not listed, and those other calculation terms on each listed line.
+**Evidence.** `tests/api/reorder-list.test.mjs` — “BUY-005: exported A–E stock reproduces reorder batches, coverage, alternate supplier, defaults and shared company and location low stock” builds East and West through authenticated Worker commands and independently reconciles exported movements, reservations, orders, committed purchases, transfers, policies and supplier terms. It reads on-order supply, applied reorder point and method for every listed line, including A’s six destined inbound units and exclusion of the unassigned legacy purchase; suggestions remain A 48, B 66, C 10 and E 13 with D absent. `tests/browser/reorder-list.spec.ts` — “BUY-005: buyer selects suppliers and quantities, saves SKU defaults, changes planning scope and reads matching reports at 1440 and 390” reads each visible calculation at 1440 and captures the same four rows at 1440 and 390.
+**Gap.** None.
 
 #### BUY-008 — Reorder drafts, coverage and one low-stock definition
 
-Core · target · **partial** · From BUY-005
+Core · target · **done** · From BUY-005
 
 **Requirement.** Each reorder line shows the SKU, location, supplier, lead time and every term of the calculation: on-hand, reserved, backorders, on order, inbound transfers, position, reorder point, method, unrounded need, rounding applied and the final quantity. When sales history exists, the line also shows BUY-001 days of cover and the projected stockout date. The buyer ticks lines and may edit a quantity or switch to another supplier; a supplier switch recalculates rounding with that supplier’s terms. One action creates one PO draft per supplier and destination warehouse. The drafts go through PIER-005 and BUY-002 approval, and on-hand stock does not change. A SKU-location already covered by an uncommitted PO draft or approved PO stays on the list, marked with that document, and its remaining suggestion is the suggested quantity less the quantity on that document, never below zero. A rerun therefore suggests nothing twice, and deleting a draft restores the full suggestion. A line leaves the list when committed supply or a receipt lifts its position above the reorder point. This trigger and position are the single definition used by the AUTO-001 low-stock check and the REPORT-002 low-stock report, so all three list the same SKU-locations. AUTO-002 may create the drafts on a schedule within a bounded policy; it never approves them.
 
@@ -740,8 +740,8 @@ Core · target · **partial** · From BUY-005
 6. The AUTO-001 low-stock exceptions and the REPORT-002 low-stock report list the same SKU-locations as the reorder list in each setting.
 7. An independent calculator in the test computes every expected quantity from the exported stock, orders, POs, transfers and terms.
 
-**Evidence.** `src/pier/replenishment.ts`; `src/pier/replenishment-position.ts`; `src/pier/replenishment-scope.ts`; `src/pier/reports.ts`; `src/ui/reorder-batch.tsx`; `src/ui/replenishment.tsx`; `src/ui/reports.tsx`; `tests/api/reorder-list.test.mjs`; `tests/api/replenishment.test.mjs`; `tests/browser/reorder-list.spec.ts`
-**Gap.** Unasserted in the cited evidence: that deleting the S2 draft leaves every other line's suggestion and draft mark unchanged (only B's restored 66 is read after the delete). Asserted: one action creates the two drafts with their lines, a rerun shows the four lines each marked with its draft and zero remaining, B's 66 is restored, committing B's PO removes B, company-wide replenishment removes E, the AUTO-001 exceptions and the REPORT-002 low-stock report match the list in each setting, and an independent calculator computes every expected quantity.
+**Evidence.** `tests/api/reorder-list.test.mjs` — “BUY-005: exported A–E stock reproduces reorder batches, coverage, alternate supplier, defaults and shared company and location low stock” proves exact supplier and destination batches, zero repeat coverage, isolated West draft deletion, committed supply removing B, company scope removing E, shared low-stock membership and independent exported-source calculations. Deletion restores B 66 with no draft coverage while exact A, C and E membership, suppliers, destinations, suggestions, coverage identities and source lines remain unchanged; public exports retain every other purchase and every movement. `tests/browser/reorder-list.spec.ts` — “BUY-005: buyer selects suppliers and quantities, saves SKU defaults, changes planning scope and reads matching reports at 1440 and 390” exercises the native draft deletion and reload, retaining the other lines’ quantities, suppliers and draft references; captures are at 1440 and 390.
+**Gap.** None.
 
 ### Costing and reports
 
