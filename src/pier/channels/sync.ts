@@ -1,10 +1,11 @@
 import type { Bindings } from '../../auth.server';
 import { execute } from '../api';
-import { load, activeAutomationActors } from '../storage';
+import { load, activeAutomationActors, policyAuthority } from '../storage';
 import { type Row, type Actor } from '../model';
 import { credentials } from './secrets';
 import { adapter } from './adapters';
 import { channelAvailability } from './availability';
+import { publicationTargets } from './publications';
 import { providerOperation, type ProviderAudit } from '../provider-audit';
 
 /** One installation-wide lease prevents slow stock requests overtaking newer ones. */
@@ -62,6 +63,44 @@ export async function syncChannels(env: Bindings) {
         if (!current?.enabled || current.version !== ch.version) break;
         const currentListing = state.channelListings.find(row => row.id === listing.id);
         if (!currentListing) continue;
+        if (ch.provider === 'shopify') {
+          const targets = publicationTargets(state, current, currentListing);
+          if (!targets.length) {
+            await record(ch, 'channel.failed', { listingId: listing.id, problem: 'No unambiguous channel location mapping. Review the routing rule; no fallback stock was published.' });
+            continue;
+          }
+          for (const target of targets) {
+            const latest = [...(currentListing.publications ?? [])].reverse().find((p: any) => p.locationId === target.locationId);
+            if (latest?.key === target.key && latest.status === 'accepted') continue;
+            let publicationId: string | undefined;
+            try {
+              const prepared = await record(ch, 'channel.publicationPrepare', { listingId: listing.id, locationId: target.locationId });
+              publicationId = prepared.result.id;
+              const snapshot = await load(env.DB), source = snapshot.channelListings.find(l => l.id === listing.id)!;
+              const publication = source.publications.find((p: any) => p.id === publicationId);
+              if (!publicationTargets(snapshot, current, source).some(t => t.key === publication.key)) continue;
+              const start = Date.now(), auth = sessions.get(ch.id)!, gate = policyAuthority({ actor: auth.actor, backgroundPolicy: auth.policy });
+              // Check current authority, mappings and stock again after provider readback,
+              // immediately before the consequential write. Uncertainty keeps its identity.
+              const beforeWrite = async () => {
+                const admitted = await env.DB.prepare(`SELECT 1 AS admitted FROM pier_meta WHERE id=1 AND version=? AND (${gate.sql})`)
+                  .bind(snapshot.version, ...gate.params).first();
+                if (!admitted) throw new Error('Publication authority or stock frontier changed');
+              };
+              await providerOperation(env.DB, audit(current, snapshot, 'channel.stock', 'outbound', source), () =>
+                remote.stock({ ...source, locationId: publication.locationId, externalId: source.externalId, sku: source.sku, title: source.title }, publication.quantity,
+                  { idempotencyKey: publication.id, beforeWrite }));
+              await record(ch, 'channel.published', { listingId: listing.id, publicationId, quantity: publication.quantity, acceptanceMs: Date.now() - start });
+              result.published!++;
+            } catch {
+              result.problem = 'One or more location stock updates need attention.';
+              // Revocation may also refuse completion. The already retained uncertain
+              // intent stays inspectable and cannot bypass current authority on retry.
+              try { await record(ch, 'channel.failed', { listingId: listing.id, publicationId, problem: 'Location stock update was not confirmed. Sync to reconcile; changed mappings invalidate earlier work.' }); } catch { /* retained intent remains uncertain */ }
+            }
+          }
+          continue;
+        }
         const quantity = channelAvailability(state, ch, currentListing.itemId,currentListing);
         if (currentListing.publishedQuantity === quantity && !currentListing.problem) continue;
         const start = Date.now();

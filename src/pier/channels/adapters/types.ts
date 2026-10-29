@@ -28,5 +28,5 @@ export interface ChannelOrder {
 export interface Adapter {
   listings(): Promise<Listing[]>
   orders(): Promise<ChannelOrder[]>
-  stock(listing: Listing, quantity: string): Promise<void>
+  stock(listing: Listing, quantity: string, admission?: { idempotencyKey: string; beforeWrite: () => Promise<void> }): Promise<void>
 }

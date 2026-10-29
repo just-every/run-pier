@@ -685,7 +685,7 @@ export async function pierResponse(
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can sync the books.",null,403);
       return reply({ok:true,result:await syncBooks(env),version:(await load(env.DB)).version});
     }
-    if (["channel.ingest", "channel.published", "channel.failed"].includes(type)) fail("CHANNEL_INTERNAL", "Pier records channel traffic itself.");
+    if (["channel.ingest", "channel.publicationPrepare", "channel.published", "channel.failed"].includes(type)) fail("CHANNEL_INTERNAL", "Pier records channel traffic itself.");
     if (type === "channel.sync") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN", "Only an owner can synchronize external connections.", null, 403);
       return reply({ ok: true, result: await syncChannels(env), version: (await load(env.DB)).version });

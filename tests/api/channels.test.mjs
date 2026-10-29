@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { installation, basics, buy, receive, parse } from './harness.mjs';
-import { channelEdge } from './channel-edge.mjs';
+import { channelEdge, locationEdge } from './channel-edge.mjs';
 
 test('channel order reserves once and publishes net stock to every channel within a minute', async t => {
   const edge = channelEdge(), lostProviders = new Set();
@@ -260,6 +260,107 @@ test('owner routing versions choose zones, shortage policy, reroute and net chan
   await activate('manual','hold',{mode:'channel-location',locations:{'synthetic-pier-1':['East']}});const missing=await h.command('order.create',{customerId:b.customer.id,channelLocation:'unmapped',lines:[{itemId:b.item.id,quantity:'1'}]});assert.equal(missing.routing.status,'waiting');
   const located=await h.command('order.create',{customerId:b.customer.id,channelLocation:'synthetic-pier-1',lines:[{itemId:b.item.id,quantity:'1'}]});assert.equal(located.warehouse,'East');
   s=await h.invariant();assert.ok(s.reservations.every(r=>r.locationId!==fba.id));assert.equal(s.positions.find(p=>p.locationId===fba.id).quantity,'50');
+});
+
+
+test('Shopify mapped publications retain exact warehouse quantities and reconcile uncertainty without stale or revoked writes', async t => {
+  const edge = locationEdge(), h = await installation({ outboundService: request => edge.outbound(request) });
+  t.after(() => h.close());
+  const b = await basics(h), loc1 = 'gid://shopify/Location/1', loc2 = 'gid://shopify/Location/2';
+  const east = await h.command('location.save', { name: 'synthetic-pier-east', warehouse: 'East', kind: 'bin' });
+  const west = await h.command('location.save', { name: 'synthetic-pier-west', warehouse: 'West', kind: 'bin' });
+  const fba = await h.command('location.save', { name: 'synthetic-pier-fba', warehouse: 'FBA', kind: 'bin' });
+  const po = await buy(h, b, '100');
+  for (const [bin, quantity] of [[east, '20'], [west, '12'], [fba, '50']]) await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-1', lines: [{ poLineId: po.lines[0].id, locationId: bin.id, quantity, cost: '1' }] });
+  const demand = async (warehouse, quantity) => {
+    let rule = await h.command('routing.save', { source: 'manual', mode: 'fixed', shortage: 'hold', eligible: [warehouse] });
+    rule = await h.command('routing.preview', { ruleId: rule.id, version: rule.version });
+    await h.command('routing.activate', { ruleId: rule.id, version: rule.version });
+    return h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity }] });
+  };
+  for (const [warehouse, quantity] of [['East', '3'], ['West', '2']]) await demand(warehouse, quantity);
+  for (const [warehouse, quantity] of [['East', '4'], ['West', '1']]) await h.command('channel.hold', { itemId: b.item.id, warehouse, quantity, reason: 'synthetic-pier-protected' });
+  let channel = await h.command('channel.save', { name: 'Synthetic Pier locations', provider: 'shopify', baseUrl: 'https://shop.example.test', warehouse: 'East', buffer: '1', enabled: false, credentials: { accessToken: 'synthetic-pier-1', locationId: loc1 } });
+  const activate = async locations => {
+    let rule = await h.command('routing.save', { source: `channel:${channel.id}`, mode: 'channel-location', shortage: 'hold', locations });
+    rule = await h.command('routing.preview', { ruleId: rule.id, version: rule.version });
+    return h.command('routing.activate', { ruleId: rule.id, version: rule.version });
+  };
+  await h.command('routing.save', { source: `channel:${channel.id}`, mode: 'channel-location', shortage: 'hold', locations: { [loc1]: ['East', 'West'] } }, { error: 'ROUTING_LOCATION' });
+  await h.command('routing.save', { source: `channel:${channel.id}`, mode: 'channel-location', shortage: 'hold', locationMappings: [{ locationId: loc1, warehouse: 'East' }, { locationId: loc1, warehouse: 'West' }] }, { error: 'ROUTING_LOCATION' });
+  await h.command('routing.save', { source: `channel:${channel.id}`, mode: 'channel-location', shortage: 'hold', locations: { ambiguous: ['East'] } }, { error: 'ROUTING_LOCATION' });
+  await activate({ [loc1]: ['East'], [loc2]: ['West'] });
+  const physical = state => Object.fromEntries(['movements', 'reservations', 'orders', 'receipts', 'purchaseOrders', 'shipments', 'channelHolds'].map(kind => [kind, state[kind]]));
+  const before = physical(await h.state());
+  channel = await h.command('channel.save', { ...channel, enabled: true });
+  let s = await h.state(), listing = s.channelListings.find(l => l.channelId === channel.id);
+  assert.deepEqual(physical(s), before, 'mapping and publication change no physical business facts');
+  const exported = await (await h.request('/api/pier/export')).json();
+  const independent = warehouse => {
+    const bins = new Set(exported.locations.filter(l => l.kind === 'bin' && l.warehouse === warehouse).map(l => l.id));
+    const onHand = exported.movements.filter(m => m.itemId === b.item.id && m.status === 'sellable' && bins.has(m.locationId)).reduce((n, m) => n + BigInt(m.quantity), 0n);
+    const reserved = exported.reservations.filter(r => r.itemId === b.item.id && bins.has(r.locationId)).reduce((n, r) => n + BigInt(r.quantity), 0n);
+    const held = exported.channelHolds.filter(h => h.itemId === b.item.id && !h.releasedAt).flatMap(h => h.allocations).filter(a => bins.has(a.locationId)).reduce((n, a) => n + BigInt(a.quantity), 0n);
+    return String((onHand - reserved - held - 1000000n) / 1000000n);
+  };
+  assert.deepEqual([independent('East'), independent('West')], ['12', '8']);
+  assert.deepEqual(listing.publicationLocations.map(p => [p.locationId, p.quantity, p.publication.status]), [[loc1, independent('East'), 'accepted'], [loc2, independent('West'), 'accepted']]);
+  assert.deepEqual(edge.writes.map(p => [p.locationId, String(p.quantity)]), [[loc1, '12'], [loc2, '8']]);
+  const listingId = listing.id;
+  edge.lose.add(loc1);
+  await demand('East', '1');
+  listing = (await h.state()).channelListings.find(l => l.id === listingId);
+  const uncertain = listing.publications.at(-1);
+  assert.equal(uncertain.status, 'uncertain'); assert.equal(uncertain.locationId, loc1);
+  const writes = edge.writes.length, mutations = edge.mutations.length, stable = physical(await h.state());
+  await h.restart(); await h.command('channel.sync', {});
+  listing = (await h.state()).channelListings.find(l => l.id === listingId);
+  assert.equal(listing.publications.find(p => p.id === uncertain.id).status, 'accepted');
+  assert.equal(edge.writes.length, writes); assert.equal(edge.mutations.length, mutations, 'canonical readback confirms accepted response loss without another mutation');
+  assert.deepEqual(physical(await h.state()), stable);
+  edge.reject.add(loc2);
+  await demand('West', '1');
+  listing = (await h.state()).channelListings.find(l => l.id === listingId);
+  assert.equal(listing.publicationLocations.find(p => p.locationId === loc2).publication.status, 'uncertain');
+  const failedIdentity = listing.publications.at(-1).id;
+  edge.reject.delete(loc2); await h.command('channel.sync', {});
+  assert.equal((await h.state()).channelListings.find(l => l.id === listingId).publications.find(p => p.id === failedIdentity).status, 'accepted');
+  // Replace the mapping while an old target is paused at external stock readback.
+  const priorWrites = edge.writes.length;
+  edge.afterRead = async () => { await activate({ [loc1]: ['West'], [loc2]: ['East'] }); };
+  await h.command('channel.hold', { itemId: b.item.id, warehouse: 'East', quantity: '1', reason: 'synthetic-pier-changed-frontier' });
+  await h.command('channel.sync', {});
+  listing = (await h.state()).channelListings.find(l => l.id === listingId);
+  assert.ok(listing.publications.some(p => p.invalidated && p.status === 'uncertain'), 'stale pending work remains visible as invalidated');
+  assert.deepEqual(edge.writes.slice(priorWrites).map(p => [p.locationId, p.quantity]).sort(), [[loc1, 7], [loc2, 10]].sort());
+  assert.equal(listing.id, listingId); assert.equal((await h.state()).channelListings.filter(l => !l.orderOnly).length, 1);
+  assert.equal((await h.state()).positions.find(p => p.locationId === fba.id).quantity, '50');
+  // Disable the current owner-approved connection during readback: no write may escape.
+  const beforeRevoked = edge.writes.length;
+  edge.afterRead = async () => { const current = (await h.state()).channels.find(c => c.id === channel.id); await h.command('channel.save', { ...current, enabled: false }); };
+  await demand('East', '1');
+  const revokedPhysical = physical(await h.state());
+  await h.restart(); await h.command('channel.sync', {});
+  assert.equal(edge.writes.length, beforeRevoked); assert.deepEqual(physical(await h.state()), revokedPhysical);
+  await h.command('channel.publicationPrepare', { channelId: channel.id, listingId, locationId: loc1 }, { error: 'CHANNEL_INTERNAL' });
+});
+
+test('routing preview includes every changed order within the exact last thirty days and excludes older history', async t => {
+  const edge = { now: '2026-10-29T12:00:00.000Z' }, h = await installation(edge); t.after(() => h.close());
+  const b = await basics(h);
+  await h.command('location.save', { name: 'synthetic-pier-recent', warehouse: 'East', kind: 'bin' });
+  const dates = ['2026-09-29T11:59:59.999Z', '2026-09-29T12:00:00.000Z', '2026-10-10T14:00:00.000Z', '2026-10-29T12:00:00.000Z'];
+  const orders = [];
+  for (const date of dates) { edge.now = date; orders.push(await h.command('order.create', { customerId: b.customer.id, warehouse: 'North', lines: [{ itemId: b.item.id, quantity: '1' }] })); }
+  edge.now = '2026-10-29T12:00:00.000Z';
+  const before = await (await h.request('/api/pier/export')).json();
+  let rule = await h.command('routing.save', { source: 'manual', mode: 'fixed', shortage: 'hold', eligible: ['East'] });
+  rule = await h.command('routing.preview', { ruleId: rule.id, version: rule.version });
+  assert.equal(rule.dryRun.from, '2026-09-29T12:00:00.000Z'); assert.equal(rule.dryRun.to, edge.now);
+  assert.deepEqual(rule.dryRun.orders.map(o => [o.orderId, o.before, o.after, o.changed]).sort(), orders.slice(1).map(o => [o.id, 'North', 'East', true]).sort());
+  assert.equal(rule.dryRun.orders.some(o => o.orderId === orders[0].id), false);
+  const after = await (await h.request('/api/pier/export')).json();
+  for (const kind of ['orders', 'reservations', 'movements', 'shipments']) assert.deepEqual(after[kind], before[kind], kind);
 });
 
 test('trade buyers read only approved customer prices, routed stock, terms and native order status with immediate revocation', async t => {

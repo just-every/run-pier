@@ -129,7 +129,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     requireRole(c,[]);const rule=get(c.s,'routingRules',p.ruleId);fresh(rule,p.version);
     if(rule.activeAt)fail('ROUTING_STATE','Prepare a new rule revision to dry-run.');
     const cutoff=new Date(Date.parse(c.now)-30*86400000).toISOString();
-    const orders=c.s.orders.filter(o=>o.createdAt>=cutoff&&(o.routing?.source??(o.channelId?`channel:${o.channelId}`:o.ediPartnerId?`edi:${o.ediPartnerId}`:'manual'))===rule.source).map(o=>{
+    const orders=c.s.orders.filter(o=>o.createdAt>=cutoff&&o.createdAt<=c.now&&(o.routing?.source??(o.channelId?`channel:${o.channelId}`:o.ediPartnerId?`edi:${o.ediPartnerId}`:'manual'))===rule.source).map(o=>{
       const trial:Context={...c,s:structuredClone(c.s)};trial.s.reservations=trial.s.reservations.filter(r=>r.orderId!==o.id);
       const copy=structuredClone(o);routeOrder(trial,copy,{routingSource:rule.source,shipTo:o.shipTo,channelLocation:o.channelLocation},rule);
       return {orderId:o.id,reference:o.reference,before:o.warehouse,after:copy.warehouse,eligible:copy.routing.eligible,changed:o.warehouse!==copy.warehouse};
