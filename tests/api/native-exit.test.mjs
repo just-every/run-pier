@@ -102,11 +102,20 @@ test("native exit preserves approved allocation and explicit backorders across a
     assert.equal((await h.state()).movements.length, 0);
     const imported = await cutover(h, snapshot);
     assert.deepEqual(allocation(await h.invariant()), expected);
+    const retainedFile = snapshot.files.find(file => file.kind === 'items');
+    const retainedArtifact = imported.source.artifacts.find(artifact => artifact.name === retainedFile.name);
+    const originalPath = '/api/pier/imports/' + imported.id + '/originals/' + retainedArtifact.sha256;
+    const exactOriginal = Buffer.from(retainedFile.csv, 'utf8');
+    const download = await h.request(originalPath);
+    assert.equal(download.status, 200);
+    assert.equal(download.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(Buffer.from(await download.arrayBuffer()), exactOriginal);
     const cutoverState=await h.state();assert.equal(cutoverState.customFieldDefinitions.length,4);
     for(const [ownerType] of typedOwners){const record=(ownerType==='item'?cutoverState.items:ownerType==='order'?cutoverState.orders:cutoverState.parties.filter(p=>p.kind===ownerType)).find(r=>r.customFields?.cutover_value===ownerType+' retained');assert.ok(record,ownerType+' field survived cutover');}
     const mappedItem=cutoverState.items.find(i=>i.variantFamily==='Cutover family');assert.deepEqual(mappedItem.dimensions,catalogueItem.dimensions??{length:'2',width:'3',height:'4',unit:'in'});assert.equal(mappedItem.caseBarcode,'synthetic-pier-case');assert.equal(mappedItem.weight,'1.25');assert.equal(mappedItem.category,'Fasteners');assert.deepEqual(mappedItem.barcodes,[{code:'synthetic-pier-inner',quantity:'0.25',label:'Inner'}]);assert.equal(mappedItem.imageUrl,'https://catalogue.example.test/synthetic-pier.png');
     assert.equal(mappedItem.references[0].partyId,cutoverState.parties.find(p=>p.kind==='supplier').id,'party references remap to target IDs');
     const entered=await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}});const cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');const privateRead=await(await h.request('/api/pier/state',{as:cookie})).json();assert.equal(privateRead.imports,undefined,'private native CSV originals do not leak through staff state');
+    assert.equal((await h.request(originalPath, {as:cookie})).status, 403);
     const before = await h.state();
     const replayed = await cutover(h, snapshot);
     const unchanged = await h.invariant();
@@ -127,6 +136,10 @@ test("native exit preserves approved allocation and explicit backorders across a
     const privacyAfterUndo=await(await h.request('/api/pier/privacy?kind=customer&subjectId='+external.id)).json();assert.equal(privacyAfterUndo.allowed,false);assert.ok(privacyAfterUndo.blockers.some(b=>b.reason.includes('Retained typed-field CSV originals')));
     for (const restart of [false,true]) {
       if(restart) await h.restartWithFreshSigningKey();
+      const original = await h.request(originalPath);
+      assert.equal(original.status, 200);
+      assert.deepEqual(Buffer.from(await original.arrayBuffer()), exactOriginal, 'undo and restart retain the exact original bytes without live definitions');
+      if (!restart) assert.equal((await h.request(originalPath, {as:cookie})).status, 403);
       const plan=await(await h.request('/api/pier/privacy?kind=customer&subjectId='+external.id)).json();
       const refused=await h.command('privacy.eraseSubject',{kind:'customer',subjectId:external.id,planHash:plan.planHash,confirm:true},{error:'PRIVACY_DEPENDENCY'});
       assert.equal(refused.error.message,plan.refusal);assert.match(plan.refusal,/No content was deleted/);
