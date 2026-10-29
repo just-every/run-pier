@@ -515,6 +515,7 @@ test('native tax rules retain per-line destination and origin estimates, refuse 
   let route=await h.command('routing.save',{source:'manual',mode:'fixed',shortage:'hold',eligible:['North']});route=await h.command('routing.preview',{ruleId:route.id,version:route.version});await h.command('routing.activate',{ruleId:route.id,version:route.version});
   const second = await h.command('item.save',{sku:'synthetic-pier-62',name:'Reduced-rate goods',unit:'each',packSize:'1'});
   const taxable = b.customer, exempt = await h.command('party.save',{name:'synthetic-pier-63',kind:'customer'});
+  await h.command('business.save',{name:'Synthetic Pier Wholesale',address:'30 Synthetic Road',shipTo:{}});
   const product = await h.command('sales.taxProduct',{itemId:b.item.id,taxCode:'standard',reason:'Owner product classification'});
   await h.command('sales.taxProduct',{itemId:second.id,taxCode:'reduced',reason:'Owner reduced classification'});
   let ca = await h.command('sales.taxTable',{state:'CA',rate:'8.25',reason:'Owner reviewed destination estimate',rules:{basis:'destination',freightTaxable:false,handlingTaxable:true,products:[{code:'standard',rate:'8.25'},{code:'reduced',rate:'2.5'}]}});
@@ -565,11 +566,12 @@ test('native tax rules retain per-line destination and origin estimates, refuse 
     if(customerId===taxable.id)assert.deepEqual(quote.tax.lines.map(l=>cents(l.amount)),state==='CA'?[25,10,0,8]:[25,10,27,0]);
     const taxSnapshot=structuredClone(quote.tax);
     quote=await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Reviewed independent native tax calculation'});
+    if(state==='TX'&&customerId===taxable.id){const document=await h.command('print.generate',{kind:'quote',sourceId:quote.id});const pdf=await pdfText(Buffer.from(await(await h.request(`/api/pier/sales-documents/${document.id}.pdf`)).arrayBuffer()));assert.match(pdf,/freight/);assert.match(pdf,/handling/);assert.match(pdf,/3\.33/);assert.match(pdf,/1\.01/);}
     const acceptance={orderId:quote.id,version:quote.version},commandId=randomUUID();
     const accepted=await h.command('quote.accept',acceptance,{commandId});
     assert.deepEqual(accepted.tax,taxSnapshot);assert.deepEqual(await h.command('quote.accept',acceptance,{commandId}),accepted);
     await h.command('invoice.policy',{orderId:quote.id,mode:'prepay',reason:'Reviewed native prepay'});
-    let invoice=await h.command('invoice.draft',{orderId:quote.id,charges:[{kind:'freight',amount:'3.33',taxable:false},{kind:'handling',amount:'1.01',taxable:false}]});
+    let invoice=await h.command('invoice.draft',{orderId:quote.id});
     await verify(invoice,state,customerId===exempt.id);assert.equal(invoice.tax.status,'retained-owner-estimate');assert.equal(invoice.total,accepted.total);assert.equal(invoice.ledger.status,'pending-external-posting');
     if(state==='TX'&&customerId===taxable.id)stale={quote:accepted,invoice};
     if(customerId===exempt.id){
@@ -583,6 +585,8 @@ test('native tax rules retain per-line destination and origin estimates, refuse 
   const expired=await h.command('quote.create',params(exempt.id,'CA'),{headers:{'x-pier-test-now':'2026-10-31T12:00:00.000Z'}});
   assert.equal(expired.tax.status,'review');assert.equal(expired.total,null);
   await refused('quote.approve',{orderId:expired.id,version:expired.version,reason:'Cannot waive expiry'},'QUOTE_TAX',{headers:{'x-pier-test-now':'2026-10-31T12:00:00.000Z'}});
+  const discountOrder=await h.command('order.create',params(taxable.id,'CA'));await h.command('invoice.policy',{orderId:discountOrder.id,mode:'prepay',reason:'Reviewed mixed-rate discount'});
+  await refused('invoice.draft',{orderId:discountOrder.id,charges:[{kind:'discount',amount:'0.10',taxable:true}]},'INVOICE_TAX');
   const noCode=await h.command('item.save',{sku:'synthetic-pier-64',name:'Unclassified goods',unit:'each',packSize:'1'});
   const review=await h.command('quote.create',{...params(taxable.id,'CA'),lines:[{itemId:noCode.id,quantity:'1',price:'1'}]});assert.equal(review.tax.status,'review');assert.equal(review.tax.amount,null);
   await refused('quote.approve',{orderId:review.id,version:review.version,reason:'No guessed product rate'},'QUOTE_TAX');
@@ -608,6 +612,12 @@ test('native tax rules retain per-line destination and origin estimates, refuse 
   const member=await(await h.request('/api/pier/state',{as})).json();await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
   await refused('sales.taxTable',{...ca,reason:'No staff rate changes'},'FORBIDDEN',{as});
   await refused('sales.taxProduct',{...product,taxCode:'standard',reason:'No staff code changes'},'FORBIDDEN',{as});
+  await refused('invoice.draft',{orderId:stale.quote.id},'FORBIDDEN',{as});
+  await h.command('role.set',{operatorId:member.actor.id,role:'owner'});
+  const recoveredPayload={itemId:second.id,version:1,taxCode:'reduced',reason:'Second current owner confirms classification'},recoveredId=randomUUID();
+  await h.command('sales.taxProduct',recoveredPayload,{as,commandId:recoveredId});
+  await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
+  await refused('sales.taxProduct',recoveredPayload,'FORBIDDEN',{as,commandId:recoveredId});
   const memberState=await(await h.request('/api/pier/state',{as})).json();assert.ok(!JSON.stringify(memberState.orders).includes('synthetic-pier-CA'),'certificate numbers stay owner-only');
   const before=await snapshot();await h.restart();assert.deepEqual(await snapshot(),before);assert.equal(outbound,0);
 });

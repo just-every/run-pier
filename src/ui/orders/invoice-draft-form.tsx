@@ -6,6 +6,8 @@ export function InvoiceDraftForm({ state, run, busy }: { state: PierState; run: 
   const [orderId, setOrderId] = useState('');
   const [currency, setCurrency] = useState('USD');
   const orders = records(state, 'orders'), order = orders.find(o => o.id === orderId);
+  const policy = order && (records(state, 'salesPolicies').find(p => p.kind === 'invoicing' && p.orderId === order.id) ?? records(state, 'salesPolicies').find(p => p.kind === 'invoicing' && !p.orderId && p.customerId === order.customerId));
+  const prepay = policy?.mode === 'prepay';
   const convertToCad = currency === 'CAD' && !!order && (order.currency ?? 'USD') !== 'CAD';
   return <Form title="Prepare a customer invoice" submit="Create invoice draft" busy={busy}
     note="Shipment invoices contain exactly that shipment. Omit shipment for an accepted prepay order. External ledger and provider-tax posting remain separate pending connections."
@@ -38,7 +40,7 @@ export function InvoiceDraftForm({ state, run, busy }: { state: PierState; run: 
       })}
       <Field label="CAD price review reason" name="priceReason"/>
     </fieldset>}
-    {['freight', 'handling', 'surcharge', 'discount'].map(kind => <Field key={kind} label={`Invoice ${kind} amount`} name={kind} required={false} inputMode="decimal"/>)}
-    <label className="field"><input type="checkbox" name="taxable"/> Tax surcharge and discount lines (detailed rules determine freight and handling)</label>
+    {['freight', 'handling', 'surcharge', 'discount'].map(kind => <Field key={`${orderId}-${prepay}-${kind}`} label={`Invoice ${kind} amount`} name={kind} required={false} inputMode="decimal" defaultValue={prepay ? order?.charges?.find((charge: any) => charge.kind === kind)?.amount?.replace(/0+$/, '').replace(/\.$/, '') ?? '' : ''}/>)}
+    <label className="field"><input type="checkbox" name="taxable"/> Tax charge lines (detailed freight and handling rules take precedence)</label>
   </Form>;
 }

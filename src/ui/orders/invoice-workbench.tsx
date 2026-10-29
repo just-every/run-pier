@@ -18,7 +18,6 @@ export function InvoiceWorkbench({state,run,busy}:{state:PierState;run:RunComman
     <InvoiceDraftForm state={state} run={run} busy={busy}/>
     <section className="panel"><h2>Native customer invoices</h2><Table headings={['Invoice','Date / terms','Amount','State / review']}>
       {invoices.map(invoice=><tr key={invoice.id}><td>{invoice.reference}<p>{orders.find(o=>o.id===invoice.orderId)?.reference}</p></td><td>{invoice.invoiceDate}<p>Due {invoice.dueDate}</p></td><td>{invoice.currency} <Amount value={invoice.total}/><p>USD <Amount value={invoice.usdTotal}/></p><p>Open balance <Amount value={invoice.balance}/></p></td><td>{invoice.status}<p>{invoice.ledger?.status}</p>
-        <details><summary>Inspect invoice tax estimate</summary><TaxEvidence tax={invoice.tax} title={`Tax estimate for ${invoice.reference}`}/></details>
         {invoice.status==='draft'&&<button disabled={busy} onClick={()=>run('invoice.review',{invoiceId:invoice.id,version:invoice.version})}>Review exact invoice</button>}
         {invoice.status==='reviewed'&&<button disabled={busy} onClick={()=>run('invoice.authorize',{invoiceId:invoice.id,version:invoice.version})}>Authorize immutable invoice</button>}
         {invoice.status==='authorized'&&<>{invoice.balance!=='0.000000000000'&&!String(invoice.balance).startsWith('-')&&<button disabled={busy} onClick={()=>run('invoice.payLink',{invoiceId:invoice.id,version:invoice.version})}>Create invoice payment link</button>}<button disabled={busy} onClick={()=>run('print.generate',{kind:invoice.policy==='prepay'?'proforma':'invoice',sourceId:invoice.id})}>Generate invoice PDF</button></>}
@@ -31,7 +30,7 @@ export function InvoiceWorkbench({state,run,busy}:{state:PierState;run:RunComman
         </details>}
         {records(state,'invoicePayLinks').filter(l=>l.invoiceId===invoice.id).map(link=><p key={link.id}><a href={link.url} target="_blank" rel="noreferrer">Open invoice payment page</a> · {link.status}</p>)}
       </td></tr>)}
-    </Table></section>
+    </Table>{invoices.map(invoice=><details key={invoice.id}><summary>{`Inspect tax estimate for ${invoice.reference}`}</summary><TaxEvidence tax={invoice.tax} title={`Tax estimate for ${invoice.reference}`}/></details>)}</section>
     <Form title="Prepare a linked customer credit" submit="Draft credit note" busy={busy}
       note="A credit names its original invoice and line. Financial posting and refunds remain separate from this native credit."
       onSubmit={d=>run('invoice.credit.draft',{invoiceId:text(d,'invoiceId'),kind:text(d,'kind'),reason:text(d,'reason'),...(text(d,'returnId')?{returnId:text(d,'returnId')}:{}),lines:[{invoiceLineId:text(d,'invoiceLineId'),quantity:text(d,'quantity'),amount:text(d,'amount')}]})}>
