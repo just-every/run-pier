@@ -3163,7 +3163,7 @@
       "executable": false
     },
     "src/pier/channels/availability.ts": {
-      "sha256": "ef462b6ba9c0c0d03906651fe2699167920d3e39ab195e7d25a2d81899a4b201",
+      "sha256": "997c2ef1418ed02ba4f71c366a20f70f2e25b108c2a4efd7249b1552e82a5e87",
       "executable": false
     },
     "src/pier/channels/commands.ts": {
@@ -3391,7 +3391,7 @@
       "executable": false
     },
     "src/pier/integration-health.ts": {
-      "sha256": "474c0cdd10e3f589f43fd6322b0ec0f7fdca7b35cff000a8aa099ab348cfe2f4",
+      "sha256": "febeb5dd3ed1d6d9775b14ef37be948290459c776bc06b03d0ff0f08ebb855f0",
       "executable": false
     },
     "src/pier/invoices/credits.ts": {
@@ -4239,7 +4239,7 @@
       "executable": false
     },
     "src/ui/channels/listings.tsx": {
-      "sha256": "18894fef93a3af7cc1929a2e8bebe7dfa355d9e61a1866e4871dee87c50473ab",
+      "sha256": "f5e2d7287b2d973c2373b8c71f4053e1cbf28cd21bb388741275fdb7535d691b",
       "executable": false
     },
     "src/ui/channels/marketplaces.ts": {
@@ -4247,7 +4247,7 @@
       "executable": false
     },
     "src/ui/channels/model.ts": {
-      "sha256": "345730a953fe676af9a4e9827e5114b4f3990b3f2b045440e9474bc71f188cf2",
+      "sha256": "10629ff701cedb195b8d03258478da92428d0a39775d26eb32f81df85a2cf27a",
       "executable": false
     },
     "src/ui/channels/orders.tsx": {
@@ -4739,7 +4739,7 @@
       "executable": false
     },
     "tests/api/channels.test.mjs": {
-      "sha256": "04fe8adf5dcccf2f5fd569444dcd8d6c5fe7a890afb0404e8695ad44efee90ac",
+      "sha256": "2141d0bc0ca35d450f0c4024f84df28458d880c5213fb56c35aac2c729d2c950",
       "executable": false
     },
     "tests/api/costing.test.mjs": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/channel-publication.spec.ts": {
-      "sha256": "0c339f517b644368c95bed214e3aa6498ad533f6fbbb668298968de0d6f426c4",
+      "sha256": "bb0e06a009cf0c66fba8b6c104090f7c28ad0e8ace8a3bb48f86e12a97cfa3bb",
       "executable": false
     },
     "tests/browser/dispatch.spec.ts": {

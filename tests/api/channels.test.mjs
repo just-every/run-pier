@@ -396,6 +396,32 @@ test('Shopify mapped publications retain exact warehouse quantities and reconcil
   assert.equal(revokedListing.publicationAuthorized, false);
   assert.ok(revokedListing.publications.every(p => p.invalidated), 'revoked approval invalidates pending work without discarding its history');
 
+  // A removed location still owes an uncertain remote outcome, even after restart.
+  await h.command('channel.save', { ...(await h.state()).channels.find(c => c.id === channel.id), enabled: true });
+  edge.reject.add(loc2);
+  await h.command('channel.hold', { itemId: b.item.id, warehouse: 'East', quantity: '1', reason: 'synthetic-pier-removed-target' });
+  await h.command('channel.sync', {});
+  listing = (await h.state()).channelListings.find(l => l.id === listingId);
+  const removedPublication = listing.publications.findLast(p => p.locationId === loc2);
+  assert.equal(removedPublication.status, 'uncertain');
+  const unchanged = physical(await h.state());
+  await activate({ [loc1]: ['West'] });
+  const removedAttempts = edge.mutations.filter(p => p.locationId === loc2).length;
+  const checkRemoved = async () => {
+    const current = (await h.state()).channelListings.find(l => l.id === listingId);
+    assert.ok(current.publications.some(p => p.id === removedPublication.id && p.status === 'uncertain' && p.invalidated));
+    const health = await (await h.request('/api/pier/integrations')).json();
+    const connector = health.connectors.find(c => c.id === channel.id);
+    assert.ok(connector.effects.some(e => e.id === removedPublication.id && e.state === 'uncertain' && e.mapping.includes(loc2) && e.mapping.includes('East')), 'removed location remains an uncertain health effect');
+    assert.ok(connector.uncertain > 0);
+    assert.deepEqual(physical(await h.state()), unchanged);
+  };
+  await checkRemoved();
+  await h.restart(); await h.command('channel.sync', {});
+  await checkRemoved();
+  assert.equal(edge.mutations.filter(p => p.locationId === loc2).length, removedAttempts, 'retaining an outcome never authorizes a removed target to send');
+
+
 });
 
 test('routing preview includes every changed order within the exact last thirty days and excludes older history', async t => {

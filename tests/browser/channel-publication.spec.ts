@@ -107,6 +107,35 @@ test('owners map Shopify locations, preview affected orders and recover distinct
     expect(current.positions.find((p: any) => p.locationId === bins[2].id).quantity).toBe('50');
     expect(edge.writes.map((w: any) => [w.locationId, w.quantity])).toEqual([[loc1, 17], [loc2, 9]]);
     await capture('shopify-location-reconciled');
+    // Removing a destination must not hide a write whose provider outcome is unknown.
+    edge.reject.add(loc2);
+    await command('channel.hold', { itemId: item.id, warehouse: 'West', quantity: '1', reason: 'Retained publication review' });
+    await submit(page.locator('main'), 'Sync now');
+    const pending = (await state()).channelListings.find((l: any) => l.channelId === channel.id).publications.findLast((p: any) => p.locationId === loc2);
+    expect(pending.status).toBe('uncertain');
+    let removed = await command('routing.save', { source: `channel:${channel.id}`, mode: 'channel-location', shortage: 'hold', locations: { [loc1]: ['East'] } });
+    removed = await command('routing.preview', { ruleId: removed.id, version: removed.version });
+    await command('routing.activate', { ruleId: removed.id, version: removed.version });
+    await page.reload();
+    const retained = rows.filter({ hasText: loc2 });
+    await expect(retained).toBeVisible();
+    await retained.getByText('Location outcomes', { exact: true }).click();
+    await expect(retained).toContainText('uncertain');
+    await expect(retained).toContainText('Earlier mapping');
+    await expect(retained.getByRole('cell').nth(2)).toHaveText('Not targeted');
+    const healthResponse = await context.request.get(`${origin}/api/pier/integrations`);
+    const health = await healthResponse.json();
+    const connector = health.connectors.find((c: any) => c.id === channel.id);
+    expect(connector.effects).toContainEqual(expect.objectContaining({ id: pending.id, state: 'uncertain', mapping: expect.arrayContaining([loc2, 'West']) }));
+    expect(connector.uncertain).toBeGreaterThan(0);
+    const healthCard = page.getByRole('region', { name: 'Integration health' }).locator('details').filter({ has: page.locator('summary').filter({ hasText: 'Mapped Shopify ·' }) });
+    await healthCard.locator('summary').first().click();
+    const healthRow = healthCard.getByRole('row').filter({ hasText: pending.id });
+    await expect(healthRow).toContainText(loc2);
+    await expect(healthRow).toContainText('uncertain');
+
+    await capture('shopify-removed-location-uncertain');
+
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
 });
