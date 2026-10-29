@@ -178,6 +178,17 @@ export function parse(v) {
   const [a, b = ""] = v.split(".");
   return BigInt(a) * 1000000n + BigInt(b.padEnd(6, "0"));
 }
+export async function persona(h, as) {
+  const entered = await fetch(`${h.origin}/auth/dev/enter?as=${as}`, {
+    redirect: "manual",
+    headers: { "x-rer-dev-key": h.devKey },
+  });
+  assert.equal(entered.status, 303, await entered.text());
+  const cookie = entered.headers.getSetCookie().map((v) => v.split(";")[0]).join("; ");
+  const response = await h.request("/auth/session", { as: cookie });
+  assert.equal(response.status, 200);
+  return { cookie, session: await response.json() };
+}
 export async function basics(h) {
   const item = await h.command("item.save", {
     sku: "BOLT",
