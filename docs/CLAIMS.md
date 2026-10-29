@@ -6,7 +6,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 
 | # | Claim | Clauses | Status |
 | --- | --- | --- | --- |
-| 1 | "Pier tracks stock across your warehouses" | `STOCK-001` partial; `PIER-001` partial; `PIER-008` partial | partial |
+| 1 | "Pier tracks stock across your warehouses" | `STOCK-001` partial; `PIER-001` partial; `PIER-008` done | partial |
 | 2 | "runs orders from channel to carrier" | `CHANNEL-001` partial; `PIER-004` done; `PIER-009` partial; `WMS-001` done; `SHIP-001` partial | partial |
 | 3 | "reorders before you run out" | `BUY-005` partial; `BUY-008` partial; `BUY-001` partial; `AUTO-001` partial | partial |
 | 4 | "and keeps the books in step" | `ACCOUNT-001` partial; `ACCOUNT-002` partial | partial |

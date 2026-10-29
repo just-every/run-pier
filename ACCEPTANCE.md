@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 22 | 65 | 4 | 91 |
+| Core | 23 | 64 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 22 | 65 | 11 | 98 |
+| Full target | 23 | 64 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. PIER-008 proof began at commit `dd6218e8795c1612be963d58b0b91fe6db275338` and is extended and re-run on this landing candidate (29 October 2026), whose full identity is reported with its Verify evidence. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -116,7 +116,7 @@ Core · published · **done**
 
 #### PIER-008 — Transfer through visible transit
 
-Core · published · **partial** · Register R-6
+Core · published · **done** · Register R-6
 
 **Requirement.** Warehouse staff dispatch available units through a real transit location and separately confirm destination receipt. Transit stock is unavailable to sales and transfers conserve quantity. Repeated commands cannot dispatch or receive twice.
 
@@ -124,8 +124,8 @@ Core · published · **partial** · Register R-6
 1. Journey 8: dispatch a transfer, try to sell its in-transit units, partially receive at the destination and retry.
 2. Source plus transit plus destination reconciles throughout and transit cannot be promised as current sellable stock.
 
-**Evidence.** `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (08) — partial arrival, exact replay, stale/excess refusal and conserved transit; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” enters a partial destination receipt through Transfers.
-**Gap.** Unasserted in the cited evidence: the source position, and with it source plus transit plus destination reconciling throughout the transfer (no source figure is read, and transit and destination are read once, mid-transfer, not after the send or after the full receipt), and an attempted sale of the in-transit units (the test reads transit availability as 0 but attempts no sale). Asserted: the transfer dispatches through transit with transit availability 0, a partial destination receipt of 0.2 leaves transit 0.3 and destination 0.2, the retried receipt returns the same result, and stale or excess receipts are refused with movements unchanged.
+**Evidence.** `tests/api/flows.test.mjs` — “08 transfer conserves stock and transit cannot be sold” in “Pier public Worker and D1 wholesale journey” proves an isolated SKU's exact source, transit and destination quantities from exported movements before sending, wholly in transit, after partial receipt and after complete receipt; in-transit demand reserves zero with the exact backorder and dispatch refuses with stock, movements, reservations, orders, shipments, transfers and successful command results unchanged; send, partial and complete receipt replay without duplication, stale and excess receipts refuse atomically, and completion leaves transit zero with the waiting order reserving and dispatching exactly the received units from the destination bin with retained shipment and movement links. The enclosing journey asserts zero outbound requests. `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” enters partial and full destination receipts through Transfers and captures the partial receipt at 1440 and 390. Physical warehouse accuracy and inspection remain unprovided in field proof R-6.
+**Gap.** None.
 
 #### PIER-009 — Dispatch only owned reservations
 

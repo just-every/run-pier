@@ -446,10 +446,11 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
       assert.equal(waiting.lines[0].reserved, "0");
       assert.equal(waiting.lines[0].backorder, "0.5");
       assert.deepEqual(beforeSale.reservations.filter((r) => r.itemId === isolatedItem.id), []);
-      await h.command("dispatch.create", {
-        orderId: demand.id, shipmentReference: "synthetic-pier-8",
+      const sale = {
+        orderId: demand.id, shipmentReference: "synthetic-pier-8-shipment",
         lines: [{ orderLineId: demand.lines[0].id, quantity: "0.5" }],
-      }, { error: "RESERVATION" });
+      };
+      await h.command("dispatch.create", sale, { error: "RESERVATION" });
       assert.deepEqual(await effects(), beforeSale,
         "refused transit sale changes no stock, movements, reservations, orders, shipments, transfers or successful command results");
       const receiptKey = randomUUID();
@@ -475,6 +476,29 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
       assert.deepEqual(await effects(), completed);
       await h.command("transfer.receive", { transferId: transfer.id }, { error: "TRANSFER_STATE" });
       assert.deepEqual(await effects(), completed);
+      const reservable = await h.command("order.reserve", { orderId: demand.id });
+      assert.equal(reservable.lines[0].reserved, "0.5");
+      assert.equal(reservable.lines[0].backorder, "0");
+      const afterArrival = await stock(["0", "0", "0.5"]);
+      const allocations = afterArrival.reservations.filter((r) => r.itemId === isolatedItem.id);
+      assert.equal(allocations.reduce((n, r) => n + BigInt(r.quantity), 0n), parse("0.5"));
+      assert.ok(allocations.every((r) => r.locationId === b.destination.id && r.orderId === demand.id && r.orderLineId === demand.lines[0].id));
+      const sold = await h.command("dispatch.create", sale);
+      assert.equal(sold.lines[0].quantity, "0.5");
+      assert.equal(sold.lines[0].orderLineId, demand.lines[0].id);
+      assert.equal(sold.lines[0].reservations.reduce((n, r) => n + parse(r.quantity), 0n), parse("0.5"));
+      const afterSale = await effects();
+      const itemMovements = afterSale.movements.filter((m) => m.itemId === isolatedItem.id);
+      assert.equal(itemMovements.reduce((n, m) => n + BigInt(m.quantity), 0n), 0n);
+      assert.deepEqual(afterSale.reservations.filter((r) => r.itemId === isolatedItem.id), []);
+      for (const link of sold.lines[0].reservations) {
+        assert.ok(allocations.some((r) => r.id === link.reservationId));
+        const movement = itemMovements.find((m) => m.id === link.movementId);
+        assert.equal(movement.documentId, sold.id);
+        assert.equal(movement.locationId, b.destination.id);
+        assert.equal(movement.status, "sellable");
+        assert.equal(BigInt(movement.quantity), -parse(link.quantity));
+      }
       await h.invariant();
     },
   );
