@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 25 | 62 | 4 | 91 |
+| Core | 26 | 61 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 25 | 62 | 11 | 98 |
+| Full target | 26 | 61 | 11 | 98 |
 
-Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `fd9fcd40b4a22fdff380d08d52b144dc57b248f1` (29 October 2026). SALES-010 is revalidated on the exact final sx-pier-c-f58 candidate, whose full SHA accompanies its Verify and handoff; no routing source or journey bytes change after this proof commit. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -540,7 +540,7 @@ Core · target · **partial** · From SALES-007
 
 #### SALES-010 — Shortage rules, split permission and reroutes
 
-Core · target · **partial** · From SALES-007
+Core · target · **done** · From SALES-007
 
 **Requirement.** Each source also has a **shortage rule** for when the routed warehouse cannot fill every line, from the table below. Splitting applies only under the customer’s explicit current split policy, recorded by the owner; otherwise the documented next-eligible fallback applies. Only the current owner reroutes unpicked work, with a reason, and only to another eligible warehouse: Pier releases the old reservations and creates the new ones atomically, and AUDIT-001 records the change; rerouting to an ineligible warehouse is refused (RL-103).
 
@@ -558,8 +558,8 @@ Core · target · **partial** · From SALES-007
 5. The FBA stock is never reserved by any of them.
 6. A manual reroute from West to East is audited, and a reroute to the FBA location is refused.
 
-**Evidence.** `tests/api/channels.test.mjs` — “owner routing versions choose zones, shortage policy, reroute and net channel publication without FBA stock” (Shopify ZIP/state/default, hold/next/split/no-split, no-default queue, ineligible refusal, audited reroute, address change, net publication and dry-run). `tests/api/edi.test.mjs` — “retailer 850 through line decisions, packed SSCC ASN and shipped invoice over the EDI edge” routes Oregon to its rule-selected warehouse. `tests/browser/journey.spec.ts` — “owners dry-run and activate routing and review an audited reroute at 1440 and 390”. [Orders](docs/orders.md).
-**Gap.** Carried at SALES-007's partial status. The old Gap names no shortage or reroute outcome as missing, and `tests/api/channels.test.mjs` covers hold, next-eligible, split, no-split and audited reroutes (fresh-judge candidate).
+**Evidence.** `tests/api/channels.test.mjs` — “owner routing versions choose zones, shortage policy, reroute and net channel publication without FBA stock” uses the Shopify network edge and real channel.sync to admit five-unit ZIP 94107 orders with two West units and at least ten East units (point 1), proves two reserved and three backordered at West (point 2), five reserved at East under next-eligible (point 3), explicit split permission with separate two-West and three-East dispatches and missing or false permission falling back whole to East (point 4), and unchanged excluded FBA stock throughout (point 5). The same journey proves current-owner reroute attribution, reason and exact released and replacement allocations through Activity data, business export and restart, plus ineligible, stale, revoked-owner and already-picked refusals preserving business effects and successful command results (point 6). `tests/browser/journey.spec.ts` — “owners dry-run and activate routing and review an audited reroute at 1440 and 390” operates all shortage controls, reads exact allocations and backorders, completes separate warehouse shipments, inspects Activity allocation history and recovers from stale review; it preserves shipped-work refusal and readable phone bin names. Push Verify invokes both journeys. Provider fixtures supply no live qualification under CHANNEL-001 or SALES-007 and no multi-location publication under SALES-011. [Orders](docs/orders.md).
+**Gap.** None.
 
 #### SALES-011 — Routed channel availability and rule dry runs
 
