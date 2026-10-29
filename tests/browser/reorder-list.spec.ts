@@ -30,8 +30,9 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   const supplier = await command('party.save', { name: `Harbor supply ${width}`, kind: 'supplier' }), alternate = await command('party.save', { name: `Alternate supply ${width}`, kind: 'supplier' })
   const eastName = `East ${width}`, westName = `West ${width}`
   const east = await command('location.save', { name: `East rack ${width}`, warehouse: eastName, kind: 'bin' }), west = await command('location.save', { name: `West rack ${width}`, warehouse: westName, kind: 'bin' })
+  const transit = await command('location.save', { name: `Transfer van ${width}`, warehouse: `Road ${width}`, kind: 'transit' })
   const a = await command('item.save', { sku: `PLAN-A-${width}`, name: `Blue mugs ${width}`, unit: 'each', packSize: '1' }), e = await command('item.save', { sku: `PLAN-E-${width}`, name: `Tea cups ${width}`, unit: 'each', packSize: '1' })
-  const b = await command('item.save', { sku: `PLAN-B-${width}`, name: `West mugs ${width}`, unit: 'each', packSize: '1' }), c = await command('item.save', { sku: `PLAN-C-${width}`, name: `East cups ${width}`, unit: 'each', packSize: '1' })
+  const b = await command('item.save', { sku: `PLAN-B-${width}`, name: `West mugs ${width}`, unit: 'each', packSize: '1' }), c = await command('item.save', { sku: `PLAN-C-${width}`, name: `East cups ${width}`, unit: 'each', packSize: '1' }), d = await command('item.save', { sku: `PLAN-D-${width}`, name: `Transfer cups ${width}`, unit: 'each', packSize: '1' })
   const westSupplier = await command('party.save', { name: `S2 supply ${width}`, kind: 'supplier' })
   const purchase = async (item: any, quantity: string, location: any, received = quantity) => {
    let po = await command('po.draft', { supplierId: supplier.id, destinationWarehouse: location.warehouse, promiseDate: '2026-11-01', reason: 'Browser planning fixture', lines: [{ itemId: item.id, quantity, price: '1' }] }); await command('po.approve', { poId: po.id, version: po.version }); po = await command('po.commit', { poId: po.id, version: po.version })
@@ -39,11 +40,16 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
    return po
   }
   await purchase(a, '8', east); await purchase(a, '6', east, '0'); await purchase(e, '2', east); await purchase(e, '40', west)
+  const legacy = await command('po.draft', { supplierId: supplier.id, promiseDate: '2026-11-01', reason: 'Legacy supply with no destination', lines: [{ itemId: a.id, quantity: '1000', price: '1' }] })
+  await command('po.approve', { poId: legacy.id, version: legacy.version }); await command('po.commit', { poId: legacy.id, version: legacy.version })
   const bp = await purchase(b, '30', west, '25')
   const customer = await command('party.save', { name: `West buyer ${width}`, kind: 'customer' })
   await command('order.create', { customerId: customer.id, warehouse: westName, lines: [{ itemId: b.id, quantity: '32', price: '2' }] })
   await command('receipt.create', { poId: bp.id, supplierReference: `B later five ${width}`, lines: [{ poLineId: bp.lines[0].id, locationId: west.id, quantity: '5', cost: '1' }] })
-  await purchase(c, '4', east)
+  await purchase(c, '4', east); await purchase(d, '8', east); await purchase(d, '6', west)
+  await command('transfer.send', { itemId: d.id, quantity: '8', fromLocationId: east.id, toLocationId: west.id, transitLocationId: transit.id, reason: 'Eight inbound to West' })
+  await command('supplierItem.save', { itemId: d.id, supplierId: supplier.id, code: d.sku, packSize: '1', minimum: '0', price: '1', leadDays: 7 })
+  await command('replenishment.save', { itemId: d.id, warehouse: westName, version: 0, supplierId: supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '10', reorderQuantity: '10' })
   await command('supplierItem.save', { itemId: b.id, supplierId: westSupplier.id, code: b.sku, packSize: '6', minimum: '0', price: '1', leadDays: 7 })
   await command('supplierItem.save', { itemId: c.id, supplierId: supplier.id, code: c.sku, packSize: '1', minimum: '10', price: '1', leadDays: 7, reorderQuantity: '3' })
   await command('replenishment.save', { itemId: b.id, warehouse: westName, version: 0, supplierId: westSupplier.id, method: 'upTo', safetyStock: '0', reorderPoint: '10', maximum: '60' })
@@ -65,6 +71,27 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   const aLabel = `Blue mugs ${width} · PLAN-A-${width}`, eLabel = `Tea cups ${width} · PLAN-E-${width}`
   const bLabel = `West mugs ${width} · PLAN-B-${width}`, cLabel = `East cups ${width} · PLAN-C-${width}`
   await expect(batch.getByLabel(`Purchase quantity for ${aLabel} at ${eastName}`, { exact: true })).toHaveValue('48')
+  // Read each visible calculation against the independently specified East and West fixture.
+  const calculations = [
+   { label: aLabel, warehouse: eastName, supplier: supplier.id, quantity: '48', point: '20', method: 'fixed', parameter: '40', pack: '12', minimum: '24', terms: ['8', '0', '0', '6', '0', '0', '14', '46', '2', '48', '0', '48'] },
+   { label: bLabel, warehouse: westName, supplier: westSupplier.id, quantity: '66', point: '10', method: 'upTo', parameter: '60', pack: '6', minimum: '0', terms: ['30', '25', '7', '0', '0', '0', '-2', '62', '4', '66', '0', '66'] },
+   { label: cLabel, warehouse: eastName, supplier: supplier.id, quantity: '10', point: '5', method: 'fixed', parameter: '3', pack: '1', minimum: '10', terms: ['4', '0', '0', '0', '0', '0', '4', '4', '6', '10', '0', '10'] },
+   { label: eLabel, warehouse: eastName, supplier: supplier.id, quantity: '13', point: '5', method: 'fixed', parameter: '10', pack: '1', minimum: '0', terms: ['2', '0', '0', '0', '0', '0', '2', '13', '0', '13', '0', '13'] },
+  ]
+  const calculationRow = (calculation: { label: string, warehouse: string }) => batch.getByRole('row').filter({ has: page.getByLabel(`Select ${calculation.label} at ${calculation.warehouse}`, { exact: true }) })
+  for (const calculation of calculations) {
+   const row = calculationRow(calculation)
+   await row.getByText(`Calculation for ${calculation.label}`, { exact: true }).click()
+   if (width === 1440) {
+    await expect(row.getByLabel(`Purchase quantity for ${calculation.label} at ${calculation.warehouse}`, { exact: true })).toHaveValue(calculation.quantity)
+    await expect(row.getByLabel(`Supplier for ${calculation.label} at ${calculation.warehouse}`, { exact: true })).toHaveValue(calculation.supplier)
+    await expect(row.locator('details dd')).toHaveText(calculation.terms)
+    await expect(row.locator('details p').first()).toHaveText(`Point ${calculation.point}; ${calculation.method} ${calculation.parameter}; pack ${calculation.pack}; minimum ${calculation.minimum}.`)
+   }
+  }
+  await expect(batch.getByRole('checkbox')).toHaveCount(4); await expect(batch).not.toContainText(d.sku)
+  if (shots) await batch.screenshot({ path: join(shots, `${width}-reorder-calculations.png`) })
+  for (const calculation of calculations) await calculationRow(calculation).getByText(`Calculation for ${calculation.label}`, { exact: true }).click()
   await batch.getByLabel(`Select ${aLabel} at ${eastName}`, { exact: true }).check()
   await batch.getByLabel(`Supplier for ${aLabel} at ${eastName}`, { exact: true }).selectOption(alternate.id)
   await expect(batch.getByLabel(`Purchase quantity for ${aLabel} at ${eastName}`, { exact: true })).toHaveValue('50')
@@ -144,7 +171,7 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   if (shots) await report.screenshot({ path: join(shots, `${width}-reorder-report.png`) })
   await command('channel.save', { ...channel, enabled: false })
   await command('item.save', { ...a, archived: true }); await command('item.save', { ...e, archived: true })
-  await command('item.save', { ...b, archived: true }); await command('item.save', { ...c, archived: true })
+  await command('item.save', { ...b, archived: true }); await command('item.save', { ...c, archived: true }); await command('item.save', { ...d, archived: true })
  }
  } finally { await new Promise<void>((resolve, reject) => edge.close(error => error ? reject(error) : resolve())) }
 })
