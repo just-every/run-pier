@@ -4755,7 +4755,7 @@
       "executable": false
     },
     "tests/api/inventory-journey.test.mjs": {
-      "sha256": "cbec3bc9b2a88e31c8145c71b0ef0a436f4f1e90dc8aa2785c744bb83f0bb87b",
+      "sha256": "3250ccbddf84c52855ee44a52620dcc5c65cf3c92933982b0daf49a8806c81d0",
       "executable": false
     },
     "tests/api/journey-resources.mjs": {

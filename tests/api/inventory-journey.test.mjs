@@ -6,7 +6,7 @@ import { phase } from './journey-resources.mjs';
 
 test("Opening stock to fractional sales, physical corrections, stocktake and durable export", async () => {
 
-phase("Pier public Worker and D1 wholesale journey", async (t) => {
+await phase("Pier public Worker and D1 wholesale journey", async (t) => {
   const outbound = [];
   const outboundService = request => { outbound.push(new URL(request.url).origin); throw new Error('Native stock does not authorize external access.'); };
   const h = await installation({ outboundService });
@@ -812,7 +812,7 @@ phase("Pier public Worker and D1 wholesale journey", async (t) => {
   );
 });
 
-phase('warehouse stocktakes freeze only their scope, retain blind counts and zone decisions, require recounts and reject stale live approval', async t => {
+await phase('warehouse stocktakes freeze only their scope, retain blind counts and zone decisions, require recounts and reject stale live approval', async t => {
   const h = await installation(); t.after(() => h.close());
   const b = await basics(h), bins = [];
   for (let i = 0; i < 20; i++) bins.push(await h.command('location.save', { name: `synthetic-pier-${i}`, warehouse: 'Count warehouse', kind: 'bin', zone: i === 19 ? 'Keep' : 'Zero' }));
