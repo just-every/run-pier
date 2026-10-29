@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 22 | 65 | 4 | 91 |
+| Core | 24 | 63 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 22 | 65 | 11 | 98 |
+| Full target | 24 | 63 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010, PIER-011 and WMS-003 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. BUY-006 is judged from code and tests at commit `6fc459934c50f42cc29d96b7330b0beae1cf4cce` (29 October 2026); its exact landing candidate and recorded Verify are reported with the judgment. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -366,7 +366,7 @@ Core · target · **done**
 
 #### WMS-003 — Daily dispatch board and carrier cut-offs
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** Each warehouse has a dispatch board for the working day in its time zone: the orders due to ship that day, each carrier’s actual pickup cut-off time and time zone, and counts and lists by state: to pick, picking, picked, packed, labeled and shipped (WMS-001 states; shipped only when PIER-009 dispatch posts). An order is due by its promise date, or by the earlier explicit carrier-service ship-by date a person reviewed and recorded when its pickup was assigned; that date is validated by the public carrier-assignment command and visible in the pickup assignment field. Pier never infers a ship-by date and never claims an earlier shipment than the recorded dates; rate and service planning stay with SHIP-001. Without pick, pack and label handling-time estimates, the board conservatively flags every unfinished due order before its pickup with its remaining-work reason (short, unpicked, unpacked or unlabeled), labels that conservative basis on the board, and clears the flag only when the order’s dispatch posts; it never invents a calculated cannot-make time. At day close the board records the number of orders and units shipped, the time the last one left and every due order that did not ship with its reason; the record is kept, exportable and feeds the REPORT-002 overdue-orders report.
 
@@ -376,8 +376,8 @@ Core · target · **partial**
 3. The board shows the carrier’s 4 pm cut-off with its time zone and its counts equal the orders’ states throughout; before 4 pm every unfinished due order is flagged with its remaining-work reason under the labeled conservative basis, including the short and unpicked orders, and each flag clears only when that order’s dispatch posts.
 4. The day-close record shows 18 orders shipped, the last shipment’s time and the two missed orders with reasons, each equal to an independent count of the day’s dispatches.
 
-**Evidence.** `src/pier/floor/dispatch-board.ts`; `src/pier/floor/summary.ts`; `src/pier/reports.ts`; `src/ui/floor/dispatch.tsx`; `src/ui/reports.tsx`; `tests/api/dispatch.test.mjs`; `tests/browser/dispatch.spec.ts`
-**Gap.** Unasserted: the board's display of the carrier cut-off with its time zone, the labeled conservative basis, and each risk flag clearing only when its order's dispatch posts. Asserted: due-date precedence of the reviewed ship-by date, invalid ship-by refusal, state counts throughout the day, the short and unpicked flags before cut-off and the day-close record against independent counts.
+**Evidence.** `tests/api/dispatch.test.mjs` — “WMS-003: twenty due orders, eighteen dispatches and a retained close reconcile independently” proves twenty due orders, reviewed ship-by precedence and invalid-date refusal, the 16:00 carrier cut-off in its exact time zone, every remaining-work risk flag through picking, packing and labeling, clearance only after each order dispatches, the other unfinished flags, and eighteen shipments and day-close totals against independent movement-backed shipment records. `tests/browser/dispatch.spec.ts` — “WMS-003: warehouse dispatch states, reviewed ship-by schedule, close download and overdue report at 1440 and 390” proves the visible configured cut-off and time zone, conservative basis, native packed-to-dispatched risk transition, retained other-order flags, reviewed pickup schedule, day-close download and overdue report. Shipping recordings replace only the external provider network.
+**Gap.** None.
 
 #### COUNT-001 — Full-warehouse stocktake
 
@@ -641,7 +641,7 @@ Core · target · **partial**
 
 #### BUY-006 — Exact-version supplier sends and acknowledgments
 
-Core · target · **partial** · From BUY-002 · Rules D-3
+Core · target · **done** · From BUY-002 · Rules D-3
 
 **Requirement.** Buyers approve an exact PO version and supplier recipient; Pier sends it as the PRINT-001 purchase-order document by email or as EDI and records acknowledgment. Purchase sending and the purchase PDF send door share one correspondence identity and durable provider claim, and supported install mail attaches the retained PRINT-001 PDF as exact bytes.
 
@@ -652,8 +652,8 @@ Core · target · **partial** · From BUY-002 · Rules D-3
 4. Supported install mail attaches the retained PRINT-001 PDF as exact bytes.
 5. The pinned Managed relay retains its explicit text-only message with a visible attachment-unavailable notice and refuses purchase PDF sends; uncertain claims remain visible and are never automatically retried.
 
-**Evidence.** `tests/api/purchase-send.test.mjs` — “purchase approval routes exact landed spend and exceptions to named humans with revocable delegation” proves threshold routing, supplier and exception limits, delegation, escalation and agent denial; “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves exact PDF bytes, delegated sends, expiry, revocation, duplicate refusal and uncertain outcomes; “supplier price and date evidence stops pending sends until exact human review and retains partial cancellations” proves material changes, renewed spend review, both send doors and partial and full cancellation; `tests/api/replenishment.test.mjs` — “sell-through drafts an approved supplier PO and re-promises backorders by email” proves recorded acknowledgments; `tests/api/floor.test.mjs` — “confirmed SSCC receives every 856 pallet line once and invalid notices leave stock unchanged” proves retained original ASN and once-only receiving; `tests/browser/journey.spec.ts` — “purchase approval names spend authority and exposes supplier re-approval at 1440 and 390” proves visible authority and stopped sends at both widths.
-**Gap.** Unasserted in the cited evidence: the Managed relay's text-only message, its attachment-unavailable notice and its refusal of purchase PDF sends; `tests/api/managed-mail.test.mjs` sits outside this clause's evidence. Asserted: a once-only approved send with exact retained PDF bytes, the shared correspondence identity of both send doors, and visible uncertain sends that are never resubmitted.
+**Evidence.** `tests/api/purchase-send.test.mjs` — “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves exact approval, retained PDF bytes, delegation, replay and uncertain outcomes; “supplier price and date evidence stops pending sends until exact human review and retains partial cancellations” proves the retained PDF send and purchase send share one correspondence and provider claim. `tests/api/managed-mail.test.mjs` — “Managed supplier mail retains exact text, refuses PDF sends and never retries uncertain claims after restart” proves the complete relay payload and attachment notice, no attachments, exact retained download, DOCUMENT_MAIL with unchanged business exports and successful commands, and one uncertain durable claim across replay, repeated processing, due chases, scheduled checks and restart. `tests/browser/journey.spec.ts` — “Managed supplier mail shows approved text, PDF refusal and retained uncertainty” proves approved text, the visible attachment limitation, refusal beside the PDF form and retained uncertainty, with changed screens captured at 1440 and 390. D-4 network-edge fixtures establish protocol behavior only; actual provisioned Managed delivery, provider acknowledgment qualification, EDI certification and physical document acceptance remain unproved field boundaries.
+**Gap.** None.
 
 #### BUY-007 — Supplier changes, re-approval and cancellations
 
