@@ -36,6 +36,7 @@ export async function shipping(c: Context, type: string, p: any, env: Bindings):
   if (type === 'shipping.prepare') {
     const pack = get(c.s, 'packs', p.packId);
     if (pack.status !== 'packed') fail('PACK_STATE', 'Mark the order packed before preparing its labels.');
+    if (c.s.ltlManifests.some(m => m.packId === pack.id)) fail('LTL_EXISTS', 'This pack has retained LTL freight work.');
     const carton = pack.cartons.find((r: any) => r.number === Number(p.carton));
     if (!carton) fail('CARTON', 'Choose a measured carton from this pack.');
     const existing = c.s.shippingJobs.find(j => j.packId === pack.id && j.carton === carton.number);

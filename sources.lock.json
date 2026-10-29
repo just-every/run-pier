@@ -3003,7 +3003,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "92c98bfc90be991dcde4c8ed15ac1955b575668c40836d0868bbc5df9b1175c0",
+      "sha256": "3359f42c7bbc30450c8d234c59a115e8047ed4a021f0a0de27f04148e82129af",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3323,7 +3323,7 @@
       "executable": false
     },
     "src/pier/floor/packing.ts": {
-      "sha256": "098a5d79a680de6dcb853bf69f0bfb656d4fad070cd76894de9d1649b8489657",
+      "sha256": "bfa31b9f2101a986e21e422353c5a51ba3855a5f1174c80c1236e58576f34a2e",
       "executable": false
     },
     "src/pier/floor/receiving.ts": {
@@ -3479,7 +3479,7 @@
       "executable": false
     },
     "src/pier/model.ts": {
-      "sha256": "ab1e0feec7b3170958bb7dcf7c290623d91cff995c49e44099c3ac6673bcea1f",
+      "sha256": "26e0d009f3dfea2c2f9ef40c23f14dcddda655245e28abb230e05788524d97df",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -3519,7 +3519,7 @@
       "executable": false
     },
     "src/pier/orders.ts": {
-      "sha256": "2718b03fdb1387e465021adc26cb75c0f55827a197d8f961b6f607a69e12f32b",
+      "sha256": "0949b72d13eb702008f65c445a05a32eaea18d8de91509f8df652c0abf617bd1",
       "executable": false
     },
     "src/pier/payments/audit.ts": {
@@ -3587,7 +3587,7 @@
       "executable": false
     },
     "src/pier/print/commands.ts": {
-      "sha256": "dbad11e1dcb8115b17b9e40575150437745537792ca275e5dcc221f71fc7a4d9",
+      "sha256": "6b0749fbee8cc3283e52064d42fb0408ff1a715e5c7af21bfcd936cb5039d9e9",
       "executable": false
     },
     "src/pier/print/delivery-events.ts": {
@@ -3647,7 +3647,7 @@
       "executable": false
     },
     "src/pier/privacy-plan.ts": {
-      "sha256": "9a05038cfdf570676ddac9e50a57248ae2dd664ce2f86595032a32b1376b56b6",
+      "sha256": "2b93564bb6f06fb0c46ddf81bf473a27442401d91eb2a62e0ff3fc1331c397a3",
       "executable": false
     },
     "src/pier/privacy-remote.ts": {
@@ -3795,7 +3795,7 @@
       "executable": false
     },
     "src/pier/shipping/commands.ts": {
-      "sha256": "15c5db4c1ac681ee2f7c2950a1d6c80fda79dcf8cf0c679b93fc7d0abacfb598",
+      "sha256": "3a7ecda9d34fdd998d8d9e46a4bc75d848e9c0d05eb039cc34a1011fe8cd8571",
       "executable": false
     },
     "src/pier/shipping/easypost.ts": {

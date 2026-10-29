@@ -62,6 +62,7 @@ import {
 } from "./model";
 import { load, saved, commit, authority, policyAuthority, activeAutomationActors } from "./storage";
 import { channelWebhook } from './channels/webhook';
+import { ltl } from './shipping/ltl';
 import { shipping, unavailable as shippingUnavailable } from './shipping/commands';
 import { business } from './business';
 import { performShipping } from './shipping/transport';
@@ -230,6 +231,7 @@ export async function execute(
     if (result === undefined) result = await channels(c, type, payload, env);
     if (backgroundPolicy && type === "automation.tick") result = { id: commandId, version: 1, draftIds: backgroundPolicy.collection === "purchaseOrders" ? [purchaseSend(c, "po.sendApproved", { poId: backgroundPolicy.id, version: s.purchaseOrders.find(po => po.id === backgroundPolicy.id)!.version })!.id] : backgroundPolicy.collection === "replenishmentPolicies" ? draftReplenishment(c, { policyId: backgroundPolicy.id, autoOnly: true }).map((po: any) => po.id) : [] };
     for (const handle of [
+      ltl,
       trade,
       customFieldCommands,
       purchaseApproval,
@@ -550,7 +552,7 @@ export async function pierResponse(
         documentExtractions: actor.role === 'owner' ? s.documentExtractions : [],
         documentSettings: actor.role === 'owner' ? s.documentSettings : [],
         documentInbox: actor.role === 'owner' ? documentViews(s).inbox : [],
-        ...(actor.role==='owner'?{}:{savedReports:[],reportSnapshots:[],workflowRules:[],workflowJobs:[],privacyHolds:[],privacyPolicies:[],privacyReceipts:[],salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,contacts,addresses,paymentTerms,salesRepId,...party})=>party)}),
+        ...(actor.role==='owner'?{}:{ltlManifests:[],savedReports:[],reportSnapshots:[],workflowRules:[],workflowJobs:[],privacyHolds:[],privacyPolicies:[],privacyReceipts:[],salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,contacts,addresses,paymentTerms,salesRepId,...party})=>party)}),
         actor,
         people,
         bookConnections,

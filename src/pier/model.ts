@@ -127,6 +127,7 @@ export const collections = [
   "aiSettings",
   "shippingSettings",
   "shippingJobs",
+  "ltlManifests",
   "ediPartners",
   "ediMappings",
   "ediOrders",
@@ -198,6 +199,7 @@ export type Context = {
   purchaseSendAuthority?: { poId: string; policyVersion: number; actorId: string; role: string };
   delegates?: { actorId: string; role: string; orderId: string; policyVersion: number }[];
   audit?: ReturnType<typeof import("./audit").auditEvent>;
+  ltlPickupId?: string;
   approver?: {
     id: string;
     role: string;

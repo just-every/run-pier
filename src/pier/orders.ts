@@ -272,6 +272,7 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     return orderView(c, o);
   }
   if (type === "dispatch.create") {
+    if (c.s.ltlManifests.some(m => m.orderId === p.orderId && m.status !== 'dispatched' && m.id !== c.ltlPickupId)) fail('LTL_PICKUP', 'Confirm pickup of the reviewed LTL manifest before dispatching this order.');
     const o = get(c.s, "orders", p.orderId);
     if(o.fulfilment==='dropship')fail('DROPSHIP','Record a direct supplier shipment on the linked dropship.');
     if (o.documentType === 'quote' && !o.acceptedAt) fail('QUOTE_STATE', 'Accept this quote before dispatching it.');
