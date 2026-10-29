@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "fcb37921ab4f6875ab14388e7201fc6ac18b7202b8b27b1ebab738e0c6ddaef7",
+      "sha256": "f1c34588470872e8b2f3f1dd4995902e4c0de69d8e257aa15b43048a6f877a74",
       "executable": false
     },
     ".gitignore": {
@@ -4275,7 +4275,7 @@
       "executable": false
     },
     "src/ui/correspondence.tsx": {
-      "sha256": "34e7c952c0d050b8046cdbbda15c98e24199178437955302b3ed37719736f101",
+      "sha256": "582278fec4f8ad776c28f25a551bd82fb5baa8aa51caead5af8f5c0b9feced3e",
       "executable": false
     },
     "src/ui/count-record.tsx": {
@@ -4819,7 +4819,7 @@
       "executable": false
     },
     "tests/api/purchase-send.test.mjs": {
-      "sha256": "748685393f7eecd28c4c6c5c2e721918f8610db37288fdd70dad6b207eeb210b",
+      "sha256": "36ff705798a40b678146d2419095d0d5b2175805955f37a5550324ce03e54798",
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
@@ -4923,7 +4923,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "ddd7ca5309fb52800df2bfde85bf1908abb2ca9d63a3955bd8267458d1c6835c",
+      "sha256": "2d706eaafa5dc52d1321cd23570034e23d3928fec01df79c19724b160623d148",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
