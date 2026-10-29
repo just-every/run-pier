@@ -91,6 +91,7 @@ export function packing(c: Context, type: string, p: any): Row | undefined {
     if (contributions.length) pack.mergedZones = contributions.map(zone => zone.name);
   } else if (type === "pack.dispatch") {
     if (pack.status !== "packed") fail("PACK_STATE", pack.status === "shipped" ? "This pack already shipped." : "Mark the order packed first.");
+    if (c.s.ltlManifests.some(m => m.packId === pack.id && m.status !== 'dispatched' && m.id !== c.ltlPickupId)) fail('LTL_PICKUP', 'Confirm pickup on the reviewed LTL manifest.');
     const quantities = new Map<string, bigint>();
     for (const carton of pack.cartons) for (const l of carton.lines) quantities.set(l.orderLineId, (quantities.get(l.orderLineId) ?? 0n) + decimal(l.quantity));
     const order = get(c.s, 'orders', pack.orderId);

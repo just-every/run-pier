@@ -10,6 +10,7 @@ import { businessPDF } from './pdf';
 import { billOfLadingPDF } from './bol';
 import { freightFields } from './freight-fields';
 import { documentKind, documentKinds, mergeText, saveTemplate, templateFor, type DocumentKind } from './templates';
+import { ltlSource, ltlFreight } from './ltl-source';
 import { orderSource } from './order-sources';
 import { otherSource } from './other-sources';
 import { mailSettings } from './mail-settings';
@@ -25,7 +26,7 @@ export async function generateDocument(c:Context,p:any,recipient?:string,purchas
   const template=templateFor(c,kind);
   const profile=c.s.businessProfile.find(b=>b.id==='business')??fail('BUSINESS_PROFILE','Add your business name and address in Purchasing before generating business documents.');
   const company={name:profile.name,address:profile.address,remitTo:template.remitTo};
-  const source=orderSource(c,kind,p.sourceId)??otherSource(c,kind,p.sourceId)??fail('DOCUMENT_SOURCE','Choose a live source record.');
+  const source=(kind==='bill-of-lading'?ltlSource(c,p.sourceId):undefined)??orderSource(c,kind,p.sourceId)??otherSource(c,kind,p.sourceId)??fail('DOCUMENT_SOURCE','Choose a live source record.');
   if(kind==='quote'){
     if(source.source.documentType!=='quote'||source.source.acceptedAt)fail('QUOTE_STATE','Choose an open quote.');
     currentQuote(c,source.source);requireQuoteApproval(c,source.source);
@@ -39,7 +40,7 @@ export async function generateDocument(c:Context,p:any,recipient?:string,purchas
   if (c.actor.role !== 'owner' && typedFieldCustody) fail('CUSTOM_AUTHORITY','Only an owner can generate documents containing private custom fields.');
   for (const [label,record] of [['Record fields',source.source],['Order fields',sourceOrder],['Counterparty fields',party]] as const) if(record?.customFields) fields.push({label,value:businessParticulars(record.customFields)});
   if(kind==='bill-of-lading'){
-    const freight=p.freight??{};
+    const freight=source.sourceKind==='ltlManifests'?ltlFreight(source.source):p.freight??{};
     for(const [key,label,required]of freightFields)fields.push({label,value:required?text(freight[key],label):String(freight[key]??'').trim()});
     fields.push({label:'Customer order number',value:source.fields.find(field=>field.label==='Order')?.value??source.reference});
   }
