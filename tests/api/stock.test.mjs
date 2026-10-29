@@ -56,6 +56,9 @@ test('STOCK-001: warehouse and company stock reconcile to exported movements, re
   assert.equal(state.warehouseStocks.find(row => row.itemId === b.item.id && row.warehouse === 'Unassigned receiving warehouse').expected, '7.25');
   assert.equal(state.warehouseStocks.find(row => row.itemId === b.item.id && row.warehouse === 'North').expected, '10');
   assert.equal(state.companyStocks.find(row => row.itemId === b.item.id).expected, '30.25');
+  await h.command('dispatch.create', { orderId: b.heldOrder.id, shipmentReference: 'synthetic-pier-8612', lines: [{ orderLineId: heldLine.id, quantity: '1' }] }, { error: 'RESERVATION' });
+  const afterRefusal = await (await h.request('/api/pier/export')).json();
+  for (const key of ['movements', 'reservations', 'channelHolds', 'orders', 'shipments', 'purchaseOrders', 'commands']) assert.deepEqual(afterRefusal[key], exported[key], `held-stock dispatch refusal leaves ${key} unchanged`);
   assert.ok(!state.positions.some(row => row.itemId === state.items.find(row => row.sku === 'EMPTY').id));
   for (const p of state.stockPositions) {
     const amount = exported.movements.filter(m => m.itemId === p.itemId && m.locationId === p.locationId && m.status === p.status).reduce((n, m) => n + BigInt(m.quantity), 0n);
