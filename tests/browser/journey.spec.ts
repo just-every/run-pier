@@ -1110,14 +1110,21 @@ test('purchase approval names spend authority and exposes supplier re-approval a
 })
 
 test('Managed supplier mail shows approved text, PDF refusal and retained uncertainty', async ({ page, context }) => {
-  const h = await managedMailInstallation(origin)
+  await ownerEntry(page)
+  const h = await managedMailInstallation()
+  // Forward the real interface's business requests to the real Managed test
+  // installation with its native owner session. No application response is
+  // invented: the Worker executes every read and command against persistent D1.
+  const forward = async (route: import('@playwright/test').Route) => {
+    const request = route.request(), url = new URL(request.url())
+    const response = await h.request(url.pathname + url.search, { method: request.method(),
+      ...(request.postData() ? { body: JSON.parse(request.postData()!) } : {}) })
+    const headers = Object.fromEntries(response.headers)
+    for (const name of ['content-length', 'content-encoding', 'transfer-encoding']) delete headers[name]
+    await route.fulfill({ status: response.status, headers, body: Buffer.from(await response.arrayBuffer()) })
+  }
+  await page.route('**/api/pier/**', forward)
   try {
-    const entered = await context.request.get(`${h.origin}/auth/dev/enter?as=owner`, { headers: { 'x-rer-dev-key': h.devKey }, maxRedirects: 0 })
-    expect(entered.status()).toBe(303)
-    await page.goto(`${h.origin}/setup`)
-    await page.getByRole('checkbox').check()
-    await page.getByRole('button', { name: 'Finish setup', exact: true }).click()
-    await page.waitForURL(url => url.pathname === '/app')
     await page.setViewportSize({ width: 1440, height: 1000 })
     if (shots) await mkdir(shots, { recursive: true })
     const capture = async (panel: Locator, name: string) => {
@@ -1129,7 +1136,7 @@ test('Managed supplier mail shows approved text, PDF refusal and retained uncert
       await page.setViewportSize({ width: 1440, height: 1000 })
     }
     const save = async (panel: Locator, button: string, success = true) => {
-      const response = page.waitForResponse(response => response.url() === `${h.origin}/api/pier/commands` && response.request().method() === 'POST')
+      const response = page.waitForResponse(response => response.url() === `${origin}/api/pier/commands` && response.request().method() === 'POST')
       await panel.getByRole('button', { name: button, exact: true }).click()
       const body = await (await response).json()
       expect(body.ok).toBe(success)
@@ -1138,7 +1145,8 @@ test('Managed supplier mail shows approved text, PDF refusal and retained uncert
     }
     const po = await managedPurchase(h)
     h.ambiguous()
-    await page.goto(`${h.origin}/app#purchasing/${po.id}`)
+    await page.goto(`${origin}/app#purchasing/${po.id}`)
+    await page.reload()
     const send = section(page, 'Send purchase order to supplier')
     await send.getByLabel('Supplier email', { exact: true }).fill(supplierRecipient)
     await send.getByRole('checkbox').check()
@@ -1146,9 +1154,11 @@ test('Managed supplier mail shows approved text, PDF refusal and retained uncert
     expect(h.calls).toEqual([{ to: supplierRecipient, subject: `Synthetic Pier warehouse purchase order ${po.reference}`, text: expectedManagedText(po.reference) }])
     const correspondence = section(page, 'Correspondence')
     await expect(correspondence.getByText('Uncertain', { exact: true })).toBeVisible()
-    await expect(correspondence.getByText('PDF attachment unavailable. This Managed relay sends text only; the retained purchase PDF has not been delivered.', { exact: true })).toBeVisible()
-    await correspondence.getByText('Read approved message', { exact: true }).first().click()
-    await expect(correspondence.locator('details p').first()).toHaveText(expectedManagedText(po.reference))
+    const initial = correspondence.getByRole('row').filter({ has: page.getByText('PDF attachment unavailable. This Managed relay sends text only; the retained purchase PDF has not been delivered.', { exact: true }) })
+    await expect(initial).toHaveCount(1)
+    await expect(initial).toBeVisible()
+    await initial.getByText('Read approved message', { exact: true }).click()
+    await expect(initial.locator('details p')).toHaveText(expectedManagedText(po.reference))
     await capture(correspondence, 'approved-text')
     const retained = await h.state(), message = retained.correspondence.find((m: any) => m.kind === 'purchase-order')
     const claim = retained.deliveries.find((d: any) => d.correspondenceId === message.id)
@@ -1162,26 +1172,26 @@ test('Managed supplier mail shows approved text, PDF refusal and retained uncert
     expect((await h.state()).deliveries.filter((d: any) => d.correspondenceId === message.id)).toEqual([claim])
     expect(h.calls).toHaveLength(1)
 
-    await page.goto(`${h.origin}/app#sales`)
+    await page.goto(`${origin}/app#sales`)
     await page.getByText('Business documents and templates', { exact: true }).click()
     await page.getByLabel('Business document kind', { exact: true }).selectOption('purchase-order')
     const generate = section(page, 'Generate a retained business PDF')
     await generate.getByLabel('Business document source', { exact: true }).selectOption(po.id)
     const generated = (await save(generate, 'Generate exact PDF')).result
-    const pdf = await context.request.get(`${h.origin}/api/pier/sales-documents/${generated.id}.pdf`)
-    expect(pdf.status()).toBe(200)
-    expect(await pdf.body()).toEqual(Buffer.from(generated.pdf, 'base64'))
+    const pdf = await h.request(`/api/pier/sales-documents/${generated.id}.pdf`)
+    expect(pdf.status).toBe(200)
+    expect(Buffer.from(await pdf.arrayBuffer())).toEqual(Buffer.from(generated.pdf, 'base64'))
     const form = section(page, 'Email a retained business PDF')
     await form.getByLabel('Retained business PDF', { exact: true }).selectOption(generated.id)
     await form.getByLabel('Business PDF recipient', { exact: true }).fill(supplierRecipient)
     const before = await h.state()
     expect((await save(form, 'Approve recipient and send retained PDF', false)).error.code).toBe('DOCUMENT_MAIL')
-    await expect(page.getByRole('alert')).toContainText('This Managed relay cannot attach PDFs')
-    await capture(page.locator('main'), 'pdf-refusal')
+    await expect(form.getByRole('alert')).toContainText('This Managed relay cannot attach PDFs')
+    await capture(form, 'pdf-refusal')
     const after = await h.state()
     for (const key of ['purchaseOrders', 'correspondence', 'salesDocuments', 'deliveries', 'movements', 'reservations', 'commands']) expect(after[key]).toEqual(before[key])
     expect(h.calls).toHaveLength(1)
-  } finally { await h.close() }
+  } finally { await page.unroute('**/api/pier/**', forward); await h.close() }
 })
 
 test('two distinct agents share one draft while current human authority alone approves and commits it', async ({ page, context, browser }) => {

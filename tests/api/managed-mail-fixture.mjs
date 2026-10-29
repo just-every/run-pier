@@ -6,11 +6,10 @@ export const attachmentNotice = 'PDF attachment unavailable: this Managed relay 
 
 // Only the external mail edge is simulated. Commands, authentication, durable
 // claims, scheduling and restart use the real Worker and persistent D1.
-export async function managedMailInstallation(uiOrigin) {
+export async function managedMailInstallation() {
   const calls = [];
   let ambiguous = false;
   const h = await installation({
-    uiOrigin,
     bindings: {
       RER_MANAGEMENT_ORIGIN: 'https://managed.example.test', MAIL_PROVIDER: 'rer',
       MAIL_FROM: ['purchasing', 'example.test'].join('@'),
