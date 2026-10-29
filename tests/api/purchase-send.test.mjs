@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { installation, basics, buy } from './harness.mjs';
+import { authenticatorCode } from './strong-auth-fixture.mjs';
+import { installation, basics, buy, parse } from './harness.mjs';
 
 test('BUY-006: an agent sends only the exact bounded human-approved purchase once', async t => {
   const mail = [];
@@ -129,7 +130,10 @@ test('BUY-006: an agent sends only the exact bounded human-approved purchase onc
 });
 
 test('purchase approval routes exact landed spend and exceptions to named humans with revocable delegation', async t => {
-  const h = await installation();
+  const mail = [], recipient = ['supplier', 'example.test'].join('@');
+  const h = await installation({ bindings: { MAIL_PROVIDER: 'resend', MAIL_FROM: ['buyer', 'example.test'].join('@'), MAIL_API_KEY: 'synthetic-pier-1' }, outboundService: async request => {
+    mail.push(await request.json()); return Response.json({ id: `synthetic-pier-${mail.length}` });
+  } });
   t.after(() => h.close());
   const b = await basics(h), ownerId = (await h.state()).actor.id;
   const entered = await fetch(`${h.origin}/auth/dev/enter?as=member`, { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
@@ -154,6 +158,38 @@ test('purchase approval routes exact landed spend and exceptions to named humans
   po = await draft({ freight: '3' });
   await h.command('po.approve', { poId: po.id, version: po.version }, { as: cookie, error: 'SPEND_LIMIT' });
   await h.command('po.commit', { poId: po.id, version: po.version }, { error: 'SPEND_LIMIT' });
+  // Independent six-place inputs produce an exact twelve-place spend.
+  const charges = { freight: '0.234567', duty: '0.345678', tax: '0.456789' };
+  const lines = [{ itemId: b.item.id, quantity: '1.25', price: '1.234568' }];
+  const expected = parse('1.25') * parse('1.234568') +
+    (parse(charges.freight) + parse(charges.duty) + parse(charges.tax)) * 1000000n;
+  assert.equal(expected, 2580244000000n);
+  const exactSpend = `${expected / 1000000000000n}.${String(expected % 1000000000000n).padStart(12, '0')}`;
+  policy = await h.command('purchaseApproval.save', { version: policy.version, limits: [
+    limit('2', ownerId), limit('2.580244', buyerId), limit('5', ownerId, { supplierId: null }),
+  ] });
+  po = await draft({ ...charges, lines });
+  po = await h.command('po.routeApproval', { poId: po.id, version: po.version });
+  assert.equal(po.approvalRoute.total, exactSpend);
+  assert.equal(po.approvalRoute.maxSpend, '2.580244');
+  assert.equal(po.approvalRoute.approverId, buyerId);
+  const businessExport = async () => {
+    const response = await h.request('/api/pier/export'); assert.equal(response.status, 200);
+    const { exportedAt, ...business } = await response.json(); return business;
+  };
+  const unchanged = async (type, payload, options) => {
+    const before = await businessExport(), requests = mail.length;
+    await h.command(type, payload, options);
+    assert.deepEqual(await businessExport(), before, type + ' refusal changes no business record or successful result');
+    assert.equal(mail.length, requests, 'refusal makes no network request');
+  };
+  await unchanged('po.approve', { poId: po.id, version: po.version }, { error: 'APPROVAL_ROUTE' });
+  await h.command('po.approve', { poId: po.id, version: po.version }, { as: cookie });
+  po = await h.command('po.commit', { poId: po.id, version: po.version });
+  assert.equal(po.status, 'committed', 'equality at the ceiling admits the exact purchase');
+  po = await draft({ ...charges, tax: '0.456790', lines });
+  await unchanged('po.approve', { poId: po.id, version: po.version }, { as: cookie, error: 'SPEND_LIMIT' });
+
   // An expired delegation never authorizes review; a current one does.
   limits = [limit('5', buyerId, { delegates: [{ actorId: ownerId, expiresAt: '2000-01-01T00:00:00Z' }] })];
   await h.command('purchaseApproval.save', { version: policy.version, limits }, { error: 'APPROVAL_POLICY' });
@@ -165,20 +201,108 @@ test('purchase approval routes exact landed spend and exceptions to named humans
   po = (await h.state()).purchaseOrders.find(r => r.id === po.id);
   assert.equal(po.approval, null);
   await h.command('po.commit', { poId: po.id, version: po.version }, { error: 'APPROVAL_ROUTE' });
-  po = await h.command('po.escalateApproval', { poId: po.id, version: po.version, reason: 'Buyer absent; explicit owner escalation' });
+  const escalationCommand = randomUUID(), escalationReason = 'Buyer absent; explicit owner escalation';
+  await unchanged('po.escalateApproval', { poId: po.id, version: po.version, reason: escalationReason }, { as: cookie, error: 'FORBIDDEN' });
+  po = await h.command('po.escalateApproval', { poId: po.id, version: po.version, reason: escalationReason }, { commandId: escalationCommand });
+  const checkEscalation = async () => {
+    const response = await h.request('/api/pier/audit?documentId=' + po.id); assert.equal(response.status, 200);
+    const activity = (await response.json()).find(event => event.commandId === escalationCommand);
+    assert.equal(activity.actorId, ownerId);
+    assert.equal(activity.reason, escalationReason);
+    const retained = activity.changes.find(change => change.id === po.id).after.approvalEscalation;
+    assert.deepEqual(retained, { policyVersion: policy.version, approverId: ownerId, reason: escalationReason, at: po.approvalEscalation.at, by: ownerId });
+    assert.deepEqual((await businessExport()).auditEvents.find(event => event.commandId === escalationCommand), activity);
+    return activity;
+  };
+  const escalation = await checkEscalation();
+  await h.restart();
+  assert.deepEqual(await checkEscalation(), escalation);
   await h.command('po.approve', { poId: po.id, version: po.version });
   await h.command('po.commit', { poId: po.id, version: po.version });
+  // Delegation never elevates an agent, viewer, restricted buyer or inactive person.
+  const expiresAt = new Date(Date.now() + 3600000).toISOString();
+  const delegated = () => [limit('5', ownerId, { delegates: [{ actorId: buyerId, expiresAt }] })];
+  const saveDelegation = () => h.command('purchaseApproval.save', { version: policy.version, limits: delegated() });
+  for (const role of ['agent', 'viewer']) {
+    await h.command('role.set', { operatorId: buyerId, role });
+    await unchanged('purchaseApproval.save', { version: policy.version, limits: delegated() }, { error: 'APPROVER' });
+  }
+  for (const restriction of [{ visibility: { costs: false } }, { permissions: { warehouses: ['North'], locationIds: [b.source.id] } }]) {
+    await h.command('role.set', { operatorId: buyerId, role: 'buyer', ...restriction });
+    await unchanged('purchaseApproval.save', { version: policy.version, limits: delegated() }, { error: 'APPROVER' });
+    await h.command('role.set', { operatorId: buyerId, role: 'buyer' });
+    policy = await saveDelegation();
+    po = await draft();
+    await h.command('po.approve', { poId: po.id, version: po.version }, { as: cookie });
+    await h.command('role.set', { operatorId: buyerId, role: 'buyer', ...restriction });
+    await unchanged('po.commit', { poId: po.id, version: po.version }, { error: 'APPROVER_REVOKED' });
+  }
+  await h.command('role.set', { operatorId: buyerId, role: 'buyer' });
+  policy = await saveDelegation();
+  po = await draft();
+  await h.command('po.approve', { poId: po.id, version: po.version }, { as: cookie });
+  await unchanged('po.commit', { poId: po.id, version: po.version }, {
+    headers: { 'x-pier-test-now': new Date(Date.parse(expiresAt) + 1).toISOString() }, error: 'APPROVAL_ROUTE',
+  });
+  policy = await h.command('purchaseApproval.save', { version: policy.version, limits: [limit('5', ownerId)] });
+  po = (await h.state()).purchaseOrders.find(row => row.id === po.id);
+  await unchanged('po.approve', { poId: po.id, version: po.version }, { as: cookie, error: 'APPROVAL_ROUTE' });
+  policy = await saveDelegation();
+  po = await draft();
+  await h.command('po.approve', { poId: po.id, version: po.version }, { as: cookie });
+  const factorTime = Date.now(), factorClock = { 'x-pier-test-now': new Date(factorTime).toISOString() };
+  const enrollment = await (await h.request('/auth/strong-auth/enroll', { method: 'POST', body: {}, headers: factorClock })).json();
+  const verified = await h.request('/auth/strong-auth/verify', { method: 'POST', body: { code: authenticatorCode(enrollment.secret, factorTime) }, headers: factorClock });
+  assert.equal(verified.status, 200);
+  const status = await h.request('/auth/operator/status', { method: 'POST', body: { operatorId: buyerId, status: 'inactive' } });
+  assert.equal(status.status, 200);
+  await unchanged('po.commit', { poId: po.id, version: po.version }, { error: 'APPROVER_REVOKED' });
+  await unchanged('purchaseApproval.save', { version: policy.version, limits: delegated() }, { error: 'APPROVER' });
+  assert.equal((await h.request('/api/pier/state', { as: cookie })).status, 401);
+  const reactivated = await h.request('/auth/operator/status', { method: 'POST', body: { operatorId: buyerId, status: 'active' } });
+  assert.equal(reactivated.status, 200);
+  const reentry = await fetch(`${h.origin}/auth/dev/enter?as=member`, { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
+  const renewedCookie = reentry.headers.getSetCookie().map(v => v.split(';')[0]).join('; ');
+
+  // A valid unconsumed send works before the edit, then its replacement is stopped.
+  await h.command('business.save', { name: 'Harbor Wholesale', address: '40 Pier Road' });
+  policy = await h.command('purchaseApproval.save', { version: policy.version, limits: [limit('5', ownerId)] });
+  const current = async id => (await h.state()).purchaseOrders.find(row => row.id === id);
+  const authorize = async () => {
+    let purchase = await current((await buy(h, b)).id);
+    return h.command('po.authorizeSend', { poId: purchase.id, version: purchase.version, recipient, maxSpend: '5', expiresAt, maxChases: 0, confirm: true });
+  };
+  let permitted = await authorize();
+  await h.command('po.sendApproved', { poId: permitted.id, version: permitted.version });
+  assert.equal(mail.length, 1, 'the otherwise identical exact-version grant really sends');
+  po = await authorize();
+  assert.equal(po.sendPolicy.enabled, true);
+  assert.equal(po.sendPolicy.messageId, undefined);
+  policy = await h.command('purchaseApproval.save', { version: policy.version, limits: [limit('5', ownerId)] });
+  po = await current(po.id);
+  assert.equal(po.approval, null);
+  assert.equal(po.sendPolicy.enabled, false);
+  await unchanged('po.sendApproved', { poId: po.id, version: po.version }, { error: 'SEND_AUTHORITY' });
+  const beforeScheduled = await businessExport();
+  await (await h.mf.getWorker()).scheduled({ scheduledTime: new Date(), cron: '* * * * *' });
+  assert.equal(mail.length, 1);
+  assert.deepEqual(await businessExport(), beforeScheduled, 'scheduled admission adds no business effect after policy edit');
+  await h.restart();
+  await (await h.mf.getWorker()).scheduled({ scheduledTime: new Date(), cron: '* * * * *' });
+  assert.equal(mail.length, 1);
+  assert.deepEqual(await businessExport(), beforeScheduled, 'restart cannot revive the stopped authority');
+
   // Supplier-specific exception limits cannot fall through to a larger general limit.
   await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, minimum: '1', minimumValue: '10', packSize: '1', price: '0.25', leadDays: 3, code: 'synthetic-pier-4' });
   policy = await h.command('purchaseApproval.save', { version: policy.version, limits: [limit('100', buyerId), limit('1', ownerId, { exceptionType: 'minimum-order' })] });
   po = await draft();
   assert.equal(po.minimumOrderValueUnmet, true);
-  await h.command('po.approve', { poId: po.id, version: po.version }, { as: cookie, error: 'SPEND_LIMIT' });
+  await h.command('po.approve', { poId: po.id, version: po.version }, { as: renewedCookie, error: 'SPEND_LIMIT' });
   await h.command('role.set', { operatorId: buyerId, role: 'agent' });
   await h.command('purchaseApproval.save', { version: policy.version, limits: [limit('100', buyerId)] }, { error: 'APPROVER' });
-  po = await draft({}, { as: cookie });
-  await h.command('po.approve', { poId: po.id, version: po.version }, { as: cookie, error: 'FORBIDDEN' });
-  await h.command('purchaseApproval.save', { version: policy.version, limits: [limit('100', ownerId)] }, { as: cookie, error: 'FORBIDDEN' });
+  po = await draft({}, { as: renewedCookie });
+  await h.command('po.approve', { poId: po.id, version: po.version }, { as: renewedCookie, error: 'FORBIDDEN' });
+  await h.command('purchaseApproval.save', { version: policy.version, limits: [limit('100', ownerId)] }, { as: renewedCookie, error: 'FORBIDDEN' });
 });
 
 test('supplier price and date evidence stops pending sends until exact human review and retains partial cancellations', async t => {
