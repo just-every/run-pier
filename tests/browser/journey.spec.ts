@@ -988,6 +988,11 @@ test('owners inspect holds and erase reviewed customer copies with durable stock
 test('receipt FX, weight allocation, late bills and mapped write-off settings remain reviewable at 1440 and 390', async ({ page, context }) => {
   test.setTimeout(240_000)
   const h = await salesHarness(page, context), pantry = await pantryInstallation()
+  const settleBooks = async () => {
+    // Real commands return before their background ledger work. Take refusal snapshots only after it finishes.
+    await expect.poll(async () => (await h.command('book.sync', {})).busy === true,
+      { timeout: 60_000, intervals: [250, 500, 1000] }).toBe(false)
+  }
   const business = async () => {
     const state = await h.state(), response = await context.request.get(`${h.base}/api/pier/export`)
     expect(response.ok()).toBe(true)
@@ -1056,6 +1061,7 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       state = await h.state();receipt=state.receipts.find((r:any)=>r.id===receipt.id)
       expect(receipt.lateBills[0].impacts).toEqual({inventory:'5.400000000000',cogs:'0.600000000000',expense:'0.000000000000'})
       await page.locator(`[id="document-${receipt.id}"]`).scrollIntoViewIfNeeded();await h.shot(width,'cost-retained-receipt')
+      await settleBooks()
       await page.goto(`${h.base}/app#floor/returns`);await page.reload()
       await page.getByLabel('Return bin',{exact:true}).selectOption(bin.id)
       await page.getByLabel('Condition',{exact:true}).selectOption('damaged');await page.getByLabel('Disposition',{exact:true}).selectOption('writeoff')
@@ -1101,6 +1107,7 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       await page.getByLabel('Write-off reason code',{exact:true}).fill(tag+' damaged')
       await page.getByLabel('Write-off owner approval limit USD',{exact:true}).fill('5.82')
       await page.getByRole('button',{name:'Save and reconnect',exact:true}).click();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+      await settleBooks()
       await page.goto(`${h.base}/app#floor/returns`);await page.reload()
       form = h.panel(`Inspect returned ${second.sku}`)
       await form.getByLabel('Inspection disposition',{exact:true}).selectOption('writeoff')
