@@ -1410,17 +1410,17 @@ Inherits BASE-AGENT-001 to BASE-AGENT-013. The company's policy decides every ca
 
 ## Status
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved.
+Judged from the code and tests at commit `22e9ae1c70213a32d556dbe6327660fff5e7dff0` (29 October 2026). PIER-001 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 8 | 4 | 0 | 12 |
+| Published | 9 | 3 | 0 | 12 |
 | Target and push further | 14 | 61 | 11 | 86 |
-| All | 22 | 65 | 11 | 98 |
+| All | 23 | 64 | 11 | 98 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
-| `PIER-001` | Define stock | published | partial | `src/pier/catalogue.ts`; `tests/api/flows.test.mjs` (01); `tests/api/security-import.test.mjs`; `tests/browser/journey.spec.ts` | Unasserted in the cited evidence: refusal of unit, pack and location-kind edits once a record is used, the atomicity of those refusals, and readable history after archiving. Asserted: fractional-pack items and bin and transit locations through the UI and authenticated commands, their use by purchase documents and counts, and archiving a used SKU, which then refuses new orders. `tests/api/catalogue.test.mjs` asserts a used item's pack-barcode change refused, outside this clause's evidence. |
+| `PIER-001` | Define stock | published | done | `tests/api/flows.test.mjs` — “01 item definitions and archive preserve used history” separately references fractional-pack definitions with supplier terms, purchase and sales documents, counts and movements; refuses unit, pack and used bin and transit kind changes with HISTORY and exact state and exported successful-result comparisons. “12 investigation export preserves every ledger and review link” archives the used SKU, rereads original movement, purchase, receipt and shipment links and costs through authenticated state and business export, and refuses new archived-item demand without effects. `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” creates fractional-pack stock and locations, uses documents and counts, refuses definition edits, archives the item and opens its History and original receipt; desktop and phone screens are inspected at 1440 and 390. |  |
 | `PIER-002` | Maintain counterparties and supplier terms | published | done | `tests/api/flows.test.mjs` — “02 supplier terms are exact snapshots” creates and revises terms, rereads the original committed PO and receipt through state and business export, verifies exact quantities, price, terms version and movement links, and refuses duplicate-pair creation without changing terms, history or successful commands; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” creates supplier terms and commits and receives the purchase. |  |
 | `PIER-003` | Review native opening inventory | published | done | `tests/api/security-import.test.mjs` — “native import graph revisions, grouped lines, frontier and safe undo” and “empty downstream import undo restores native snapshot and retains custody” prove reviewed cutover, unchanged replay, changed-source revision, safe undo and dependency refusal; “native import reads USD by default, refuses an unknown currency naming the row, and values AUD rows through the batch's reviewed rate” proves the MUG opening's 10 units, USD 2.50 unit cost and USD 25.00 source layer with exact import and movement links in reports and business export, reviewed AUD conversion, the USD default and named-row currency refusal. `tests/api/native-exit.test.mjs` — “native exit preserves approved allocation and explicit backorders across a fresh cutover” proves exact bin allocations, wholly backordered lines, replay and constrained undo. |  |
 | `PIER-004` | Commit sales demand without overselling | published | done | `src/pier/orders.ts`; `tests/api/flows.test.mjs` (04) |  |
