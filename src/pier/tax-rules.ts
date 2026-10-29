@@ -53,7 +53,7 @@ export function estimateTax(c: Context, customerId: string, destination: any, wa
   const table = c.s.salesPolicies.find(r => r.kind === 'tax-table' && r.state === destination?.state && r.country === (destination?.country ?? 'US'));
   const customer = get(c.s, 'parties', customerId), certificates = customer.resaleCertificates ?? [];
   const certificate = certificates.find((r: any) => r.state === destination?.state) ?? null;
-  const base = { source: 'Owner-maintained jurisdiction table', providerCommit: 'not-configured', destination: structuredClone(destination ?? null), table: structuredClone(table ?? null), certificate: structuredClone(certificate), lines: [] as any[], amount: null as string | null };
+  const base = { source: 'Owner-maintained jurisdiction table', providerCommit: 'not-configured', destination: destination ? { state: destination.state, country: destination.country ?? 'US' } : null, table: structuredClone(table ?? null), certificate: structuredClone(certificate), lines: [] as any[], amount: null as string | null };
   const review = (source: string) => ({ ...base, status: 'review', source });
   if (certificates.length && !certificate) return review('Missing exemption certificate for this destination');
   if (certificate && certificate.expires < c.now.slice(0, 10)) return review('Expired exemption certificate');
@@ -72,13 +72,13 @@ export function estimateTax(c: Context, customerId: string, destination: any, wa
     const rule = rateTable.rules?.products.find((r: any) => r.code === product?.taxCode);
     if (table.rules && (!product || !rule)) return review('Review the product tax code and its jurisdiction rate');
     const basis = amount(line.amount), rate = certificate ? '0' : rule?.rate ?? rateTable.rate;
-    evidence.push({ lineId: line.id, itemId: line.itemId, description: line.sku ?? get(c.s, 'items', line.itemId).sku, kind: 'product', taxCode: product?.taxCode ?? null, product: structuredClone(product ?? null), taxableAmount: money(basis), rate, amount: money(toCents(basis * decimal(rate) / (100n * SCALE))), exemption: certificate ? certificate.number : null });
+    evidence.push({ lineId: line.id, itemId: line.itemId, description: line.sku ?? get(c.s, 'items', line.itemId).sku, kind: 'product', taxCode: product?.taxCode ?? null, product: structuredClone(product ?? null), taxableAmount: money(basis), rate, amount: money(toCents(basis * decimal(rate) / (100n * SCALE))), exempt: Boolean(certificate) });
   }
   if (table.rules && charges.some(charge => charge.kind === 'discount' && charge.taxable) && new Set(evidence.map(line => line.rate)).size > 1) return review('Apply discounts to product prices before tax when their rates differ');
   for (const charge of charges) {
     const taxable = table.rules && ['freight', 'handling'].includes(charge.kind) ? table.rules[charge.kind + 'Taxable'] : charge.taxable;
     const basis = taxable ? amount(charge.amount) : 0n, rate = certificate ? '0' : rateTable.rate;
-    evidence.push({ lineId: charge.id, kind: charge.kind, taxable, taxableAmount: money(basis), rate, amount: money(toCents(basis * decimal(rate) / (100n * SCALE))), exemption: certificate ? certificate.number : null });
+    evidence.push({ lineId: charge.id, kind: charge.kind, taxable, taxableAmount: money(basis), rate, amount: money(toCents(basis * decimal(rate) / (100n * SCALE))), exempt: Boolean(certificate) });
   }
   return { ...base, status: 'estimate', basis: table.rules?.basis ?? 'destination', originState: table.rules?.originState ?? null, originWarehouse: table.rules?.originWarehouse ?? null, rateTable: structuredClone(rateTable), rate: certificate ? '0' : rateTable.rate, lines: evidence, taxableAmount: money(evidence.reduce((n, l) => n + amount(l.taxableAmount), 0n)), amount: money(evidence.reduce((n, l) => n + amount(l.amount), 0n)) };
 }
