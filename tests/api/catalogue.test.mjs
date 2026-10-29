@@ -128,6 +128,10 @@ test('CAT-001: reviewed variants, references and exact multi-pack barcodes survi
   const cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
   assert.equal((await h.request('/api/pier/native-export',{as:cookie})).status,403);
   const read=await(await h.request('/api/pier/state',{as:cookie})).json();assert.equal(read.customFieldDefinitions,undefined);assert.ok(read.items.every(i=>i.customFields===undefined));assert.ok(read.orders.every(o=>o.customFields===undefined));
+  const physicalCaseLine = read.orders.find(row=>row.id===caseQuote.id).lines[0];
+  assert.equal(physicalCaseLine.reserved,'12','private-field omission preserves the actual physical reservation');
+  assert.equal(physicalCaseLine.backorder,'0','staff can render remaining physical demand without commercial fields');
+  assert.equal(physicalCaseLine.price,undefined);
   await h.command('customField.define',{ownerType:'item',type:'text',key:'forbidden',label:'Forbidden'},{as:cookie,error:'FORBIDDEN'});
   assert.equal((await h.request('/api/pier/custom-fields?ownerType=item&field=finish&value=%22gloss%22',{as:cookie})).status,403);
 

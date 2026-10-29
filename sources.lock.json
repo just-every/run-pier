@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "0ed8f5b59936bffd8885549db529623108021581e4f4a13d752457b711c08029",
+      "sha256": "04d898b061328e46ddf28eef2883665d20b7a716779c0092aad07c066679a51e",
       "executable": false
     },
     ".gitignore": {
@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b6378a817fab859efffd687b00e47279d8f172ff6d15ec499ddde6cbd4c385cd",
+      "sha256": "b68b6d5d2b3724c05adf22831ccf8cb5a60e5edae6fbac88c358f38bf97b86ac",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "efbd523c82c01c09b8d846f09d2be939450872aee22d210357026c76cec9b49a",
+      "sha256": "f6e187c372f330195820f0aec5c10656db860d08897dc594689a7f1acee0cc7b",
       "executable": false
     },
     "DEMO.md": {
@@ -3759,7 +3759,7 @@
       "executable": false
     },
     "src/pier/role-reads.ts": {
-      "sha256": "be79ada0909b9f5c6413950fddab0f0df534989c5499315939429afbe40fa5ab",
+      "sha256": "79b2ce997ef1306f4212f70b8ed206f5e324e3e42f47745ef0ab7e77802520dc",
       "executable": false
     },
     "src/pier/role-visibility.ts": {
@@ -4467,7 +4467,7 @@
       "executable": false
     },
     "src/ui/orders/detail.tsx": {
-      "sha256": "8dea40f584d31d3965c0057f1ac4db5f05afe8beeb442d718777833964ee59a5",
+      "sha256": "d6012e52154fbfe66812b2ef32f018496b02b1529d3c13dbe74b17d88d320ada",
       "executable": false
     },
     "src/ui/orders/document-intake.tsx": {
@@ -4515,7 +4515,7 @@
       "executable": false
     },
     "src/ui/orders/queue.tsx": {
-      "sha256": "412d475e91b6493fd521b57f0c27ebf39bf2e11be4b145b4993fb4988bb6c4e9",
+      "sha256": "678d3faa705e138366d8e732e2469300bfd96beb172dd29ee520b5fd284ac563",
       "executable": false
     },
     "src/ui/orders/quote-approval.tsx": {
@@ -4659,7 +4659,7 @@
       "executable": false
     },
     "src/ui/style/records.css": {
-      "sha256": "abe3996f4df7f33e6673d88ec95bca3cb69c29c5a6ab27a60586b275d1d5ec04",
+      "sha256": "d0c209aef7a31e6129d2d97c51e079a1acb4ae94e81173a3b724f44817cef2c9",
       "executable": false
     },
     "src/ui/style/replenishment.css": {
@@ -4727,7 +4727,7 @@
       "executable": false
     },
     "tests/api/catalogue.test.mjs": {
-      "sha256": "b7c16e3df9b13c1ce1108930c84a53116f5a886b15e39cd48bddcf746ec02446",
+      "sha256": "1dc7528dacc0a86525c979da760397a6c5e7d575ece5c1489ea3c32653a1c3b0",
       "executable": false
     },
     "tests/api/channel-edge.mjs": {
@@ -4915,7 +4915,7 @@
       "executable": false
     },
     "tests/browser/catalogue-custody.ts": {
-      "sha256": "083eef013fc516bae69957dde48a397c3304ef0d932af5a3e4c0c20c32b11a69",
+      "sha256": "6ab9c3f23032a7e9d18a3033d65e664f805f8b38020627b1c4790fe8293127b2",
       "executable": false
     },
     "tests/browser/catalogue.spec.ts": {
