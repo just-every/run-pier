@@ -21,6 +21,7 @@ export function QuoteApprovalSettings({ state, run, busy }: {
         <option value="owner">Owner</option><option value="operator">Sales operator</option><option value="buyer">Buyer</option>
       </select>
     </label>
+    {policy && <p>Current designation reason: {policy.reason}</p>}
     <Field label="Quote authority change reason" name="reason" />
   </Form>;
 }

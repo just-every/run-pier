@@ -28,6 +28,9 @@ export function Commercial({
   const approverRole = approvalPolicy(state)?.role ?? 'owner';
   return (
     <>
+      {order.tax?.table && (
+        <p>Tax estimate: <Amount value={order.tax.amount} /> USD · Owner tax table {order.tax.table.state} version {order.tax.table.version} · {order.tax.rate}%.</p>
+      )}
       {quote && (
         <>
           <Form

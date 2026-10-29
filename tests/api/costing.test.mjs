@@ -117,19 +117,21 @@ test('landed receipts, priced shipments and dated FIFO/average reports reconcile
 
 
 test('versioned case quotes retain discounted tax PDFs, exact approval and once-only acceptance', async t => {
+  const now='2026-10-29T12:00:00Z';
   const mail=[];let reject=false,uncertain=false;
-  const h=await installation({bindings:{MAIL_PROVIDER:'resend',MAIL_FROM:'sales@example.test',MAIL_API_KEY:'synthetic-pier-1'},outboundService:async request=>{mail.push(await request.json());if(uncertain)return new Response('No confirmed acceptance',{status:503});return reject?new Response('Declined',{status:422}):Response.json({id:`synthetic-pier-${mail.length}`});}});t.after(()=>h.close());
+  const h=await installation({now,bindings:{MAIL_PROVIDER:'resend',MAIL_FROM:'sales@example.test',MAIL_API_KEY:'synthetic-pier-1'},outboundService:async request=>{mail.push(await request.json());if(uncertain)return new Response('No confirmed acceptance',{status:503});return reject?new Response('Declined',{status:422}):Response.json({id:`synthetic-pier-${mail.length}`});}});t.after(()=>h.close());
   const b=await basics(h);
   await h.command('business.save',{name:'Harbor Wholesale Supply',address:'30 Dock Road, San Francisco CA 94107',shipTo:{}});
   const po=await h.command('po.draft',{supplierId:b.supplier.id,promiseDate:'2026-11-01',reason:'Quote stock',lines:[{itemId:b.item.id,quantity:'20',price:'1'}]});
   await h.command('po.approve',{poId:po.id,version:po.version});await h.command('po.commit',{poId:po.id,version:po.version});await h.command('receipt.create',{poId:po.id,supplierReference:'synthetic-pier-1',lines:[{poLineId:po.lines[0].id,locationId:b.source.id,quantity:'20',cost:'1'}]});
-  await h.command('sales.taxTable',{state:'CA',rate:'8',reason:'Owner reviewed jurisdiction estimate'});
+  const taxTable=await h.command('sales.taxTable',{state:'CA',rate:'8',reason:'Owner reviewed jurisdiction estimate'});
   await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'0',price:'10'});
   await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'5',price:'8'});
   const params={customerId:b.customer.id,warehouse:'North',shipTo:{state:'CA',country:'US',postalCode:'94107'},discountPercent:'10',lines:[{itemId:b.item.id,quantity:'12',unit:'case'}]};
   await h.command('quote.create',{...params,routingSource:'channel:synthetic-pier-1'},{error:'ROUTING_SOURCE'});
   let quote=await h.command('quote.create',params);
   assert.deepEqual([quote.lines[0].quantity,quote.lines[0].price,quote.subtotal,quote.tax.amount,quote.total],['6','7.2','43.200000000000','3.460000000000','46.660000000000']);
+  assert.deepEqual(quote.tax.table,taxTable,'the estimate retains the publicly approved table identity and version');
   const small=await h.command('quote.create',{...params,lines:[{itemId:b.item.id,quantity:'1'}]});assert.equal(small.lines[0].price,'9');
   await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
   const entered=await fetch(`${h.origin}/auth/dev/enter?as=member`,{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}}),cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
@@ -141,11 +143,35 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   const pdf=Buffer.from(mail[0].attachments[0].content,'base64');assert.match(pdf.toString(),/^%PDF-/);const rendered=await pdfText(pdf);assert.match(rendered,/12 case.*6 each/s);assert.match(rendered,/46\.66(?:0000000000)?/);
   const pdfResponse=await h.request(`/api/pier/sales-documents/${doc.id}.pdf`);assert.equal(pdfResponse.status,200);assert.equal(pdfResponse.headers.get('content-type'),'application/pdf');assert.deepEqual(Buffer.from(await pdfResponse.arrayBuffer()),pdf);
   assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:''})).status,401);
+  assert.deepEqual(doc.snapshot.tax.table,taxTable);
+  assert.ok(rendered.includes(`Owner tax table CA version ${taxTable.version}`));
+  const revisedTable=await h.command('sales.taxTable',{state:'CA',version:taxTable.version,rate:'9',reason:'Owner reviewed a new jurisdiction rate'});
+  assert.equal(revisedTable.id,taxTable.id);assert.equal(revisedTable.version,taxTable.version+1);
+  await h.restart();
+  const retained=(await h.state()).orders.find(o=>o.id===quote.id);
+  assert.deepEqual(retained.tax.table,taxTable,'a later table edit and restart cannot rewrite an existing estimate');
+  const beforeStale=await(await h.request('/api/pier/export')).json();
+  assert.deepEqual(beforeStale.orders.find(o=>o.id===quote.id).tax.table,taxTable);
+  assert.deepEqual(beforeStale.salesDocuments.find(d=>d.id===doc.id).snapshot.tax.table,taxTable);
+  assert.deepEqual(beforeStale.salesPolicies.find(p=>p.id===taxTable.id),revisedTable);
+  await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Cannot approve a stale table'},{error:'QUOTE_TAX'});
+  await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_TAX'});
+  await h.command('quote.send',send,{error:'QUOTE_TAX'});
+  await h.command('print.send',{documentId:doc.id,version:doc.version,recipient:send.recipient},{error:'QUOTE_TAX'});
+  const afterStale=await(await h.request('/api/pier/export')).json();
+  for(const key of ['orders','reservations','movements','shipments','salesDocuments','salesPolicies','commands'])
+    assert.deepEqual(afterStale[key],beforeStale[key],`stale table refusal leaves ${key} unchanged`);
+  assert.equal(mail.length,1,'a stale estimate cannot send another PDF');
   const old=quote;quote=await h.command('quote.revise',{...params,orderId:quote.id,version:quote.version,lines:[{itemId:b.item.id,quantity:'10',price:'9'}],reason:'Buyer revised draft quantity and price'});
+  assert.deepEqual(quote.tax.table,revisedTable);
+  assert.deepEqual(quote.quoteHistory.at(-1).tax.table,taxTable);
+  assert.deepEqual([quote.tax.amount,quote.total],['7.290000000000','88.290000000000']);
+  await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
   assert.equal(quote.quoteApproval,null);assert.deepEqual([quote.quoteHistory.at(-1).validUntil,quote.quoteHistory.at(-1).shipTo,quote.quoteHistory.at(-1).discountPercent,quote.quoteHistory.at(-1).routing],[old.validUntil,old.shipTo,old.discountPercent,old.routing]);await h.command('quote.accept',{orderId:quote.id,version:old.version},{error:'STALE'});
   assert.deepEqual(Buffer.from(await (await h.request(`/api/pier/sales-documents/${doc.id}.pdf`)).arrayBuffer()),pdf);
   await h.command('print.send',{documentId:doc.id,version:doc.version,recipient:'buyer@example.test'},{error:'QUOTE_STATE'});
   quote=await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Reviewed revised price and quantity'});
+  assert.deepEqual(quote.tax.table,revisedTable,'renewed review uses the new table version');
   const accepted=await h.command('quote.accept',{orderId:quote.id,version:quote.version});const count=(await h.state()).orders.length;
   await h.command('quote.accept',{orderId:quote.id,version:quote.version});assert.equal((await h.state()).orders.length,count);assert.equal(accepted.lines[0].reserved,'10');
   const confirmation=await h.command('order.confirm',{orderId:accepted.id,version:accepted.version,recipient:'buyer@example.test'});assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===confirmation.id).phase,'sent');
@@ -158,27 +184,27 @@ test('versioned case quotes retain discounted tax PDFs, exact approval and once-
   assert.ok(mailHealth.lastSuccessfulSync);
   assert.ok(mailHealth.effects.some(row => row.id === pending.id && row.state === 'uncertain'));
   assert.ok(!JSON.stringify(mailHealth).includes('buyer@example.test'));
-  let expiring=await h.command('quote.create',{...params,validUntil:new Date().toISOString().slice(0,10)});expiring=await h.command('quote.approve',{orderId:expiring.id,version:expiring.version,reason:'Exact expiring quote'});
-  await h.command('quote.accept',{orderId:expiring.id,version:expiring.version},{headers:{'x-pier-test-now':new Date(Date.now()+86400000).toISOString()},error:'QUOTE_EXPIRED'});
+  let expiring=await h.command('quote.create',{...params,validUntil:new Date(now).toISOString().slice(0,10)});expiring=await h.command('quote.approve',{orderId:expiring.id,version:expiring.version,reason:'Exact expiring quote'});
+  await h.command('quote.accept',{orderId:expiring.id,version:expiring.version},{headers:{'x-pier-test-now':new Date(Date.parse(now)+86400000).toISOString()},error:'QUOTE_EXPIRED'});
   assert.equal((await h.request('/api/pier/export',{as:cookie})).status,403);assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:cookie})).status,403);
   let revisedAcceptance=await h.command('quote.revise',{...params,orderId:accepted.id,version:accepted.version,lines:[{itemId:b.item.id,quantity:'9',price:'9'}],reason:'Buyer changed an accepted unpicked quantity'});assert.equal(revisedAcceptance.acceptedAt,null);assert.equal(revisedAcceptance.quoteApproval,null);assert.ok(revisedAcceptance.quoteHistory.at(-1).acceptedAt);assert.deepEqual(revisedAcceptance.quoteHistory.at(-1).lines,accepted.lines.map(({reserved,backorder,...line})=>line));
   await h.command('quote.accept',{orderId:accepted.id,version:accepted.version},{error:'STALE'});revisedAcceptance=await h.command('quote.approve',{orderId:accepted.id,version:revisedAcceptance.version,reason:'Approved the buyer revision'});await h.command('quote.accept',{orderId:accepted.id,version:revisedAcceptance.version});assert.equal((await h.state()).orders.filter(o=>o.id===accepted.id).length,1);
 
   const alternateCustomer=await h.command('party.save',{kind:'customer',name:'synthetic-pier-2'});
-  const tier=await h.command('priceList.save',{customerId:alternateCustomer.id,itemId:b.item.id,minimumQuantity:'0',price:'12',validTo:new Date().toISOString().slice(0,10)});
+  const tier=await h.command('priceList.save',{customerId:alternateCustomer.id,itemId:b.item.id,minimumQuantity:'0',price:'12',validTo:new Date(now).toISOString().slice(0,10)});
   let tierQuote=await h.command('quote.create',{...params,customerId:alternateCustomer.id,discountPercent:'0',lines:[{itemId:b.item.id,quantity:'1'}]});
   assert.equal(tierQuote.lines[0].price,'12','a different customer tier is used');
   tierQuote=await h.command('quote.approve',{orderId:tierQuote.id,version:tierQuote.version,reason:'Reviewed this customer price tier'});
-  await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{headers:{'x-pier-test-now':new Date(Date.now()+86400000).toISOString()},error:'QUOTE_PRICING'});
+  await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{headers:{'x-pier-test-now':new Date(Date.parse(now)+86400000).toISOString()},error:'QUOTE_PRICING'});
   await h.command('priceList.save',{...tier,price:'13'});
   await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{error:'QUOTE_PRICING'});
   await h.command('quote.send',{orderId:tierQuote.id,version:tierQuote.version,recipient:'buyer@example.test'},{error:'QUOTE_PRICING'});
   tierQuote=await h.command('quote.revise',{...params,customerId:alternateCustomer.id,orderId:tierQuote.id,version:tierQuote.version,discountPercent:'0',lines:[{itemId:b.item.id,quantity:'1'}],reason:'New price requires renewed acceptance'});
   assert.equal(tierQuote.lines[0].price,'13');assert.equal(tierQuote.quoteApproval,null);await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{error:'QUOTE_APPROVAL'});
-  const customer=(await h.state()).parties.find(p=>p.id===b.customer.id),certificateExpiry=new Date(Date.now()+3*86400000).toISOString().slice(0,10);
+  const customer=(await h.state()).parties.find(p=>p.id===b.customer.id),certificateExpiry=new Date(Date.parse(now)+3*86400000).toISOString().slice(0,10);
   await h.command('customer.resaleCertificate',{customerId:customer.id,version:customer.version,state:'CA',number:'synthetic-pier-1',document:'Owner-retained synthetic certificate',reason:'Resale exemption',expires:certificateExpiry});
   let exempt=await h.command('quote.create',params);assert.equal(exempt.tax.amount,'0.000000000000');assert.equal(exempt.tax.certificate.number,'synthetic-pier-1');exempt=await h.command('quote.approve',{orderId:exempt.id,version:exempt.version,reason:'Reviewed resale exemption and price'});
-  const expiredClock={headers:{'x-pier-test-now':new Date(Date.now()+4*86400000).toISOString()}};
+  const expiredClock={headers:{'x-pier-test-now':new Date(Date.parse(now)+4*86400000).toISOString()}};
   await h.command('quote.accept',{orderId:exempt.id,version:exempt.version},{...expiredClock,error:'QUOTE_TAX'});
   const flagged=await h.command('quote.create',params,expiredClock);assert.equal(flagged.tax.status,'review');assert.equal(flagged.total,null);
   await h.command('quote.approve',{orderId:flagged.id,version:flagged.version,reason:'Cannot waive expired certificate'},{...expiredClock,error:'QUOTE_TAX'});
@@ -299,6 +325,13 @@ test('quote approver role defaults to Owner and policy or live role changes revo
   await h.command('sales.quoteApprovalPolicy',{version:0,role:'agent',reason:'Agents cannot approve themselves'},{error:'APPROVER_ROLE'});
   quote=await h.command('quote.approve',approve());
   let policy=await h.command('sales.quoteApprovalPolicy',{version:0,role:'operator',reason:'Owner delegates commercial approval to sales operators'});
+  const designation={role:'operator',version:policy.version,approvedBy:(await h.state()).actor.id,at:policy.at,reason:'Owner delegates commercial approval to sales operators'};
+  assert.equal(policy.reason,designation.reason);assert.equal(policy.approvedBy,designation.approvedBy);
+  await h.restart();
+  assert.deepEqual((await h.state()).salesPolicies.find(p=>p.id===policy.id),policy);
+  let exported=await(await h.request('/api/pier/export')).json();
+  assert.deepEqual(exported.salesPolicies.find(p=>p.id===policy.id),policy);
+
   await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
   quote=await h.command('quote.approve',approve(),{as:cookie});assert.equal(quote.quoteApproval.actorId,member.actor.id);assert.equal(quote.quoteApproval.policyVersion,policy.version);
   await h.command('business.save',{name:'Harbor Wholesale',address:'30 Dock Road',shipTo:{}});const retained=await h.command('print.generate',{kind:'quote',sourceId:quote.id});
@@ -312,6 +345,14 @@ test('quote approver role defaults to Owner and policy or live role changes revo
   await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
   policy=await h.command('sales.quoteApprovalPolicy',{version:policy.version,role:'owner',reason:'Return approval to Owner'});
   assert.equal(policy.history.at(-1).role,'operator');assert.equal(policy.approvedBy,(await h.state()).actor.id);
+  assert.equal(policy.reason,'Return approval to Owner');
+  assert.deepEqual(policy.history.at(-1),designation);
+  await h.restart();
+  assert.deepEqual((await h.state()).salesPolicies.find(p=>p.id===policy.id),policy);
+  exported=await(await h.request('/api/pier/export')).json();
+  assert.deepEqual(exported.salesPolicies.find(p=>p.id===policy.id),policy);
+  assert.deepEqual(exported.salesPolicies.find(p=>p.id===policy.id).history.at(-1),designation);
+
   await h.command('quote.approve',approve(),{as:cookie,error:'FORBIDDEN'});
   await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
   quote=await h.command('quote.approve',approve());

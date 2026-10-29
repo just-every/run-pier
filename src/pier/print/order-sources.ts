@@ -22,7 +22,7 @@ export function orderSource(c:Context,kind:string,sourceId:string):DocumentSourc
     }):order.lines.map((l:any)=>itemLine(c,l,customer.id));
     return {source:order,sourceKind:'orders',reference:order.reference,recipient:customer.name,lines,
       fields:[{label:'Destination',value:businessParticulars(order.shipTo)},{label:'Customer PO',value:order.customerPO??'Not supplied'},{label:'Currency',value:order.currency??'USD'}],
-      totals:order.total?[{label:'Subtotal',value:order.subtotal??order.total},{label:'Tax estimate',value:order.tax?.amount??'Pending'},{label:'Total',value:order.total}]:[]};
+      totals:order.total?[{label:'Subtotal',value:order.subtotal??order.total},{label:order.tax?.table?`Tax estimate · Owner tax table ${order.tax.table.state} version ${order.tax.table.version}`:'Tax estimate',value:order.tax?.amount??'Pending'},{label:'Total',value:order.total}]:[]};
   }
   if(kind==='packing-slip'){
     const pack=get(c.s,'packs',sourceId),order=get(c.s,'orders',pack.orderId),customer=get(c.s,'parties',order.customerId);
