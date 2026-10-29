@@ -177,3 +177,13 @@ they do not offer automatic paid retries. EDI uncertainty requires its existing
 verified bridge receipt or explicit human reconciliation. Mail reports provider
 acceptance separately from actual inbox delivery, and has no shared incremental
 checkpoint.
+
+## Native substitute comparisons
+
+These commands retain internal recommendations. They never substitute a line, reserve or move stock, purchase, change a promise or send a message.
+
+- `substitute.mappingSave` takes `{itemId,alternativeItemId,version?,enabled,reason}`. A current owner records an exact alternative with the same base unit; archived items, tracked items, kits and self-mappings refuse. Revisions require the current mapping version and retain the previous record. Disabling a mapping invalidates earlier comparisons.
+- `substitute.prepare` takes `{poId,version}` through the ordinary authenticated command door. A current owner or unrestricted native agent selects an approved committed PO with a retained manual supplier confirmation. Pier computes delayed supply already linked to affected customer shortages and compares only owner-recorded exact alternatives in current routing-eligible bins. Quantities subtract all reservations and protected holds and consume the comparison pool once across its affected lines. Missing mappings and uncovered demand remain explicit. Native agents receive preparation identity and status only; the owner inspects retained customer and supplier evidence.
+- `substitute.review` takes `{proposalId,version,poId,decision,reason,confirm:true}`. Only a current owner may record `accepted` or `declined` for the exact source and preparation version. Source and authority changes require fresh preparation. Each decision retains its actor, input digest, time and reason; recovering the same command identity adds no second decision or business effect.
+
+The owner state and business export retain each comparison's mapping versions, manual supplier-reply identity, purchase and order versions, exact stock-movement frontier, source content digests and bin calculations. Source links select one record through the authenticated owner export using its collection, identity and retained content digest; a changed source refuses with `STALE_SOURCE` instead of silently returning newer evidence. Agent access supplies no additional customer, cost, price, document or export grant. Native preparation does not connect a mailbox or infer product equivalence; provider intake, scoped service credentials and executable business actions remain separate obligations.

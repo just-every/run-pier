@@ -80,3 +80,8 @@
   .pier-app .custody-records .facts-list > div { display: block; }
   .pier-app .custody-records .facts-list dt { margin-bottom: 4px; }
 }
+
+.pier-app .supplier-substitutes .table-wrap th,
+.pier-app .supplier-substitutes .badge,
+.pier-app .supplier-substitutes td[data-label]::before { font-size: 13px; }
+.pier-app .supplier-substitutes li { overflow-wrap: anywhere; }
