@@ -4943,7 +4943,7 @@
       "executable": false
     },
     "tests/browser/reorder-list.spec.ts": {
-      "sha256": "2f877e7ea6c1a25c53c194bf8e10007a17c9bc89d2447dd0b30b53f69acf09a7",
+      "sha256": "4bc761057530eeb1ecfa7f991813a72ffdf1dfa0a2060c0040ec0e862ff612fa",
       "executable": false
     },
     "tests/browser/role-access-journey.ts": {
