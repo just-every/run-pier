@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "fcb37921ab4f6875ab14388e7201fc6ac18b7202b8b27b1ebab738e0c6ddaef7",
+      "sha256": "8c0f2eb591f74568b54051493a168dd6a5f6260c3050d91dd55cd702ed124be4",
       "executable": false
     },
     ".gitignore": {
@@ -4831,7 +4831,7 @@
       "executable": false
     },
     "tests/api/returns.test.mjs": {
-      "sha256": "6be77947024203696eef4a9cf0815b48f7e35ae7c4411f2d470e5211f410094a",
+      "sha256": "a56e087b612131186607ec4c2a2a3809185a523cdb31f0f057da79a6f43bd6fa",
       "executable": false
     },
     "tests/api/role-scenarios.mjs": {
@@ -4923,7 +4923,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "ddd7ca5309fb52800df2bfde85bf1908abb2ca9d63a3955bd8267458d1c6835c",
+      "sha256": "3b2be5d536ba54c1056280baf116bbaf2a66b9f0b740541064405fcd6fc14cf1",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
