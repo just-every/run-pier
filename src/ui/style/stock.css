@@ -36,8 +36,11 @@
 .pier-app .stock-detail .detail-actions { display: grid; gap: 12px; padding-left: 24px; border-left: 1px solid var(--app-line); }
 .pier-app .stock-detail .detail-head { grid-column: 1 / -1; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .pier-app .stock-detail .detail-head .detail-variant { margin: 0; }
-.pier-app .stock-detail .collapse { flex: none; width: 44px; min-height: 44px; margin: -8px -8px 0 0; padding: 0; border: 0; }
+.pier-app .stock-detail .collapse { position: relative; flex: none; width: 44px; min-height: 44px; margin: -8px -8px 0 0; padding: 0; border: 0; }
 .pier-app .stock-detail .collapse svg { transform: rotate(180deg); }
+.pier-app .stock-detail .collapse [role="tooltip"] { position: absolute; z-index: 2; top: calc(100% + 6px); right: 0; padding: 6px 10px; border: 1px solid var(--ink); border-radius: var(--app-radius); background: var(--ink); color: var(--surface); font-size: 13px; line-height: 18px; white-space: nowrap; pointer-events: none; visibility: hidden; transition: visibility 0s; }
+.pier-app .stock-detail .collapse:hover [role="tooltip"] { visibility: visible; transition-delay: .3s; }
+.pier-app .stock-detail .collapse:focus [role="tooltip"] { visibility: visible; transition-delay: 0s; }
 
 @media (max-width: 1180px) {
   .pier-app .filters { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
