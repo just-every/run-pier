@@ -9,12 +9,16 @@ const cents = value => { const [whole, fraction = ''] = value.split('.'); assert
 // supplemental bill, a guessed account, a changed baseline or a stock effect.
 async function costEffects(pier, pantry) {
   const state = await pier.invariant();
-  const exported = await (await pier.request('/api/pier/export')).json();
-  const report = await (await pier.request('/api/pier/reports')).json();
+  const exportResponse = await pier.request('/api/pier/export');
+  assert.equal(exportResponse.status, 200);
+  const exported = await exportResponse.json();
+  const reportResponse = await pier.request('/api/pier/reports');
+  assert.equal(reportResponse.status, 200);
+  const report = await reportResponse.json();
   return {
     version: state.version, receipts: state.receipts, supplierBills: state.supplierBills,
     positions: state.positions, movements: state.movements, reservations: state.reservations,
-    counts: state.counts, jobs: state.bookJobs, commands: exported.commands,
+    counts: state.counts, connections: state.bookConnections, jobs: state.bookJobs, commands: exported.commands,
     valuation: report.valuation, margin: report.margin,
     bills: (await pantry.view('sales')).bills,
     journals: (await pantry.view('journal')).entries,
@@ -117,6 +121,7 @@ test('landed receipts and late weight-allocated bills reconcile Pantry after par
     // values and physical events while supplementing their retained cost layers.
     const original = structuredClone(state.receipts.find(r => r.id === receipt.id));
     const movements = structuredClone(state.movements);
+    const originalJournals = (await pantry.view('journal')).entries.map(({ documents, ...posting }) => posting);
     loseLateResponse = true;
     const lateInput = { receiptId: receipt.id, version: original.version, reference: 'synthetic-pier-201', reason: 'Approved late carrier bill', landedCost: { freight: '33', duty: '0', allocation: 'weight' } };
     const lateId = crypto.randomUUID();
@@ -136,6 +141,9 @@ test('landed receipts and late weight-allocated bills reconcile Pantry after par
     assert.deepEqual(await pier.command('receipt.landed', lateInput, { commandId: lateId }), late);
     assert.equal(state.bookJobs.find(j => j.key === `late-bill:${late.id}`).status, 'posted');
     const latePayables = (await pantry.view('sales')).bills.filter(b => b.reference === state.bookJobs.find(j => j.key === `late-bill:${late.id}`).reference);
+    // Receipt-state attachments can grow; posted amounts, lines and dates cannot.
+    const journalsAfterLateBill = (await pantry.view('journal')).entries.map(({ documents, ...posting }) => posting);
+    for (const journal of originalJournals) assert.deepEqual(journalsAfterLateBill.find(j => j.id === journal.id), journal, 'a successful supplemental posting preserves every original Pantry journal');
     assert.equal(latePayables.length, 1);
     assert.equal(state.supplierBills.find(b => b.id === bill.id).match.withinTolerance, true, 'late payables do not consume the original goods receipt allocation');
     assert.equal(latePayables[0].open_cents, 3300);

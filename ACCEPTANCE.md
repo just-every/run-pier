@@ -8,10 +8,10 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 25 | 62 | 4 | 91 |
+| Core | 26 | 61 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 25 | 62 | 11 | 98 |
+| Full target | 26 | 61 | 11 | 98 |
 
 Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
@@ -747,7 +747,7 @@ Core · target · **partial** · From BUY-005
 
 #### COST-001 — USD valuation, landed cost and cost of goods
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** US first buyers operate in USD with US dates/addresses, named IANA time zones and explicit sales-tax treatment. Configure FIFO or moving-average costing and a controlled opening/cutover policy; allocate freight, duty, insurance and other landed costs by reviewed value, quantity or weight. Receipts, late landed-cost bills, transfers, returns, write-offs and partial shipments produce traceable valuation layers, COGS and margin without rewriting original physical events. Foreign-currency purchases and SALES-006 foreign-currency sales retain source currency/rate and USD value. ACCOUNT-001, ACCOUNT-002, COUNT-001 and REPORT-002 inherit these valuation and once-only reconciliation semantics as their additional doors ship.
 
@@ -761,8 +761,8 @@ Core · target · **partial**
 7. Original journals keep their baseline amounts.
 8. Unbuilt baseline documents, unmapped prior adjustments, fractional-cent payables and provider period-lock refusals remain explicit review, with no guessed account or changed accounting date.
 
-**Evidence.** `tests/api/books-landed.test.mjs` — “landed receipts and late weight-allocated bills reconcile Pantry after partial shipment, return and response loss” proves receipt FX, exact weight shares, late inventory and COGS and mapped damage expense, retained originals, replay and uncertain readback; “FIFO and moving-average late bill deltas reconcile exact Pantry inventory, net COGS and shipment margin across two cost layers” proves reviewed USD openings, both methods, approved Pantry balances, fractional-cent review and period-lock refusal at the network edge. `tests/api/returns.test.mjs` — “one-scan returns restock, quarantine and write off actual dispatches with native Pantry credits and exact costs” proves reason mappings, approval limits, atomic refusal and exact expense. `tests/browser/journey.spec.ts` — “receipt FX, weight allocation, late bills and mapped write-off settings remain reviewable at 1440 and 390” proves the operator screens at both widths. `tests/api/supplier-returns.test.mjs` — “BUY-003: quarantine, supplier authority, once-only dispatch, credit and replacement evidence preserve receipt and outstanding PO” proves retained insurance and other charge shares on replacements and exact Pantry inventory.
-**Gap.** Unasserted: unbuilt baseline documents and unmapped prior adjustments staying in explicit review. Asserted: receipt FX, freight and duty split in whole cents, weight allocation, late-bill supplemental shares with unchanged original lines, FIFO and moving-average reconciliation, fractional-cent review and period-lock refusal.
+**Evidence.** `tests/api/books-landed.test.mjs` — “landed receipts and late weight-allocated bills reconcile Pantry after partial shipment, return and response loss” proves receipt FX, exact weight shares, late inventory and COGS and mapped damage expense, retained originals, unchanged original Pantry journals, replay and uncertain readback; unbuilt original journal and unmapped prior count-adjustment refusals preserve receipts, late bills, positions, movements, cost layers, account mappings, jobs, successful commands and independently read Pantry bills and journals; “FIFO and moving-average late bill deltas reconcile exact Pantry inventory, net COGS and shipment margin across two cost layers” proves reviewed USD openings, both methods, approved Pantry balances, fractional-cent review and period-lock refusal at the network edge. `tests/api/returns.test.mjs` — “one-scan returns restock, quarantine and write off actual dispatches with native Pantry credits and exact costs” proves reason mappings, approval limits, atomic refusal and exact expense. `tests/browser/journey.spec.ts` — “receipt FX, weight allocation, late bills and mapped write-off settings remain reviewable at 1440 and 390” proves the operator screens, both COST_REVIEW refusals and Books review guidance at both widths, and is invoked by push Verify. `tests/api/supplier-returns.test.mjs` — “BUY-003: quarantine, supplier authority, once-only dispatch, credit and replacement evidence preserve receipt and outstanding PO” proves retained insurance and other charge shares on replacements and exact Pantry inventory.
+**Gap.** None.
 
 #### COST-002 — Write-off reason codes and approval limits
 
