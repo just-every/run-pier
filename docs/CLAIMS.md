@@ -6,12 +6,12 @@ A claim is done when every clause behind it is done, missing when every one is m
 
 | # | Claim | Clauses | Status |
 | --- | --- | --- | --- |
-| 1 | "Pier tracks stock across your warehouses" | `STOCK-001` partial; `PIER-001` partial; `PIER-008` partial | partial |
+| 1 | "Pier tracks stock across your warehouses" | `STOCK-001` done; `PIER-001` partial; `PIER-008` partial | partial |
 | 2 | "runs orders from channel to carrier" | `CHANNEL-001` partial; `PIER-004` done; `PIER-009` partial; `WMS-001` done; `SHIP-001` partial | partial |
 | 3 | "reorders before you run out" | `BUY-005` partial; `BUY-008` partial; `BUY-001` partial; `AUTO-001` partial | partial |
 | 4 | "and keeps the books in step" | `ACCOUNT-001` partial; `ACCOUNT-002` partial | partial |
 | 5 | "100% free, open source alternative to the supported source inventory systems" | `OPEN-001` done; `MIGRATE-001` partial | partial |
-| 6 | The six hero tags, each a stage below | `PIER-006` done; `EDI-001` partial; `PIER-011` done; `WMS-001` done; `STOCK-001` partial; `BUY-005` partial | partial |
+| 6 | The six hero tags, each a stage below | `PIER-006` done; `EDI-001` partial; `PIER-011` done; `WMS-001` done; `STOCK-001` done; `BUY-005` partial | partial |
 | 7 | "The inventory agent reads sell-through across your channels, sees the gap" | `AGENT-002` done; `BUY-001` partial | partial |
 | 8 | "Order 500 by Oct 7 · 12 days safety" | `BUY-001` partial; `BUY-005` partial | partial |
 | 9 | "… and sends the purchase order" (PO-1048 sent, confirmed) | `AGENT-002` done; `BUY-006` partial | partial |
@@ -25,7 +25,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 17 | "… before anything moves" | `PIER-011` done; `COUNT-001` partial | partial |
 | 18 | "Orders from your stores, marketplaces and EDI land in one queue" | `CHANNEL-001` partial; `EDI-001` partial; `SALES-001` partial; `SALES-008` done | partial |
 | 19 | Faire among the orders and channels | `CHANNEL-004` partial | partial |
-| 20 | One count: 571 available, 692 on hand, 121 reserved | `STOCK-001` partial; `PIER-004` done | partial |
+| 20 | One count: 571 available, 692 on hand, 121 reserved | `STOCK-001` done; `PIER-004` done | done |
 | 21 | "855 acknowledged to Target" and "EDI 856 sent · Target DC 0593" | `EDI-001` partial | partial |
 | 22 | "Stock goes back out to every channel" | `CHANNEL-003` partial | partial |
 | 23 | "Pick by wave" (Wave 14 picked · 38 orders) | `WMS-004` done; `PIER-009` partial | partial |
@@ -49,8 +49,8 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 41 | The one-line start `npx -y @runeditrun/rer dev just-every/run-pier` and what it does | `OPS-001` partial | partial |
 | 42 | "Runs on your own computer or server" | `OPS-001` partial | partial |
 | 43 | "Where Pier stops. Manufacturing work orders, point of sale and 3PL client billing." | `OPEN-001` done | done |
-| 44 | "Open source inventory and order management for wholesalers and distributors" | `STOCK-001` partial; `CHANNEL-001` partial; `OPEN-001` done | partial |
+| 44 | "Open source inventory and order management for wholesalers and distributors" | `STOCK-001` done; `CHANNEL-001` partial; `OPEN-001` done | partial |
 | 45 | Tag "PO-1061 sent · 600 Blue Mug 12oz" | `AGENT-002` done; `BUY-006` partial | partial |
 | 46 | "Free and open source, MIT licensed" | `OPEN-001` done | done |
 
-Claims: 46; 7 done, 39 partial, 0 missing.
+Claims: 46; 8 done, 38 partial, 0 missing.

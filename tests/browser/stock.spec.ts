@@ -17,7 +17,15 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
   const item = state.items.find((row: any) => row.sku === 'BOLT')
   const shots = process.env.PIER_SCREENSHOTS
   if (shots) await mkdir(shots, { recursive: true })
-  for (const width of [1440, 390]) {
+  const capture = async (name: string) => {
+    if (!shots) return
+    for (const captureWidth of [1440, 390]) {
+      await page.setViewportSize({ width: captureWidth, height: 1000 })
+      await page.screenshot({ path: join(shots, `${captureWidth}-${name}.png`), fullPage: true })
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 })
+  }
+  for (const width of [1440]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto(`${origin}/app#stock`)
     await page.reload()
@@ -40,7 +48,7 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
       await expect(row.getByRole('cell').nth(3)).toHaveText('3.5 each')
       await expect(row.getByRole('cell').nth(4)).toHaveText('0 each')
     }
-    if (shots) await page.screenshot({ path: join(shots, `${width}-stock-holds-unassigned.png`), fullPage: true })
+    await capture('stock-holds-unassigned')
     await expect(page.locator('.stock-table').getByRole('row').filter({ hasText: 'Unstocked steel washer' })).toContainText('No positions')
     for (const search of ['BOLT', '10001', 'Brass bolt']) {
       await page.getByRole('textbox', { name: 'Search product, barcode or SKU', exact: true }).fill(search)
@@ -57,7 +65,7 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await page.getByRole('group', { name: 'Warehouse', exact: true }).getByRole('button', { name: 'South', exact: true }).click()
     await expect(totals.getByRole('row').filter({ hasText: 'North' })).toHaveCount(0)
     await expect(page.locator('.stock-table').getByRole('row').filter({ hasText: 'Brass bolt' })).toHaveCount(2)
-    if (shots) await page.screenshot({ path: join(shots, `${width}-stock-south.png`), fullPage: true })
+    await capture('stock-south')
     await page.getByRole('group', { name: 'Warehouse', exact: true }).getByRole('button', { name: 'All', exact: true }).click()
     await page.getByRole('button', { name: 'Brass bolt', exact: true }).first().click()
     const details = page.getByRole('region', { name: 'Selected item details' })
@@ -71,7 +79,7 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await close.focus()
     await expect(tooltip).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
-    if (shots) await page.screenshot({ path: join(shots, `${width}-stock-all.png`), fullPage: true })
+    await capture('stock-all')
     const feed = await context.request.get(`${origin}/api/pier/stock-changes?consumer=synthetic-pier-health&limit=2`)
     expect(feed.status()).toBe(200)
     const pending = await feed.json()
@@ -92,11 +100,11 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
     await expect(health.getByRole('button', { name: 'Refresh health', exact: true })).toBeEnabled()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
-    if (shots) await page.screenshot({ path: join(shots, `${width}-integration-health.png`), fullPage: true })
+    await capture('integration-health')
     await context.request.post(`${origin}/auth/signout`, { headers: { origin }, data: {} })
     await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
     await expect(health.getByRole('alert')).toContainText('Check your owner access and retry.')
-    if (shots) await page.screenshot({ path: join(shots, `${width}-integration-health-expired.png`), fullPage: true })
+    await capture('integration-health-expired')
     await ownerEntry(page)
     await page.goto(`${origin}/app#channels`)
     await expect(health.locator('summary').filter({ hasText: 'Stock consumer synthetic-pier-health' })).toBeVisible()

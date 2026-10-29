@@ -8,10 +8,10 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 25 | 62 | 4 | 91 |
+| Core | 26 | 61 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 25 | 62 | 11 | 98 |
+| Full target | 26 | 61 | 11 | 98 |
 
 Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
@@ -182,7 +182,7 @@ Core · published · **done**
 
 #### STOCK-001 — Stock position across warehouses and bins
 
-Core · target · **partial** · Rules D-1
+Core · target · **done** · Rules D-1
 
 **Requirement.** For every item, Pier shows its stock at each warehouse and bin: on hand (sellable), reserved, available (sellable less reservations), quarantine, in transit and expected (unreceived quantities on committed PO lines destined for that warehouse), with totals per warehouse and across the company. Expected supply from a committed PO with no destination warehouse (a legacy PO) appears in an explicit “Unassigned receiving warehouse” bucket: it counts in company-wide expected supply and is never attributed to any real warehouse until a destination is set. Protected channel holds (CHANNEL-001) reduce availability: Stock’s Reserved figure includes them, with an explicit explanation that it does, so warehouse and company totals reconcile with bin availability and held stock is never promiseable; the raw reservation and hold records stay separately exported. Figures are computed from the append-only movements, current reservations, protected holds and open PO lines, never stored as editable balances, so each bin’s figure equals the sum of its movements (PIER-012). For TRACE-001 stock, expired or blocked identities are also excluded from availability; their physical status and raw movement/reservation history remain, and the bin view names the excluded quantity. Warehouse and company availability sum those eligible bin figures. Staff search by SKU, barcode or name and filter by warehouse, bin and status on desktop and at 390px; an item with no positions says so rather than showing invented zeros per bin.
 
@@ -192,8 +192,8 @@ Core · target · **partial** · Rules D-1
 3. Place a protected channel hold on a bin: Reserved includes the held units with its explanation, available falls by them, an order cannot reserve them, the warehouse and company totals still equal the bin sums, and the export lists the reservation and hold records separately.
 4. A committed legacy PO with no destination warehouse shows its unreceived quantity in the Unassigned receiving warehouse bucket and in company-wide expected supply, and in no real warehouse’s expected figure.
 
-**Evidence.** `src/pier/stock-position.ts`; `src/pier/api.ts`; `src/ui/stock.tsx`; `src/ui/stock-totals.tsx`; `tests/api/stock.test.mjs`; `tests/browser/stock.spec.ts`
-**Gap.** Unasserted in the cited evidence: Reserved's explanation that it includes protected holds, an order's refusal to reserve held units, and the Unassigned receiving warehouse bucket for a committed PO with no destination. Asserted: warehouse, bin and company figures equal independent sums of exported movements, reservations, holds and PO lines, and search and warehouse, bin and status filters at 1440 and 390.
+**Evidence.** `tests/api/stock.test.mjs` — “STOCK-001: warehouse and company stock reconcile to exported movements, reservations and destination POs” performs the multi-warehouse receipt, reservation, transfer and quarantined return journey; independently reconciles every bin, warehouse and company figure from exported movements, reservations, protected holds and committed PO lines; proves an isolated held SKU stays physical with zero reservable units and exact backorder, separately exported holds and reservations, and unchanged business records after refused dispatch; proves a destination-free committed PO with partial receipt leaves exactly 7.25 expected units unassigned, included in company supply and absent from every real warehouse. `tests/browser/stock.spec.ts` — “STOCK-001: stock totals, empty items and warehouse filters with connector recovery” checks all displayed totals, the protected-hold explanation, unassigned bucket, no-position item, SKU and barcode search, warehouse, bin and status filters, and the Close tooltip on hover and keyboard focus at 1440, with changed-screen captures at 1440 and 390.
+**Gap.** None.
 
 #### CAT-001 — Wholesale catalog, units and barcodes
 
