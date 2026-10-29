@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "136f116e1e7466552860994d3c79112de594c859bd2f9759d27fe3943a62d466",
+      "sha256": "9bf628ef949cf666b5264870d6da47f523ef2590eb0965ac7a5a186e1c927cd2",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "1d15a66cd825127674499fcf1a22b6c7a986e80291285942a705160975d366ad",
+      "sha256": "8fc11b7cc9b8b050217b74402050a41d7402381bc47b60cc2cd339da154f1ea8",
       "executable": false
     },
     "DEMO.md": {
@@ -3655,7 +3655,7 @@
       "executable": false
     },
     "src/pier/privacy-state.ts": {
-      "sha256": "1389989b1fd7aba94eddc3f132ea36bcf0d4e417184dd1eab81e265f50554816",
+      "sha256": "5106a03f1c6510ce35af04a9b4f6a9df5b0b8163261142f76002882067e85b62",
       "executable": false
     },
     "src/pier/privacy.ts": {
@@ -3855,7 +3855,7 @@
       "executable": false
     },
     "src/pier/tax-rules.ts": {
-      "sha256": "ffbfb08e39e0e6aec7985c5b8135ad33264e465ec03a47f32014fb54b278f7b1",
+      "sha256": "6da9be32fb6a1fa8f307665efa2061564b73d3ed69ab65288ea79585e3091216",
       "executable": false
     },
     "src/pier/trace-core.ts": {
@@ -4755,7 +4755,7 @@
       "executable": false
     },
     "tests/api/costing.test.mjs": {
-      "sha256": "dd591ef016c7eadc96dd1212428397aa975cd7287312ff732ede72989f94d199",
+      "sha256": "4c2f3ea028aa0ee6b8931955078f59f57706f9438d6393ed331a85c68cb38111",
       "executable": false
     },
     "tests/api/dependency-custody.test.mjs": {

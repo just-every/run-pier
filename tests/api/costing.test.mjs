@@ -523,7 +523,7 @@ test('native tax rules retain per-line destination and origin estimates, refuse 
   let customer=exempt;
   const certificate = async (state, expires) => { customer = await h.command('customer.resaleCertificate',{customerId:customer.id,version:customer.version,state,expires,number:`synthetic-pier-${state}`,document:'Owner-held reference',reason:'Owner reviews resale reference'}); };
   await certificate('CA','2026-10-30');
-  const params = (customerId,state) => ({customerId,warehouse:'North',shipTo:{state,country:'US',postalCode:state==='CA'?'94107':'75001'},validUntil:'2026-11-20',freight:'3.33',handling:'1.01',lines:[{itemId:b.item.id,quantity:'3',price:'0.99'},{itemId:second.id,quantity:'2',price:'2.07'}]});
+  const params = (customerId,state) => ({customerId,warehouse:'North',shipTo:{state,country:'US',postalCode:state==='CA'?'94107':'75001',address1:customerId===exempt.id?'synthetic-pier-65':'synthetic-pier-66'},validUntil:'2026-11-20',freight:'3.33',handling:'1.01',lines:[{itemId:b.item.id,quantity:'3',price:'0.99'},{itemId:second.id,quantity:'2',price:'2.07'}]});
   const exported = async () => { const r = await h.request('/api/pier/export'); assert.equal(r.status,200); return r.json(); };
   const snapshot = async () => {
     const e = await exported(), s = await h.state();
@@ -559,9 +559,11 @@ test('native tax rules retain per-line destination and origin estimates, refuse 
   await certificate('TX','2026-10-30');
   missing=await h.command('quote.revise',{...params(exempt.id,'TX'),orderId:missing.id,version:missing.version,reason:'Destination certificate reviewed'});
   await verify(missing,'TX',true);
-  let stale;
+  let stale,erasureReplay;
   for(const state of ['CA','TX'])for(const customerId of [taxable.id,exempt.id]){
-    let quote=await h.command('quote.create',params(customerId,state));
+    const quotePayload=params(customerId,state),createId=randomUUID();
+    let quote=await h.command('quote.create',quotePayload,{commandId:createId});
+    if(state==='CA'&&customerId===exempt.id)erasureReplay={payload:quotePayload,commandId:createId};
     await verify(quote,state,customerId===exempt.id);
     if(customerId===taxable.id)assert.deepEqual(quote.tax.lines.map(l=>cents(l.amount)),state==='CA'?[25,10,0,8]:[25,10,27,0]);
     const taxSnapshot=structuredClone(quote.tax);
@@ -620,4 +622,17 @@ test('native tax rules retain per-line destination and origin estimates, refuse 
   await refused('sales.taxProduct',recoveredPayload,'FORBIDDEN',{as,commandId:recoveredId});
   const memberState=await(await h.request('/api/pier/state',{as})).json();assert.ok(!JSON.stringify(memberState.orders).includes('synthetic-pier-CA'),'certificate numbers stay owner-only');
   const before=await snapshot();await h.restart();assert.deepEqual(await snapshot(),before);assert.equal(outbound,0);
+  const plan=await(await h.request('/api/pier/privacy?kind=customer&subjectId='+exempt.id)).json();assert.equal(plan.allowed,true);
+  await refused('privacy.eraseSubject',{kind:'customer',subjectId:exempt.id,planHash:plan.planHash,confirm:false},'PRIVACY_CONSENT');
+  const financial=before.invoices.map(i=>[i.id,i.subtotal,i.tax.amount,i.total]);
+  await h.command('privacy.eraseSubject',{kind:'customer',subjectId:exempt.id,planHash:plan.planHash,confirm:true});
+  for(const restarted of [false,true]){
+    if(restarted)await h.restart();
+    const scrubbed=await exported();
+    for(const number of ['synthetic-pier-CA','synthetic-pier-TX','synthetic-pier-65'])assert.ok(!JSON.stringify(scrubbed).includes(number),'erasure clears certificate content from every tax copy');
+    assert.deepEqual(scrubbed.invoices.map(i=>[i.id,i.subtotal,i.tax.amount,i.total]),financial,'erasure retains opaque financial totals');
+    assert.deepEqual(scrubbed.movements,before.movements);assert.deepEqual(scrubbed.reservations,before.reservations);
+    assert.deepEqual(await h.command('quote.create',erasureReplay.payload,{commandId:erasureReplay.commandId}),{erased:true},'capture replay cannot restore erased certificate content');
+  }
+  assert.equal(outbound,0);
 });

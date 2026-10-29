@@ -1,7 +1,7 @@
 import { collections, type Context } from './model';
 import { subjectPlan, type NativeSubject } from './privacy-plan';
 
-const privateFields = new Set(['email','contacts','addresses','address','phone','telephone','fax','contact','contactName','attention','recipient','shipTo','shippingAddress','originalAddress','suggestedAddress','customerName','supplierName','customerPO','profileReason','resaleCertificates','certificate','body','subject','text','html','raw','pdf','filename','notes','note','reason','sourceReference','supplierReference','shipmentReference','channelReference','verificationUrl','checkoutUrl','labelPdfUrl','labelZplUrl','trackingUrl','replies','supplierReply','ambiguities','citations','verificationErrors','rateMessages','problem']);
+const privateFields = new Set(['email','contacts','addresses','address','phone','telephone','fax','contact','contactName','attention','recipient','shipTo','shippingAddress','originalAddress','suggestedAddress','customerName','supplierName','customerPO','profileReason','resaleCertificates','certificate','exemption','body','subject','text','html','raw','pdf','filename','notes','note','reason','sourceReference','supplierReference','shipmentReference','channelReference','verificationUrl','checkoutUrl','labelPdfUrl','labelZplUrl','trackingUrl','replies','supplierReply','ambiguities','citations','verificationErrors','rateMessages','problem']);
 const identityContainers = new Set(['customer','supplier','supplierSnapshot','customerSnapshot','party','salesRep']);
 const policyFields = ['promisePolicy','sendPolicy','chasePolicy','creditClearance'];
 export function personalValues(target: any, native?: NativeSubject): Set<string> {
@@ -21,6 +21,7 @@ export function anonymizeSubject(c: Context, kind: string, id: string, native?: 
     if (Array.isArray(value)) return value.map(v => redact(v, active, field));
     const identity = identityIds.has(value.id) || kind === 'operator' && value.operatorId === id;
     return Object.fromEntries(Object.entries(value).map(([key, v]) => {
+      if ((active || identity) && ['tax', 'originalInvoiceTax'].includes(field) && key === 'destination') return [key, null];
       if ((active || identity) && privateFields.has(key)) return [key, Array.isArray(v) ? [] : null];
       if (key === 'name' && (identity || active && identityContainers.has(field))) return [key, anonymous];
       return [key, redact(v, active || identity, key)];
