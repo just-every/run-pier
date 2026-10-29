@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 24 | 63 | 4 | 91 |
+| Core | 25 | 62 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 24 | 63 | 11 | 98 |
+| Full target | 25 | 62 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010, PIER-011, WMS-003 and BUY-007 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010, PIER-011, WMS-003 and BUY-007 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. BUY-006 is judged from code and tests at commit `6fc459934c50f42cc29d96b7330b0beae1cf4cce` (29 October 2026); its exact landing candidate and recorded Verify are reported with the judgment. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -641,7 +641,7 @@ Core · target · **partial**
 
 #### BUY-006 — Exact-version supplier sends and acknowledgments
 
-Core · target · **partial** · From BUY-002 · Rules D-3
+Core · target · **done** · From BUY-002 · Rules D-3
 
 **Requirement.** Buyers approve an exact PO version and supplier recipient; Pier sends it as the PRINT-001 purchase-order document by email or as EDI and records acknowledgment. Purchase sending and the purchase PDF send door share one correspondence identity and durable provider claim, and supported install mail attaches the retained PRINT-001 PDF as exact bytes.
 
@@ -652,8 +652,8 @@ Core · target · **partial** · From BUY-002 · Rules D-3
 4. Supported install mail attaches the retained PRINT-001 PDF as exact bytes.
 5. The pinned Managed relay retains its explicit text-only message with a visible attachment-unavailable notice and refuses purchase PDF sends; uncertain claims remain visible and are never automatically retried.
 
-**Evidence.** `tests/api/purchase-send.test.mjs` — “purchase approval routes exact landed spend and exceptions to named humans with revocable delegation” proves threshold routing, supplier and exception limits, delegation, escalation and agent denial; “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves exact PDF bytes, delegated sends, expiry, revocation, duplicate refusal and uncertain outcomes; “supplier price and date evidence stops pending sends until exact human review and retains partial cancellations” proves material changes, renewed spend review, both send doors and partial and full cancellation; `tests/api/replenishment.test.mjs` — “sell-through drafts an approved supplier PO and re-promises backorders by email” proves recorded acknowledgments; `tests/api/floor.test.mjs` — “confirmed SSCC receives every 856 pallet line once and invalid notices leave stock unchanged” proves retained original ASN and once-only receiving; `tests/browser/journey.spec.ts` — “purchase approval names spend authority and exposes supplier re-approval at 1440 and 390” proves visible authority and stopped sends at both widths.
-**Gap.** Unasserted in the cited evidence: the Managed relay's text-only message, its attachment-unavailable notice and its refusal of purchase PDF sends; `tests/api/managed-mail.test.mjs` sits outside this clause's evidence. Asserted: a once-only approved send with exact retained PDF bytes, the shared correspondence identity of both send doors, and visible uncertain sends that are never resubmitted.
+**Evidence.** `tests/api/purchase-send.test.mjs` — “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves exact approval, retained PDF bytes, delegation, replay and uncertain outcomes; “supplier price and date evidence stops pending sends until exact human review and retains partial cancellations” proves the retained PDF send and purchase send share one correspondence and provider claim. `tests/api/managed-mail.test.mjs` — “Managed supplier mail retains exact text, refuses PDF sends and never retries uncertain claims after restart” proves the complete relay payload and attachment notice, no attachments, exact retained download, DOCUMENT_MAIL with unchanged business exports and successful commands, and one uncertain durable claim across replay, repeated processing, due chases, scheduled checks and restart. `tests/browser/journey.spec.ts` — “Managed supplier mail shows approved text, PDF refusal and retained uncertainty” proves approved text, the visible attachment limitation, refusal beside the PDF form and retained uncertainty, with changed screens captured at 1440 and 390. D-4 network-edge fixtures establish protocol behavior only; actual provisioned Managed delivery, provider acknowledgment qualification, EDI certification and physical document acceptance remain unproved field boundaries.
+**Gap.** None.
 
 #### BUY-007 — Supplier changes, re-approval and cancellations
 

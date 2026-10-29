@@ -14,7 +14,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 6 | The six hero tags, each a stage below | `PIER-006` done; `EDI-001` partial; `PIER-011` done; `WMS-001` done; `STOCK-001` partial; `BUY-005` partial | partial |
 | 7 | "The inventory agent reads sell-through across your channels, sees the gap" | `AGENT-002` done; `BUY-001` partial | partial |
 | 8 | "Order 500 by Oct 7 · 12 days safety" | `BUY-001` partial; `BUY-005` partial | partial |
-| 9 | "… and sends the purchase order" (PO-1048 sent, confirmed) | `AGENT-002` done; `BUY-006` partial | partial |
+| 9 | "… and sends the purchase order" (PO-1048 sent, confirmed) | `AGENT-002` done; `BUY-006` done | done |
 | 10 | "The supplier's ship notice drops to 480" (inbound EDI 856) | `BUY-007` done; `EDI-001` partial | partial |
 | 11 | "20 follow on PO-1048-B · due Nov 12" | `PIER-006` done; `BUY-007` done | done |
 | 12 | "The agent checks each open order against stock, and no promise moves" | `AGENT-003` partial; `SALES-003` partial | partial |
@@ -50,7 +50,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 42 | "Runs on your own computer or server" | `OPS-001` partial | partial |
 | 43 | "Where Pier stops. Manufacturing work orders, point of sale and 3PL client billing." | `OPEN-001` done | done |
 | 44 | "Open source inventory and order management for wholesalers and distributors" | `STOCK-001` partial; `CHANNEL-001` partial; `OPEN-001` done | partial |
-| 45 | Tag "PO-1061 sent · 600 Blue Mug 12oz" | `AGENT-002` done; `BUY-006` partial | partial |
+| 45 | Tag "PO-1061 sent · 600 Blue Mug 12oz" | `AGENT-002` done; `BUY-006` done | done |
 | 46 | "Free and open source, MIT licensed" | `OPEN-001` done | done |
 
-Claims: 46; 7 done, 39 partial, 0 missing.
+Claims: 46; 9 done, 37 partial, 0 missing.
