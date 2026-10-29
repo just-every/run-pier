@@ -59,10 +59,54 @@ connections.
 
 ## Current limits
 
-EasyPost live labels, carrier charges and physical printers still need acceptance with your own account and equipment. ShipStation, label void/refund and freight/LTL remain unavailable. [Shipping developer notes](shipping-developer.md) list transport and test details.
+EasyPost live labels, carrier charges and physical printers still need acceptance with your own account and equipment. ShipStation and label void and refund remain unavailable. Native manual LTL records are described below; connected freight platforms and physical freight acceptance remain unqualified. [Shipping developer notes](shipping-developer.md) list transport and test details.
 
 The owner can pause EasyPost from Channels → Integration health → EasyPost
 shipping → Pause shipping. Pier clears its saved carrier credentials and stops
 future carrier requests and webhook processing; retained jobs and uncertain
 purchases remain visible. Reconnect with fresh credentials before reconciling an
 existing purchase. Pausing does not void a carrier label or repeat a purchase.
+
+
+## Manual LTL freight
+
+The current owner opens Floor → Shipping → Manual LTL freight. This native path
+works without carrier credentials, including when Managed carrier egress is
+unavailable. It retains operator evidence; it makes no booking request, sends no
+customer notification and supplies no carrier acknowledgment or physical-stock
+verification.
+
+1. Close and measure the order's cartons at Pack. Choose that packed order and
+   assign every carton to exactly one pallet. Enter each pallet's measured gross
+   weight in pounds, dimensions in inches, NMFC number and freight class. Select
+   liftgate or the other required accessorials and retain the manifest reference,
+   origin, destination and commodity. Gross pallet weight includes its cartons.
+2. Retain the carrier's manually obtained quote, SCAC, quote reference, USD amount,
+   charge terms and evidence. Review the exact quote and enter the operator's PRO
+   number and planned pickup date with a reason. These steps leave stock,
+   reservations, packs and shipment facts unchanged.
+3. Generate the VICS bill of lading before pickup. Download its retained PDF to
+   review the order, pallet and carton particulars, quote, source record version
+   and template version. Reopening a retained PDF returns the same bytes.
+   Generating again uses the current document template and retains another PDF.
+4. After observing pickup, explicitly confirm it and record the evidence. Pier
+   dispatches the packed quantities through its ordinary pack and dispatch
+   commands, consumes only the order's own reservations and links the one
+   shipment to the manifest, reviewed BOL and operator pickup record. Recover a
+   lost response with the same command identity; it cannot dispatch again.
+
+A manifest revision retains earlier evidence and invalidates its pending quote,
+pickup review and BOL eligibility. Re-enter and review the quote and generate a
+current BOL. A changed quote or PRO review also requires a current BOL before
+pickup. Ordinary dispatch cannot bypass this review. Revoked owner authority
+cannot approve, recover protected results or download the retained documents.
+Manual freight evidence remains subject to explicit custody review; unsupported
+erasure refuses instead of leaving an undisclosed private copy.
+
+This path retains one closed pack on each manifest and excludes packs already
+prepared for parcel shipping. Freightview and Freightquote connections, actual
+booking, carrier pickup and tracking qualification, customer notifications,
+pallet SSCC labels and retailer artwork, physical printing and scanning,
+retailer-certified EDI structure, above-quote invoice review through BUY-004,
+freight-cost allocation and connected accounting remain outside this native
+proof. The commercial authority boundary remains owner-only under RL-101.

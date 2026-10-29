@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { records } from '../api'
 import { Empty } from '../controls'
 import { reference } from '../display'
+import { LtlFreight } from './ltl';
 import { CartonJob } from './job'
 import { canShip, type Settings, type ShippingJob, type ShippingProps } from './model'
 import { PrepareCarton } from './prepare'
@@ -12,11 +13,12 @@ export function Shipping({ state, run, busy }: ShippingProps) {
   const [chosen, setChosen] = useState('')
   const settings = records(state, 'shippingSettings').find(row => row.id === 'shipping:easypost') as Settings | undefined
   const jobs = records(state, 'shippingJobs') as ShippingJob[]
-  const packs = records(state, 'packs'), orders = records(state, 'orders'), packed = packs.filter(pack => pack.status === 'packed')
+  const packs = records(state, 'packs'), orders = records(state, 'orders'), packed = packs.filter(pack => pack.status === 'packed' && !records(state, 'ltlManifests').some(manifest => manifest.packId === pack.id))
   const pack = packed.find(row => row.id === chosen) ?? packed[0]
   const providerDisabled = !!state.shippingUnavailable || !settings?.connected
   const previous = jobs.filter(job => !packed.some(row => row.id === job.packId))
   return <div className="shipping">
+    <LtlFreight state={state} run={run} busy={busy} />
     {state.shippingUnavailable && <p className="notice" role="status">{state.shippingUnavailable}</p>}
     <ShippingSettings key={`${settings?.id ?? 'new'}:${settings?.version ?? 0}`} state={state} run={run} busy={busy} settings={settings} />
     {!settings?.connected && <p className="muted">Connect EasyPost before verifying an address, getting rates or buying labels.</p>}
