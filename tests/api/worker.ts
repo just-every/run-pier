@@ -24,7 +24,7 @@ export default withDevIdentity({
     try { return (
       (await pierResponse(request, env)) ??
       (await authResponse(request, env)) ??
-      new Response("Not found", { status: 404 })
+      (env.TEST_UI ? await env.TEST_UI.fetch(request) : new Response("Not found", { status: 404 }))
     ); } finally { globalThis.Date=RealDate; }
   },
 }, { bindings: runtimeBindings, config: authConfig, personas: devPersonas });
