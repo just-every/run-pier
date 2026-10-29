@@ -503,6 +503,7 @@ async function nativeAgentPreparations(h, b, agent, draft) {
     assert.equal(retained.preparation.actorId, agent.session.operator.id);
     assert.notEqual(retained.preparation.actorId, human.operator.id);
     assert.equal(retained.preparation.permissionVersion, grant.version);
+    assert.deepEqual(retained.context.scope, { grantVersion: grant.version, evidenceIds: scopeIds });
     assert.ok(!retained.context.orders.some(row => row.id === hiddenOrder.id));
     assert.ok(!retained.context.reorder.some(row => row.itemId === hiddenItem.id));
     assert.equal(retained.assumptions, input.assumptions);

@@ -80,3 +80,5 @@
   .pier-app .custody-records .facts-list > div { display: block; }
   .pier-app .custody-records .facts-list dt { margin-bottom: 4px; }
 }
+
+.pier-app .proposal-panel dt, .pier-app .proposal-panel .badge, .pier-app .proposal-panel .table-wrap th, .pier-app .proposal-panel .table-wrap td[data-label]::before { font-size: 13px; }

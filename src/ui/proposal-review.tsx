@@ -76,10 +76,11 @@ function Inputs({ state, context }: { state: PierState; context: any }) {
   const short = reorder.filter(row => row.minimum !== '0')
   const lead = (row: any) => { const terms = (row.terms ?? []).slice().sort((a: any, b: any) => a.leadDays - b.leadDays)[0]; return terms ? `${party(state, terms.supplierId)} · ${terms.leadDays} days` : 'No supplier terms' }
   return <>
+    {context?.scope && <p>Limited to {context.scope.evidenceIds.length} owner-granted sources at preparation. Other demand and supply may be outside this evidence.</p>}
     <p>{reorder.length} {reorder.length === 1 ? 'item' : 'items'} and {promises.length} customer {promises.length === 1 ? 'promise' : 'promises'} as they stood. {short.length ? `Short after expected receipts: ${short.map(row => `${amount(state, row.minimum, row.itemId)} ${item(state, row.itemId)}`).join(', ')}.` : 'No item was short after expected receipts.'}</p>
     {(reorder.length > 0 || promises.length > 0) && <details className="proposal-details"><summary>Show details</summary>
       {reorder.length > 0 && <><h4>Stock position at preparation</h4><Table numeric={[1, 2, 3, 4]} headings={['Item', 'Open demand', 'On hand', 'Expected', 'Short', 'Fastest supplier']}>{reorder.map(row => <tr key={row.itemId}><td>{item(state, row.itemId)}</td><td>{amount(state, row.demand, row.itemId)}</td><td>{amount(state, row.onHand, row.itemId)}</td><td>{amount(state, row.expected, row.itemId)}</td><td>{amount(state, row.minimum, row.itemId)}</td><td>{lead(row)}</td></tr>)}</Table></>}
-      {promises.length > 0 && <><h4>Customer promises at preparation</h4><Table headings={['Order', 'Customer', 'Promised']}>{promises.map(row => { const order = find(state, 'orders', row.id); return <tr key={row.id}><td>{order ? ref(order) : 'Removed order'}</td><td>{party(state, row.customerId)}</td><td>{date(row.promiseDate)}</td></tr> })}</Table></>}
+      {promises.length > 0 && <><h4>Customer promises at preparation</h4><Table headings={['Order', 'Customer', 'Promised']}>{promises.map(row => { const order = find(state, 'orders', row.id); return <tr key={row.id}><td>{order ? ref(order) : 'Removed order'}</td><td>{context?.scope && !row.customerId ? 'Outside preparation grant' : party(state, row.customerId)}</td><td>{date(row.promiseDate)}</td></tr> })}</Table></>}
       <p className="muted">Exact saved values and record identities are in the Activity export.</p>
     </details>}
   </>

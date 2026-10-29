@@ -57,7 +57,7 @@ export function Operators({ state, run, busy, refresh }: Props) {
   return <section className="panel"><h2>Operator roles</h2><p><a href="/security">Security settings</a></p>
     <Table headings={['Operator', 'Status', 'Pier role', 'Commercial visibility', 'Physical stock grant']}>{operators.map(operator => <tr key={operator.id}>
       <td>{operator.name || operator.email}<small>{operator.email}</small></td><td>{words(operator.status)}</td>
-      <td>{roleLabel(records(state, 'roles').find(role => role.id === operator.id)?.role || (operator.role === 'owner' ? 'owner' : 'viewer'))}<small>{records(state, 'roles').find(role => role.id === operator.id)?.preparationGrant ? `${records(state, 'roles').find(role => role.id === operator.id)?.preparationGrant.evidenceIds.length} preparation sources` : ''}</small></td>
+      <td>{roleLabel(records(state, 'roles').find(role => role.id === operator.id)?.role || (operator.role === 'owner' ? 'owner' : 'viewer'))}</td>
       <td><CommercialVisibility role={records(state, 'roles').find(role => role.id === operator.id)} nativeOwner={operator.role === 'owner'} /></td>
       <td>{grantFor(operator.id) ? <>{grantFor(operator.id).warehouses.join(', ') || 'No warehouses'}<small>{grantFor(operator.id).locationIds.length ? `Locations: ${grantFor(operator.id).locationIds.map((id: string) => records(state, 'locations').find(location => location.id === id)?.name || 'Removed location').join(', ')}` : 'All locations in these warehouses'}</small><small>{grantFor(operator.id).expiresAt ? `Expires ${grantFor(operator.id).expiresAt}` : 'No expiry'}</small></> : 'No physical stock restriction'}</td>
     </tr>)}</Table>

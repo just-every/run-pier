@@ -1,4 +1,4 @@
-import { preparationInputs } from './preparation-scope';
+import { preparationInputs, preparationScoped } from './preparation-scope';
 import { kitDefinition } from './kits';
 import { planningWarehouses, supplyPosition, signedQuantity } from './replenishment-position';
 import {
@@ -66,6 +66,7 @@ export function proposals(c: Context, type: string, p: any): Row | undefined {
       plan: p.plan ?? {},
       snapshotVersion: c.s.version,
       context: {
+        ...(preparationScoped(c.actor) ? { scope: { grantVersion: c.actor.permissionVersion, evidenceIds: c.actor.preparationGrant!.evidenceIds } } : {}),
         reorder: reorder({ ...c, s: prepared }),
         frontier: inputs.frontier,
         orders: prepared.orders.map((o) => ({
