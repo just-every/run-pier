@@ -86,7 +86,7 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   const westDraft = after.purchaseOrders.find((p: any) => p.status === 'draft' && p.supplierId === westSupplier.id)
   expect(westDraft.destinationWarehouse).toBe(westName); expect(westDraft.lines[0].quantity).toBe('66')
   await page.getByRole('row').filter({ hasText: westDraft.reference }).getByRole('button', { name: 'Review', exact: true }).click()
-  const preserved = [[aLabel, alternate.id, draft.reference, '60'], [cLabel, supplier.id, after.purchaseOrders.find((p: any) => p.status === 'draft' && p.supplierId === supplier.id).reference, '10'], [eLabel, supplier.id, after.purchaseOrders.find((p: any) => p.status === 'draft' && p.supplierId === supplier.id).reference, '13']]
+  const preserved = [[aLabel, supplier.id, draft.reference, '60'], [cLabel, supplier.id, after.purchaseOrders.find((p: any) => p.status === 'draft' && p.supplierId === supplier.id).reference, '10'], [eLabel, supplier.id, after.purchaseOrders.find((p: any) => p.status === 'draft' && p.supplierId === supplier.id).reference, '13']]
   for (const [name, supplierId, reference, quantity] of preserved) {
    await expect(batch.getByLabel(`Supplier for ${name} at ${eastName}`, { exact: true })).toHaveValue(supplierId)
    await expect(batch.getByLabel(`Purchase quantity for ${name} at ${eastName}`, { exact: true })).toHaveValue('0')

@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "4e0f22f05193fc2b8e1b54a7592566fa5f5f628067116d4e893ac51661793d87",
+      "sha256": "ac1f83a83fbbd5147a76ad3b7a2c5f3fdcb4f58066731de0b36f61133ee5edf1",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "cb49fbcebfd74ffa6eddc5ede5f173290183943d31be8ebc0f169696bed60f23",
+      "sha256": "d6472439dd45f029cb7ebf5bfb2514c4b6b0b0d7d5007b06c900ab775634eb89",
       "executable": false
     },
     "DEMO.md": {
@@ -403,7 +403,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "de8337e81dff1485b1517defd91aefc1aea8e363cc29869a26a394f9fef863e3",
+      "sha256": "bb785190411d06365061ae8f309b62772f91e33320492fba0f6d768713e3f0bf",
       "executable": false
     },
     "docs/contract/acceptance-before-cleanup.md": {
@@ -4823,7 +4823,7 @@
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
-      "sha256": "fa37b79901161d91086a77ed65eed0c51a70717fd6d4a688d84cdeeda99ee4bd",
+      "sha256": "a3e9cf518784824e98908a9da51830bda3059253a065a826a3a248eff16decb8",
       "executable": false
     },
     "tests/api/replenishment.test.mjs": {
@@ -4943,7 +4943,7 @@
       "executable": false
     },
     "tests/browser/reorder-list.spec.ts": {
-      "sha256": "63242fc7e49566dc251026a16b40288d3e5d2ca6d504f5d812dedb90a6b05872",
+      "sha256": "cbe359353ec8c0e6e04af9b8bd2bb83f558af037ed81521706b8fd98aa983765",
       "executable": false
     },
     "tests/browser/role-access-journey.ts": {
