@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 22 | 65 | 4 | 91 |
+| Core | 24 | 63 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 22 | 65 | 11 | 98 |
+| Full target | 24 | 63 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `c5cbb6f2cc296de1f013893d2bc19e4950fd755a` (29 October 2026). PIER-008 and PIER-009 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -116,7 +116,7 @@ Core · published · **done**
 
 #### PIER-008 — Transfer through visible transit
 
-Core · published · **partial** · Register R-6
+Core · published · **done** · Register R-6
 
 **Requirement.** Warehouse staff dispatch available units through a real transit location and separately confirm destination receipt. Transit stock is unavailable to sales and transfers conserve quantity. Repeated commands cannot dispatch or receive twice.
 
@@ -124,12 +124,12 @@ Core · published · **partial** · Register R-6
 1. Journey 8: dispatch a transfer, try to sell its in-transit units, partially receive at the destination and retry.
 2. Source plus transit plus destination reconciles throughout and transit cannot be promised as current sellable stock.
 
-**Evidence.** `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (08) — partial arrival, exact replay, stale/excess refusal and conserved transit; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” enters a partial destination receipt through Transfers.
-**Gap.** Unasserted in the cited evidence: the source position, and with it source plus transit plus destination reconciling throughout the transfer (no source figure is read, and transit and destination are read once, mid-transfer, not after the send or after the full receipt), and an attempted sale of the in-transit units (the test reads transit availability as 0 but attempts no sale). Asserted: the transfer dispatches through transit with transit availability 0, a partial destination receipt of 0.2 leaves transit 0.3 and destination 0.2, the retried receipt returns the same result, and stale or excess receipts are refused with movements unchanged.
+**Evidence.** `tests/api/flows.test.mjs` — “08 transfer conserves stock and transit cannot be sold” independently reconciles exported movements and public source, transit and destination positions before sending, immediately after sending, after partial receipt and after complete receipt; an isolated SKU whose entire stock is in transit leaves new demand wholly backordered and dispatch refuses without changing positions, movements, reservations, shipments, orders, transfers or exported successful command results. Partial and complete receipt replays change nothing; stale and excessive receipt refusals remain covered. The enclosing Worker and D1 journey asserts zero outbound requests. `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” enters a partial destination receipt through Transfers and captures its screens at 1440 and 390. Physical warehouse proof remains in R-6.
+**Gap.** None.
 
 #### PIER-009 — Dispatch only owned reservations
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Warehouse staff partially dispatch an order against that order’s own reservations. Shipment identity links order lines and consumed reservations; undispatched demand remains outstanding. Another order’s allocation cannot be consumed and a retry never decrements stock twice.
 
@@ -137,8 +137,8 @@ Core · published · **partial**
 1. Journey 9: partially dispatch an order, attempt to use a foreign reservation and retry after response loss.
 2. Read the shipment and remaining order: exact consumed allocations and outstanding demand reconcile.
 
-**Evidence.** `src/pier/orders.ts`; `tests/api/flows.test.mjs` (09); `tests/browser/journey.spec.ts`
-**Gap.** Unasserted: an attempt to dispatch against another order's reservation (the test over-dispatches its own line instead), and the remaining order's outstanding demand after the partial dispatch. Asserted: the partial dispatch, its replay and its reservation link.
+**Evidence.** `tests/api/flows.test.mjs` — “09 partial dispatch consumes only owned reservations and retries once” refuses dispatch for a fully backordered second order while the first owns all stock, separately refuses its foreign order line, and compares exact positions, movements, both orders, reservations, shipments and exported successful command results after each refusal; partial dispatch reconciles dispatched, cancelled, reserved and backordered quantities with exported demand, consumed reservation identities and shipment movement links, and exact replay changes nothing. The enclosing Worker and D1 journey asserts zero outbound requests. `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” dispatches through Sales orders, asserts visible shipped and reserved quantities and captures the partial shipment at 1440 and 390.
+**Gap.** None.
 
 #### PIER-010 — Cancel and inspect returns
 

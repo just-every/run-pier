@@ -6,8 +6,8 @@ A claim is done when every clause behind it is done, missing when every one is m
 
 | # | Claim | Clauses | Status |
 | --- | --- | --- | --- |
-| 1 | "Pier tracks stock across your warehouses" | `STOCK-001` partial; `PIER-001` partial; `PIER-008` partial | partial |
-| 2 | "runs orders from channel to carrier" | `CHANNEL-001` partial; `PIER-004` done; `PIER-009` partial; `WMS-001` done; `SHIP-001` partial | partial |
+| 1 | "Pier tracks stock across your warehouses" | `STOCK-001` partial; `PIER-001` partial; `PIER-008` done | partial |
+| 2 | "runs orders from channel to carrier" | `CHANNEL-001` partial; `PIER-004` done; `PIER-009` done; `WMS-001` done; `SHIP-001` partial | partial |
 | 3 | "reorders before you run out" | `BUY-005` partial; `BUY-008` partial; `BUY-001` partial; `AUTO-001` partial | partial |
 | 4 | "and keeps the books in step" | `ACCOUNT-001` partial; `ACCOUNT-002` partial | partial |
 | 5 | "100% free, open source alternative to the supported source inventory systems" | `OPEN-001` done; `MIGRATE-001` partial | partial |
@@ -28,14 +28,14 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 20 | One count: 571 available, 692 on hand, 121 reserved | `STOCK-001` partial; `PIER-004` done | partial |
 | 21 | "855 acknowledged to Target" and "EDI 856 sent · Target DC 0593" | `EDI-001` partial | partial |
 | 22 | "Stock goes back out to every channel" | `CHANNEL-003` partial | partial |
-| 23 | "Pick by wave" (Wave 14 picked · 38 orders) | `WMS-004` done; `PIER-009` partial | partial |
+| 23 | "Pick by wave" (Wave 14 picked · 38 orders) | `WMS-004` done; `PIER-009` done | done |
 | 24 | "pack" (Packed · 61 cartons) | `WMS-001` done | done |
 | 25 | "send the ship notice" | `EDI-001` partial | partial |
 | 26 | "rate-shop" (Rate shop · SO-2291) | `SHIP-001` partial | partial |
 | 27 | "Address corrected · 1420 E Main St" | `SHIP-001` partial | partial |
 | 28 | "print the label" (label failed, re-weighed, printed) | `SHIP-001` partial; `WMS-001` done | partial |
 | 29 | "Tracking goes to each customer" | `SHIP-001` partial | partial |
-| 30 | "214 orders out" by 4 pm | `WMS-003` partial; `PIER-009` partial | partial |
+| 30 | "214 orders out" by 4 pm | `WMS-003` partial; `PIER-009` done | partial |
 | 31 | "Pier matches each bill to its PO and receipt, holds the difference" | `BUY-004` done | done |
 | 32 | "Agent requested a credit" | `BUY-003` partial; `AGENT-003` partial | partial |
 | 33 | "Credit memo CM-311" and "Paid $2,016.00 for 480" | `BUY-003` partial; `BUY-004` done | partial |
@@ -53,4 +53,4 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 45 | Tag "PO-1061 sent · 600 Blue Mug 12oz" | `AGENT-002` done; `BUY-006` partial | partial |
 | 46 | "Free and open source, MIT licensed" | `OPEN-001` done | done |
 
-Claims: 46; 6 done, 40 partial, 0 missing.
+Claims: 46; 7 done, 39 partial, 0 missing.
