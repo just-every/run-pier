@@ -4871,11 +4871,11 @@
       "executable": false
     },
     "tests/api/stock-fixtures.mjs": {
-      "sha256": "da48b3e9e206498cc7a1e56192f738e9e1d8ab3b559ce689a48c896d1ad1978d",
+      "sha256": "4b5560d3798499b30c172b135de9a9a8d3540bc4a8f942400ea06b7ad5aca383",
       "executable": false
     },
     "tests/api/stock.test.mjs": {
-      "sha256": "ce34f30f4cc61f2205d4ad9f070dbbbbd89840549deff86bd044cda76980b625",
+      "sha256": "3d937ee06710ad57ebb24757b9d7f1b58455df45fd26402640e38a96a57540ac",
       "executable": false
     },
     "tests/api/strong-auth-fixture.mjs": {
@@ -4963,7 +4963,7 @@
       "executable": false
     },
     "tests/browser/stock.spec.ts": {
-      "sha256": "9a0b799923368917a91f3aff7c5d781d5a64409b742d3eceaa869fb02df2a662",
+      "sha256": "ed9fb4c712556f82ae34e116450465ecb3fead6d1a1551c3dfd7363a6511fbd4",
       "executable": false
     },
     "tests/browser/supplier-bills.spec.ts": {
