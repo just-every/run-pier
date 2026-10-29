@@ -1,5 +1,6 @@
 import type { Bindings } from '../../auth.server';
 import { available, decimal, fail, format, fresh, get, id, item, min, requireRole, row, text, type Context, type Row } from '../model';
+import { activeRule } from '../routing';
 import { orders } from '../orders';
 import { preparePublication, publicationTargets } from './publications';
 import { priceUnpricedLines } from '../pricing';
@@ -143,10 +144,12 @@ export async function channels(c: Context, type: string, p: any, env: Bindings):
     if (p.publicationId) {
       const publication = listing.publications?.find((entry: any) => entry.id === p.publicationId);
       if (!publication || publication.quantity !== p.quantity) fail('CHANNEL_PUBLICATION', 'Publication identity or quantity differs.');
+      const rule = activeRule(c.s, `channel:${channel.id}`);
+      if (rule && c.automationActors?.[rule.activatedBy] !== 'owner') fail('CHANNEL_AUTHORITY', 'The routing approval no longer has current-owner authority.');
       if (!publicationTargets(c.s, channel, listing).some(target => target.key === publication.key)) fail('CHANNEL_MAPPING', 'Publication mapping or quantity changed before confirmation.');
       Object.assign(publication, { status: 'accepted', acceptedAt: c.now, acceptanceMs: p.acceptanceMs, problem: null });
     }
-    Object.assign(listing, { publishedQuantity: p.quantity, acceptedAt: c.now, acceptanceMs: p.acceptanceMs, problem: null, pendingSince: c.now, version: listing.version + 1 });
+    Object.assign(listing, { publishedQuantity: p.publicationId && activeRule(c.s, `channel:${channel.id}`)?.mode === 'channel-location' ? null : p.quantity, acceptedAt: c.now, acceptanceMs: p.acceptanceMs, problem: null, pendingSince: c.now, version: listing.version + 1 });
     return listing;
   }
   if (type === 'channel.failed') {

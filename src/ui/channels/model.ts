@@ -8,7 +8,7 @@ export type Connection = RecordData & {
 }
 export type Publication = { id: string; locationId: string | null; warehouses: string[]; quantity: string; status: string; acceptedAt?: string | null; attemptedAt: string; problem?: string | null; invalidated?: boolean }
 export type Listing = RecordData & {
-  multiLocation?: boolean; publicationLocations?: { locationId: string | null; warehouses: string[]; quantity: string; publication: Publication | null }[]; publications?: Publication[]
+  publicationAuthorized?: boolean; multiLocation?: boolean; publicationLocations?: { locationId: string | null; warehouses: string[]; quantity: string; publication: Publication | null }[]; publications?: Publication[]
   channelId: string; externalId: string; sku: string; title: string; itemId: string | null
   matchedBy?: string; publishedQuantity: string | null; acceptedAt?: string | null
   acceptanceMs?: number | null; problem?: string | null; available: string | null

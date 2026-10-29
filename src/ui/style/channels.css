@@ -85,3 +85,10 @@
   .pier-app .channel-hold-list li { flex-direction: column; }
   .pier-app .channel-hold-list button { width: 100%; }
 }
+
+/* Location identities and retained outcomes stay readable at both viewport widths. */
+.pier-app .channels-page small, .pier-app .channels-page code, .pier-app .channels-page th,
+.pier-app .channels-page td[data-label]::before { font-size: 13px; }
+.pier-app .channel-inventory details p { overflow-wrap: anywhere; }
+.pier-app [aria-label="Routing settings"] small, .pier-app [aria-label="Routing settings"] th,
+.pier-app [aria-label="Routing settings"] td[data-label]::before { font-size: 13px; }
