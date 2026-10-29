@@ -83,9 +83,11 @@ export async function retainedFieldCustody({ page, context, browser, origin, suf
     expect(text).toContain(expectedField)
     expect(text).toContain('Record version ' + source.version)
     expect(text).toContain('Template version ' + document.templateVersion)
+    const retainedUrl = origin + '/api/pier/sales-documents/' + document.id + '.pdf'
+    const navigation = context.waitForEvent('request', request => request.url() === retainedUrl)
     const [reprint] = await Promise.all([page.waitForEvent('popup'), row.getByRole('link', { name: 'Open exact PDF', exact: true }).click()])
-    await reprint.waitForURL(origin + '/api/pier/sales-documents/' + document.id + '.pdf')
-    const retained = await context.request.get(reprint.url())
+    expect((await navigation).url()).toBe(retainedUrl)
+    const retained = await context.request.get(retainedUrl)
     expect(retained.status()).toBe(200)
     expect(await retained.body()).toEqual(bytes)
     await reprint.close()

@@ -13,7 +13,7 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 | Later | 0 | 0 | 0 | 0 |
 | Full target | 25 | 62 | 11 | 98 |
 
-Judged from the code and tests at commit `77c8fb00ef01cdb3a8962d8f311a72aa080383e7` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
