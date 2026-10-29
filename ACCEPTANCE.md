@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 22 | 65 | 4 | 91 |
+| Core | 23 | 64 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 22 | 65 | 11 | 98 |
+| Full target | 23 | 64 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-005, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-005, PIER-006, PIER-010, PIER-011 and WMS-003 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -85,7 +85,7 @@ Core · published · **partial** · Cites BASE-AGENT-008
 1. Journey 5: prepare a PO as an agent, attempt approval with the agent's own credential, obtain the buyer's approval, change a material term and attempt commit.
 2. Only a freshly approved version commits and it changes expected supply rather than on-hand stock.
 
-**Evidence.** `tests/api/flows.test.mjs` — “05 exact purchase approval and agent preparation leave expected separate” uses distinct authenticated agent and buyer sessions: the agent drafts and revises a PO with its preparation identity retained in the public command export; agent approval and commitment refuse; the buyer approves, material revision invalidates approval, stale and unapproved commitments refuse without changing the complete business graph or successful results, and fresh exact-version buyer approval commits once. Public PO exports independently reconcile the three added expected units while positions, movements and reservations stay unchanged; the native cutover CSV gains only the exact revised line with its supplier, quantity, price and promise date, and stays unchanged before commitment and across refusals. Replay returns the same result without another effect. The evidence-backed proposal also retains its agent preparation and buyer approval without itself committing supply.
+**Evidence.** `tests/api/flows.test.mjs` — “05 exact purchase approval and agent preparation leave expected separate” uses distinct authenticated agent and buyer sessions: the agent drafts and revises a PO with its preparation identity retained in the public command export; agent approval and commitment refuse; the buyer approves, material revision invalidates approval, stale and unapproved commitments refuse without changing the complete business graph or successful results, and fresh exact-version buyer approval commits once. Public PO exports independently reconcile the three added expected units while positions, movements and reservations stay unchanged; the native cutover CSV gains only the exact revised line with its supplier, quantity, price and promise date, and stays unchanged before commitment and across refusals. Replay returns the same result without another effect, including after Worker restart; a new command cannot recommit the document, and the retained preparation, buyer approval and expected supply remain identical. The evidence-backed proposal also retains its agent preparation and buyer approval without itself committing supply.
 **Gap.** ADMIN-002 provider-bound identity acceptance and separately scoped, rotated and revocable service and agent credentials remain unproved. Shared MCP money-class and company-policy conformance remain unimplemented under SURFACE-001 and SURFACE-003. Native role sessions prove only the local preparation and human approval boundary.
 
 #### PIER-006 — Receive partial purchases atomically
@@ -366,7 +366,7 @@ Core · target · **done**
 
 #### WMS-003 — Daily dispatch board and carrier cut-offs
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** Each warehouse has a dispatch board for the working day in its time zone: the orders due to ship that day, each carrier’s actual pickup cut-off time and time zone, and counts and lists by state: to pick, picking, picked, packed, labeled and shipped (WMS-001 states; shipped only when PIER-009 dispatch posts). An order is due by its promise date, or by the earlier explicit carrier-service ship-by date a person reviewed and recorded when its pickup was assigned; that date is validated by the public carrier-assignment command and visible in the pickup assignment field. Pier never infers a ship-by date and never claims an earlier shipment than the recorded dates; rate and service planning stay with SHIP-001. Without pick, pack and label handling-time estimates, the board conservatively flags every unfinished due order before its pickup with its remaining-work reason (short, unpicked, unpacked or unlabeled), labels that conservative basis on the board, and clears the flag only when the order’s dispatch posts; it never invents a calculated cannot-make time. At day close the board records the number of orders and units shipped, the time the last one left and every due order that did not ship with its reason; the record is kept, exportable and feeds the REPORT-002 overdue-orders report.
 
@@ -376,8 +376,8 @@ Core · target · **partial**
 3. The board shows the carrier’s 4 pm cut-off with its time zone and its counts equal the orders’ states throughout; before 4 pm every unfinished due order is flagged with its remaining-work reason under the labeled conservative basis, including the short and unpicked orders, and each flag clears only when that order’s dispatch posts.
 4. The day-close record shows 18 orders shipped, the last shipment’s time and the two missed orders with reasons, each equal to an independent count of the day’s dispatches.
 
-**Evidence.** `src/pier/floor/dispatch-board.ts`; `src/pier/floor/summary.ts`; `src/pier/reports.ts`; `src/ui/floor/dispatch.tsx`; `src/ui/reports.tsx`; `tests/api/dispatch.test.mjs`; `tests/browser/dispatch.spec.ts`
-**Gap.** Unasserted: the board's display of the carrier cut-off with its time zone, the labeled conservative basis, and each risk flag clearing only when its order's dispatch posts. Asserted: due-date precedence of the reviewed ship-by date, invalid ship-by refusal, state counts throughout the day, the short and unpicked flags before cut-off and the day-close record against independent counts.
+**Evidence.** `tests/api/dispatch.test.mjs` — “WMS-003: twenty due orders, eighteen dispatches and a retained close reconcile independently” proves twenty due orders, reviewed ship-by precedence and invalid-date refusal, the 16:00 carrier cut-off in its exact time zone, every remaining-work risk flag through picking, packing and labeling, clearance only after each order dispatches, the other unfinished flags, and eighteen shipments and day-close totals against independent movement-backed shipment records. `tests/browser/dispatch.spec.ts` — “WMS-003: warehouse dispatch states, reviewed ship-by schedule, close download and overdue report at 1440 and 390” proves the visible configured cut-off and time zone, conservative basis, native packed-to-dispatched risk transition, retained other-order flags, reviewed pickup schedule, day-close download and overdue report. Shipping recordings replace only the external provider network.
+**Gap.** None.
 
 #### COUNT-001 — Full-warehouse stocktake
 

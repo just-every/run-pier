@@ -320,6 +320,13 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
       assert.deepEqual(physical(afterCommit), physical(beforeDraft), "a commitment creates expected supply only");
       assert.deepEqual(await review("po.commit", commitPayload, { commandId: commitId }), committed);
       assert.deepEqual(await business(), afterCommit, "replaying the commitment adds no supply or successful result");
+      await h.restart();
+      assert.deepEqual(await business(), afterCommit,
+        "Worker restart retains the exact commitment, agent preparation, buyer approval and expected supply");
+      assert.deepEqual(await review("po.commit", commitPayload, { commandId: commitId }), committed);
+      assert.deepEqual(await business(), afterCommit,
+        "commitment replay after restart returns the retained result without another business effect");
+      await refuse(review, "po.commit", { poId: draft.id, version: committed.version }, "PO_STATE");
       await h.invariant();
     },
   );

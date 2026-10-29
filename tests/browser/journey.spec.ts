@@ -299,7 +299,15 @@ test(`owner completes real UI journeys at ${width}px`, async ({ page, context })
       await expect(page.getByRole('heading', { name: title, exact: true }).first()).toBeVisible()
       if (tab === 'stock') await page.getByRole('button', { name: itemName, exact: true }).first().click()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
-      if (shots) { await mkdir(shots, { recursive: true }); await page.screenshot({ path: join(shots, `${screenshotWidth}-${tab}.png`), fullPage: true }) }
+      if (shots) {
+        await mkdir(shots, { recursive: true })
+        await page.screenshot({ path: join(shots, `${screenshotWidth}-${tab}.png`), fullPage: true })
+        if (tab === 'purchasing') {
+          await page.setViewportSize({ width: 390, height: 1000 })
+          await page.screenshot({ path: join(shots, '390-purchasing.png'), fullPage: true })
+          await page.setViewportSize({ width: screenshotWidth, height: 1000 })
+        }
+      }
     }
   }
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
