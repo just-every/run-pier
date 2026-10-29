@@ -671,7 +671,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "50346ac1ca2273c6e6215cf0462c4f4300ce823245eca95f9a1ab4693967bebf",
+      "sha256": "43217e1b3b2278d5d4755f85c41406714a936fb4f9abcaa1b28f0e9e39853302",
       "executable": false
     },
     "packaging.json": {
@@ -3003,7 +3003,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "92c98bfc90be991dcde4c8ed15ac1955b575668c40836d0868bbc5df9b1175c0",
+      "sha256": "3b9a66cdcc4714dcba6183487840a7882a3200ae05989e36dd0b1a4c74df3689",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3383,7 +3383,7 @@
       "executable": false
     },
     "src/pier/imports.ts": {
-      "sha256": "84082bb3f815f82dc83bae8886914dd891c850f37d76a0b9a56c9e8d217deb0d",
+      "sha256": "d708775315492a76bee70f42f159f403059653bca981859526aa20438b4c0863",
       "executable": false
     },
     "src/pier/integration-health.ts": {
@@ -3507,7 +3507,7 @@
       "executable": false
     },
     "src/pier/native-mapping.ts": {
-      "sha256": "381716f23733c85b9ffb2fb3140fd2d5cc0a5848d00a8f0efbff9dede5f194c1",
+      "sha256": "a64cd9cc1bb6dedda867136e13177ace81b6c5849761586f1069592df763ad69",
       "executable": false
     },
     "src/pier/native-reservations.ts": {
@@ -4111,7 +4111,7 @@
       "executable": false
     },
     "src/ui/activity.tsx": {
-      "sha256": "62d9a41015d9c2a3243857e16ca48de5ed3f06f0ff108fd9f30e9cbf0ab46c28",
+      "sha256": "61f2d1618c1e2e49d9ee562da411efa39090833a133139de1bbee77cab2b45a8",
       "executable": false
     },
     "src/ui/api.ts": {

@@ -254,6 +254,7 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
       currency,
       conversionRates: rates,
       mappingRevision: p.mappingRevision,
+      capturedVersion: c.s.version + 1,
       ...(prepared ? { moveIn: prepared.review, provider: p.provider } : {}),
       source,
       reservationPlan: p.files.some(

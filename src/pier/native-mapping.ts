@@ -26,7 +26,7 @@ const kinds = [
   "purchaseOrders",
   "reservations",
 ];
-export function materialHash(c: Context) {
+export function materialHash(c: Pick<Context, 's'>) {
   return JSON.stringify({
     customFieldDefinitions: c.s.customFieldDefinitions,
     items: c.s.items,

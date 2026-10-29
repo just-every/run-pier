@@ -1,6 +1,7 @@
 import { requireAssurance } from '../strong-auth/assurance';
 import { trade, tradeResponse } from './trade';
 import { integrationHealth } from './integration-health';
+import { onboarding } from './onboarding';
 import { customFieldCommands, customFieldRead, customFieldProjection, privateFieldCustody } from './custom-fields';
 import { stockFeed } from './stock-feed';
 import { purchaseChanges } from './purchase-changes';
@@ -398,6 +399,10 @@ export async function pierResponse(
       if (url.pathname === '/api/pier/integrations') {
         if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only the current owner can inspect connector recovery.', null, 403);
         return reply(await integrationHealth(env, full));
+      }
+      if (url.pathname === '/api/pier/onboarding') {
+        if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only the current owner can inspect onboarding.', null, 403);
+        return reply(onboarding(full, await integrationHealth(env, full)));
       }
       if (url.pathname === '/api/pier/custom-fields') return reply(customFieldRead(c,url.searchParams));
       if (url.pathname === '/api/pier/questions') return reply(liveQuestion(full, actor, url.searchParams));
