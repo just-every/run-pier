@@ -46,10 +46,11 @@ test('BUY-005: exported A–E stock reproduces reorder batches, coverage, altern
    const poQuantity = status => source.purchaseOrders.filter(p => p.destinationWarehouse === warehouse && p.status === status).flatMap(p => p.lines).filter(l => l.itemId === itemId).reduce((n, l) => n + Math.max(0, Number(l.quantity) - Number(l.received)), 0);
    const inbound = source.transfers.filter(x => x.itemId === itemId && x.status === 'transit' && locs.has(x.toLocationId)).reduce((n, x) => n + Number(x.quantity) - Number(x.received ?? 0), 0);
    const p = source.replenishmentPolicies.find(p => p.itemId === itemId && p.warehouse === warehouse), term = source.supplierItems.find(t => t.itemId === itemId && t.supplierId === supplierId);
-   const position = onHand - reserved - backorders + poQuantity('committed') + inbound;
+   const onOrder = poQuantity('committed'), reorderPoint = Number(p.reorderPoint), method = p.method;
+   const position = onHand - reserved - backorders + onOrder + inbound;
    const unrounded = Math.max(0, (p.method === 'upTo' ? Number(p.maximum) : Number(p.reorderPoint) + Number(term.reorderQuantity ?? p.reorderQuantity)) - position);
    const rounded = Math.ceil(Math.max(unrounded, Number(term.minimum)) / Number(term.packSize)) * Number(term.packSize);
-   return { position, onHand, reserved, backorders, inbound, need: unrounded, rounded, remaining: Math.max(0, rounded - poQuantity('draft')) };
+   return { position, onHand, reserved, backorders, onOrder, reorderPoint, method, inbound, need: unrounded, rounded, remaining: Math.max(0, rounded - poQuantity('draft')) };
  }
  const concordance = async () => {
    const state = await h.state(), expected = low(state).map(f => `${f.itemId}:${f.scope}:${f.warehouse}`).sort();
@@ -59,12 +60,18 @@ test('BUY-005: exported A–E stock reproduces reorder batches, coverage, altern
    return state;
  };
  let state = await concordance(), source = await read('/api/pier/export');
+ const committedA = source.purchaseOrders.filter(p => p.status === 'committed').flatMap(p => p.lines.filter(l => l.itemId === items.A.id).map(l => ({ destination: p.destinationWarehouse ?? null, outstanding: Number(l.quantity) - Number(l.received) })));
+ assert.deepEqual(committedA.filter(l => l.outstanding > 0).sort((a, b) => a.outstanding - b.outstanding), [{ destination: 'East', outstanding: 6 }, { destination: null, outstanding: 1000 }]);
  assert.deepEqual(low(state).map(f => [source.items.find(i => i.id === f.itemId).sku, f.suggestedQuantity]).sort(), [['A', '48'], ['B', '66'], ['C', '10'], ['E', '13']]);
  for (const f of low(state)) {
    const expected = calculate(source, f.itemId, f.warehouse, f.supplierId);
    assert.equal(Number(f.position), expected.position); assert.equal(Number(f.onHand), expected.onHand); assert.equal(Number(f.reserved), expected.reserved); assert.equal(Number(f.backorders), expected.backorders);
+   assert.equal(Number(f.onOrder), expected.onOrder); assert.equal(Number(f.applied.reorderPoint), expected.reorderPoint); assert.equal(f.applied.method, expected.method);
    assert.equal(Number(f.inboundTransfers), expected.inbound); assert.equal(Number(f.unroundedNeed), expected.need); assert.equal(Number(f.roundedQuantity), expected.rounded); assert.equal(Number(f.suggestedQuantity), expected.remaining);
  }
+ const aForecast = low(state).find(f => f.itemId === items.A.id);
+ assert.equal(aForecast.onOrder, '6', 'only six committed units have an East receiving destination');
+ assert.equal(aForecast.position, '14', 'the thousand unassigned legacy units cannot cover East demand');
  const aPolicy = state.replenishmentPolicies.find(p => p.itemId === items.A.id);
  const threshold = await command('replenishment.save', { ...aPolicy, reorderPoint: '14', reorderQuantity: '0' });
  const atPoint = (await h.state()).forecasts.find(f => f.itemId === items.A.id && f.warehouse === 'East');
@@ -83,8 +90,18 @@ test('BUY-005: exported A–E stock reproduces reorder batches, coverage, altern
  assert.equal(westDraft.supplierId, s2.id); assert.equal(westDraft.lines[0].quantity, '66');
  state = await concordance(); assert.equal(low(state).length, 4); assert.ok(low(state).every(f => f.suggestedQuantity === '0' && f.draftIds.length === 1));
  assert.deepEqual((await command('replenishment.plan', {})).draftIds, []);
+ const retainedLines = state => low(state).filter(f => f.itemId !== items.B.id).map(f => ({ itemId: f.itemId, scope: f.scope, warehouse: f.warehouse, supplierId: f.supplierId, suggestedQuantity: f.suggestedQuantity, draftQuantity: f.draftQuantity, draftIds: f.draftIds, drafts: f.drafts }));
+ const beforeDelete = retainedLines(state), beforeDeleteExport = await read('/api/pier/export');
+ const coveredB = low(state).find(f => f.itemId === items.B.id);
+ assert.equal(coveredB.draftQuantity, '66'); assert.deepEqual(coveredB.draftIds, [westDraft.id]);
  await command('po.delete', { poId: westDraft.id, version: westDraft.version });
- state = await concordance(); assert.equal(low(state).find(f => f.itemId === items.B.id).suggestedQuantity, '66');
+ state = await concordance();
+ const uncoveredB = low(state).find(f => f.itemId === items.B.id);
+ assert.equal(uncoveredB.suggestedQuantity, '66'); assert.equal(uncoveredB.draftQuantity, '0'); assert.deepEqual(uncoveredB.draftIds, []); assert.deepEqual(uncoveredB.drafts, []);
+ assert.deepEqual(retainedLines(state), beforeDelete, 'deleting West coverage preserves every other suggestion, supplier, destination and source draft line');
+ const afterDeleteExport = await read('/api/pier/export');
+ assert.deepEqual(afterDeleteExport.purchaseOrders, beforeDeleteExport.purchaseOrders.filter(p => p.id !== westDraft.id), 'only the selected draft is removed');
+ assert.deepEqual(afterDeleteExport.movements, beforeDeleteExport.movements, 'deleting a draft cannot move physical stock');
  const alternate = await read(`/api/pier/replenishment?${new URLSearchParams({ itemId: items.B.id, warehouse: 'West', supplierId: s3.id })}`);
  assert.equal(alternate.find(f => f.itemId === items.B.id && f.warehouse === 'West').suggestedQuantity, '70');
  const altBatch = await command('replenishment.plan', { stateVersion: state.version, lines: [{ itemId: items.B.id, warehouse: 'West', supplierId: s3.id, quantity: '80' }] });
