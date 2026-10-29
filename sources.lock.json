@@ -3663,7 +3663,7 @@
       "executable": false
     },
     "src/pier/proposals.ts": {
-      "sha256": "0e1e37c3402827e9c12d395d361ed6d62d35742001af602d54b1570b61354d5b",
+      "sha256": "d35a49fb9b5db16124a8d2152e1d08344e63719dd97d786e585eacfa6151551d",
       "executable": false
     },
     "src/pier/provider-audit.ts": {
@@ -4763,7 +4763,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "451eae97d25b48ec352606b76f3b7fb3c5d0d2c3ff3ea93e7456b30cf1ee8bb1",
+      "sha256": "1ea84f888ce700c10db073d25948da60e32bac5dc6316fd49022c432daf8f5d7",
       "executable": false
     },
     "tests/api/harness.mjs": {
@@ -4847,7 +4847,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "ca82d410520cd4e79c76f9ec8c483f85cc9480367bdf85ab6c7236b75b942d47",
+      "sha256": "662b7719cdb7cdc12f7341b550386a2e510d04eb42d5e88f110bce9cea074941",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {

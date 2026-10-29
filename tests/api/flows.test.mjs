@@ -3,6 +3,83 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { installation, basics, buy, receive, parse } from "./harness.mjs";
 
+async function exactNativeProposalConsequences(h) {
+  const b = await basics(h);
+  const supply = await buy(h, b, '10');
+  await receive(h, b, supply, '10');
+  const from = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '6' }] });
+  const to = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '7' }] });
+  const entered = await fetch(`${h.origin}/auth/dev/enter?as=member`, { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
+  assert.equal(entered.status, 303);
+  const as = entered.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
+  const agent = await (await h.request('/auth/session', { as })).json();
+  const human = await (await h.request('/auth/session')).json();
+  assert.notEqual(agent.operator.id, human.operator.id);
+  await h.command('role.set', { operatorId: agent.operator.id, role: 'agent' });
+  const exported = async () => {
+    const response = await h.request('/api/pier/export');
+    assert.equal(response.status, 200);
+    const { exportedAt, ...business } = await response.json();
+    return business;
+  };
+  const prepare = (kind, plan, evidence) => h.command('proposal.prepare', {
+    kind, plan, evidence, assumptions: 'Observed physical stock and exact current customer demand',
+  }, { as });
+  const apply = async proposal => {
+    await h.command('proposal.approve', { proposalId: proposal.id, version: proposal.version });
+    const commandId = randomUUID(), payload = { proposalId: proposal.id, version: proposal.version };
+    const result = await h.command('proposal.execute', payload, { commandId });
+    const after = await exported();
+    assert.deepEqual(await h.command('proposal.execute', payload, { commandId }), result);
+    assert.deepEqual(await exported(), after, 'identical application recovery adds no second business effect');
+    return after;
+  };
+  const initial = await exported();
+  const quantity = (state, orderId) => state.reservations.filter(row => row.orderId === orderId).reduce((n, row) => n + BigInt(row.quantity), 0n);
+  assert.equal(quantity(initial, from.id), 6000000n);
+  assert.equal(quantity(initial, to.id), 4000000n);
+  const allocation = await prepare('reallocation', { fromOrderId: from.id, toOrderId: to.id, itemId: b.item.id, quantity: '2' }, [from.id, to.id]);
+  const reallocated = await apply(allocation);
+  assert.equal(quantity(reallocated, from.id), 4000000n);
+  assert.equal(quantity(reallocated, to.id), 6000000n);
+  assert.ok(reallocated.reservations.every(row => row.itemId === b.item.id && row.locationId === b.source.id));
+  for (const key of ['movements', 'purchaseOrders', 'receipts', 'counts', 'shipments', 'imports'])
+    assert.deepEqual(reallocated[key], initial[key], 'reallocation changes reservations only');
+  for (const original of [from, to]) {
+    const changed = reallocated.orders.find(row => row.id === original.id);
+    const before = initial.orders.find(row => row.id === original.id);
+    assert.deepEqual(changed, { ...before, version: before.version + 1 });
+  }
+  assert.equal(reallocated.proposals.find(row => row.id === allocation.id).approval.actorId, human.operator.id);
+  let count = await h.command('count.capture', { locationId: b.source.id });
+  count = await h.command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: b.item.id, status: 'sellable', quantity: '12' }], reason: 'synthetic-pier: physical recount found two extra units' });
+  const old = await prepare('count-drift', { countId: count.id, version: count.version }, [count.id]);
+  await h.command('proposal.approve', { proposalId: old.id, version: old.version });
+  count = await h.command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: b.item.id, status: 'sellable', quantity: '13' }], reason: 'synthetic-pier: corrected physical recount found three extra units' });
+  const beforeRefusal = await exported();
+  await h.command('proposal.execute', { proposalId: old.id, version: old.version }, { error: 'STALE' });
+  assert.deepEqual(await exported(), beforeRefusal, 'changed count input refuses with no stock, approval or successful command effect');
+  const current = await prepare('count-drift', { countId: count.id, version: count.version }, [count.id]);
+  const beforeCount = await exported();
+  const counted = await apply(current);
+  const added = counted.movements.filter(row => !beforeCount.movements.some(old => old.id === row.id));
+  assert.equal(added.length, 1);
+  assert.equal(added[0].quantity, '3000000');
+  assert.equal(added[0].itemId, b.item.id);
+  assert.equal(added[0].locationId, b.source.id);
+  assert.equal(added[0].status, 'sellable');
+  assert.equal(added[0].documentId, count.id);
+  assert.equal(added[0].actorId, human.operator.id);
+  assert.equal(counted.movements.reduce((n, row) => n + BigInt(row.quantity), 0n), 13000000n);
+  const posted = counted.counts.find(row => row.id === count.id);
+  assert.equal(posted.status, 'posted');
+  assert.equal(posted.version, count.version + 1);
+  assert.deepEqual(posted.approval, { actorId: human.operator.id, version: count.version, at: added[0].createdAt });
+  for (const key of ['orders', 'reservations', 'purchaseOrders', 'receipts', 'shipments', 'imports'])
+    assert.deepEqual(counted[key], beforeCount[key], 'count application posts only the reviewed count consequence');
+  await h.invariant();
+}
+
 test("Pier public Worker and D1 wholesale journey", async (t) => {
   const outbound = [];
   const outboundService = request => { outbound.push(new URL(request.url).origin); throw new Error('Native stock does not authorize external access.'); };
@@ -246,6 +323,9 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         version: proposal.version,
       });
       await h.invariant();
+      const proposalInstallation = await installation({ outboundService });
+      try { await exactNativeProposalConsequences(proposalInstallation); }
+      finally { await proposalInstallation.close(); }
     },
   );
   await t.test(

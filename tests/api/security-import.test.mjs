@@ -436,6 +436,80 @@ test("empty downstream import undo restores native snapshot and retains custody"
   await h.invariant();
 });
 
+async function nativeAgentPreparations(h, b, agent, draft) {
+  const run = (type, payload, opts = {}) => h.command(type, payload, { as: agent.cookie, ...opts });
+  const exported = async () => {
+    const response = await h.request('/api/pier/export');
+    assert.equal(response.status, 200);
+    const { exportedAt, ...business } = await response.json();
+    return business;
+  };
+  const refuse = async (type, payload, opts) => {
+    const before = await exported();
+    await h.command(type, payload, opts);
+    assert.deepEqual(await exported(), before, `${type} refusal preserves every business record and successful command result`);
+  };
+  const supply = await buy(h, b, '10');
+  await receive(h, b, supply, '4');
+  const from = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '3' }] });
+  const to = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '4' }] });
+  let count = await h.command('count.capture', { locationId: b.destination.id });
+  count = await h.command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: b.item.id, status: 'sellable', quantity: '1' }], reason: 'Observed count at an otherwise empty bin' });
+  const batch = await h.command('import.stage', { ...native('2'), namespace: 'synthetic-pier-agent' });
+  assert.deepEqual(batch.errors, []);
+  const cases = [
+    { kind: 'replenishment', plan: { poId: draft.id }, evidence: [draft.id, to.id] },
+    { kind: 'reallocation', plan: { fromOrderId: from.id, toOrderId: to.id, itemId: b.item.id, quantity: '1' }, evidence: [from.id, to.id] },
+    { kind: 'count-drift', plan: { countId: count.id, version: count.version }, evidence: [count.id] },
+    { kind: 'migration', plan: { batchId: batch.id, mappingRevision: '1', reconciliation: 'Two native opening units', duplicateResolution: 'No merges' }, evidence: [batch.id] },
+  ];
+  for (const scenario of cases) {
+    const before = await exported();
+    const input = { ...scenario, assumptions: `synthetic-pier: ${scenario.kind} is preparation, not physical stock` };
+    const proposal = await run('proposal.prepare', input);
+    const after = await exported();
+    const retained = after.proposals.find(row => row.id === proposal.id);
+    assert.equal(retained.kind, scenario.kind);
+    assert.equal(retained.preparation.actorId, agent.session.operator.id);
+    assert.notEqual(retained.preparation.actorId, (await (await h.request('/auth/session')).json()).operator.id);
+    assert.equal(retained.assumptions, input.assumptions);
+    assert.deepEqual(retained.evidence, scenario.evidence);
+    assert.deepEqual(retained.plan, scenario.plan);
+    assert.equal(retained.snapshotVersion, before.version);
+    assert.equal(retained.context.frontier, before.movements.at(-1).sequence);
+    for (const [kind, source] of [['orders', from], ['orders', to], ['purchaseOrders', draft], ['counts', count], ['imports', batch]])
+      assert.equal(retained.context[kind].find(row => row.id === source.id).version, source.version, `${scenario.kind} retains the exact ${kind} input version`);
+    const effects = ({ version, proposals, commands, auditEvents, ...rest }) => rest;
+    assert.deepEqual(effects(after), effects(before), 'preparation alone has no business consequence');
+    for (const type of ['proposal.approve', 'proposal.execute'])
+      await refuse(type, { proposalId: proposal.id, version: proposal.version }, { as: agent.cookie, error: 'FORBIDDEN' });
+    await refuse('proposal.approve', { proposalId: proposal.id, version: proposal.version + 1 }, { error: 'STALE' });
+    await h.command('proposal.approve', { proposalId: proposal.id, version: proposal.version });
+    const approved = (await exported()).proposals.find(row => row.id === proposal.id);
+    assert.notEqual(approved.approval.actorId, retained.preparation.actorId);
+    assert.equal(approved.approval.version, proposal.version);
+    await refuse('proposal.execute', { proposalId: proposal.id, version: proposal.version }, { as: agent.cookie, error: 'FORBIDDEN' });
+    await refuse('proposal.execute', { proposalId: proposal.id, version: proposal.version + 1 }, { error: 'STALE' });
+    // An actual receipt advances stock after review, rather than just editing a label.
+    await receive(h, b, supply, '1');
+    await refuse('proposal.execute', { proposalId: proposal.id, version: proposal.version }, { error: 'STALE' });
+  }
+  await refuse('count.approve', { countId: count.id, version: count.version }, { as: agent.cookie, error: 'FORBIDDEN' });
+  await refuse('receipt.create', { poId: supply.id, supplierReference: 'synthetic-pier-denied', lines: [{ poLineId: supply.lines[0].id, locationId: b.source.id, quantity: '1', cost: '0.25' }] }, { as: agent.cookie, error: 'FORBIDDEN' });
+  for (const scenario of cases.filter(row => ['replenishment', 'migration'].includes(row.kind))) {
+    const proposal = await run('proposal.prepare', { ...scenario, assumptions: 'Fresh review retains the separately approved business door' });
+    await h.command('proposal.approve', { proposalId: proposal.id, version: proposal.version });
+    const before = await exported();
+    const applied = await h.command('proposal.execute', { proposalId: proposal.id, version: proposal.version });
+    assert.equal(applied.status, 'executed');
+    assert.equal(applied.executionNote, 'Reviewed preparation retained. Commit the exact PO or import through its separately approved command.');
+    const after = await exported();
+    for (const key of ['purchaseOrders', 'imports', 'items', 'locations', 'movements', 'reservations', 'orders', 'counts', 'receipts'])
+      assert.deepEqual(after[key], before[key], `${scenario.kind} review does not bypass its PO or import door`);
+  }
+  await h.invariant();
+}
+
 test("roles, agent preparation, revoked session, stale human approval and direct HTTP denial", async (t) => {
   const outbound = [];
   const h = await installation({ outboundService: request => { outbound.push(new URL(request.url).origin); throw new Error('A scoped refusal never authorizes egress.'); } });
@@ -489,6 +563,7 @@ test("roles, agent preparation, revoked session, stale human approval and direct
   const secondAgent = await persona("admin");
   assert.notEqual(secondAgent.session.operator.id, member.session.operator.id);
   await h.command("role.set", { operatorId: secondAgent.session.operator.id, role: "agent" });
+  await nativeAgentPreparations(h, b, member, agentDraft);
   const beforeAgentDenials = (await h.state());
   for (const actor of [member, secondAgent]) {
     for (const type of ["po.approve", "po.commit"])

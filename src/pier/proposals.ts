@@ -73,6 +73,8 @@ export function proposals(c: Context, type: string, p: any): Row | undefined {
           customerId: o.customerId,
           promiseDate: o.promiseDate,
         })),
+        purchaseOrders: c.s.purchaseOrders.map((po) => ({ id: po.id, version: po.version })),
+        counts: c.s.counts.map((count) => ({ id: count.id, version: count.version })),
         imports: c.s.imports.map((b) => ({ id: b.id, version: b.version })),
       },
       status: "prepared",
