@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "d1f808593b2001f4a0b25eec43d5a6a5dd0c6389b3a45dee2e95d0f9ee7e97bc",
+      "sha256": "96e5b505981b3323d369a93bf0636d31ca589c8f42df7608ce55f2c04547f7a8",
       "executable": false
     },
     ".gitignore": {
@@ -4711,7 +4711,7 @@
       "executable": false
     },
     "tests/api/books-landed.test.mjs": {
-      "sha256": "67adb1ea23a70c75e456b2cb5d359f0ee98acfaf2b6167236faef690b6e89ce1",
+      "sha256": "f01e943575d92135067cb0aaefce974c519ae908305c58e2b44d73e1af752373",
       "executable": false
     },
     "tests/api/books-shop.test.mjs": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "01b13ea711ffa68f5970b388d9050783db4aa28d444ac09c43e9b0c2339c3da3",
+      "sha256": "01c93cc4862ccc82d7dae20112af65b0ac966cd730e4b9f6ddc43a8cd421da10",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
