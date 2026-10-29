@@ -4847,7 +4847,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "bab3162d7263f98a2400b8ec83c45bc7625097d29e3c6596744155b7211ffa3b",
+      "sha256": "3829007eed3983785e5646019895661e90bfed95d6870e97598ab6f4c0e8eb76",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {
