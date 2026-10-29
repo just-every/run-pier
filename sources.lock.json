@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "4e0f22f05193fc2b8e1b54a7592566fa5f5f628067116d4e893ac51661793d87",
+      "sha256": "b15c3095fa45b1c4318a377fb0cd39eab3a1139c843e19ccad0639c33c61c128",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "cb49fbcebfd74ffa6eddc5ede5f173290183943d31be8ebc0f169696bed60f23",
+      "sha256": "56c6397732a95af3b42d247e1c31a6404283946867937f3dbad814bf5a48d5e1",
       "executable": false
     },
     "DEMO.md": {
@@ -4831,7 +4831,7 @@
       "executable": false
     },
     "tests/api/returns.test.mjs": {
-      "sha256": "a56e087b612131186607ec4c2a2a3809185a523cdb31f0f057da79a6f43bd6fa",
+      "sha256": "6316659eea75e39bc756ea0f770218b4eb713482a5f1374896dfce41a6d98292",
       "executable": false
     },
     "tests/api/role-scenarios.mjs": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "f0ba18a10c6a62044683d5d326d9a34c46ac02cd362290bdbbe9c252627d17e5",
+      "sha256": "f5acba8a78aa4f08b9285d451de297a35b51790648a2a612dcdb0e02310f6fed",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
