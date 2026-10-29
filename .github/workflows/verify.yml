@@ -108,6 +108,9 @@ jobs:
           }
       - run: pnpm exec rer check --profile first-party
       - run: pnpm exec rer verify --no-queue
+        env:
+          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-browser
+          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-browser/screenshots
       # The run site: homepage, /run and the docs from the repository's Markdown,
       # refused on any broken, instance-only or other-origin reference.
       - run: pnpm exec rer build --site --no-queue
@@ -124,7 +127,9 @@ jobs:
         if: always()
         with:
           name: connector-recovery-screens
-          path: ${{ runner.temp }}/pier-sync-browser
+          path: |
+            ${{ runner.temp }}/pier-sync-browser
+            ${{ runner.temp }}/pier-browser
           if-no-files-found: ignore
           retention-days: 7
 
