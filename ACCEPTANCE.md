@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 23 | 64 | 4 | 91 |
+| Core | 24 | 63 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 23 | 64 | 11 | 98 |
+| Full target | 24 | 63 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010, PIER-011 and WMS-003 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010, PIER-011 and WMS-003 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. BUY-002 is judged from the native code and public-door journeys at `dfd327ab1019304d1592680d5a61f40994a59b21`; its proof is extended and re-run on the exact landing candidate named in the branch receipt. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -623,7 +623,7 @@ Core · target · **partial**
 
 #### BUY-002 — Purchase approval limits and spend routing
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** Owners set approval limits by spend, supplier and exception type, with named approvers, delegation and escalation. A workflow rule never approves or sends a purchase (RL-5). An agent never records a person’s approval; an agent’s commit carries the money class, which the company’s policy decides. ADMIN-001 and AUTO-002 inherit these limits before adding roles, exception kinds or approval doors.
 
@@ -636,8 +636,8 @@ Core · target · **partial**
 6. Delegates must be current unrestricted owners or buyers and have an explicit UTC expiry; escalation is an explicit audited owner action to the named escalation approver.
 7. Policy edits invalidate existing approval and pending send authority.
 
-**Evidence.** `tests/api/purchase-send.test.mjs` — “purchase approval routes exact landed spend and exceptions to named humans with revocable delegation” proves threshold routing, supplier and exception limits, delegation, escalation and agent denial; “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves exact PDF bytes, delegated sends, expiry, revocation, duplicate refusal and uncertain outcomes; “supplier price and date evidence stops pending sends until exact human review and retains partial cancellations” proves material changes, renewed spend review, both send doors and partial and full cancellation; `tests/api/replenishment.test.mjs` — “sell-through drafts an approved supplier PO and re-promises backorders by email” proves recorded acknowledgments; `tests/api/floor.test.mjs` — “confirmed SSCC receives every 856 pallet line once and invalid notices leave stock unchanged” proves retained original ASN and once-only receiving; `tests/browser/journey.spec.ts` — “purchase approval names spend authority and exposes supplier re-approval at 1440 and 390” proves visible authority and stopped sends at both widths.
-**Gap.** Unasserted: duty in the routed spend, inclusive ceilings, the delegate's restriction to current unrestricted owners or buyers, the audit of an escalation, and invalidation of pending send authority by a policy edit. Asserted: routing to the named buyer, denial of an agent's approval, landed goods, freight and tax spend, supplier and exception-type precedence, uncovered-spend refusal, the minimum-order exception, expired and current delegation, owner escalation and invalidated approval after a policy edit.
+**Evidence.** `tests/api/purchase-send.test.mjs` — “purchase approval routes exact landed spend and exceptions to named humans with revocable delegation” proves named human routing, agent approval refusal, independently calculated goods plus freight plus duty plus supplier tax, inclusive ceiling equality and refusal immediately above it, supplier and exact exception precedence, the smallest covering ceiling, minimum-order exceptions, current unrestricted owner and buyer delegates with UTC expiry, restriction, revocation and inactivity refusals without business changes, owner escalation actor, reason, target and policy version in Activity and export after restart, and policy edits invalidating approval and unconsumed sends through direct and scheduled admission with no new network requests. “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves money and external policy facts, once-only sends, expiry and revoked authority; `tests/api/replenishment.test.mjs` — “bounded workflow dry-runs, vendor and spend limits, worker loss and pause preserve human approval” proves draft-only workflow rules without purchase approval or sending. `tests/browser/journey.spec.ts` — “purchase approval names spend authority and exposes supplier re-approval at 1440 and 390” proves visible routed spend, exact human approval, stopped authority after a policy edit and retained supplier re-approval at both release widths.
+**Gap.** None.
 
 #### BUY-006 — Exact-version supplier sends and acknowledgments
 
