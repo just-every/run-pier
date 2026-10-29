@@ -8,10 +8,10 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 25 | 62 | 4 | 91 |
+| Core | 26 | 61 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 25 | 62 | 11 | 98 |
+| Full target | 26 | 61 | 11 | 98 |
 
 Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
@@ -21,7 +21,7 @@ Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a55467
 
 #### PIER-001 — Define stock
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** An operator creates a SKU, unique barcode, base unit, exact pack conversion and warehouse/bin locations, with sellable and quarantine stock. Archiving a used SKU preserves its history. Once movements, counts, supplier terms, orders or purchase orders reference an item, its unit and pack conversion are immutable; a location’s bin/transit kind is immutable after movements or counts reference it.
 
@@ -29,8 +29,8 @@ Core · published · **partial**
 1. Journey 1: create fractional-pack stock and bin/transit locations through the UI and authenticated commands, reference them with counts and documents, then attempt unit/pack/kind edits and archive the item.
 2. Edits fail atomically and archived history remains readable.
 
-**Evidence.** `src/pier/catalogue.ts`; `tests/api/flows.test.mjs` (01); `tests/api/security-import.test.mjs`; `tests/browser/journey.spec.ts`
-**Gap.** Unasserted in the cited evidence: refusal of unit, pack and location-kind edits once a record is used, the atomicity of those refusals, and readable history after archiving. Asserted: fractional-pack items and bin and transit locations through the UI and authenticated commands, their use by purchase documents and counts, and archiving a used SKU, which then refuses new orders. `tests/api/catalogue.test.mjs` asserts a used item's pack-barcode change refused, outside this clause's evidence.
+**Evidence.** `tests/api/flows.test.mjs` — “01 item definitions and archive preserve used history” separately references fractional-pack definitions with supplier terms, purchase and sales documents, counts and movements; refuses unit, pack and used bin and transit kind changes with HISTORY and exact state and exported successful-result comparisons. “12 investigation export preserves every ledger and review link” archives the used SKU, rereads original movement, purchase, receipt and shipment links and costs through authenticated state and business export, and refuses new archived-item demand without effects. `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” creates fractional-pack stock and locations, uses documents and counts, refuses definition edits, archives the item and opens its History and original receipt; desktop and phone screens are inspected at 1440 and 390.
+**Gap.** None.
 
 #### PIER-002 — Maintain counterparties and supplier terms
 
