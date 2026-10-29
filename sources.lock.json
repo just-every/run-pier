@@ -4539,7 +4539,7 @@
       "executable": false
     },
     "src/ui/orders/tax-evidence.tsx": {
-      "sha256": "31f5b2b309f24a41b4acc031c581fdbd38a60e86cf6211291be3499202a8ac96",
+      "sha256": "34a19f9077368b47c95ee4ea891e7b93617b63d35400d7d2b7fc19c4ad655e8a",
       "executable": false
     },
     "src/ui/orders/tax-settings.tsx": {
@@ -4943,7 +4943,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "fa3d00d34a31927efbbbf45aa476c121275a8df2f520f3c81aec5ad9c75cb563",
+      "sha256": "26717e5acbd07173721f6abfc66f639c4280b9a016e1670d8e20d67efe1ef696",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
