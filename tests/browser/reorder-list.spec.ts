@@ -77,7 +77,7 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
    { label: eLabel, warehouse: eastName, supplier: supplier.id, quantity: '13', point: '5', method: 'fixed', parameter: '10', pack: '1', minimum: '0', terms: ['2', '0', '0', '0', '0', '0', '2', '13', '0', '13', '0', '13'] },
   ]
   for (const calculation of calculations) {
-   const row = batch.getByRole('row').filter({ has: batch.getByLabel(`Select ${calculation.label} at ${calculation.warehouse}`, { exact: true }) })
+   const row = batch.getByRole('row').filter({ hasText: calculation.label })
    await row.getByText(`Calculation for ${calculation.label}`, { exact: true }).click()
    if (width === 1440) {
     await expect(row.getByLabel(`Purchase quantity for ${calculation.label} at ${calculation.warehouse}`, { exact: true })).toHaveValue(calculation.quantity)
@@ -103,7 +103,7 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   if (width === 1440) {
    await expect(batch.getByLabel(`Purchase quantity for ${bLabel} at ${westName}`, { exact: true })).toHaveValue('66')
    for (const calculation of calculations.filter(c => c.label !== bLabel)) {
-    const row = batch.getByRole('row').filter({ has: batch.getByLabel(`Select ${calculation.label} at ${calculation.warehouse}`, { exact: true }) })
+    const row = batch.getByRole('row').filter({ hasText: calculation.label })
     await expect(row.getByLabel(`Purchase quantity for ${calculation.label} at ${calculation.warehouse}`, { exact: true })).toHaveValue('0')
     await expect(row.getByLabel(`Supplier for ${calculation.label} at ${calculation.warehouse}`, { exact: true })).toHaveValue(calculation.supplier)
     await row.getByText(`Calculation for ${calculation.label}`, { exact: true }).click()
