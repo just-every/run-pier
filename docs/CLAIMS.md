@@ -23,7 +23,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 15 | "Scan the bin, scan the carton" (put away on a handheld) | `WMS-001` done; `SCAN-001` partial; `PIER-006` done | partial |
 | 16 | "A count that disagrees gets a recount" | `PIER-011` done; `WMS-001` done | done |
 | 17 | "… before anything moves" | `PIER-011` done; `COUNT-001` partial | partial |
-| 18 | "Orders from your stores, marketplaces and EDI land in one queue" | `CHANNEL-001` partial; `EDI-001` partial; `SALES-001` partial; `SALES-008` done | partial |
+| 18 | "Orders from your stores, marketplaces and EDI land in one queue" | `CHANNEL-001` partial; `EDI-001` partial; `SALES-001` done; `SALES-008` done | partial |
 | 19 | Faire among the orders and channels | `CHANNEL-004` partial | partial |
 | 20 | One count: 571 available, 692 on hand, 121 reserved | `STOCK-001` partial; `PIER-004` done | partial |
 | 21 | "855 acknowledged to Target" and "EDI 856 sent · Target DC 0593" | `EDI-001` partial | partial |

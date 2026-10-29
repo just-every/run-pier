@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 22 | 65 | 4 | 91 |
+| Core | 23 | 64 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 22 | 65 | 11 | 98 |
+| Full target | 23 | 64 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; SALES-001 is judged from the unchanged code and journeys at commit `af076addf6ae278699127d1501ddc0ad84293666` (29 October 2026), re-run on the exact landing candidate named in the fleet receipt; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -401,7 +401,7 @@ Core · target · **partial**
 
 #### SALES-001 — Quote, price and convert orders
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** Sales staff create versioned quotes, apply customer price lists, volume breaks, discounts and TAX-001 tax estimates and exemptions, send the PRINT-001 quote and order-confirmation documents by email and convert accepted quotes to sales orders without rekeying. Expired pricing and material edits require renewed acceptance. USD totals, units and rounding stay exact and margin/discount permissions are enforced. PRINT-001 and SALES-006 inherit the same retained-version and honest-delivery obligations for future document kinds.
 
@@ -414,8 +414,8 @@ Core · target · **partial**
 6. Tax estimates name the owner table version, use USD cents with half-away-from-zero rounding and stop for unresolved exemption evidence.
 7. Changing the approver policy invalidates open approvals; acceptance and quote sending recheck the approver’s current role.
 
-**Evidence.** `tests/api/costing.test.mjs` — “versioned case quotes retain discounted tax PDFs, exact approval and once-only acceptance” proves two customer tiers and volume breaks, case conversion, authorized discount and exact USD/tax rounding, retained sent quote PDF, renewed approval after quantity/price/expiry changes, immutable prior versions/PDFs, once-only conversion/reservation and confirmation, explicit recipient, failed and uncertain delivery without blind resend; “quote approver role defaults to Owner and policy or live role changes revoke open approvals” proves configurable human authority, policy history, revoked-role/policy refusal and owner-only send consent; “customer CSV and XLSX intake resolves 40 lines, names unknown rows and prices three customer POs once” proves alias resolution, blank-price tiers, row error and routed warehouse preview, three orders only after approval and duplicate file/PO refusal. `tests/browser/journey.spec.ts` — “commercial quotes are reviewed, revised, accepted and retain unavailable-email PDFs at 1440 and 390” and “customer sales files preview prices and errors before creating orders at 1440 and 390” prove the corresponding screens at both widths. [Orders](docs/orders.md).
-**Gap.** Unasserted: the quote tax estimate naming the owner table version, and the retained reason when the owner designates another approver role. Asserted: tiered and discounted quotes with exact USD tax, retained sent PDFs, once-only acceptance, conversion and confirmation, renewed approval after changes, owner-only sending, the configurable approver role and revocation of open approvals.
+**Evidence.** `tests/api/costing.test.mjs` — “versioned case quotes retain discounted tax PDFs, exact approval and once-only acceptance” proves two customer tiers and volume breaks, case conversion, authorized discount and exact USD tax rounding, table identity and version retained in the estimate, history and sent PDF across a table revision and restart, stale-table refusal without business effects, renewed review against the revised table, immutable prior versions and PDFs, renewed approval after quantity, price and expiry changes, once-only acceptance and reservation, explicit recipient and honest failed or uncertain delivery; “quote approver role defaults to Owner and policy or live role changes revoke open approvals” proves configurable human authority, exact owner designation reasons in current and historical policy records through authenticated state, business export and restart, revoked-role and changed-policy refusal and owner-only send consent. `tests/browser/journey.spec.ts` — “commercial quotes are reviewed, revised, accepted and retain unavailable-email PDFs at 1440 and 390” proves the owner policy form, retained designation reason, visible tax-table version and retained PDF, revision, acceptance and confirmation screens at both widths. [Orders](docs/orders.md).
+**Gap.** None.
 
 #### SALES-008 — Customer order files
 
