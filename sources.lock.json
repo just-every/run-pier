@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "c50e2667edb3c41c5329ce226cada87ecf5407c55d56dc909cdb60609175a442",
+      "sha256": "abedc68b1a7c82380b01e5adb430ba6c7ba2bcb9a5eb1141c7eff887717b71a2",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "69d8a177ecef7e71f5ad15e16082082a64e48f22f2353f05dcc72ca0f23b6a21",
+      "sha256": "faaaff9d6a8899154c67e33ac4f75fc6581701f6b743c65fee831d45d5e53c28",
       "executable": false
     },
     "DEMO.md": {
@@ -667,7 +667,7 @@
       "executable": false
     },
     "OPERATIONS.md": {
-      "sha256": "b3fc28dc1c2b30484a3c53717fef313630e06d2c8632885901c248602355a112",
+      "sha256": "85539e5d8a5afa898e8b176958a767d39f52737861b3e261057b06a9be8a9aae",
       "executable": false
     },
     "package.json": {
@@ -3514,6 +3514,10 @@
       "sha256": "a8c55e76d37b2857b2b759f022d81e45ea982f75963bdc6690636c0be118769a",
       "executable": false
     },
+    "src/pier/onboarding.ts": {
+      "sha256": "2b6bc7e7445073f1bac106f58083155153939b3d9bfc3286cfce50e43eaf2bf4",
+      "executable": false
+    },
     "src/pier/operational-exceptions.ts": {
       "sha256": "8699ee81b68d4a76145ec42c2a3076ae2d0e6deb150a6a6d7250073228ae1466",
       "executable": false
@@ -4111,7 +4115,7 @@
       "executable": false
     },
     "src/ui/activity.tsx": {
-      "sha256": "61f2d1618c1e2e49d9ee562da411efa39090833a133139de1bbee77cab2b45a8",
+      "sha256": "37e56eab21b6a28a3816a5a93ead3d0167c8fa43db240272ab87dde95d09702a",
       "executable": false
     },
     "src/ui/api.ts": {
@@ -4428,6 +4432,10 @@
     },
     "src/ui/kits.tsx": {
       "sha256": "0b740f28cd0499632dc5f3856083a339fd29705be36960e27d6a7e268260b69d",
+      "executable": false
+    },
+    "src/ui/onboarding.tsx": {
+      "sha256": "b3599cd3869a27798af0f62f1564f523a43990480372bf5c77b77accb82e04fe",
       "executable": false
     },
     "src/ui/operational-exceptions.tsx": {
@@ -4794,6 +4802,14 @@
       "sha256": "dbbd0dca7ddcf36b60acc011920224fecca4d545c3da4e8924cb87626c6e53fe",
       "executable": false
     },
+    "tests/api/onboarding-fixture.mjs": {
+      "sha256": "7fc7d3aadb8dad25527e0fbcf9d9dba5b0c9a74447469306d933b1bf5d4c9407",
+      "executable": false
+    },
+    "tests/api/onboarding.test.mjs": {
+      "sha256": "f4d2793ea4b4a72cadf25a28863f12422e5a137fd82e01dd66b38e515687c34f",
+      "executable": false
+    },
     "tests/api/open-fixtures.mjs": {
       "sha256": "b964bb4cacb9db2b35419ed4f31360d5d90a1a735329eda48f08e1c79e3cf6f1",
       "executable": false
@@ -4928,6 +4944,10 @@
     },
     "tests/browser/journey.spec.ts": {
       "sha256": "01b13ea711ffa68f5970b388d9050783db4aa28d444ac09c43e9b0c2339c3da3",
+      "executable": false
+    },
+    "tests/browser/onboarding.spec.ts": {
+      "sha256": "a5b6a02d90ffe05db3348553524fdba2ee8eeafc9ce24541566bf6e0a0450e4b",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
