@@ -475,7 +475,7 @@
       "executable": false
     },
     "docs/orders.md": {
-      "sha256": "df98e5807fe693dbd8fdc8c49ccff7918e27caca3473ac0c37a1afdeeec746a7",
+      "sha256": "63c2b82372ec9b08b0945f0cfc4ca62e1edf9beaf525ff691a5cb64a615d27ec",
       "executable": false
     },
     "docs/permissions.md": {
@@ -671,7 +671,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "f58bb465714b17f891a1c461bbb46395be50d0f7b1b6d9ded8de563702cedd0a",
+      "sha256": "a4503db8d43a23c3c186a19b3e1234fa5132f19becdce79f1847e6194a4a10f4",
       "executable": false
     },
     "packaging.json": {
@@ -4683,7 +4683,7 @@
       "executable": false
     },
     "src/ui/style/workbench.css": {
-      "sha256": "b42f2e70caca45ad6f55ab9f24c72925f0971166f5cead4e2c10ad79d323d106",
+      "sha256": "b79d8179a57f12f011d0a160af7691edc270b7f2d4628da8cf5c860bca606694",
       "executable": false
     },
     "src/ui/supplier-returns.tsx": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "c50ab4e9ec54c744b8c9daa90f3a864edf4273b94e73191c7c38e84a2e3a31e1",
+      "sha256": "daa4d0d1de8a131daebd223ba017f6a43d6b51b42ac2d31e6c84d0aee8747ff1",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
