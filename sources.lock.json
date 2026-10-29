@@ -4827,7 +4827,7 @@
       "executable": false
     },
     "tests/api/replenishment.test.mjs": {
-      "sha256": "52373df5a731810c4866b6f5c979b1905ca50bb58b4806e63771c0ecd066c290",
+      "sha256": "b24da9e1559762ba0ce26e0b34372a0cda327c1b5106df283d8f9db770c9cf0d",
       "executable": false
     },
     "tests/api/returns.test.mjs": {
