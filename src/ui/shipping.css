@@ -5,3 +5,7 @@
 .pier-app .shipping-job .check { align-items: center; }
 .pier-app .shipping .shipping-job input[type=radio] { width: 20px; min-height: 20px; height: 20px; margin: 0; padding: 0; accent-color: var(--pier-ink); }
 .pier-app .shipping-job small { display: block; }
+.pier-app .ltl-freight .table-wrap th,
+.pier-app .ltl-freight .table-wrap td[data-label]::before,
+.pier-app .ltl-freight .facts dt,
+.pier-app .ltl-freight .badge { font-size: 13px; }

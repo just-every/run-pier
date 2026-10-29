@@ -4595,7 +4595,7 @@
       "executable": false
     },
     "src/ui/shipping.css": {
-      "sha256": "9064410d925ce2cea5feb4dcdce175b5aa8ec85f1b7e22e7b22064d6c67cbadb",
+      "sha256": "6806ff98a1bbfd7bb275ac08ad358f1172b964e9555f955716cd7fef1ffd8b68",
       "executable": false
     },
     "src/ui/shipping/address.tsx": {
