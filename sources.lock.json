@@ -4671,7 +4671,7 @@
       "executable": false
     },
     "src/ui/style/stock.css": {
-      "sha256": "c5d4669e677455b72de43164473b9400338206236056abb9b9ba2deb1a5a49b8",
+      "sha256": "06ac8b07ccb89da50214b60a35308c5221bc71287dcc238190958b3b4ea6d0ad",
       "executable": false
     },
     "src/ui/style/tables.css": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "4f7afe04430de97da610b1d300a0fbc23423b74cc23c526a65fcc1a642e8ae5b",
+      "sha256": "20e557b98443a44baa091a0abba11e4301b404e7342ffa0f77bb5d22bcc3fe10",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
