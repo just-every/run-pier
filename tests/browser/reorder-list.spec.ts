@@ -87,7 +87,7 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
    }
   }
   if (width === 1440) { await expect(batch.getByRole('checkbox')).toHaveCount(4); await expect(batch).not.toContainText(d.sku) }
-  if (shots) await batch.screenshot({ path: join(shots, `${width}-reorder-calculations.png`) })
+  if (shots) await batch.screenshot({ path: join(shots, `${width}-reorder-calculations.png`), style: '.pier-app .topbar { visibility: hidden !important; }' })
   // Draft all four scenario lines, remove only West's draft, then reload the public list.
   for (const calculation of calculations) await batch.getByLabel(`Select ${calculation.label} at ${calculation.warehouse}`, { exact: true }).check()
   await batch.getByRole('button', { name: 'Create selected purchase drafts', exact: true }).click()
@@ -112,7 +112,7 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   } else {
    for (const calculation of calculations) await batch.getByText(`Calculation for ${calculation.label}`, { exact: true }).click()
   }
-  if (shots) await batch.screenshot({ path: join(shots, `${width}-reorder-deleted-west-draft.png`) })
+  if (shots) await batch.screenshot({ path: join(shots, `${width}-reorder-deleted-west-draft.png`), style: '.pier-app .topbar { visibility: hidden !important; }' })
   await command('po.delete', { poId: eastDraft.id, version: eastDraft.version })
   await page.reload()
   await batch.getByLabel(`Select ${aLabel} at ${eastName}`, { exact: true }).check()
