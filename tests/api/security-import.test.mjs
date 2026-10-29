@@ -449,6 +449,7 @@ async function nativeAgentPreparations(h, b, agent, draft) {
     await h.command(type, payload, opts);
     assert.deepEqual(await exported(), before, `${type} refusal preserves every business record and successful command result`);
   };
+  const human = await (await h.request('/auth/session')).json();
   const supply = await buy(h, b, '10');
   await receive(h, b, supply, '4');
   const from = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '3' }] });
@@ -471,7 +472,7 @@ async function nativeAgentPreparations(h, b, agent, draft) {
     const retained = after.proposals.find(row => row.id === proposal.id);
     assert.equal(retained.kind, scenario.kind);
     assert.equal(retained.preparation.actorId, agent.session.operator.id);
-    assert.notEqual(retained.preparation.actorId, (await (await h.request('/auth/session')).json()).operator.id);
+    assert.notEqual(retained.preparation.actorId, human.operator.id);
     assert.equal(retained.assumptions, input.assumptions);
     assert.deepEqual(retained.evidence, scenario.evidence);
     assert.deepEqual(retained.plan, scenario.plan);
@@ -486,7 +487,7 @@ async function nativeAgentPreparations(h, b, agent, draft) {
     await refuse('proposal.approve', { proposalId: proposal.id, version: proposal.version + 1 }, { error: 'STALE' });
     await h.command('proposal.approve', { proposalId: proposal.id, version: proposal.version });
     const approved = (await exported()).proposals.find(row => row.id === proposal.id);
-    assert.notEqual(approved.approval.actorId, retained.preparation.actorId);
+    assert.equal(approved.approval.actorId, human.operator.id);
     assert.equal(approved.approval.version, proposal.version);
     await refuse('proposal.execute', { proposalId: proposal.id, version: proposal.version }, { as: agent.cookie, error: 'FORBIDDEN' });
     await refuse('proposal.execute', { proposalId: proposal.id, version: proposal.version + 1 }, { error: 'STALE' });
@@ -494,6 +495,7 @@ async function nativeAgentPreparations(h, b, agent, draft) {
     await receive(h, b, supply, '1');
     await refuse('proposal.execute', { proposalId: proposal.id, version: proposal.version }, { error: 'STALE' });
   }
+  await refuse('transfer.send', { itemId: b.item.id, fromLocationId: b.source.id, toLocationId: b.destination.id, transitLocationId: b.transit.id, quantity: '1', reason: 'synthetic-pier: preparation grants no physical write' }, { as: agent.cookie, error: 'FORBIDDEN' });
   await refuse('count.approve', { countId: count.id, version: count.version }, { as: agent.cookie, error: 'FORBIDDEN' });
   await refuse('receipt.create', { poId: supply.id, supplierReference: 'synthetic-pier-denied', lines: [{ poLineId: supply.lines[0].id, locationId: b.source.id, quantity: '1', cost: '0.25' }] }, { as: agent.cookie, error: 'FORBIDDEN' });
   for (const scenario of cases.filter(row => ['replenishment', 'migration'].includes(row.kind))) {

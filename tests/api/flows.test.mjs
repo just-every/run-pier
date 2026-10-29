@@ -32,6 +32,8 @@ async function exactNativeProposalConsequences(h) {
     const after = await exported();
     assert.deepEqual(await h.command('proposal.execute', payload, { commandId }), result);
     assert.deepEqual(await exported(), after, 'identical application recovery adds no second business effect');
+    await h.command('proposal.execute', payload, { error: 'STALE' });
+    assert.deepEqual(await exported(), after, 'an old proposal version cannot apply again under a new command identity');
     return after;
   };
   const initial = await exported();
