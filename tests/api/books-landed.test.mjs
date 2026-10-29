@@ -5,6 +5,22 @@ import { pantryInstallation } from './pantry-installation.mjs';
 
 const cents = value => { const [whole, fraction = ''] = value.split('.'); assert.match(fraction, /^\d{2}0*$/, `${value} is whole cents`); return Number(whole) * 100 + Number(fraction.slice(0, 2)); };
 
+// Read both installations independently: a refused approval must not leave a
+// supplemental bill, a guessed account, a changed baseline or a stock effect.
+async function costEffects(pier, pantry) {
+  const state = await pier.invariant();
+  const exported = await (await pier.request('/api/pier/export')).json();
+  const report = await (await pier.request('/api/pier/reports')).json();
+  return {
+    version: state.version, receipts: state.receipts, supplierBills: state.supplierBills,
+    positions: state.positions, movements: state.movements, reservations: state.reservations,
+    counts: state.counts, jobs: state.bookJobs, commands: exported.commands,
+    valuation: report.valuation, margin: report.margin,
+    bills: (await pantry.view('sales')).bills,
+    journals: (await pantry.view('journal')).entries,
+  };
+}
+
 test('landed receipts and late weight-allocated bills reconcile Pantry after partial shipment, return and response loss', async () => {
   const pantry = await pantryInstallation();
   let pier, dropCreditRequest = false, loseLateResponse = false;
@@ -45,7 +61,17 @@ test('landed receipts and late weight-allocated bills reconcile Pantry after par
     const order = await pier.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '3', price: '9' }, { itemId: bowl.id, quantity: '5', price: '4' }] });
     const shipment = await pier.command('dispatch.create', { orderId: order.id, shipmentReference: 'LANDED-1', lines: order.lines.map(l => ({ orderLineId: l.id, quantity: l.quantity })) });
     const credential = await pantry.command('integration.create', { name: 'Pier', scopes: ['contacts:write', 'invoices:write', 'bills:write', 'journals:write', 'documents:write', 'payments:read', 'reports:read', 'post'] });
-    await pier.command('book.connect', { baseUrl: pantry.origin, integrationToken: credential.token, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, landedCostAccountId: freightIn.id, writeOffAccountId: damage.id, writeOffReasonCode: 'crushed', writeOffApprovalLimit: '0', taxCode: 'exempt' });
+    await pier.command('book.connect', { baseUrl: pantry.origin, integrationToken: credential.token, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, writeOffAccountId: damage.id, writeOffReasonCode: 'crushed', writeOffApprovalLimit: '0', taxCode: 'exempt' });
+    const unbuilt = (await pier.state()).bookJobs.find(j => j.key === `landed:${receipt.id}`);
+    assert.equal(unbuilt.status, 'review');
+    assert.equal(unbuilt.document, null);
+    assert.match(unbuilt.reason, /Choose the Freight and duty account in Books settings/);
+    assert.match(unbuilt.fix, /Reconnect Pantry/);
+    const beforeUnbuilt = await costEffects(pier, pantry);
+    const refusedBaseline = await pier.command('receipt.landed', { receiptId: receipt.id, version: receipt.version, reference: 'synthetic-pier-222', reason: 'Reviewed supplemental freight', landedCost: { freight: '33', allocation: 'weight' } }, { error: 'COST_REVIEW' });
+    assert.match(refusedBaseline.error.message, /original cost posting reviews/);
+    assert.deepEqual(await costEffects(pier, pantry), beforeUnbuilt, 'unbuilt baseline refusal preserves stock, cost layers, successful commands and both ledgers');
+    await pier.command('book.connect', { baseUrl: pantry.origin, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, landedCostAccountId: freightIn.id, writeOffAccountId: damage.id, writeOffReasonCode: 'crushed', writeOffApprovalLimit: '0', taxCode: 'exempt' });
     const bill = await pier.command('supplierBill.save', { poId: po.id, reference: 'LANDED-INVOICE', date: new Date().toISOString().slice(0, 10), quantityTolerancePercent: '0', priceTolerancePercent: '0', freight: '40', tax: '2.50', lines: po.lines.map(l => ({ poLineId: l.id, quantity: l.quantity, unitPrice: lines.find(x => x.itemId === l.itemId).price })) });
     await pier.command('supplierBill.approve', { id: bill.id, version: bill.version, receiptEvidence: bill.match.receiptEvidence });
     await pier.command('book.sync', {});
@@ -126,6 +152,25 @@ test('landed receipts and late weight-allocated bills reconcile Pantry after par
     assert.equal(tb.rows.find(r => r.id === damage.id).net, cents(returned.writeOffCostTotal) + 200);
     assert.equal(tb.rows.find(r => r.id === purchaseTax.id).net, 250, 'supplier tax posts to the chosen account, never into inventory');
     assert.equal(state.bookJobs.find(j => j.key === 'inventory-reconciliation').status, 'reconciled');
+
+    // A fully valued, human-reviewed count can remove stock without supplying
+    // an expense mapping. A later bill must not invent that missing account.
+    let count = await pier.command('count.capture', { locationId: b.source.id });
+    count = await pier.command('count.record', { countId: count.id, version: count.version, reason: 'Reviewed missing unit', lines: count.lines.map(l => ({ ...l, quantity: l.itemId === b.item.id ? '3' : l.quantity })) });
+    count = await pier.command('count.approve', { countId: count.id, version: count.version });
+    assert.equal(count.status, 'posted');
+    state = await pier.state();
+    assert.equal(state.movements.filter(m => m.documentId === count.id).length, 1);
+    assert.equal(state.movements.find(m => m.documentId === count.id).quantity, '-1000000');
+    const beforeUnmapped = await costEffects(pier, pantry);
+    assert.equal(beforeUnmapped.valuation.unvaluedQuantity, '0');
+    assert.equal(beforeUnmapped.positions.find(p => p.itemId === b.item.id && p.locationId === b.source.id && p.status === 'sellable').quantity, '3');
+    assert.ok(beforeUnmapped.bills.length > 0 && beforeUnmapped.journals.length > 0);
+    assert.equal(beforeUnmapped.jobs.some(j => j.kind === 'journal' && !j.document), false, 'the refusal reaches the unmapped adjustment, beyond the baseline guard');
+    const currentReceipt = state.receipts.find(r => r.id === receipt.id);
+    const refusedAdjustment = await pier.command('receipt.landed', { ...lateInput, version: currentReceipt.version, reference: 'synthetic-pier-223' }, { error: 'COST_REVIEW' });
+    assert.match(refusedAdjustment.error.message, /prior stock adjustment without a mapped expense account/);
+    assert.deepEqual(await costEffects(pier, pantry), beforeUnmapped, 'unmapped adjustment refusal preserves original and supplemental dates, accounts, amounts and physical events');
   } finally { await pier?.close(); await pantry.close(); }
 });
 
