@@ -91,6 +91,9 @@ test('owners map Shopify locations, preview affected orders and recover distinct
     await expect(east.getByRole('cell').nth(5)).toContainText('17');
     await expect(west.getByRole('cell').nth(2)).toHaveText('9');
     await expect(west).toContainText('not confirmed');
+    const card = page.locator('article.channel-card').filter({ has: page.getByRole('heading', { name: 'Mapped Shopify', exact: true }) });
+    await expect(card).toContainText('East · 17 base units accepted');
+    await expect(card).toContainText('West · not confirmed');
     await west.getByText('Location outcomes', { exact: true }).click();
     await expect(west).toContainText('uncertain');
     await capture('shopify-location-failure');
@@ -98,6 +101,7 @@ test('owners map Shopify locations, preview affected orders and recover distinct
     await submit(page.locator('main'), 'Sync now');
     await expect(west.getByRole('cell').nth(5)).toContainText('9'); await expect(west).toContainText('In step');
     await expect(west).toContainText('accepted');
+    await expect(card).toContainText('West · 9 base units accepted');
     const current = await state();
     expect(current.channelListings.filter((l: any) => l.channelId === channel.id && !l.orderOnly)).toHaveLength(1);
     expect(current.positions.find((p: any) => p.locationId === bins[2].id).quantity).toBe('50');

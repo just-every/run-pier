@@ -4223,7 +4223,7 @@
       "executable": false
     },
     "src/ui/channels/connections.tsx": {
-      "sha256": "c7538f36e2ab71daf924b349a53f0c443ea1ed8acab4e9e33dff89cc56d931ca",
+      "sha256": "eec01248fd84e9bec39a8eb5610ff976324ae3c61446380b2f65b75ef4245f1e",
       "executable": false
     },
     "src/ui/channels/health.tsx": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/channel-publication.spec.ts": {
-      "sha256": "2fa613bcdfd75700a7c825ba282a1333a4fb9b588c200f41afee523921703c29",
+      "sha256": "0c339f517b644368c95bed214e3aa6498ad533f6fbbb668298968de0d6f426c4",
       "executable": false
     },
     "tests/browser/dispatch.spec.ts": {
