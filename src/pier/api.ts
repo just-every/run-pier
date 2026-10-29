@@ -198,6 +198,8 @@ export async function execute(
   now = () => new Date().toISOString(),
   backgroundPolicy?: Context["backgroundPolicy"],
 ): Promise<any> {
+  if (actor.agent && !['proposal.prepare','po.draft','po.revise','po.sendApproved','itemAgent.check','itemAgent.bulkPreview','itemAgent.bulkEdit'].includes(type))
+    throw new Problem('AGENT_HUMAN_REQUIRED', 'This action requires its native person door.', null, 403);
   const gate = backgroundPolicy ? policyAuthority({ actor, backgroundPolicy }) : authority(actor);
   if (!(await env.DB.prepare(`SELECT CASE WHEN (${gate.sql}) THEN 1 ELSE 0 END AS ok`).bind(...gate.params).first<any>())?.ok)
     throw new Problem('AUTH', 'Session or role changed. Sign in again.', null, 401);
@@ -317,6 +319,13 @@ export async function execute(
     refreshOperationalExceptions(c, backgroundPolicy?.collection === "operationalExceptionPolicies");
     invalidatePurchaseSends(c);
     if (type === 'itemAgent.bulkApply') result.sourceDigest = bulkInputDigest(c);
+    if (actor.agent) for (const kind of collections) for (const record of s[kind]) {
+      const old = before[kind].find(previous => previous.id === record.id);
+      if (JSON.stringify(old) !== JSON.stringify(record)) {
+        if (kind === 'correspondence') record.agentOrigin = { agentId: actor.agent.id, consent: actor.agent.consent, sponsorId: actor.id };
+        record.preparedBy = { agent: { id: actor.agent.id, name: actor.agent.name }, for: { id: actor.id, name: actor.agent.sponsorName }, label: actor.name };
+      }
+    }
     const visibleResult = physicalResult(s, actor, result);
     c.audit = auditEvent(c, before, type, payload, result, type.endsWith(".failed") ? "failed" : "accepted");
     try {

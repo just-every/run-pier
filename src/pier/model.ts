@@ -175,6 +175,7 @@ export type State = Record<Collection, Row[]> & {
   reservations: Reservation[];
 };
 export type Actor = {
+  agent?: { id: string; name: string; sponsorName: string; consent: string; envelope: string; localRevision: number };
   id: string;
   name: string;
   role: string;
