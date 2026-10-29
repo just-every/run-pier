@@ -41,6 +41,12 @@ test('owner onboarding follows real native cutovers without writes, egress or st
   assert.equal(diagnostic.nextAction.href, '#purchasing');
   assert.ok(diagnostic.connections.some(connection => connection.id === 'channels' && connection.status === 'not connected'));
   assert.ok(diagnostic.connections.every(connection => connection.lastSuccessfulRequest === null));
+  await h.command('shipping.save', { apiKey: 'synthetic-pier-712', mode: 'test', fromAddress: { name: 'Synthetic Pier', street1: '71 Pier Road', city: 'San Francisco', state: 'CA', zip: '94107', country: 'US', phone: '4155550100' } });
+  diagnostic = await inspect();
+  assert.equal(diagnostic.empty, false, 'retained connection settings distinguish setup from an empty installation');
+  const shipping = diagnostic.connections.find(connection => connection.id === 'shipping:easypost');
+  assert.equal(shipping.status, 'active'); assert.equal(shipping.lastSuccessfulRequest, null);
+  assert.ok(!JSON.stringify(diagnostic).includes('synthetic-pier-712'), 'connection credentials never enter the projection');
   await h.command('business.save', { name: 'Synthetic Pier Wholesale', address: '71 Synthetic Pier Road' });
   diagnostic = await inspect();
   assert.equal(diagnostic.empty, false); assert.equal(diagnostic.business.profile.configured, true);
@@ -97,6 +103,7 @@ test('owner onboarding follows real native cutovers without writes, egress or st
   assert.deepEqual(await h.command('import.commit', payload, { commandId }), committed);
   assert.deepEqual(await exported(), posted, 'recovered cutover posts only once');
   diagnostic = await inspect(); assert.equal(diagnostic.batches[0].status, 'committed');
+  assert.equal(diagnostic.nextAction.href, '#channels');
   assert.equal(diagnostic.batches[0].committedVersion, posted.imports.find(batch => batch.id === committed.id).committedVersion);
 
   let revision = await h.command('import.stage', { ...nativeCapture('3'), sourceVersion: 'owner-export-2' });
@@ -113,11 +120,6 @@ test('owner onboarding follows real native cutovers without writes, egress or st
   diagnostic = await inspect(); assert.equal(diagnostic.batches[0].status, 'committed');
   assert.ok(diagnostic.batches.find(batch => batch.id === invalid.id).problems.length, 'earlier invalid captures stay visible');
 
-  await h.command('shipping.save', { apiKey: 'synthetic-pier-712', mode: 'test', fromAddress: { name: 'Synthetic Pier', street1: '71 Pier Road', city: 'San Francisco', state: 'CA', zip: '94107', country: 'US', phone: '4155550100' } });
-  diagnostic = await inspect();
-  const shipping = diagnostic.connections.find(connection => connection.id === 'shipping:easypost');
-  assert.equal(shipping.status, 'active'); assert.equal(shipping.lastSuccessfulRequest, null);
-  assert.ok(!JSON.stringify(diagnostic).includes('synthetic-pier-712'), 'connection credentials never enter the projection');
   await h.restart(); assert.deepEqual(await inspect(), diagnostic);
 
   await denied(cookie); await h.restart(); await denied(cookie);
