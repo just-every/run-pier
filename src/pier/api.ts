@@ -571,7 +571,7 @@ export async function pierResponse(
         ...floorState(c),
         ...kitState(s),
         ...traceState(s),
-        ...channelState(s),
+        ...channelState(s, c.automationActors),
         shippingUnavailable: shippingUnavailable(env),
         ...ediState(s, c.now),
         positions: positions(s),

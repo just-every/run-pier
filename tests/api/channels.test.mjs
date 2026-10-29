@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { authenticatorCode } from './strong-auth-fixture.mjs';
 import { createHmac } from 'node:crypto';
 import { installation, basics, buy, receive, parse } from './harness.mjs';
 import { channelEdge, locationEdge } from './channel-edge.mjs';
@@ -264,7 +265,7 @@ test('owner routing versions choose zones, shortage policy, reroute and net chan
 
 
 test('Shopify mapped publications retain exact warehouse quantities and reconcile uncertainty without stale or revoked writes', async t => {
-  const edge = locationEdge(), h = await installation({ outboundService: request => edge.outbound(request) });
+  const edge = locationEdge(), clock = '2026-10-29T12:00:00.000Z', h = await installation({ now: clock, outboundService: request => edge.outbound(request) });
   t.after(() => h.close());
   const b = await basics(h), loc1 = 'gid://shopify/Location/1', loc2 = 'gid://shopify/Location/2';
   const east = await h.command('location.save', { name: 'synthetic-pier-east', warehouse: 'East', kind: 'bin' });
@@ -307,6 +308,30 @@ test('Shopify mapped publications retain exact warehouse quantities and reconcil
   assert.deepEqual(listing.publicationLocations.map(p => [p.locationId, p.quantity, p.publication.status]), [[loc1, independent('East'), 'accepted'], [loc2, independent('West'), 'accepted']]);
   assert.deepEqual(edge.writes.map(p => [p.locationId, String(p.quantity)]), [[loc1, '12'], [loc2, '8']]);
   const listingId = listing.id;
+  const activateMode = async (mode, fields) => {
+    let rule = await h.command('routing.save', { source: `channel:${channel.id}`, mode, shortage: 'hold', ...fields });
+    rule = await h.command('routing.preview', { ruleId: rule.id, version: rule.version });
+    await h.command('routing.activate', { ruleId: rule.id, version: rule.version });
+  };
+  await activateMode('fixed', { eligible: ['East'] });
+  assert.equal(edge.inventory.get(loc1), Number(independent('East')), 'fixed mode publishes East only, never FBA');
+  await activateMode('rules', { zones: [], defaultEligible: ['East', 'West'] });
+  assert.equal(edge.inventory.get(loc1), Number(independent('East')) + Number(independent('West')) + 1, 'rule mode subtracts the buffer once from pooled eligible stock');
+  await activate({ [loc1]: ['East'], [loc2]: ['West'] });
+  assert.deepEqual(physical(await h.state()), before, 'changing publication modes rewrites no physical business fact');
+
+  const page = nodes => ({ nodes, pageInfo: { hasNextPage: false, endCursor: null } });
+  const incoming = (number, assigned) => ({ id: `gid://shopify/Order/${number}`, name: `synthetic-pier-${number}`, closed: false, cancelledAt: null, displayFinancialStatus: 'PAID', displayFulfillmentStatus: 'UNFULFILLED', currencyCode: 'USD', customer: { displayName: 'Synthetic Pier buyer' }, shippingAddress: null, fulfillmentOrders: page(assigned.map(location => ({ assignedLocation: { location: { id: location } } }))), lineItems: page([{ id: `gid://shopify/LineItem/${number}`, sku: 'BOLT', requiresShipping: true, unfulfilledQuantity: 1, originalUnitPriceSet: { shopMoney: { amount: '2', currencyCode: 'USD' } } }]) });
+  edge.orders.push(incoming(101, [loc2]), incoming(102, [loc1, loc2]));
+  await h.command('channel.sync', {});
+  s = await h.state();
+  const imported = s.orders.find(o => o.channelOrderId === 'gid://shopify/Order/101');
+  const ambiguous = s.orders.find(o => o.channelOrderId === 'gid://shopify/Order/102');
+  assert.deepEqual([imported.warehouse, imported.lines[0].reserved, imported.channelLocation], ['West', '1', loc2]);
+  assert.equal(ambiguous.routing.status, 'waiting'); assert.equal(ambiguous.lines[0].reserved, '0');
+  assert.match(s.channelOrders.find(o => o.orderId === ambiguous.id).problem, /no warehouse mapping/);
+  const orderLinks = s.channelOrders.map(o => [o.externalId, o.orderId]);
+
   edge.lose.add(loc1);
   await demand('East', '1');
   listing = (await h.state()).channelListings.find(l => l.id === listingId);
@@ -332,7 +357,9 @@ test('Shopify mapped publications retain exact warehouse quantities and reconcil
   await h.command('channel.sync', {});
   listing = (await h.state()).channelListings.find(l => l.id === listingId);
   assert.ok(listing.publications.some(p => p.invalidated && p.status === 'uncertain'), 'stale pending work remains visible as invalidated');
-  assert.deepEqual(edge.writes.slice(priorWrites).map(p => [p.locationId, p.quantity]).sort(), [[loc1, 7], [loc2, 10]].sort());
+  assert.deepEqual(edge.writes.slice(priorWrites).map(p => [p.locationId, p.quantity]).sort(), [[loc1, 6], [loc2, 10]].sort());
+  assert.deepEqual((await h.state()).channelOrders.map(o => [o.externalId, o.orderId]), orderLinks);
+  assert.equal((await h.state()).orders.find(o => o.id === imported.id).warehouse, 'West', 'mapping changes preserve established imported orders');
   assert.equal(listing.id, listingId); assert.equal((await h.state()).channelListings.filter(l => !l.orderOnly).length, 1);
   assert.equal((await h.state()).positions.find(p => p.locationId === fba.id).quantity, '50');
   // Disable the current owner-approved connection during readback: no write may escape.
@@ -343,6 +370,32 @@ test('Shopify mapped publications retain exact warehouse quantities and reconcil
   await h.restart(); await h.command('channel.sync', {});
   assert.equal(edge.writes.length, beforeRevoked); assert.deepEqual(physical(await h.state()), revokedPhysical);
   await h.command('channel.publicationPrepare', { channelId: channel.id, listingId, locationId: loc1 }, { error: 'CHANNEL_INTERNAL' });
+  // Qualify the approving native owner's deprovisioning, through current-owner public doors.
+  const security = (action, body = {}) => h.request('/auth/strong-auth/' + action, { method: 'POST', body });
+  const enrollment = await (await security('enroll')).json();
+  assert.equal((await security('verify', { code: authenticatorCode(enrollment.secret, Date.parse(clock)) })).status, 200);
+  const persona = async () => {
+    const response = await fetch(h.origin + '/auth/dev/enter?as=member', { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
+    const cookie = response.headers.getSetCookie().map(v => v.split(';')[0]).join('; ');
+    return { cookie, session: await (await h.request('/auth/session', { as: cookie })).json() };
+  };
+  let other = await persona();
+  assert.equal((await security('prepare-owner', { operatorId: other.session.operator.id, confirm: 'yes' })).status, 200);
+  other = await persona();
+  const currentChannel = (await h.state()).channels.find(c => c.id === channel.id);
+  await h.command('channel.save', { ...currentChannel, enabled: true }, { as: other.cookie });
+  const ownerWrites = edge.writes.length;
+  edge.afterRead = async () => { assert.equal((await security('deactivate', { operatorId: other.session.operator.id, reason: 'Owner ended provider authority' })).status, 200); };
+  await demand('East', '1');
+  const afterDeprovisioning = physical(await h.state());
+  assert.equal((await h.request('/api/pier/state', { as: other.cookie })).status, 401);
+  await h.restart(); await h.command('channel.sync', {});
+  assert.equal(edge.writes.length, ownerWrites, 'revoked current-owner authority refuses the prepared write and cannot resume after restart');
+  assert.deepEqual(physical(await h.state()), afterDeprovisioning);
+  const revokedListing = (await h.state()).channelListings.find(l => l.id === listingId);
+  assert.equal(revokedListing.publicationAuthorized, false);
+  assert.ok(revokedListing.publications.every(p => p.invalidated), 'revoked approval invalidates pending work without discarding its history');
+
 });
 
 test('routing preview includes every changed order within the exact last thirty days and excludes older history', async t => {

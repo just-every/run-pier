@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "d1f808593b2001f4a0b25eec43d5a6a5dd0c6389b3a45dee2e95d0f9ee7e97bc",
+      "sha256": "d838d3afa2a2864f4952eadc046199c9c60f3e05a97eaa573be0985216d240f4",
       "executable": false
     },
     ".gitignore": {
@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "c50e2667edb3c41c5329ce226cada87ecf5407c55d56dc909cdb60609175a442",
+      "sha256": "5500665278456569659fa6d8dbce3763fd465178bd47e1ea5a57e7c97f73b1d1",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "69d8a177ecef7e71f5ad15e16082082a64e48f22f2353f05dcc72ca0f23b6a21",
+      "sha256": "c917aa11ce187caa164254b98ed52dc357aa064c264b564378bc4d1b732e1025",
       "executable": false
     },
     "DEMO.md": {
@@ -399,7 +399,7 @@
       "executable": false
     },
     "docs/channels.md": {
-      "sha256": "b137724c74b6d6337f183155953bbb19fea20832006023da0b3cc6571e2b72e4",
+      "sha256": "d57e5d5d357dffd40e81a22e6a6b6a4f046cd7776ba3cf3713a8a53b0b9a59bf",
       "executable": false
     },
     "docs/CLAIMS.md": {
@@ -475,7 +475,7 @@
       "executable": false
     },
     "docs/orders.md": {
-      "sha256": "df98e5807fe693dbd8fdc8c49ccff7918e27caca3473ac0c37a1afdeeec746a7",
+      "sha256": "a7ef9658b4e561c7b93de7d3d97e3b7669a34b7eb17cb0be7f6bd38af25676b6",
       "executable": false
     },
     "docs/permissions.md": {
@@ -3003,7 +3003,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "b377e3782fd206f053160612201fd4a865dd47705bf0fb8d1a2a3a26bcc052fb",
+      "sha256": "65fec99ae48b67e599c10396ea68f9e6be08089c8df46cdb615c7f5bf6ba4168",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3163,11 +3163,15 @@
       "executable": false
     },
     "src/pier/channels/availability.ts": {
-      "sha256": "1b078229f64513312e7013cde01220a17b375ab1fdd3c47e5106a70ad159feca",
+      "sha256": "ef462b6ba9c0c0d03906651fe2699167920d3e39ab195e7d25a2d81899a4b201",
       "executable": false
     },
     "src/pier/channels/commands.ts": {
-      "sha256": "cf9bfc8bb45ddb2a628e5a0769b9b4f6802d44a3ac505d862ad8da2b2fba8c60",
+      "sha256": "05ab94144d558876c43950c9914c9b37865d2e0d28d680f278bfbcc9bbd1f0fa",
+      "executable": false
+    },
+    "src/pier/channels/publications.ts": {
+      "sha256": "089f0cea9877584691eeda43fa775c6d6fbdb53d7ffbfec575d5ec76820c2a7d",
       "executable": false
     },
     "src/pier/channels/secrets.ts": {
@@ -3183,7 +3187,7 @@
       "executable": false
     },
     "src/pier/channels/sync.ts": {
-      "sha256": "fc4a54e47fc59fe85673d69b9ef7f89ee6e8de7246093d19ea191ff79598225c",
+      "sha256": "981a90598dc2f165debee10b2ef31b8635cac837c6454bb5d9c5d532fe384521",
       "executable": false
     },
     "src/pier/channels/webhook.ts": {
@@ -3387,7 +3391,7 @@
       "executable": false
     },
     "src/pier/integration-health.ts": {
-      "sha256": "56dfc2711f182a27857546da48b96e46f81905b37e6fc1bd3148410ba2ccb009",
+      "sha256": "474c0cdd10e3f589f43fd6322b0ec0f7fdca7b35cff000a8aa099ab348cfe2f4",
       "executable": false
     },
     "src/pier/invoices/credits.ts": {
@@ -3839,7 +3843,7 @@
       "executable": false
     },
     "src/pier/storage.ts": {
-      "sha256": "e5c4a28ebf2d9fb1482b746cf3eba426f84302742728260c989c5f3bdcd4d455",
+      "sha256": "324e9b29903e0907edc20884c3df1b8b202c0fba84835b8284579e86a09db588",
       "executable": false
     },
     "src/pier/supplier-inspections.ts": {
@@ -4235,7 +4239,7 @@
       "executable": false
     },
     "src/ui/channels/listings.tsx": {
-      "sha256": "2a6c96bd9bd763d9e6471dbc4f57c91625f5bcf50486bf360f11678797d978dc",
+      "sha256": "18894fef93a3af7cc1929a2e8bebe7dfa355d9e61a1866e4871dee87c50473ab",
       "executable": false
     },
     "src/ui/channels/marketplaces.ts": {
@@ -4243,7 +4247,7 @@
       "executable": false
     },
     "src/ui/channels/model.ts": {
-      "sha256": "fe491eb396f8cd6eb458a3e65b529eee04360667e533c691b96ad1f5444789ec",
+      "sha256": "345730a953fe676af9a4e9827e5114b4f3990b3f2b045440e9474bc71f188cf2",
       "executable": false
     },
     "src/ui/channels/orders.tsx": {
@@ -4639,7 +4643,7 @@
       "executable": false
     },
     "src/ui/style/channels.css": {
-      "sha256": "9269bdbe0c69a2e120c14bf844433868e675f3981210689133cab526a0533508",
+      "sha256": "3f57bad75bea1b32cb932487e87ce7296b2be4ce64eed9af9fa9ff888dad81fd",
       "executable": false
     },
     "src/ui/style/controls.css": {
@@ -4735,7 +4739,7 @@
       "executable": false
     },
     "tests/api/channels.test.mjs": {
-      "sha256": "8a8913076d685cde9367f1de7d6e2d3554b1c5f043a988fff338cd826f159617",
+      "sha256": "04fe8adf5dcccf2f5fd569444dcd8d6c5fe7a890afb0404e8695ad44efee90ac",
       "executable": false
     },
     "tests/api/costing.test.mjs": {
@@ -4920,6 +4924,10 @@
     },
     "tests/browser/catalogue.spec.ts": {
       "sha256": "8b2fa698647096d24cbf6ac2b5bc1c71c83d0f161c4cb32b6986af4aea52ece1",
+      "executable": false
+    },
+    "tests/browser/channel-publication.spec.ts": {
+      "sha256": "2fa613bcdfd75700a7c825ba282a1333a4fb9b588c200f41afee523921703c29",
       "executable": false
     },
     "tests/browser/dispatch.spec.ts": {

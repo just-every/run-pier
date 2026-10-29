@@ -1,9 +1,10 @@
 import type { Bindings } from '../../auth.server';
 import { execute } from '../api';
-import { load, activeAutomationActors, policyAuthority } from '../storage';
+import { load, activeAutomationActors, policyAuthority, currentOwnerAuthority } from '../storage';
 import { type Row, type Actor } from '../model';
 import { credentials } from './secrets';
 import { adapter } from './adapters';
+import { activeRule } from '../routing';
 import { channelAvailability } from './availability';
 import { publicationTargets } from './publications';
 import { providerOperation, type ProviderAudit } from '../provider-audit';
@@ -64,6 +65,11 @@ export async function syncChannels(env: Bindings) {
         const currentListing = state.channelListings.find(row => row.id === listing.id);
         if (!currentListing) continue;
         if (ch.provider === 'shopify') {
+          const rule = activeRule(state, `channel:${current.id}`);
+          if (rule && (await activeAutomationActors(env.DB))[rule.activatedBy] !== 'owner') {
+            await record(ch, 'channel.failed', { listingId: listing.id, problem: 'The routing owner no longer has authority. Review and activate a new current-owner rule before publishing.' });
+            continue;
+          }
           const targets = publicationTargets(state, current, currentListing);
           if (!targets.length) {
             await record(ch, 'channel.failed', { listingId: listing.id, problem: 'No unambiguous channel location mapping. Review the routing rule; no fallback stock was published.' });
@@ -83,8 +89,9 @@ export async function syncChannels(env: Bindings) {
               // Check current authority, mappings and stock again after provider readback,
               // immediately before the consequential write. Uncertainty keeps its identity.
               const beforeWrite = async () => {
-                const admitted = await env.DB.prepare(`SELECT 1 AS admitted FROM pier_meta WHERE id=1 AND version=? AND (${gate.sql})`)
-                  .bind(snapshot.version, ...gate.params).first();
+                const rule = activeRule(snapshot, `channel:${current.id}`), owner = rule ? currentOwnerAuthority(rule.activatedBy) : { sql: '1', params: [] };
+                const admitted = await env.DB.prepare(`SELECT 1 AS admitted FROM pier_meta WHERE id=1 AND version=? AND (${gate.sql}) AND (${owner.sql})`)
+                  .bind(snapshot.version, ...gate.params, ...owner.params).first();
                 if (!admitted) throw new Error('Publication authority or stock frontier changed');
               };
               await providerOperation(env.DB, audit(current, snapshot, 'channel.stock', 'outbound', source), () =>
