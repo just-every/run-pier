@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server';
 import { available, decimal, fail, format, fresh, get, id, item, min, requireRole, row, text, type Context, type Row } from '../model';
 import { orders } from '../orders';
+import { preparePublication, publicationTargets } from './publications';
 import { priceUnpricedLines } from '../pricing';
 import { seal } from './secrets';
 import { recordChannelPayment } from '../channel-payment';
@@ -129,9 +130,22 @@ export async function channels(c: Context, type: string, p: any, env: Bindings):
     importOrders(c, channel);
     channel.lastReceivedAt = c.now; channel.problem = null; return channel;
   }
+  if (type === 'channel.publicationPrepare') {
+    const listing = get(c.s, 'channelListings', p.listingId);
+    if (listing.channelId !== channel.id) fail('CHANNEL', 'Listing belongs to another channel.');
+    const publication = preparePublication(c.s, channel, listing, p.locationId ?? null, c.now);
+    if (!publication) fail('CHANNEL_MAPPING', 'Publication mapping changed. Review current routing.');
+    return { ...publication, version: listing.version };
+  }
   if (type === 'channel.published') {
     const listing = get(c.s, 'channelListings', p.listingId);
     if (listing.channelId !== channel.id) fail('CHANNEL', 'Listing belongs to another channel.');
+    if (p.publicationId) {
+      const publication = listing.publications?.find((entry: any) => entry.id === p.publicationId);
+      if (!publication || publication.quantity !== p.quantity) fail('CHANNEL_PUBLICATION', 'Publication identity or quantity differs.');
+      if (!publicationTargets(c.s, channel, listing).some(target => target.key === publication.key)) fail('CHANNEL_MAPPING', 'Publication mapping or quantity changed before confirmation.');
+      Object.assign(publication, { status: 'accepted', acceptedAt: c.now, acceptanceMs: p.acceptanceMs, problem: null });
+    }
     Object.assign(listing, { publishedQuantity: p.quantity, acceptedAt: c.now, acceptanceMs: p.acceptanceMs, problem: null, pendingSince: c.now, version: listing.version + 1 });
     return listing;
   }
@@ -139,6 +153,10 @@ export async function channels(c: Context, type: string, p: any, env: Bindings):
     if (p.listingId) {
       const listing = get(c.s, 'channelListings', p.listingId);
       if (listing.channelId !== channel.id) fail('CHANNEL', 'Listing belongs to another channel.');
+      if (p.publicationId) {
+        const publication = listing.publications?.find((entry: any) => entry.id === p.publicationId);
+        if (publication) { publication.status = 'uncertain'; publication.problem = text(p.problem); }
+      }
       listing.problem = text(p.problem); listing.version++;
     } else { channel.problem = text(p.problem); channel.failedAt = c.now; }
     return channel;

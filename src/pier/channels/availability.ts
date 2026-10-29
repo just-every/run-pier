@@ -1,18 +1,21 @@
-import { publishedWarehouses } from '../routing';
-import { kitDefinition, kitAvailability } from '../kits';
-import { available, decimal, format, type Context, type Row, type State } from '../model';
+import { activeRule, publishedWarehouses } from '../routing';
+import { publicationQuantity, publicationTargets } from './publications';
+import { type Context, type Row, type State } from '../model';
 export function channelAvailability(s:State,channel:Row,itemId:string,listing?:Row){
-  const warehouses=publishedWarehouses(s,channel,listing?.locationId),kit=kitDefinition(s,itemId),buffer=decimal(channel.buffer??'0');
-  const free=kit?warehouses.reduce((n:bigint,w:string)=>n+kitAvailability(s,kit,w),0n):s.locations.filter(l=>l.kind==='bin'&&warehouses.includes(l.warehouse)).reduce((n,l)=>n+available(s,itemId,l.id),0n);
-  return format(free>buffer?free-buffer:0n);
+  return publicationQuantity(s, channel, itemId, publishedWarehouses(s, channel, listing?.locationId));
 }
 export function channelState(s: State) {
   return { channelListings: s.channelListings.map(listing => {
     const channel = s.channels.find(c => c.id === listing.channelId);
-    const holds = s.channelHolds.filter(h => !h.releasedAt && h.itemId === listing.itemId && h.warehouse === channel?.warehouse);
+    const holds = s.channelHolds.filter(h => !h.releasedAt && h.itemId === listing.itemId && Boolean(channel && publicationTargets(s, channel, listing).some(t => t.warehouses.includes(h.warehouse))));
     const wanted = listing.itemId && channel && !listing.orderOnly ? channelAvailability(s, channel, listing.itemId,listing) : null;
-    const lag = wanted !== null && wanted !== listing.publishedQuantity;
-    return { ...listing, available: wanted, holds: holds.map(h => ({ id: h.id, quantity: h.quantity, reason: h.reason })), lag, lagSeconds: lag ? Math.max(0, Math.floor((Date.now() - Date.parse(listing.pendingSince ?? listing.createdAt)) / 1000)) : 0 };
+    const targets = listing.itemId && channel && !listing.orderOnly ? publicationTargets(s, channel, listing) : [];
+    const publications = (listing.publications ?? []).map((p: any) => ({ ...p, current: targets.some(t => t.key === p.key),
+      invalidated: !targets.some(t => t.key === p.key) }));
+    const locations = targets.map(target => ({ ...target, publication: [...publications].reverse().find((p: any) => p.locationId === target.locationId && p.key === target.key) ?? null }));
+    const multiLocation = locations.length > 1 || Boolean(channel && activeRule(s, `channel:${channel.id}`)?.mode === 'channel-location');
+    const lag = multiLocation ? !locations.length || locations.some(t => t.publication?.status !== 'accepted') : wanted !== null && wanted !== listing.publishedQuantity;
+    return { ...listing, publications, publicationLocations: locations, multiLocation, available: multiLocation ? null : wanted, holds: holds.map(h => ({ id: h.id, warehouse: h.warehouse, quantity: h.quantity, reason: h.reason })), lag, lagSeconds: lag ? Math.max(0, Math.floor((Date.now() - Date.parse(listing.pendingSince ?? listing.createdAt)) / 1000)) : 0 };
   }) };
 }
 
