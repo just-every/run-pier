@@ -67,6 +67,7 @@ export async function webhooks(c: Context, type: string, p: any, env: Bindings) 
     if (p.confirm !== true || !['receiver-confirmed-accepted','receiver-confirmed-not-accepted'].includes(p.resolution))
       fail('WEBHOOK_RECOVERY', 'Check this event identity at the receiver, record its outcome and explicitly confirm recovery.');
     const reason = text(p.reason, 'Receiver reconciliation evidence');
+    if (get(c.s, 'orders', delivery.orderId).privacyErasedAt) fail('WEBHOOK_ERASURE', 'Erased source work cannot be recovered or sent.');
     const subscription = get(c.s, 'webhookSubscriptions', delivery.subscriptionId);
     if (!active(subscription) || subscription.scopeVersion !== delivery.scopeVersion || subscription.approvedBy !== c.actor.id)
       fail('WEBHOOK_REVOKED', 'The exact subscription must still be approved by you. Revoked scope cannot be recovered.');
@@ -93,7 +94,7 @@ export async function webhooks(c: Context, type: string, p: any, env: Bindings) 
       fail('WEBHOOK_APPROVAL', 'Review the exact destination, fields and payload, then explicitly approve them.');
     const order = get(c.s, 'orders', subscription.preview.orderId);
     fresh(order, subscription.preview.orderVersion);
-    subscription.enabled = true; subscription.approvedBy = c.actor.id; subscription.approvedAt = c.now; subscription.restorePaused = false;
+    subscription.enabled = true; subscription.approvedBy = c.actor.id; subscription.approvedAt = c.now; subscription.approvedNativeVersion = c.actor.operatorVersion; subscription.approvedPermissionVersion = c.actor.permissionVersion ?? 0; subscription.restorePaused = false;
   }
   if (type === 'webhook.rotate') {
     if (!active(subscription) || subscription.approvedBy !== c.actor.id || p.confirm !== true) fail('WEBHOOK_APPROVAL', 'Only the current approving owner can explicitly rotate this active signing secret.');
@@ -120,7 +121,7 @@ export function captureOrderWebhooks(c: Context, before: State) {
   if (!subscriptions.length) return;
   const old = new Map(before.orders.map(order => [order.id, canonicalJson(order)]));
   for (const order of c.s.orders) {
-    if (order.documentType === 'quote' && !order.acceptedAt || old.get(order.id) === canonicalJson(order)) continue;
+    if (order.privacyErasedAt || order.documentType === 'quote' && !order.acceptedAt || old.get(order.id) === canonicalJson(order)) continue;
     const event = eventFor(order, c.commandId, c.now);
     c.s.webhookEvents.push({ ...event, version: 1 });
     for (const subscription of subscriptions) c.s.webhookDeliveries.push({ id: sha256(`${event.id}\0${subscription.id}\0${subscription.scopeVersion}`), version: 1,
@@ -132,9 +133,9 @@ export function captureOrderWebhooks(c: Context, before: State) {
 
 function ownerGate(subscription: Row) {
   return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id
-    WHERE o.id=? AND o.status='active' AND CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') ELSE o.role END='owner')
+    WHERE o.id=? AND o.status='active' AND o.version=? AND COALESCE(r.version,0)=? AND CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') ELSE o.role END='owner')
     AND EXISTS(SELECT 1 FROM pier_records WHERE kind='webhookSubscriptions' AND id=? AND data=?)`,
-    params: [subscription.approvedBy, subscription.id, JSON.stringify(subscription)] };
+    params: [subscription.approvedBy, subscription.approvedNativeVersion, subscription.approvedPermissionVersion, subscription.id, JSON.stringify(subscription)] };
 }
 async function replaceDelivery(env: Bindings, previous: Row, next: Row, gate?: { sql: string; params: any[] }) {
   const updated = { ...next, version: previous.version + 1 };
@@ -158,7 +159,7 @@ export async function deliverOrderWebhooks(env: Bindings, actor?: Actor) {
     const subscription = state.webhookSubscriptions.find(row => row.id === delivery.subscriptionId);
     let key: string;
     try {
-      if (!subscription || !active(subscription) || subscription.scopeVersion !== delivery.scopeVersion ||
+      if (!subscription || !active(subscription) || state.orders.find(order => order.id === delivery.orderId)?.privacyErasedAt || typeof delivery.body !== 'string' || subscription.scopeVersion !== delivery.scopeVersion ||
           subscription.destination !== delivery.destination || canonicalJson(subscription.fields) !== canonicalJson(delivery.fields)) throw new Error();
       destination(subscription.destination);
       key = (await credentials(env, secretId(subscription.id))).signingSecret;
@@ -179,7 +180,7 @@ export async function deliverOrderWebhooks(env: Bindings, actor?: Actor) {
     }
     let finish: Awaited<ReturnType<typeof beginProviderAttempt>>;
     try {
-      finish = await beginProviderAttempt(env.DB, { actor: { id: subscription!.approvedBy, name: 'Approved webhook owner', role: 'owner', sessionId: '', operatorVersion: 0 },
+      finish = await beginProviderAttempt(env.DB, { actor: { id: subscription!.approvedBy, name: 'Approved webhook owner', role: 'owner', sessionId: '', operatorVersion: subscription!.approvedNativeVersion, permissionVersion: subscription!.approvedPermissionVersion },
         commandId: attemptId, connectorId: subscription!.id, operation: 'orderWebhook', direction: 'outbound', state,
         sources: [{ collection: 'webhookSubscriptions', row: subscription! }, { collection: 'webhookDeliveries', row: claimed }],
         documentIds: [delivery.orderId], requestId: delivery.eventId, providerAttemptId: attemptId,

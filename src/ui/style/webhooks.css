@@ -5,3 +5,5 @@
 .webhooks-page label:has(input[type=checkbox]) { display: block; margin: 8px 0; font-size: 14px; }
 .webhook-delivery { margin-top: 16px; }
 .webhook-delivery p { overflow-wrap: anywhere; }
+
+.pier-app .webhooks-page dt { font-size: 13px; }

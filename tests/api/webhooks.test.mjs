@@ -55,6 +55,9 @@ test('signed order notifications retain exact source bytes through rotation, rep
   const audit = await (await h.request('/api/pier/audit')).json();
   assert.ok(audit.some(event => event.type === 'provider.orderWebhook' && event.phase === 'attempt' && event.requestId === expectedEvent));
   assert.ok(audit.some(event => event.type === 'provider.orderWebhook' && event.phase === 'outcome' && event.outcome === 'accepted'));
+  const intent = audit.find(event => event.type === 'provider.orderWebhook' && event.phase === 'attempt' && event.requestId === expectedEvent);
+  assert.equal(intent.authority.nativeVersion, subscription.approvedNativeVersion);
+  assert.equal(intent.authority.permissionVersion, subscription.approvedPermissionVersion);
 });
 
 test('receiver failures and response loss require event reconciliation before one reviewed recovery', async t => {
@@ -91,10 +94,14 @@ test('receiver failures and response loss require event reconciliation before on
 test('owner-only preview and exact scope approval refuse overreach and revoked authority without business effects', async t => {
   const edge = receiver(), h = await installation(edge); t.after(() => h.close());
   const b = await basics(h), order = await h.command('order.create', orderPayload(b));
-  const original = business(await h.state());
+  const beforeScopeRefusals = await h.state(), original = business(beforeScopeRefusals);
   for (const change of [{ fields: ['customer'] }, { events: ['stock.changed'] }, { action: 'po.approve' }, { destination: 'http://127.0.0.1/private' }, { destination: 'https://127.0.0.1/private' }, { destination: 'https://receiver.example.com/orders?credential=private' }]) {
     await h.command('webhook.save', { name: 'Refused', destination: 'https://receiver.example.com/orders', fields: ['status'], secret: signingSecret, ...change }, { error: Object.hasOwn(change, 'destination') ? 'WEBHOOK_DESTINATION' : 'WEBHOOK_SCOPE' });
   }
+  const afterScopeRefusals = await h.state();
+  assert.deepEqual(business(afterScopeRefusals), original);
+  assert.deepEqual(afterScopeRefusals.commands, beforeScopeRefusals.commands);
+  assert.deepEqual(afterScopeRefusals.webhookSubscriptions, []);
   const entered = await fetch(h.origin + '/auth/dev/enter?as=member', { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
   const as = entered.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
   const session = await (await h.request('/auth/session', { as })).json();
@@ -119,4 +126,31 @@ test('owner-only preview and exact scope approval refuse overreach and revoked a
   await member.command('webhook.process', {}, { error: 'FORBIDDEN' });
   assert.deepEqual(business(await h.state()), beforeRevocation);
   assert.equal((await h.state()).purchaseOrders.length, original.purchases.length);
+  await h.command('webhook.revoke', { subscriptionId: subscription.id, version: subscription.version });
+  const current = await orderSubscription(h, order);
+  const preparedOrder = await h.command('order.create', orderPayload(b));
+  assert.deepEqual((await h.state()).webhookDeliveries.filter(delivery => delivery.status === 'queued').map(delivery => delivery.subscriptionId), [current.id]);
+  const pause = randomUUID(), prepared = h.command('webhook.process', {}, { headers: { 'x-pier-test-pause': pause, 'x-pier-test-delivery-claim': '1' } });
+  const deadline = Date.now() + 5000;
+  while (!(await (await h.request('/__test/prepared/' + pause)).json()).ready) {
+    assert.ok(Date.now() < deadline, 'delivery claim reached its test scheduling barrier');
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  await h.command('webhook.revoke', { subscriptionId: current.id, version: current.version });
+  await h.request('/__test/prepared/' + pause, { method: 'DELETE' }); await prepared;
+  assert.equal(edge.requests.length, 0, 'a revocation after preparation is checked atomically before sending');
+  assert.equal((await h.state()).webhookDeliveries.find(delivery => delivery.orderId === preparedOrder.id && delivery.subscriptionId === current.id).status, 'revoked');
+  const eraseSubscription = await orderSubscription(h, order);
+  const eraseCommandId = randomUUID(), erasePayload = orderPayload(b);
+  const eraseOrder = await h.command('order.create', erasePayload, { commandId: eraseCommandId });
+  const preview = await (await h.request('/api/pier/privacy?kind=customer&subjectId=' + b.customer.id)).json();
+  assert.equal(preview.allowed, true, JSON.stringify(preview));
+  await h.command('privacy.eraseSubject', { kind: 'customer', subjectId: b.customer.id, planHash: preview.planHash, confirm: true });
+  await h.restart(); await h.command('webhook.process', {}); await schedule(h);
+  const erased = await h.state(), erasedDelivery = erased.webhookDeliveries.find(delivery => delivery.subscriptionId === eraseSubscription.id && delivery.orderId === eraseOrder.id);
+  assert.equal(erasedDelivery.status, 'erasure-paused'); assert.equal(erasedDelivery.body, null);
+  assert.equal(edge.requests.length, 0);
+  assert.deepEqual(await h.command('order.create', erasePayload, { commandId: eraseCommandId }), { erased: true });
+  await h.command('webhook.recover', { deliveryId: erasedDelivery.id, version: erasedDelivery.version, resolution: 'receiver-confirmed-not-accepted', reason: 'Old source capture must not return', confirm: true }, { error: 'WEBHOOK_RECOVERY' });
+  assert.equal(edge.requests.length, 0);
 });

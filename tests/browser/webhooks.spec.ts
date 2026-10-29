@@ -28,6 +28,7 @@ test('owners preview, rotate, reconcile and revoke signed order webhooks', async
       await mkdir(shots, { recursive: true })
       for (const width of [1440, 390]) {
         await page.setViewportSize({ width, height: 1000 })
+        await page.evaluate(() => window.scrollTo(0, 0))
         await page.screenshot({ path: join(shots, `${width}-webhooks-${name}.png`), fullPage: true })
       }
       await page.setViewportSize({ width: 1440, height: 1000 })

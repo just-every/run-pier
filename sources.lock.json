@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "5ed75e51e037a6ba6f145d9acb32d74b98206ba058727ab201a0953d27c52967",
+      "sha256": "8340561b3029b70ad634dcedc9225c2f2c18c9a5091c3b423f8c4e432d37a8c0",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "ead9ff2c112316299da239e988ff8f522cda4dcd571e240117fc263c64661336",
+      "sha256": "28de30853ee064b01ea9c92a74330ee444490757cca3e34e23a59cea4f0da373",
       "executable": false
     },
     "DEMO.md": {
@@ -534,6 +534,10 @@
       "sha256": "10524582535cca8bb009d097ecfa0af7d1ea9a51c4008dc4dfc92c08ccb2e7a0",
       "executable": false
     },
+    "docs/webhooks.md": {
+      "sha256": "5ce682ca747f2bceb8baeab10a385f14da2d9e16d2535d6a72a1e662b3dfb4de",
+      "executable": false
+    },
     "docs/woocommerce.md": {
       "sha256": "ece41c0619160c9b8a4166e10ad0f14c696aab737ba04385fb50098bb1cdc19a",
       "executable": false
@@ -667,7 +671,7 @@
       "executable": false
     },
     "OPERATIONS.md": {
-      "sha256": "b3fc28dc1c2b30484a3c53717fef313630e06d2c8632885901c248602355a112",
+      "sha256": "d0a49cb77d0760e33ab98068485c023098a6c7f04fdd953a59f47b199a385e47",
       "executable": false
     },
     "package.json": {
@@ -3523,7 +3527,7 @@
       "executable": false
     },
     "src/pier/outbound-webhooks.ts": {
-      "sha256": "9aed920bff29a6f885be7b18bef75134b75d8b4de145c3c1c049b596039157ea",
+      "sha256": "fd0d194dc8754b51d09f5870a8c4463e0078301702be51de00bf079574ed7eb6",
       "executable": false
     },
     "src/pier/payments/audit.ts": {
@@ -3651,7 +3655,7 @@
       "executable": false
     },
     "src/pier/privacy-plan.ts": {
-      "sha256": "9a05038cfdf570676ddac9e50a57248ae2dd664ce2f86595032a32b1376b56b6",
+      "sha256": "d0ca7d818f1eaa1c6951ce1393416ab6dd7ee2596eb8c26c54e352ff9dacae63",
       "executable": false
     },
     "src/pier/privacy-remote.ts": {
@@ -3659,11 +3663,11 @@
       "executable": false
     },
     "src/pier/privacy-state.ts": {
-      "sha256": "ea52213265a9ee0c86cc8a92fa5ab236aec5113b8f93ef62008b6651e396187f",
+      "sha256": "abb36c0b83e42c74809adeaaf06799b9057a91bb25640f6f8dd736b8248ef577",
       "executable": false
     },
     "src/pier/privacy.ts": {
-      "sha256": "19d3186807cb82b86acf30eea77e0ad83387d8a9b323f3eb0a98d12f5b8a9ac1",
+      "sha256": "d87235fca3fa87254b055ac4eeb57ffa5732844865cff71a592bd215ad5006f3",
       "executable": false
     },
     "src/pier/proposals.ts": {
@@ -4687,7 +4691,7 @@
       "executable": false
     },
     "src/ui/style/webhooks.css": {
-      "sha256": "78ef131a7e4c020f87db11924fd2616af98e1e6a2394a0e8f1291cfc60afd5de",
+      "sha256": "5ea228fd921f22f81fa9b48393d9704ef6c496e054c8f94f17d92acc9a74c3e5",
       "executable": false
     },
     "src/ui/style/workbench.css": {
@@ -4919,11 +4923,11 @@
       "executable": false
     },
     "tests/api/webhooks.test.mjs": {
-      "sha256": "96d6b9e8b18569afa33ae7e66e3d967354e535a927b1bd154ac85429a70e63e7",
+      "sha256": "daf2cdf022a5fc468a413a53cbe4593824464f01eeb40b241e710c48dac9c911",
       "executable": false
     },
     "tests/api/worker.ts": {
-      "sha256": "c61b1a45a28b6d2424d03504c5a2c756bac8bce42d31360e559b7a7ee880a65b",
+      "sha256": "8e3cdf796f624d93983f6d5d6ab8de611edd54d2252d46f1db53f08a5404671c",
       "executable": false
     },
     "tests/browser/acceptance.mjs": {
@@ -5011,7 +5015,7 @@
       "executable": false
     },
     "tests/browser/webhooks.spec.ts": {
-      "sha256": "b84e918c6c12f7918089c76912605a517b5c8d739e4a40c348689fcfd34c028f",
+      "sha256": "188ce60c570e134e4f18edf7561907cccd6918caee7fb1333535d45b39e5710e",
       "executable": false
     },
     "tests/email-link.mjs": {
@@ -5299,7 +5303,7 @@
       "executable": false
     },
     "tests/portable.mjs": {
-      "sha256": "d0faf8f3407dca14d1c1c265fbb8b13955b38a060d83e4cbc70fc2a20f89a7cd",
+      "sha256": "d816a69bb0436a1f9349ab984ef16522e0952da7ec2ceb9f5657370d25f7feb9",
       "executable": false
     },
     "tests/runtime.mjs": {

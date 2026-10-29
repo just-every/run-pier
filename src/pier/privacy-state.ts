@@ -43,6 +43,7 @@ export function anonymizeSubject(c: Context, kind: string, id: string, native?: 
         if (['webhookSubscriptions','recurringOrders','workflowRules','replenishmentPolicies','replenishmentSettings','slowStockPolicies','savedReports','channels','bookConnections','paymentConnections','shippingSettings','documentSettings','businessTemplates','aiSettings'].includes(collection)) {
           next.enabled = false; next.autoDraft = false; next.restorePaused = true;
         }
+        if (collection === 'webhookDeliveries') { next.status = 'erasure-paused'; next.body = null; next.problem = 'Erased source work cannot be sent or recovered.'; }
         if (collection === 'recurringOrders') next.cancelled = true;
         if (collection === 'correspondence') { next.recipient = null; next.subject = null; next.body = null; next.restorePaused = true; }
         if (collection === 'businessProfile' && kind === 'operator') { next.name = 'Anonymous business'; next.address = null; next.shipTo = {}; }

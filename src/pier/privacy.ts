@@ -69,7 +69,7 @@ async function eraseSubject(c: Context, p: any, env: Bindings) {
   // explicit recipient or delivery identity, never arbitrary body substrings.
   const recipients = [...values].filter(v => /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v));
   statements.push(env.DB.prepare(`DELETE FROM rer_mail_development_outbox WHERE json_extract(message,'$.deliveryId') IN (SELECT value FROM json_each(?)) OR EXISTS(SELECT 1 FROM json_each(message,'$.to') recipient JOIN json_each(?) target ON lower(recipient.value)=lower(target.value))`).bind(JSON.stringify([...plan.ids]),JSON.stringify(recipients)));
-  const secretIds = [...c.s.channels, ...c.s.bookConnections.map(r => ({ ...r, id:'books:' + r.id })), ...c.s.paymentConnections, ...c.s.shippingSettings, ...c.s.documentSettings].filter(r => plan.ids.has(r.id) || r.id.startsWith('books:') && plan.ids.has(r.id.slice(6))).map(r => r.id);
+  const secretIds = [...c.s.webhookSubscriptions.map(r => ({ ...r, id:'webhook:' + r.id })), ...c.s.channels, ...c.s.bookConnections.map(r => ({ ...r, id:'books:' + r.id })), ...c.s.paymentConnections, ...c.s.shippingSettings, ...c.s.documentSettings].filter(r => plan.ids.has(r.id) || r.id.startsWith('books:') && plan.ids.has(r.id.slice(6)) || r.id.startsWith('webhook:') && plan.ids.has(r.id.slice(8))).map(r => r.id);
   for (const id of secretIds) statements.push(env.DB.prepare('DELETE FROM pier_channel_secrets WHERE channel_id=?').bind(id));
   statements.push(...await redactionStatements(env.DB), ...await invalidateTransfersStatements(env.DB));
   c.privacyStatements = statements;

@@ -350,6 +350,10 @@ try {
   const securityGrant=await running.request('/auth/strong-auth/grant','POST',{delegateId:securityAdmin.session.operator.id,operatorId:securityTarget.session.operator.id,minutes:1440});
   assert.equal(securityGrant.status,200,await securityGrant.clone().text());
   assert.equal((await securityGrant.json()).grants.length,1,'source has a live human security grant');
+  let orderWebhook = await running.cmd('webhook.save', { name: 'Portable order receiver', destination: 'https://receiver.example.com/orders', fields: ['status'], secret: 'synthetic-pier-19-private-signing-material' });
+  orderWebhook = await running.cmd('webhook.preview', { subscriptionId: orderWebhook.id, version: orderWebhook.version, orderId: order.id });
+  orderWebhook = await running.cmd('webhook.approve', { subscriptionId: orderWebhook.id, version: orderWebhook.version, destination: orderWebhook.destination, fields: orderWebhook.fields, previewDigest: orderWebhook.preview.digest, confirm: true });
+  await running.cmd('order.reserve', { orderId: order.id });
   const before=await(await running.request('/api/pier/export')).json();
   const oldSession = running.sessionCookie();
   assert.ok(before.importJournal.jobs.length > 0);
@@ -365,7 +369,7 @@ try {
   await command(source, ["export", "--output", archive]);
   const corrupt = join(parent, 'corrupt.rer');
   const archiveBytes = await readFile(archive);
-  for (const secret of ['synthetic-pier-2','synthetic-pier-3','synthetic-pier-4','synthetic-pier-5','synthetic-pier-7', ...oldSession.split(';').map(part=>part.trim().slice(part.indexOf('=')+1))])
+  for (const secret of ['synthetic-pier-2','synthetic-pier-3','synthetic-pier-4','synthetic-pier-5','synthetic-pier-7','synthetic-pier-19-private-signing-material', ...oldSession.split(';').map(part=>part.trim().slice(part.indexOf('=')+1))])
     assert.ok(!archiveBytes.includes(Buffer.from(secret)), 'installation archive excludes active credential/session material');
   const corruptBytes = Buffer.from(archiveBytes); corruptBytes[Math.floor(corruptBytes.length / 2)] ^= 1;
   await writeFile(corrupt, corruptBytes);
@@ -411,6 +415,13 @@ try {
     before.commands.map(command => ({ ...command, result: inactiveValue(command.result) })),
     "durable command outcomes survived restore without active provider links",
   );
+  assert.equal(before.webhookDeliveries.length, 1, 'source retains a queued signed notification');
+  assert.equal(before.webhookDeliveries[0].status, 'queued');
+  assert.equal(after.webhookSubscriptions[0].enabled, false, 'restore pauses prior webhook approval');
+  assert.equal(after.webhookSubscriptions[0].restorePaused, true);
+  assert.equal(after.webhookDeliveries[0].status, 'restore-paused', 'restore cannot resume a queued notification');
+  await running.cmd('webhook.process', {});
+  assert.equal((await (await running.request('/api/pier/export')).json()).webhookDeliveries[0].status, 'restore-paused');
   // Every current and future business collection is compared, including source
   // bytes and valuation/approval histories; only declared authority is paused.
   for (const [field, rows] of Object.entries(before)) {
