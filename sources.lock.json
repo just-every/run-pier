@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d078cca2fca2cb5a982df9e72dbae905215f58a60f9deaf2488320dc37157a0e",
+      "sha256": "a408211565b83a734ab58e8234ba4b8e0fc2936b1767eea6c3480ca410138319",
       "executable": false
     },
     "DEMO.md": {
@@ -3003,7 +3003,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "92c98bfc90be991dcde4c8ed15ac1955b575668c40836d0868bbc5df9b1175c0",
+      "sha256": "4cb4ad708f1d55e4f199a0fb695b5aedcd3ebecbde18c5e5d40c1a3bfbe2b9a5",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3479,7 +3479,7 @@
       "executable": false
     },
     "src/pier/model.ts": {
-      "sha256": "ab1e0feec7b3170958bb7dcf7c290623d91cff995c49e44099c3ac6673bcea1f",
+      "sha256": "5a59638c8b0c764b1b0924e4f2c238517146d4b9b4552884a98cac19ceff393b",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -3759,11 +3759,11 @@
       "executable": false
     },
     "src/pier/role-reads.ts": {
-      "sha256": "79b2ce997ef1306f4212f70b8ed206f5e324e3e42f47745ef0ab7e77802520dc",
+      "sha256": "b6a687b8eef266594bccc2b90af3f02acae7dcb08c34a27a3807ee2324402c3e",
       "executable": false
     },
     "src/pier/role-visibility.ts": {
-      "sha256": "ae21bac36a690f7cbd369c1814088fd899eb5fdf911004d59c3bbde688ec7294",
+      "sha256": "b65f93d244ddc61eac0f60f4e22e3f72555f4ad95d956e78065751cc00d8c02f",
       "executable": false
     },
     "src/pier/routing.ts": {
@@ -3839,7 +3839,7 @@
       "executable": false
     },
     "src/pier/storage.ts": {
-      "sha256": "e5c4a28ebf2d9fb1482b746cf3eba426f84302742728260c989c5f3bdcd4d455",
+      "sha256": "3b09d3e3b84371343a6fb30329fe9bafe3a83d30a272ce84616974ddf755ca26",
       "executable": false
     },
     "src/pier/supplier-inspections.ts": {
@@ -3852,6 +3852,10 @@
     },
     "src/pier/supplier-returns.ts": {
       "sha256": "cbd432f63ef104587c256730642bf4fc51a62112327e24635179ddcf11e829f3",
+      "executable": false
+    },
+    "src/pier/supplier-substitutes.ts": {
+      "sha256": "5fd0a90060dd53331fa68bf61e1fd419db95b9c1ce3e636acb6e66a5a771040d",
       "executable": false
     },
     "src/pier/trace-core.ts": {
@@ -4111,7 +4115,7 @@
       "executable": false
     },
     "src/ui/activity.tsx": {
-      "sha256": "62d9a41015d9c2a3243857e16ca48de5ed3f06f0ff108fd9f30e9cbf0ab46c28",
+      "sha256": "2f4ca0abcfeea242bd64a1dfc4c376587837ebb5fd757c980d550a71f850dc62",
       "executable": false
     },
     "src/ui/api.ts": {
@@ -4690,6 +4694,10 @@
       "sha256": "b5d4e6b86f941603cf993693bdfb100d74ab5b14efbd3758a1ad64e50022a4e5",
       "executable": false
     },
+    "src/ui/supplier-substitutes.tsx": {
+      "sha256": "2e1ba8820f104b92a4232bf7b70c72fff62435e132fa3eaf6c4abe208d5b641c",
+      "executable": false
+    },
     "src/ui/trace.tsx": {
       "sha256": "478eaa6ca13e50dc412be3211fd3f6a06e74ffa4ee3f2f9c7b1c32e9bd442836",
       "executable": false
@@ -4896,6 +4904,14 @@
     },
     "tests/api/supplier-returns.test.mjs": {
       "sha256": "1f5a2e46efbe1a3d030bc9140215d85c4d08bf2d86191003ad180f33ee5d6dc9",
+      "executable": false
+    },
+    "tests/api/supplier-substitutes-fixture.mjs": {
+      "sha256": "424710f38232a4d2b8ab7104bd0e00c95205a03e968621229c36b278b2cade28",
+      "executable": false
+    },
+    "tests/api/supplier-substitutes.test.mjs": {
+      "sha256": "8696533d20839c2da020701da1e6879264380846caa017226b1f6b318fb37e89",
       "executable": false
     },
     "tests/api/trace-fixture.mjs": {

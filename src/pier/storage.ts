@@ -154,6 +154,10 @@ export async function commit(
     if (oldPolicy?.version !== d.policyVersion && d.actorId === c.actor.id) continue;
     guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}=?) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='orders' AND id=? AND json_extract(data,'$.promisePolicy.version')=? AND json_extract(data,'$.promisePolicy.enabled')=1 AND json_extract(data,'$.promisePolicy.approvedBy')=?)`, [d.actorId,d.role,d.orderId,d.policyVersion,d.actorId]);
   }
+  for (const proof of c.substituteAuthorities ?? []) {
+    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.version=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}=? AND COALESCE(r.version,0)=?)`,
+      [proof.actorId, proof.operatorVersion, proof.role, proof.permissionVersion]);
+  }
   for (const secret of c.channelSecrets ?? []) statements.push(db.prepare("INSERT INTO pier_channel_secrets(channel_id,secret) VALUES(?,?) ON CONFLICT(channel_id) DO UPDATE SET secret=excluded.secret").bind(secret.channelId, secret.secret));
   for (const kind of collections) {
     const old = new Map(before[kind].map((r) => [r.id, JSON.stringify(r)])),
