@@ -23,7 +23,7 @@ export function Onboarding({ state }: { state: PierState }) {
   }, [state.version, state.actor.id, state.actor.role, reload])
   if (state.actor.role !== 'owner') return <section className="panel"><h1>Onboarding</h1><p role="status">Only the current owner can inspect setup and native cutovers.</p></section>
   return <><div className="page-title"><h1>Onboarding</h1><a href="#activity">Back to Settings</a></div>
-    <section className="panel" aria-label="Onboarding diagnostic"><h2>Setup and native cutover</h2>
+    <section className="panel custody-records" aria-label="Onboarding diagnostic"><h2>Setup and native cutover</h2>
       <p>This read-only view uses retained settings and native import records. Opening or reloading it makes no provider request and changes no business records.</p>
       <button disabled={loading} onClick={() => setReload(value => value + 1)}>{loading ? 'Loading onboarding…' : 'Reload onboarding'}</button>
       {error && <p className="error" role="alert">{error} <a href="/signin?returnTo=%2Fapp%23activity%2Fonboarding">Sign in again</a></p>}

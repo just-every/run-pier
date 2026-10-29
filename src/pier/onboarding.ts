@@ -1,7 +1,7 @@
 import type { integrationHealth } from './integration-health';
 import { sha256 } from './import-kit';
 import { materialHash } from './native-mapping';
-import type { State } from './model';
+import { collections, type State } from './model';
 
 const stages = ['captured', 'mapped', 'reconciled', 'shadow', 'frozen'];
 const reviewNames: Record<string, string> = {
@@ -25,9 +25,9 @@ export function onboarding(s: State, health: Awaited<ReturnType<typeof integrati
     const status = batch.status === 'committed' ? 'committed' : batch.status === 'undone' ? 'undone'
       : problems.length ? 'invalid' : stale ? 'stale' : batch.status === 'captured' ? 'staged' : 'reviewed';
     const nextAction = !pending ? batch.status === 'committed' ? 'Inspect the recorded cutover' : 'Inspect the retained undo'
-      : stale ? 'Stage a fresh reconciliation against current records'
-      : problems.some((problem: any) => problem.code === 'REVISION_REVIEW') ? 'Review changed source rows explicitly'
+      : problems.some(problem => problem.code === 'REVISION_REVIEW') ? 'Review changed source rows explicitly'
       : problems.length ? 'Correct the named source problems and stage corrected files'
+      : stale ? 'Stage a fresh reconciliation against current records'
       : reviewNames[batch.status];
     return { id: batch.id, version: batch.version, namespace: batch.namespace, sourceVersion: batch.sourceVersion,
       mappingRevision: batch.mappingRevision, createdAt: batch.createdAt, capturedVersion: batch.capturedVersion ?? null,
@@ -45,11 +45,12 @@ export function onboarding(s: State, health: Awaited<ReturnType<typeof integrati
   }));
   if (!s.channels.length) connections.unshift({ id: 'channels', name: 'Sales channels', status: 'not connected', href: '#channels', pending: 0, failed: 0, uncertain: 0, lastSuccessfulRequest: null, lastSuccessfulSync: null });
   if (!s.ediPartners.length) connections.push({ id: 'edi', name: 'EDI partners', status: 'not connected', href: '#edi', pending: 0, failed: 0, uncertain: 0, lastSuccessfulRequest: null, lastSuccessfulSync: null });
-  const empty = !Object.values(counts).some(Boolean) && !profile && !s.imports.length;
+  const empty = !s.movements.length && !s.reservations.length && !collections.some(kind => kind !== 'roles' && s[kind].length);
   const next = batches[0];
   return { version: s.version, empty, business, batches, connections,
-    nextAction: next ? { label: next.nextAction, href: next.href, batchId: next.id }
+    nextAction: next && stages.includes(next.stage) ? { label: next.nextAction, href: next.href, batchId: next.id }
       : !business.profile.configured ? { label: 'Record your business details', href: business.profile.href, batchId: null }
+      : next ? { label: 'Inspect connection configuration and retained outcomes', href: '#channels', batchId: null }
       : { label: 'Stage native CSV files or enter records through Stock', href: '#imports', batchId: null } };
 }
 

@@ -28,7 +28,7 @@ test('owner follows onboarding source problems, reviewed cutover and reload reco
     await page.setViewportSize({ width: 1440, height: 1000 })
   }
   const open = async () => {
-    await page.goto(`${origin}/app#activity/onboarding`); await page.reload()
+    await page.goto(`${origin}/app#activity` + '/onboarding'); await page.reload()
     await expect(page.getByRole('button', { name: 'Reload onboarding', exact: true })).toBeEnabled()
   }
   const beforeEmpty = await exportRecords()
@@ -39,6 +39,12 @@ test('owner follows onboarding source problems, reviewed cutover and reload reco
   await expect(screen()).toContainText('No successful provider request recorded')
   await capture('empty')
   expect(await exportRecords()).toEqual(beforeEmpty)
+  await screen().getByRole('link', { name: 'Inspect business settings', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Your business', exact: true })).toBeVisible()
+  await open()
+  await screen().getByRole('link', { name: 'Inspect connection', exact: true }).first().click()
+  await expect(page.getByRole('region', { name: 'Integration health', exact: true })).toBeVisible()
+  await open()
   await page.route('**/api/pier/onboarding', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
   await page.getByRole('button', { name: 'Reload onboarding', exact: true }).click()
   await expect(screen().getByRole('alert')).toContainText('Onboarding could not be loaded')
@@ -64,6 +70,12 @@ test('owner follows onboarding source problems, reviewed cutover and reload reco
   await open()
   await expect(screen().getByRole('region', { name: `Native capture ${batch.id}`, exact: true })).toContainText('Staged')
   await capture('staged')
+  await command('item.save', { sku: 'synthetic-pier-711', name: 'Later definition', unit: 'each', packSize: '1' })
+  await open()
+  await expect(screen().getByRole('region', { name: `Native capture ${batch.id}`, exact: true })).toContainText('Stale')
+  await capture('stale')
+  batch = await command('import.stage', nativeCapture())
+  await open()
   await screen().getByRole('link', { name: 'Review identities and units', exact: true }).first().click()
   for (const stage of ['mapped', 'reconciled', 'shadow', 'frozen']) {
     const review = page.locator(`[id="document-${batch.id}"]`).getByRole('heading', { name: 'Review the next migration stage', exact: true }).locator('..')
