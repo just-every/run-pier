@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "9cd6d10318aed720c35889966d084ce7d08c753765437185e8ff5a59692dd569",
+      "sha256": "405e2c3120ab37725c94ab7a8797bdd7d1f12f2c2cf46d0827c7488df99ad76c",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "ace56d4ac460d3a40be0ec71166910af149089c9b04be67c3af02c93d8c8df68",
+      "sha256": "838ffa151689f486a42783fdc8b5d4cae69c4dd1dafcb52e7874243691bc2d25",
       "executable": false
     },
     "DEMO.md": {
@@ -403,7 +403,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "6868fa4b8273e29cdf6600d2b05c24d3fe8b34543ed1da026d63f0f709b729b4",
+      "sha256": "b2bbeb2dca2e18d4db3ca427bb51a4983882bc1e03e10c343dc5ef4acdab3b3f",
       "executable": false
     },
     "docs/contract/acceptance-before-cleanup.md": {
@@ -555,7 +555,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "2f7dbb90709a0c789866cc3372d62f5b6e774b1823dedeff38bb02e6b6ac34e0",
+      "sha256": "e8175fba4526f138d8aa9c61935430dbe73948752f73e80ad7774b0bc3907334",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -4747,7 +4747,7 @@
       "executable": false
     },
     "tests/api/identity-journey.test.mjs": {
-      "sha256": "29deead302637510c3d512a8a8a79c4ec0dcddd81e01469a83067d7a6e14bd06",
+      "sha256": "c39991b747676f136538fc6438a633ac6a25182b58a73aed08a59fd9727d1e5b",
       "executable": false
     },
     "tests/api/inbound-asn-fixture.mjs": {
@@ -4755,7 +4755,7 @@
       "executable": false
     },
     "tests/api/inventory-journey.test.mjs": {
-      "sha256": "9f288908497d315eacf36a76801d00578684908a0d671b658e25f19015bbf230",
+      "sha256": "443e204ed4ab8e1bf8bd5f1bef5711847d7a89d12ae8c2c740a80f300a240e2a",
       "executable": false
     },
     "tests/api/journey-resources.mjs": {
@@ -4855,7 +4855,7 @@
       "executable": false
     },
     "tests/browser/flows.ts": {
-      "sha256": "29ac73f8b2650c5692bef0074a2b6b8b461c2a4a071cea8e0f381523a15827c1",
+      "sha256": "4c3c01720ccc7375ee449be02f6ee34f43651cac28098cb9a18e9624461e96b1",
       "executable": false
     },
     "tests/browser/installation.mjs": {
@@ -4887,7 +4887,7 @@
       "executable": false
     },
     "tests/browser/sales-journey.spec.ts": {
-      "sha256": "1650f3901be96be6811868318c725002f18e2bf80dc3371aecc083b582f8217e",
+      "sha256": "0c74e198d11f785938e48f07b79e014814c33c85b6750e564453014713b8bd54",
       "executable": false
     },
     "tests/browser/session.ts": {
