@@ -48,7 +48,7 @@ test('WMS-003: warehouse dispatch states, reviewed ship-by schedule, close downl
     if (shots) await page.screenshot({ path: join(shots, `${width}-dispatch-pickup.png`), fullPage: true })
     await page.goto(`${origin}/app#floor/dispatch`)
     const board = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Dispatch board', exact: true }) }).last()
-    const pickup = board.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Time zone', exact: true }) }).getByRole('row').filter({ hasText: carrier.name })
+    const pickup = board.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Time zone', exact: true, includeHidden: true }) }).getByRole('row').filter({ hasText: carrier.name })
     await expect(pickup).toContainText('11:59 PM')
     await expect(pickup).toContainText(zone)
     await expect(board.getByText(/Conservative: every unfinished due order/)).toContainText('at risk until dispatch posts')

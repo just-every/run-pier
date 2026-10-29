@@ -35,7 +35,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 27 | "Address corrected · 1420 E Main St" | `SHIP-001` partial | partial |
 | 28 | "print the label" (label failed, re-weighed, printed) | `SHIP-001` partial; `WMS-001` done | partial |
 | 29 | "Tracking goes to each customer" | `SHIP-001` partial | partial |
-| 30 | "214 orders out" by 4 pm | `WMS-003` partial; `PIER-009` partial | partial |
+| 30 | "214 orders out" by 4 pm | `WMS-003` done; `PIER-009` partial | partial |
 | 31 | "Pier matches each bill to its PO and receipt, holds the difference" | `BUY-004` done | done |
 | 32 | "Agent requested a credit" | `BUY-003` partial; `AGENT-003` partial | partial |
 | 33 | "Credit memo CM-311" and "Paid $2,016.00 for 480" | `BUY-003` partial; `BUY-004` done | partial |
