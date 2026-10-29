@@ -10,3 +10,5 @@ import './stock.css'
 import './floor.css'
 import './channels.css'
 import './replenishment.css'
+
+import './activity.css'

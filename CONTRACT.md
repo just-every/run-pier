@@ -1109,11 +1109,200 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 1. Verify the repository’s `LICENSE` is the MIT license and `package.json` declares MIT; install from the public source with no account or key from Pier’s authors and reach every product area with three warehouses and 25 staff without a payment, upgrade or license prompt; begin enabling a paid provider connection and verify its cost is shown as that provider’s before activation.
 
 
+### Agent surface (Base-delivered)
+
+#### BASE-AGENT-001 — One MCP door per seed
+
+*Tier:* Agent surface
+
+**Requirement.** Every seed, hosted or self-hosted, serves one remote MCP endpoint at `/mcp` over Streamable HTTP. It speaks the current revision (2026-07-28) and accepts 2025-11-25 clients through the twelve-month deprecation window. It implements `server / discover`, tools, resources and prompts. Lists are deterministic and carry `ttlMs` and `cacheScope: "private"`. Roots, Sampling and Logging are not served.
+
+**Acceptance.**
+1. `server / discover` returns the supported versions, capabilities, `serverInfo` and instructions.
+2. A 2026-07-28 request works with no handshake, and a 2025-11-25 client completes `initialize` and lists the same tools.
+3. An unsupported version returns `UnsupportedProtocolVersion`.
+4. Two `tools / list` calls return the same order, with cache fields.
+5. A foreign Origin returns 403, and a header and body method mismatch returns `HeaderMismatch`.
+6. An oversized body returns 413 with no effect.
+
+#### BASE-AGENT-002 — The seed's jobs are tools, through the UI's own actions
+
+*Tier:* Agent surface
+
+**Requirement.** Each Core job a person does in the product is a tool. Where one is not, the Agent surface says why: it runs on a device, it is a person's interactive screen, it belongs to a connector or the import door, or it is an installation fact. Risk is never the reason: a risky job is a tool with its class (BASE-AGENT-006). Tools are named `<seed>.<area>.<verb>` and declare input and output schemas and truthful annotations. Each calls the same server action as the UI, so validation and authorization are written once, and the seed's embedded agents use the same registry. A business refusal returns `isError` with the seed's stable error code.
+
+**Acceptance.**
+1. The Core clause ids in each tool's `_meta`, with the not-a-tool reasons that `server / discover` serves, cover every Core clause in the contract, and no reason is risk; the harness and `rer check` fail on a gap.
+2. Each tool's fixture result validates against its `outputSchema`.
+3. Read tools declare `readOnlyHint`; tools that can carry destructive declare `destructiveHint`, and tools that can carry external declare `openWorldHint`.
+4. A refusal returns the same error code the UI gets for the same action.
+5. The UI action and its tool, on the same fixture, give the same record state and the same audit event type.
+6. The seed's embedded agents appear in the audit as calls to the same tools.
+
+#### BASE-AGENT-003 — Records are resources
+
+*Tier:* Agent surface
+
+**Requirement.** Each primary record type has a URI template, and tools return `resource_link`s to the records they touch. A read returns exactly the fields the caller's role sees in the UI. File bytes count against any byte budget on the grant. A record the caller cannot open reads as not found, identical to a missing id. Text from customers, imports or files carries an untrusted marker in `_meta`.
+
+**Acceptance.**
+1. `resources / templates / list` names every record type in the Agent surface.
+2. Reads as two roles return exactly what the UI shows each.
+3. An out-of-scope id and a missing id give identical responses.
+4. A write's `resource_link` reads back the new state.
+5. Bytes over budget return `budget_exhausted` and no partial content.
+6. Customer-sourced text carries the untrusted marker.
+
+#### BASE-AGENT-004 — Business identity and short-lived, audience-bound tokens
+
+*Tier:* Agent surface
+
+**Requirement.** The door is an OAuth 2.1 resource server. Its RFC 9728 metadata names the authorization servers this installation trusts. That is the paired Business when Business provisioned it, verified with the owner-claim trust the installation already holds for its import door; otherwise it is the seed's own sign-in. Access tokens are RFC 9068 JWTs with `aud` set to the seed's canonical MCP URI, `sub` the sponsoring person, `act` the agent (RFC 8693) with its specialist, scopes per tool family, and a lifetime of 15 minutes or less (5 by default). The policy scopes rules on the sponsor, agent and specialist the token names. The consent behind the tokens can last longer and is revocable. Tokens travel only in the Authorization header, and there is no passthrough.
+
+**Acceptance.**
+1. An unauthenticated call returns 401 with `resource_metadata`, and the metadata names the trusted servers and scopes.
+2. A Business token for this seed works, and the same token sent to a sibling seed returns 401.
+3. An expired token returns 401, and a token with a lifetime over 15 minutes is refused.
+4. A read-only token calling a write tool returns 403 `insufficient_scope` with every needed scope in one challenge.
+5. A token in a query string is refused and not logged.
+6. Revoking consent in the seed or in Business refuses the next call within 60 seconds.
+7. After unpairing, Business tokens are refused and the seed's own sign-in still works.
+
+#### BASE-AGENT-005 — An agent acts as a person in a role, never more
+
+*Tier:* Agent surface
+
+**Requirement.** Every call is authorized as the sponsoring person's current role and access (BASE-ACCESS-004), intersected with the grant's resources, actions and budget. A grant only narrows. No call widens the calling agent's own authority. A call that would widen its own grant or its sponsor's role, or change the company policy or Pause, is refused with `self_escalation`, whatever the policy says; narrowing its own grant is allowed. Other access and security changes are ordinary actions in the access and security classes. An agent never acts after its sponsor is suspended. Anything an agent reads (records, files, emails, imports, other seeds' results) is data and cannot change its scope, its targets or a call's class.
+
+**Acceptance.**
+1. For each role fixture, every tool's allow or deny through MCP equals the UI's for the same action.
+2. A one-folder, read-only grant holds, and widening through arguments is refused.
+3. Downgrading the sponsor changes the next call's result, and suspending the sponsor returns 401.
+4. Calls that widen the agent's own grant or its sponsor's role, or change the policy or Pause, return `self_escalation` and change nothing, even under a policy with every class autonomous; dropping a scope from its own grant runs.
+5. An injection fixture yields no out-of-grant call and no change of class: record text asking for a wider action, or claiming that a recipient is internal.
+
+#### BASE-AGENT-006 — Every action declares its risk class
+
+*Tier:* Agent surface
+
+**Requirement.** Classes come from the fleet list in RISK-POLICY.md: standard, external, money, commitment, accounts, gated, access, security, destructive, sensitive and live. In the registry, each tool declares the classes it can carry and a server-side classifier that decides them per call from the arguments, current records and, for gated, the provider's answer. The classifier also supplies each class's facts: the measure (items, recipients, amount and currency, people or records), the counterparty (internal, known, new or public), the direction for access, the provider and step for gated, and the data kind for sensitive. A classifier never reads a flag, label or claim supplied by the agent or by record text. A seed cannot add a class; it proposes one for the fleet list.
+
+**Acceptance.**
+1. Every tool in `tools / list` carries its possible classes in `_meta`, equal to the Agent surface table.
+2. For each tool, fixture calls cover every class it can carry, and the computed classes and facts equal the fixture's expected values.
+3. An argument or record text asserting a class or a confirmation (`internal: true`, `confirmExternal: true`) leaves the computed classes unchanged.
+4. Money calls carry amount and currency, external calls their counterparty and recipient count, access calls their direction, and destructive calls their item count.
+5. No tool in `tools / list` declares a class outside the fleet list, and `rer check` fails on one.
+6. A refused call's audit row still records its computed classes.
+
+#### BASE-AGENT-007 — The company's policy decides, at one chokepoint
+
+*Tier:* Agent surface
+
+**Requirement.** Every agent door calls one decision function: MCP, the integration API with agent tokens, and the seed's embedded agents. It evaluates the call's classes against the company's policy, as above. The seed ships no dispositions and fills no gap with one: agent access opens only under a complete policy that setup has asked for (RISK-POLICY.md), and before then every agent call returns `policy_unset` with the setup link and changes nothing. *Autonomous* runs the call. *Review* runs it and adds it to the review feed. *Approval* saves a pending action with server-computed facts and returns `input_required`, with a URL-mode elicitation to the seed's approval page and a pending handle. Each person the rule names approves the exact saved revision in a signed-in browser, and changed inputs need a new approval. The retried call returns the result and a receipt. A rejection returns `approval_rejected`, and a lapse past the wait the rule sets returns `approval_expired`. *Blocked* returns `policy_blocked`, naming the class, rule and revision.
+
+**Acceptance.**
+1. The Base harness runs each tool under each disposition for every class it can carry, and sees it run, run and enter the review feed, wait with no effect, or be refused.
+2. Before setup is complete, the setup page lists every class the seed's tools carry with examples and no answer pre-selected, an agent call returns `policy_unset` with the setup link and changes nothing, and an incomplete revision cannot be confirmed; a `*` rule completes it, and a tool an upgrade adds with an unanswered class appears in `tools / list` once that class is answered, while the other tools keep running.
+3. Under "money autonomous up to $500, approval up to $10,000, blocked above", calls of $400, $600 and $20,000 run, wait and are refused; a per-day cap sends the call that crosses it to the next rule.
+4. A call carrying two classes takes the stricter disposition.
+5. An approval shows server-computed facts and an expiry, returns the URL elicitation and a handle, and completes once after the named approver approves; a changed input needs a new approval, and a rejection or lapse leaves no effect.
+6. The same call through MCP, the integration API and an embedded agent gets the same decision.
+7. A policy change applies to the next call within 60 seconds, and the audit cites the new revision.
+8. A policy document with a bad signature or another Business's id is rejected, and the door keeps the last valid revision.
+
+#### BASE-AGENT-008 — Truthful attribution
+
+*Tier:* Agent surface
+
+**Requirement.** Every agent act is recorded and shown as `"<agent> for <person>"`, and mail and messages an agent sends outside name it that way as their sender. An approval, a review mark, a confirmation (a warning dialog, a typed-field confirmation, a delivery confirmation), a decision or a signature attributed to a person comes only from that person's signed-in session. When an agent does the equivalent act, the record names the agent, and the act carries its own class; a binding decision or a signature is commitment. Agent doors ignore arguments that stand for a person's confirmation. No tool solves a bot check, or enters a person's own password or 2FA code at an outside service. A provider step that demands a person goes to a person, whatever the policy says; the gated class marks such steps before they run.
+
+**Acceptance.**
+1. An agent call carrying a person-confirmation flag is classified and decided exactly as without it.
+2. Approving, marking reviewed or answering a policy question with an agent or device token returns 403 and changes nothing.
+3. A form-mode elicitation "accept" never completes an approval.
+4. Where an agent's decision, signature or field confirmation runs without a person, it reads `"<agent> for <person>"` in the record, the activity view, exports and any certificate, never as the person's own act.
+5. After a person approves an agent's prepared action, the record shows the person as approver and the agent as preparer.
+6. Activity and exports at 1440 and 390 show `"<agent> for <person>"` for every agent act.
+7. Mail an agent sends to an outside address names `"<agent> for <person>"` as its sender.
+
+#### BASE-AGENT-009 — Every agent action is audited with its class and decision
+
+*Tier:* Agent surface
+
+**Requirement.** Extending BASE-OPS-005, each call that reads private data or changes anything records the agent client, name and specialist, and the run or task id (`traceparent` when sent); the sponsoring person, the grant, the tool and the targets; the classes and their facts, and the policy revision and rule; the decision (autonomous, review, approval, blocked, unset or self_escalation) and the outcome (done, refused, pending or failed); the approval or review id and person, and the idempotency key. For a period, the seed's Agents page shows actions by class and decision with the notable ones, the review feed (Mark reviewed, Flag, and Undo where reversible), pending approvals, steps waiting for a person and setup questions. Business shows the same across seeds.
+
+**Acceptance.**
+1. One write leaves a complete audit row.
+2. Refused, pending, unset and self-escalation calls are audited.
+3. The Agents page's counts by class and decision equal the audit rows on a fixture week.
+4. The review feed lists exactly the calls decided as review; Mark reviewed records the person, and Undo restores a reversible one.
+5. Filtering by agent or class lists only those rows, and export includes every field.
+6. Removing the agent keeps its rows and its name.
+7. The Agents page works at 1440 and 390 with no serious or critical axe findings.
+
+#### BASE-AGENT-010 — Agents can follow changes
+
+*Tier:* Agent surface
+
+**Requirement.** The seed emits a typed event for every record change and for every approval, review and policy decision. Each event carries a stable id, a type, the record URI, the actor (a person, or an agent acting for a person) and a time. Events never carry secrets or more than the subscriber may read. Agents can read events three ways: `subscriptions / listen`, an `events.list` tool with a cursor, and signed webhooks from Base `integrations` using the same ids. Every channel delivers at least once and filters by access at delivery.
+
+**Acceptance.**
+1. A subscribed record changed in the UI produces a notification within 10 seconds.
+2. `events.list` returns the same event id the webhook carries.
+3. Replaying from a cursor returns the same ids in order.
+4. After access is revoked, no channel delivers events about that record.
+5. A failed webhook is visible and replays without duplicate effects.
+6. `approval.pending`, `approval.decided`, `review.flagged` and `policy.adopted` carry the class and decision and nothing the subscriber may not read.
+
+#### BASE-AGENT-011 — Limits are policy, and Pause stops everything
+
+*Tier:* Agent surface
+
+**Requirement.** Business limits are rules in the company's policy: per-call and per-day thresholds on any class's measure, such as money moved, outside recipients or items destroyed; spend caps on provider cost (models, SMS, email) per seed, specialist or agent, which setup asks with the classes; "no cap" is an answer. Tools with provider cost declare an estimate before they run, and an exhausted cap returns `budget_exhausted` before any partial effect. The seed's capacity limits (request rate, body and byte sizes) protect the installation: they bound rate and size, never daily business volume, are documented and are not policy. A grant carries budgets only when the person granting it sets them. A **Pause agents** control in the seed, and Pause all agents in Business when paired, refuses every agent token within 60 seconds until a person resumes; browser sessions and devices keep working.
+
+**Acceptance.**
+1. A rate overrun returns 429 with `Retry-After`.
+2. A per-day cap of three outside recipients sends the fourth to the rule that applies past the cap.
+3. An exhausted spend cap returns `budget_exhausted` with no partial effect and shows the spend.
+4. Under the answer "no cap", a spending call runs and its spend shows in usage; a call that spends nothing is unaffected by any cap.
+5. The usage view shows calls, decisions by class, money moved and provider spend per agent.
+6. Pause and Pause all agents each stop the next call within 60 seconds, and resume restores access.
+7. An agent token cannot resume.
+
+#### BASE-AGENT-012 — Writes are idempotent and conflict-safe
+
+*Tier:* Agent surface
+
+**Requirement.** Every mutating tool requires an idempotency key and takes an optional expected revision. The same key with the same arguments returns the first outcome for at least 24 hours; the same key with different arguments returns `idempotency_conflict`; a stale revision returns `revision_conflict` with the current revision. Long work returns a job handle and a status tool, with no dependence on the Tasks extension.
+
+**Acceptance.**
+1. Two calls with one key give one effect and equal results.
+2. A retry with a new JSON-RPC id and the same key, after a dropped stream, returns the recorded outcome.
+3. The same key with different arguments returns a conflict and no effect.
+4. A stale revision returns a conflict naming the current revision.
+5. A job handle used by another person's token reads as not found.
+
+#### BASE-AGENT-013 — Manifest, docs and the conformance journey
+
+*Tier:* Agent surface
+
+**Requirement.** `server / discover` instructions and an on-site `/docs/agents` page are generated from the action registry. The page lists tools by job, with each tool's classes, the test that adds each computed class, its scopes, resource templates, event types, capacity limits and error codes, and the specialist role. `prompts / list` carries the specialist's jobs. Base ships the conformance journey, a harness that `rer verify` runs against `rer dev` and seeds run in CI. It is an MCP client; a signed-in test person takes a person's steps (setup answers, approvals, review marks, resume) through the URLs the door returns, and the same browser leg runs the UI-parity actions and the page checks at 1440 and 390. It runs every acceptance point of BASE-AGENT-001 to 012 and of the seed's SURFACE clauses under two company policies: *all autonomous* (`*`), and *held* (standard review, every other class the seed declares approval, which the test person grants), plus the single-class variants a point names. A point that names no disposition passes under both.
+
+**Acceptance.**
+1. The docs list exactly the names in `tools / list` and `resources / templates / list`.
+2. Each tool's classes, and the test behind each computed one, are documented.
+3. The harness fails on any of: a tool without a schema; an effect under approval or blocked, or before setup is complete; a computed class that differs from its fixture; a flag that changes a class or completes a person's step; a role-parity mismatch; a wrong-audience token being accepted; a duplicate effect on retry.
+4. Every acceptance point runs under both policies, every decision matches the policy in force, and under all autonomous no call waits for a person or is refused by policy.
+5. A stranger agent given only the seed URL completes the specialist journey through MCP.
+
 ### Agent surface
 
 **Specialist: Inventory controller.** It keeps a wholesaler's stock right and moving: it plans and places purchase orders, follows suppliers and customer promises, keeps channels and books reconciled and prepares cutovers, acting for the person who sponsors it.
 
 Inherits BASE-AGENT-001 to BASE-AGENT-013. The company's policy decides every call; this section presets none.
+
+Current declared subset: `tools`, `policy`, `pause`, `audit`, `idempotency`. Six native preparatory tools and their exact limits are documented in [Company agents](docs/agents.md) and `agent-surface.json`. The table below remains the complete target, not a claim of current registry parity. Resources, events, prompts and subscriptions are UNDECLARED and typed-refused. Shared and surface judgments remain partial. No provider spend is registered.
 
 **How Pier computes each class.**
 - *standard*: stock movements recorded from physical events (receipts, transfers, picks, packs, dispatches, returns, counts and their linked corrections), drafts, staged imports, proposals, routing and rule edits, reads and reports; each is withdrawn or corrected in the product by a linked command. Facts: the item count and the warehouses touched.
@@ -1129,7 +1318,7 @@ Inherits BASE-AGENT-001 to BASE-AGENT-013. The company's policy decides every ca
 | --- | --- | --- | --- | --- |
 | `pier.catalog.update` | Items, variants, units, barcodes, kits, custom fields and locations | PIER-001, CAT-001, CAT-002, KIT-001 | standard | none |
 | `pier.parties.update` | Customers, suppliers, terms, representatives and split policy | PIER-002, SALES-002 | standard | none |
-| `pier.stock.read` | Stock positions, traces, availability-to-promise and reports | STOCK-001, TRACE-001, SALES-003, REPORT-001, REPORT-002, REPORT-003 | standard | none |
+| `pier.stock.read` | Stock positions, traces, availability-to-promise and reports | STOCK-001, TRACE-001, SALES-003, REPORT-001, REPORT-002, REPORT-003 | standard | `pier.stock.read` (native granted stock) |
 | `pier.imports.stage` | Stage, review and revise native or incumbent imports and history | PIER-003, MIGRATE-001, MIGRATE-002 | standard | none |
 | `pier.imports.commit` | Commit or undo a reviewed cutover | PIER-003, MIGRATE-001 | standard or destructive | none |
 | `pier.orders.create` | Create, import and reserve sales orders and recurring schedules | PIER-004, SALES-008, SALES-004 | standard | none |
@@ -1140,9 +1329,9 @@ Inherits BASE-AGENT-001 to BASE-AGENT-013. The company's policy decides every ca
 | `pier.followups.configure` | Abandoned-cart reminder controls and consent | SALES-009 | external | none |
 | `pier.invoices.authorize` | Draft, authorize, credit and void customer invoices | SALES-006, TAX-001, CHANNEL-002 | money | none |
 | `pier.documents.send` | Generate and email business documents | PRINT-001 | standard or external | none |
-| `pier.purchasing.plan` | Plan replenishment and prepare PO drafts | BUY-001, BUY-005, BUY-008, AGENT-002 | standard | `proposal.prepare` |
+| `pier.purchasing.plan` | Plan replenishment and prepare PO drafts | BUY-001, BUY-005, BUY-008, AGENT-002 | standard | `po.draft`, `po.revise` through the shared door; optimization remains partial |
 | `pier.purchasing.commit` | Commit an exact approved PO | PIER-005, BUY-002 | money · commitment | none |
-| `pier.purchasing.send` | Send a committed PO and chase confirmations | BUY-006, AGENT-003 | external · commitment | `po.sendApproved` |
+| `pier.purchasing.send` | Send a committed PO and chase confirmations | BUY-006, AGENT-003 | external · commitment | `po.sendApproved` through the shared door; exact native buyer authority remains required |
 | `pier.purchasing.review_change` | Apply a supplier change or cancellation | BUY-007 | standard or money | none |
 | `pier.receiving.post` | Receive, correct and reverse receipts | PIER-006, PIER-007 | standard | none |
 | `pier.supplier_returns.manage` | Supplier returns, credits and replacements | BUY-003 | standard or money (+ external) | none |
@@ -1169,9 +1358,9 @@ Inherits BASE-AGENT-001 to BASE-AGENT-013. The company's policy decides every ca
 | `pier.security.manage` | Two-factor requirement, factor resets, sessions and service credentials | ADMIN-002, ADMIN-003 | security (+ access) | none |
 | `pier.privacy.erase` | Retention, holds and erasure | DATA-002, CAT-003 | destructive | none |
 | `pier.archive.export` | Export a complete archive | DATA-001, PIER-012 | standard | none |
-| `pier.activity.read` | Activity and audit | AUDIT-001 | standard | none |
-| `pier.questions.ask` | Live questions and bulk reviews | AGENT-006 | standard | `itemAgent.bulkPreview` |
-| `pier.proposals.prepare` | Prepare evidence-backed proposals | AGENT-001, AGENT-004, AGENT-005 | standard | `proposal.prepare` |
+| `pier.activity.read` | Activity and audit | AUDIT-001 | standard | `pier.activity.read` (owner native activity) |
+| `pier.questions.ask` | Live questions and bulk reviews | AGENT-006 | standard | `pier.questions.ask` (native live questions) |
+| `pier.proposals.prepare` | Prepare evidence-backed proposals | AGENT-001, AGENT-004, AGENT-005 | standard | `proposal.prepare`, `itemAgent.check`, `itemAgent.bulkPreview`, `itemAgent.bulkEdit` through the shared door |
 
 **Resources.** `pier://items/{item}`, `pier://locations/{location}`, `pier://parties/{party}`, `pier://orders/{order}`, `pier://purchase-orders/{po}`, `pier://receipts/{receipt}`, `pier://shipments/{shipment}`, `pier://counts/{count}`, `pier://invoices/{invoice}`, `pier://imports/{batch}`, `pier://exceptions/{case}`, `pier://reports/{report}`. **Events.** `stock.changed`, `order.reserved`, `order.backordered`, `po.committed`, `po.sent`, `po.confirmed`, `receipt.posted`, `shipment.dispatched`, `count.approved`, `invoice.authorized`, `channel.lagging`, `exception.opened`, `exception.closed`, `approval.pending`, `approval.decided`, `review.flagged`, `policy.adopted`. **Prompts.** `replenish_stock` (BUY-001, BUY-005, AGENT-002), `chase_suppliers` (AGENT-003), `repair_oversell` (AGENT-004), `prove_cutover` (AGENT-005), `answer_stock_question` (AGENT-006).
 
@@ -1415,8 +1604,8 @@ Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e7637
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 8 | 4 | 0 | 12 |
-| Target and push further | 14 | 61 | 11 | 86 |
-| All | 22 | 65 | 11 | 98 |
+| Target and push further | 14 | 81 | 4 | 99 |
+| All | 22 | 85 | 4 | 111 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -1505,16 +1694,29 @@ Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e7637
 | `SCALE-001` | Measured performance at wholesale volume | target | missing |  | No named scale fixture or performance measurement exists; `src/pier/native-capacity.ts` bounds native import size only. |
 | `OPS-001` | Owned operation, health and onboarding | target | partial | `OPERATIONS.json`; `scripts/hosted.mjs`; `scripts/installer/local.mjs`; `tests/runtime.mjs`; `tests/portable.mjs` | Local lifecycle/archive evidence; hosted backup, backup check (its database deleted at the end), live restore from a backup file and point-in-time rewind run through `scripts/hosted.mjs` as [Put Pier online](docs/hosting.md) writes them; Own-account deployment is exercised on 18 October: real owner sign-in mail, empty initial business state, retained owner/data across redeployment, and USD 57.84 partial PO receipts through the UI at 1440px and 390px. `src/ui/channels/brand.tsx` uses build-time asset imports, resolving the hosted server render failure. Connected diagnostics, measured capacity and fresh macOS/Linux/Windows one-line starts remain incomplete |
 | `OPEN-001` | Free and open source under the MIT license | target | done | `LICENSE`; `package.json`; `src/ui/channels/provider-cost.tsx`; `src/ui/books/connection.tsx`; `src/ui/shipping/settings.tsx`; `src/ui/edi/settings.tsx`; `tests/api/open.test.mjs`; `tests/browser/open.spec.ts` |  |
-| `SURFACE-001` | The registry equals this table and the Base harness passes | target | missing |  | No MCP door, tool registry, class computation or company-policy chokepoint exists yet. |
-| `SURFACE-002` | Stock work is standard and erasure or undo is destructive | target | missing |  | No MCP door, tool registry, class computation or company-policy chokepoint exists yet. |
-| `SURFACE-003` | Purchasing calls carry money, commitment and external | target | missing |  | No MCP door, tool registry, class computation or company-policy chokepoint exists yet. |
-| `SURFACE-004` | Sales, invoice and shipping calls carry money and external | target | missing |  | No MCP door, tool registry, class computation or company-policy chokepoint exists yet. |
-| `SURFACE-005` | Connections are gated and publication is external | target | missing |  | No MCP door, tool registry, class computation or company-policy chokepoint exists yet. |
-| `SURFACE-006` | Access and security calls name their direction | target | missing |  | No MCP door, tool registry, class computation or company-policy chokepoint exists yet. |
-| `SURFACE-007` | A stranger agent runs a seeded week under two policies | target | missing |  | No MCP door, tool registry, class computation or company-policy chokepoint exists yet. |
+| `SURFACE-001` | The registry equals this table and the Base harness passes | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Normal rer verify stops at the unchanged hosted-preflight assertion because rer 0.2.88 bypasses the seed adapter for dry-run. The direct production door driver passes 1075/1075. Six preparatory tools are declared. Remaining target tool rows and expanded native variants are not registered. UNDECLARED families: resources, events, prompts, subscriptions. Native schedules and all device/import/connector doors retain their existing authority. |
+| `SURFACE-002` | Stock work is standard and erasure or undo is destructive | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Preparation is standard and changes no physical stock. Stock posting, import commit/undo and privacy erasure are absent from this registry; destructive journeys remain unproved. |
+| `SURFACE-003` | Purchasing calls carry money, commitment and external | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Exact human-authorized PO send carries external and commitment. Agent purchase commit and supplier amendments remain absent. Base integer-only monetary measures refuse fractional USD commitments rather than round them. |
+| `SURFACE-004` | Sales, invoice and shipping calls carry money and external | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Sales, invoice, shipping and payment agent adapters and their class journeys remain absent. |
+| `SURFACE-005` | Connections are gated and publication is external | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Connector setup remains on its native connector doors; publication and external synchronization agent tools remain absent. |
+| `SURFACE-006` | Access and security calls name their direction | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Native assured human access/security administration is preserved. No access or security tool, escalation fixture or native proof handoff is registered. |
+| `SURFACE-007` | A stranger agent runs a seeded week under two policies | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | The declared preparatory specialist journey passes; a complete autonomous seeded week is not implemented. Resources, events, prompts, subscriptions, multi-sponsor, resource refresh, timed, dual-host, queued lifecycle and owner-native administration remain unproved. |
 | `AGENT-001` | Evidence-backed agent preparation | push-further | partial | `src/pier/proposals.ts`; `src/pier/item-agent/`; `src/ui/item-agent/`; `tests/api/item-agent.test.mjs`; `tests/api/flows.test.mjs`; `tests/api/security-import.test.mjs` | Unasserted in the cited evidence: preparing the reallocation, count-drift and migration proposal kinds as an agent, and refusal of a stale-version application. Asserted: an agent's refused approval, commit and stock transfer leave POs, movements and reservations unchanged, and an approved replenishment proposal executes. |
 | `AGENT-002` | Optimize replenishment against cash and service | push-further | done | `tests/api/replenishment.test.mjs` — “captured channel demand retains stockout exposure, reviewed seasonal bounds and a held-out backtest” proves connected WooCommerce sell-through, stockout correction, seasonal and promotion bounds, held-out actuals and a retained scenario compared with later actual demand and landed cost; “supplier delays and realized contribution rank bounded purchases while transfer comparisons protect source demand” proves supplier reliability, cash and service ranking, authorized invoice prices, discounts, return credits without double counting, priced and dated executable transfers, source protection, revocation and once-only physical execution; “cash and service horizon comparisons net supply and drafts with exact supplier rounding” proves ceiling, MOQ, case packs and supply netting. `tests/api/purchase-send.test.mjs` — “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves human approval, computed money and external facts, exact native policy decisions, expiry, revocation and material-input invalidation. `tests/api/books.test.mjs` — “an adjusted connected forecast follows its exact approved send through landed receipt and the real Pantry ledger” proves the complete connected forecast, unreliable supplier, cash and service choice, approved first send, blocked second send, actual receipt, landed cost, paid reconciled Pantry ledger and retained forecast explanation; “Pantry connects with a scoped credential and picked accounts; a matched invoice posts a ready payable, replays never duplicate, and revocation shows a broken connection” proves financial reversal and revoked-connection reopening. `tests/browser/journey.spec.ts` — “buyers compare reviewed replenishment scenarios and follow selected receipts to current ledger evidence” proves forecast settings, comparison, invalid-input recovery, exact purchase selection and receipt follow-through, with changed screens captured at 1440 and 390. Provider-edge fixtures follow D-4; historical backfill remains with CHANNEL-001 and MIGRATE-002, and shared MCP conformance remains with the SURFACE clauses. |  |
 | `AGENT-003` | Close supplier confirmations and customer promises | push-further | partial | `src/pier/replenishment.ts`; `src/pier/backorders.ts`; `src/pier/purchasing-workflow.ts`; `src/pier/correspondence-delivery.ts`; `tests/api/replenishment.test.mjs` | Bounded approved supplier chases, recorded replies/confirmations, quantity-aware customer dates and approved re-promises/customer mail are implemented. Native receipt accounting now keeps unbilled goods, missing receipt quantities, uncertain posting and open payables visible through paid Pantry closure and reversal reopening (`src/pier/books/receipt-closure.ts`; `src/ui/books/receipt-closure.tsx`; `tests/api/books.test.mjs`). Direct Gmail/Microsoft 365 intake, ASN extraction, substitutes and complete supply/customer/ledger case closure remain incomplete. |
 | `AGENT-004` | Repair channel oversell causes | push-further | partial | `src/pier/orders.ts`; `src/pier/proposals.ts` | Reservation evidence and reviewed reallocation only; connector correlation/repair and ledger closure absent |
 | `AGENT-005` | Prove cutover and reconciliation | push-further | partial | `src/pier/imports.ts`; `src/pier/import-incumbent.ts`; `tests/api/movein.test.mjs` | Native and named incumbent opening reconciliation now retain originals and explicit field/row decisions, check independent bin/unit/USD totals (native CSV openings in USD, or another currency at the batch's recorded USD rate) and allow reviewed idempotent cutover/undo. Accounting mapping, other source objects and full history/closure remain incomplete. |
 | `AGENT-006` | Live questions and reviewed bulk work | push-further | done | `tests/api/item-agent.test.mjs` — “live stock questions cite current granted bins without costs, customers or outside stock” proves restricted shortage evidence, exact bin grants, forbidden cost and outside-record refusal and live revocation; “late purchase answers cite outstanding quantities and stop reporting a completed receipt” proves dated outstanding quantities; “live margin answers retain observed losses and expose missing cost as unknown” proves loss and uncertainty; “supplier and date comparisons validate current terms without changing purchases or customer promises” and “allocation comparisons cite both orders and refuse excess while leaving live hard reservations unchanged” prove source-cited comparisons without mutation. “bulk purchase reviews preview exact rows, edit, apply once with human authority and refuse changed inputs” proves exact rows, cash and service impacts, affected promises, edits, mixed per-row authority, human approval, ordinary commands, stale refusal, once-only replay and audit links after restart and export. `tests/browser/journey.spec.ts` — “live answers and editable bulk purchase reviews retain exact human commands at 1440 and 390” proves all six question screens, restricted evidence, purchase and promise previews, edits, consent, approvals, stale refusal and exact Activity links at both widths, with no duplicate migration review. |  |
+| `BASE-AGENT-001` | One MCP door per seed | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Full deployment and a complete target registry remain outside this disposable production-build proof. |
+| `BASE-AGENT-002` | The seed's jobs are tools, through the UI's own actions | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | The finite supported preparatory subset uses native services; remaining target/native tool variants and migration of existing embedded schedules remain incomplete. |
+| `BASE-AGENT-003` | Records are resources | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | UNDECLARED family: resources. Typed refusal is proved; no native resource catalogue or policy-controlled resource read is claimed. |
+| `BASE-AGENT-004` | Business identity and short-lived, audience-bound tokens | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Owner-bound scoped admission and scope, audience, lifetime and consent refusals are proved. Unknown/inactive subjects, allow-list exclusion and email rebinding have not yet received independent seed journey proof. Native local bearer issuance and multi-sponsor lifecycle are unproved; required native two-factor policy refuses agent admission. |
+| `BASE-AGENT-005` | An agent acts as a person in a role, never more | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Current native sponsor roles and effect fences apply. No access/security adapters or self-widening/narrowing native journeys are registered; multi-sponsor visibility is unproved. |
+| `BASE-AGENT-006` | Every action declares its risk class | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Declared standard/external/commitment pairs are proved. Other native risk classes and fractional-USD commitment measures remain unsupported. |
+| `BASE-AGENT-007` | The company's policy decides, at one chokepoint | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Declared policy adoption, held approval and refusals are proved. Full target tool coverage and queued execution under refreshed policy remain incomplete. |
+| `BASE-AGENT-008` | Truthful attribution | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Declared preparations and supplier mail retain agent/sponsor attribution and native human approval. Wider target timelines and native reviewer Undo remain unproved. |
+| `BASE-AGENT-009` | Every agent action is audited with its class and decision | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Declared reads, mutations, approval execution and refusals have matching audit, zero differs_from_policy. Wider native job coverage remains incomplete. |
+| `BASE-AGENT-010` | Agents can follow changes | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | UNDECLARED families: events and subscriptions. No built-in pier.events.list tool or subscription delivery is exposed; internal audit collection grants no public capability. |
+| `BASE-AGENT-011` | Limits are policy, and Pause stops everything | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Declared Business Pause, current-policy replay and native effect fences are proved. Provider spend, company-wide budgets, timed lifecycle, queued lifecycle and resource refresh remain unproved. |
+| `BASE-AGENT-012` | Writes are idempotent and conflict-safe | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Declared idempotency and current-policy replay pass. Existing native queued schedules and all wider target writes remain unproved. |
+| `BASE-AGENT-013` | Manifest, docs and the conformance journey | target | partial | `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy. | Executable subset and native specialist journey pass. UNDECLARED families: resources, events, prompts, subscriptions. Multi-sponsor, timed, dual-host, queued lifecycle and owner-native administration remain unproved. |

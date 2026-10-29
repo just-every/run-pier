@@ -45,13 +45,15 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
     FROM pier_records c LEFT JOIN pier_mail_deliveries d ON d.correspondence_id=c.id
     LEFT JOIN pier_records source ON source.id=json_extract(c.data,'$.recordId')
       AND source.kind=CASE WHEN json_extract(c.data,'$.kind')='customer-promise' THEN 'orders' WHEN json_extract(c.data,'$.kind')='slow-stock' THEN 'slowStockExceptions' ELSE 'purchaseOrders' END
-    WHERE c.kind='correspondence' AND COALESCE(json_extract(c.data,'$.restorePaused'),0)=0 AND (? IS NULL OR c.id=?) AND json_extract(c.data,'$.dueAt')<=?
+    WHERE c.kind='correspondence' AND COALESCE(json_extract(c.data,'$.restorePaused'),0)=0
+      AND (json_type(c.data,'$.agentOrigin') IS NULL OR (json_extract(c.data,'$.agentOrigin.agentId')=? AND json_extract(c.data,'$.agentOrigin.consent')=? AND json_extract(c.data,'$.agentOrigin.sponsorId')=?))
+      AND (? IS NULL OR c.id=?) AND json_extract(c.data,'$.dueAt')<=?
       AND (d.correspondence_id IS NULL OR (?=1 AND d.phase='unavailable'))
       AND (json_extract(c.data,'$.kind')!='supplier-chase' OR EXISTS(
         SELECT 1 FROM pier_mail_deliveries initial
         WHERE initial.correspondence_id=json_extract(c.data,'$.purchaseMessageId') AND initial.phase='sent'))
     ORDER BY json_extract(c.data,'$.dueAt'),c.id LIMIT 10`)
-    .bind(onlyId ?? null, onlyId ?? null, now, sender ? 1 : 0).all<{ id: string; data: string; sourceData: string | null }>();
+    .bind(actor?.agent?.id ?? null, actor?.agent?.consent ?? null, actor?.id ?? null, onlyId ?? null, onlyId ?? null, now, sender ? 1 : 0).all<{ id: string; data: string; sourceData: string | null }>();
 
   const results = await Promise.all(due.results.map(async candidate => {
     const message = JSON.parse(candidate.data) as Correspondence;

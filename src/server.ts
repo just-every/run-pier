@@ -1,3 +1,5 @@
+import { pierAgentDoor } from './pier/agent-door';
+import { businessSettings } from './business-settings.server';
 import { withDemo } from './modules/demo/index.mjs'
 import start from '@tanstack/react-start/server-entry'
 import { Hono } from 'hono'
@@ -29,6 +31,10 @@ const worker = {
   async fetch(request, env, execution) {
     const asset = await staticAssetResponse(request, env)
     if (asset) return asset
+    const business = await businessSettings(runtimeBindings(env)).handle(request)
+    if (business) return business
+    const agent = await pierAgentDoor(env).handle(request)
+    if (agent) return agent
     const pier = await pierResponse(request, env, execution)
     if (pier) return pier
     const auth = await authResponse(request, env)

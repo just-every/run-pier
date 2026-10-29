@@ -14,6 +14,12 @@
           "label": "Run Stall and Pantry beside Pier",
           "file": "docs/run-beside.md",
           "summary": "Start the shop and the books apps next to Pier on your computer and connect them."
+        },
+        {
+          "slug": "agents",
+          "label": "Company agents",
+          "file": "docs/agents.md",
+          "summary": "Prepare inventory work through the shared company policy, native authority, named approval and audit door."
         }
       ]
     },
