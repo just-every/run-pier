@@ -13,10 +13,11 @@ import {
   type Row,
 } from "./model";
 import { orderPrice } from "./pricing";
-import { money, toCents } from "./money";
+import { amount, money, toCents } from "./money";
 import { valuationLedger } from "./valuation-ledger";
 import { kitDefinition } from "./kits";
 import { quoteApprovalPolicy, saveQuoteApprovalPolicy } from './quote-approval';
+import { currentTax, estimateTax, quoteCharges, saveTaxRules } from './tax-rules';
 
 export function isoDay(value: unknown, name: string): string {
   const day = text(value, name);
@@ -87,7 +88,7 @@ export function quoteTerms(c: Context, p: any, lines: any[]) {
       );
     line.listPrice = line.price;
     line.price = format(product / (100n * SCALE));
-    line.lineTotal = money(decimal(line.quantity) * decimal(line.price));
+    line.lineTotal = money(toCents(decimal(line.quantity) * decimal(line.price)));
   }
   const net =
     before === null
@@ -96,51 +97,19 @@ export function quoteTerms(c: Context, p: any, lines: any[]) {
           (n: bigint, l: any) => n + decimal(l.quantity) * decimal(l.price),
           0n,
         );
-  const shipTo = p.shipTo ?? null;
-  let tax: any = {
-    status: "pending",
-    source: "No owner tax table for this destination",
-    amount: null,
-  };
-  const table = c.s.salesPolicies.find(
-    (r) =>
-      r.kind === "tax-table" &&
-      r.state === shipTo?.state &&
-      r.country === (shipTo?.country ?? "US"),
-  );
-  const customer = get(c.s, "parties", p.customerId),
-    certificate = customer.resaleCertificates?.find(
-      (r: any) => r.state === shipTo?.state,
-    );
-  if (table && net !== null) {
-    if (certificate && certificate.expires < c.now.slice(0, 10))
-      tax = {
-        status: "review",
-        source: "Expired exemption certificate",
-        amount: null,
-        certificate,
-      };
-    else {
-      const rate = certificate ? 0n : decimal(table.rate);
-      tax = {
-        status: "estimate",
-        source: "Owner-maintained jurisdiction table",
-        table: structuredClone(table),
-        certificate: certificate ?? null,
-        rate: format(rate),
-        amount: money(toCents((net * rate) / (100n * SCALE))),
-      };
-    }
-  }
+  const shipTo = p.shipTo ?? null, charges = quoteCharges(p);
+  const tax = estimateTax(c, p.customerId, shipTo, p.warehouse ?? null, lines.map(l => ({ ...l, amount: l.price === null ? null : money(toCents(decimal(l.quantity) * decimal(l.price))) })), charges);
+  const subtotal = net === null ? null : lines.reduce((n, l) => n + toCents(decimal(l.quantity) * decimal(l.price)), 0n) + charges.reduce((n, l) => n + amount(l.amount), 0n);
   return {
     validUntil,
     discountPercent: format(discount),
-    subtotal: net === null ? null : money(net),
+    subtotal: subtotal === null ? null : money(subtotal),
+    charges,
     tax,
     total:
-      net === null || tax.amount === null
+      subtotal === null || tax.amount === null
         ? null
-        : money(net + BigInt(tax.amount.replace(".", ""))),
+        : money(subtotal + amount(tax.amount)),
     pricingStatus: net === null ? "unpriced" : "priced",
     shipTo,
     quoteApproval: null,
@@ -154,20 +123,7 @@ export function currentQuote(c: Context, quote: Row) {
       "QUOTE_EXPIRED",
       "Quote pricing expired. Revise and obtain acceptance again.",
     );
-  if (
-    quote.tax?.table &&
-    get(c.s, "salesPolicies", quote.tax.table.id).version !==
-      quote.tax.table.version
-  )
-    fail("QUOTE_TAX", "Tax table changed. Revise the quote.");
-  if (
-    quote.tax?.certificate &&
-    (quote.tax.certificate.expires < c.now.slice(0, 10) ||
-      !get(c.s, "parties", quote.customerId).resaleCertificates?.some(
-        (x: any) => JSON.stringify(x) === JSON.stringify(quote.tax.certificate),
-      ))
-  )
-    fail("QUOTE_TAX", "Exemption changed or expired. Revise the quote.");
+  currentTax(c, quote.tax, quote.customerId, 'QUOTE_TAX', quote.routing?.reserveWarehouses?.length>1?null:quote.warehouse);
   for (const line of quote.lines) {
     const tier = line.priceSnapshot?.priceList;
     if (
@@ -183,31 +139,8 @@ export function currentQuote(c: Context, quote: Row) {
 }
 export function salesQuotes(c: Context, type: string, p: any): Row | undefined {
   if (type === 'sales.quoteApprovalPolicy') return saveQuoteApprovalPolicy(c, p);
-  if (type === "sales.taxTable") {
-    requireRole(c, []);
-    const state = text(p.state, "State").toUpperCase(),
-      rate = decimal(p.rate);
-    if (!/^[A-Z]{2}$/.test(state) || rate > 100n * SCALE)
-      fail(
-        "TAX_TABLE",
-        "Use a two-letter state and tax rate from zero to 100.",
-      );
-    const old = c.s.salesPolicies.find(
-      (r) => r.kind === "tax-table" && r.state === state,
-    );
-    if (old) fresh(old, p.version);
-    const data = {
-      kind: "tax-table",
-      state,
-      country: "US",
-      rate: format(rate),
-      reason: text(p.reason),
-      approvedBy: c.actor.id,
-    };
-    return old
-      ? Object.assign(old, data, { version: old.version + 1 })
-      : row(c, "salesPolicies", data);
-  }
+  const taxRule = saveTaxRules(c, type, p);
+  if (taxRule) return taxRule;
   if (type === "customer.resaleCertificate") {
     requireRole(c, []);
     const customer = get(c.s, "parties", p.customerId);

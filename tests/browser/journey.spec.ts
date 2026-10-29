@@ -341,7 +341,7 @@ test('commercial quotes are reviewed, revised, accepted and retain unavailable-e
     await h.command('party.save',{...b.customer,name:'Harbor Hardware'});await h.command('item.save',{...b.item,name:'Brass fitting',unit:'each',packSize:'12'});
     await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'0',price:'10'});await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'12',price:'8'})
     await h.sales();let form=h.panel('Quote approval authority');await expect(form.getByLabel('Quote approver role',{exact:true})).toHaveValue('owner');await form.getByLabel('Quote approver role',{exact:true}).selectOption('operator');await form.getByLabel('Quote authority change reason',{exact:true}).fill('Owner designates the sales approver role');await h.saved(form,'Save quote approval role');await page.reload();form=h.panel('Quote approval authority');await expect(form.getByLabel('Quote approver role',{exact:true})).toHaveValue('operator');await form.scrollIntoViewIfNeeded();await h.shot(width,'quote-approval-authority');await form.getByLabel('Quote approver role',{exact:true}).selectOption('owner');await form.getByLabel('Quote authority change reason',{exact:true}).fill('Owner retains exact-version commercial approval');await h.saved(form,'Save quote approval role')
-    form=h.panel('Owner tax estimate table');await form.getByLabel('Tax state (two letters)',{exact:true}).fill('CA');await form.getByLabel('Estimated tax percent',{exact:true}).fill('8');await form.getByLabel('Tax table review reason',{exact:true}).fill('Owner state estimate');await h.saved(form,'Save jurisdiction estimate')
+    await page.goto(`${h.base}/app#settings`);await page.reload();form=h.panel('Owner tax estimate table');await form.getByLabel('Tax state (two letters)',{exact:true}).fill('CA');await form.getByLabel('Estimated tax percent',{exact:true}).fill('8');await form.getByLabel('Tax table review reason',{exact:true}).fill('Owner state estimate');await h.saved(form,'Save jurisdiction estimate');await h.sales()
     form=h.panel('New sales order');await form.getByLabel('Document type',{exact:true}).selectOption('quote');await form.getByLabel('Customer',{exact:true}).selectOption(b.customer.id);await form.getByLabel('Order warehouse',{exact:true}).selectOption(b.name);await form.getByLabel('Quote destination state',{exact:true}).fill('CA');await form.getByLabel('Quote destination ZIP',{exact:true}).fill('94107');await form.getByLabel('Quote discount percent',{exact:true}).fill('10');await form.getByLabel('Quote quantity unit',{exact:true}).selectOption('case');await form.getByLabel('Item 1',{exact:true}).selectOption(b.item.id);await form.getByLabel('Quantity (cases)',{exact:true}).fill('2');await h.shot(width,'quote-entry');await h.saved(form,'Create and reserve available stock')
     let quote=(await h.state()).orders.find((o:any)=>o.customerId===b.customer.id);expect(quote.lines[0].quantity).toBe('24');expect(quote.lines[0].price).toBe('7.2')
     await page.goto(`${h.base}/app#sales/${quote.id}`);await page.reload();form=h.panel('Review quote prices and margin');await form.getByLabel('Price, discount and margin review reason',{exact:true}).fill('Owner checked case quantity, exact discount and cost');await h.saved(form,'Approve exact quote')
@@ -1362,4 +1362,58 @@ test('buyers compare reviewed replenishment scenarios and follow selected receip
   await expect(review).toContainText('absolute error'); await expect(review).toContainText('paid receipt obligations');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   await capture('replenishment-follow-through', review);
+});
+
+test('native tax rules show owner configuration, review recovery and retained quote and invoice calculations', async ({page,context}) => {
+  const h=await salesHarness(page,context),b=await h.fixture(1440);
+  await page.setViewportSize({width:1440,height:1000});
+  const capture=async(name:string)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await h.shot(width,name)}await page.setViewportSize({width:1440,height:1000})};
+  const settings=async()=>{await page.goto(`${h.base}/app#settings`);await page.reload();await expect(page.getByRole('heading',{name:'Settings',exact:true})).toBeVisible()};
+  await settings();
+  for(const state of ['CA','TX']){
+    let form=h.panel('Owner tax estimate table');
+    await form.getByLabel('Tax state (two letters)',{exact:true}).fill(state);
+    await form.getByLabel('Estimated tax percent',{exact:true}).fill(state==='CA'?'8.25':'6.25');
+    await form.getByRole('checkbox',{name:'Use explicit product and charge rules',exact:true}).check();
+    await form.getByLabel('Product code rates (code, percent per line)',{exact:true}).fill('standard, 8.25\nreduced, 2.5');
+    await form.getByLabel('Jurisdiction basis',{exact:true}).selectOption(state==='CA'?'destination':'origin');
+    if(state==='TX'){
+      await form.getByLabel('Reviewed origin state',{exact:true}).fill('CA');
+      await form.getByLabel('Reviewed origin warehouse',{exact:true}).selectOption(b.name);
+      await form.getByRole('checkbox',{name:'Freight is taxable',exact:true}).check();
+    }else await form.getByRole('checkbox',{name:'Handling is taxable',exact:true}).check();
+    await form.getByLabel('Tax table review reason',{exact:true}).fill('Owner reviewed synthetic state rules');
+    await h.saved(form,'Save jurisdiction estimate');
+  }
+  let form=h.panel('Owner tax estimate table');await form.getByLabel('Load state rules',{exact:true}).selectOption('TX');
+  await expect(form.getByLabel('Jurisdiction basis',{exact:true})).toHaveValue('origin');await expect(form.getByRole('checkbox',{name:'Freight is taxable',exact:true})).toBeChecked();await expect(form.getByRole('checkbox',{name:'Handling is taxable',exact:true})).not.toBeChecked();
+  await form.scrollIntoViewIfNeeded();await capture('tax-settings');
+  const params={customerId:b.customer.id,warehouse:b.name,shipTo:{state:'TX',country:'US',postalCode:'75001'},freight:'3.33',handling:'1.01',lines:[{itemId:b.item.id,quantity:'3',price:'0.99'}]};
+  let quote=await h.command('quote.create',params);
+  await page.goto(`${h.base}/app#sales/${quote.id}`);await page.reload();
+  const evidence=()=>page.getByRole('region',{name:'Retained tax estimate',exact:true});
+  await expect(evidence()).toContainText('Review the product tax code');
+  form=h.panel('Review quote prices and margin');await form.getByLabel('Price, discount and margin review reason',{exact:true}).fill('Missing classification must refuse');await form.getByRole('button',{name:'Approve exact quote',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Resolve the tax review');
+  await evidence().scrollIntoViewIfNeeded();await capture('tax-review');
+  await settings();form=h.panel('Assign product tax code');await form.getByLabel('Tax product',{exact:true}).selectOption(b.item.id);await form.getByLabel('Product tax code',{exact:true}).fill('standard');await form.getByLabel('Product tax review reason',{exact:true}).fill('Owner classified the quoted goods');await h.saved(form,'Save product tax code');
+  await page.goto(`${h.base}/app#sales/${quote.id}`);await page.reload();form=h.panel('Revise quote');await form.getByLabel('Quote revision reason',{exact:true}).fill('Recover using reviewed product and jurisdiction rules');await h.saved(form,'Save new quote version');
+  await expect(evidence()).toContainText('origin basis');await expect(evidence()).toContainText('CA');
+  const freight=evidence().getByRole('row').filter({hasText:'freight'});await expect(freight).toContainText('3.33');await expect(freight).toContainText('0.27');
+  const handling=evidence().getByRole('row').filter({hasText:'handling'});await expect(handling).toContainText('0.00');
+  await expect(evidence()).toContainText('0.52');await evidence().scrollIntoViewIfNeeded();await capture('tax-quote-calculation');
+  form=h.panel('Review quote prices and margin');await form.getByLabel('Price, discount and margin review reason',{exact:true}).fill('Owner reviewed per-line tax');await h.saved(form,'Approve exact quote');await page.getByRole('button',{name:'Accept quote',exact:true}).click();await expect(page.getByRole('button',{name:'Accept quote',exact:true})).toHaveCount(0);
+  await expect(evidence()).toContainText('0.52');await evidence().scrollIntoViewIfNeeded();await capture('tax-accepted-order');
+  await page.getByText('Customer invoices and credits',{exact:true}).click();form=h.panel('Choose order invoicing policy');await form.getByLabel('Invoicing policy order',{exact:true}).selectOption(quote.id);await form.getByLabel('Invoicing policy',{exact:true}).selectOption('prepay');await form.getByLabel('Invoicing policy reason',{exact:true}).fill('Owner reviewed prepayment draft');await h.saved(form,'Save invoicing policy');
+  form=h.panel('Prepare a customer invoice');await form.getByLabel('Invoice order',{exact:true}).selectOption(quote.id);await form.getByLabel('Invoice freight amount',{exact:true}).fill('3.33');await form.getByLabel('Invoice handling amount',{exact:true}).fill('1.01');await h.saved(form,'Create invoice draft');
+  const invoice=(await h.state()).invoices.find((i:any)=>i.orderId===quote.id),row=h.panel('Native customer invoices').getByRole('row').filter({hasText:invoice.reference});await row.getByText('Inspect invoice tax estimate',{exact:true}).click();
+  const invoiceTax=page.getByRole('region',{name:`Tax estimate for ${invoice.reference}`,exact:true});await expect(invoiceTax).toContainText('retained-owner-estimate');await expect(invoiceTax).toContainText('not-configured');await expect(invoiceTax).toContainText('0.52');await expect(invoiceTax.getByRole('row').filter({hasText:'freight'})).toContainText('0.27');await invoiceTax.scrollIntoViewIfNeeded();await capture('tax-invoice-draft');
+  // Missing destination references never silently convert a resale customer to taxable.
+  await settings();form=h.panel('Review destination certificate reference');
+  const saveCertificate=async(state:string,expires:string)=>{form=h.panel('Review destination certificate reference');await form.getByLabel('Certificate customer',{exact:true}).selectOption(b.customer.id);await form.getByLabel('Certificate state',{exact:true}).fill(state);await form.getByLabel('Certificate number',{exact:true}).fill(`synthetic-pier-${state}`);await form.getByLabel('Certificate document reference',{exact:true}).fill('Owner retained certificate reference');await form.getByLabel('Certificate expiry',{exact:true}).fill(expires);await form.getByLabel('Certificate review reason',{exact:true}).fill('Owner reviewed destination certificate');await h.saved(form,'Save certificate reference')};
+  await saveCertificate('CA','2020-01-01');
+  quote=await h.command('quote.create',params);await page.goto(`${h.base}/app#sales/${quote.id}`);await page.reload();await expect(evidence()).toContainText('Missing exemption certificate');
+  await settings();await saveCertificate('TX','2099-12-31');
+  await page.goto(`${h.base}/app#sales/${quote.id}`);await page.reload();form=h.panel('Revise quote');await form.getByLabel('Quote revision reason',{exact:true}).fill('Owner reviewed missing destination certificate');await h.saved(form,'Save new quote version');await expect(evidence()).toContainText('Certificate synthetic-pier-TX');await expect(evidence()).toContainText('0.00');await evidence().scrollIntoViewIfNeeded();await capture('tax-certificate-recovery');
+  const expired=await h.command('quote.create',{...params,shipTo:{state:'CA',country:'US'}});await page.goto(`${h.base}/app#sales/${expired.id}`);await page.reload();await expect(evidence()).toContainText('Expired exemption certificate');
 });
