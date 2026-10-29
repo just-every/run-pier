@@ -600,11 +600,12 @@ try {
     };
     await connect(true);
     assert.equal((await rollbackCatalog(rollbackKey)).status, 403, 'reconnect does not revive the source credential');
+    const renewedConsent = { ...rollbackConsent, source: 'synthetic-pier-87-fresh-owner-consent', at: new Date(Date.now() - 1000).toISOString() };
     const grant = async key => {
-      channel = await running.cmd('trade.grant', { ...tradeGrant('rollback', key), version: channel.version, followupConsent: rollbackConsent, suppressed: false, followupRestoreFence: null });
+      channel = await running.cmd('trade.grant', { ...tradeGrant('rollback', key), version: channel.version, followupConsent: renewedConsent, suppressed: false, followupRestoreFence: null });
     };
     await grant(restoredKey);
-    assert.deepEqual(fencedBuyer(await rollbackState()).followupConsent, { ...rollbackConsent, approvedBy: channel.approvedBy }, 'fresh consent is actually recorded but cannot remove the independent restore fence');
+    assert.deepEqual(fencedBuyer(await rollbackState()).followupConsent, { ...renewedConsent, approvedBy: channel.approvedBy }, 'fresh consent is actually recorded but cannot remove the independent restore fence');
     const probes = tradeRequests.length;
     const catalog = await rollbackCatalog(restoredKey);
     assert.equal(catalog.status, 200, 'fresh owner authorization still serves the approved catalog');
