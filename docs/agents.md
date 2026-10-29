@@ -7,7 +7,7 @@ Business settings and adopt the company's signed policy. A token's email never
 selects a native person. The native role and warehouse, location and commercial
 visibility grants still apply on every call.
 
-The released runtime and CLI are rer 0.2.88. This adoption declares tools, policy,
+The released runtime and CLI are rer 0.2.91. This adoption declares tools, policy,
 pause, audit and idempotency. Events, resource reads, prompts and subscriptions
 are undeclared and receive typed `capability_not_declared` refusals. The complete
 target in CONTRACT.md remains a target; this is a preparatory subset.

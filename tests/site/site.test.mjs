@@ -37,7 +37,7 @@ test('the run site builds, its primary action opens /run, and every link and fil
 test('hosted preflight refuses missing account inputs before building or contacting a provider', () => {
   const env = { ...process.env };
   delete env.CLOUDFLARE_ACCOUNT_ID; delete env.CLOUDFLARE_API_TOKEN;
-  const result = spawnSync(join(root, 'node_modules/.bin/rer'), ['deploy', '--dry-run'], { cwd: root, env, encoding: 'utf8' });
+  const result = spawnSync(join(root, 'node_modules/.bin/rer'), ['deploy'], { cwd: root, env, encoding: 'utf8' });
   const output = result.stdout + result.stderr;
   assert.equal(result.status, 3, output);
   for (const name of JSON.parse(readFileSync(join(root, 'OPERATIONS.json'), 'utf8')).requiredEnvironment)

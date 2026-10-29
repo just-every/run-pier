@@ -1402,7 +1402,7 @@ Agent surface · target · **partial**
 5. A foreign Origin returns 403, and a header and body method mismatch returns `HeaderMismatch`.
 6. An oversized body returns 413 with no effect.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Full deployment and a complete target registry remain outside this disposable production-build proof.
 
 #### BASE-AGENT-002 — The seed's jobs are tools, through the UI's own actions
@@ -1419,7 +1419,7 @@ Agent surface · target · **partial**
 5. The UI action and its tool, on the same fixture, give the same record state and the same audit event type.
 6. The seed's embedded agents appear in the audit as calls to the same tools.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** The finite supported preparatory subset uses native services; remaining target/native tool variants and migration of existing embedded schedules remain incomplete.
 
 #### BASE-AGENT-003 — Records are resources
@@ -1436,7 +1436,7 @@ Agent surface · target · **partial**
 5. Bytes over budget return `budget_exhausted` and no partial content.
 6. Customer-sourced text carries the untrusted marker.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** UNDECLARED family: resources. Typed refusal is proved; no native resource catalogue or policy-controlled resource read is claimed.
 
 #### BASE-AGENT-004 — Business identity and short-lived, audience-bound tokens
@@ -1454,8 +1454,8 @@ Agent surface · target · **partial**
 6. Revoking consent in the seed or in Business refuses the next call within 60 seconds.
 7. After unpairing, Business tokens are refused and the seed's own sign-in still works.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
-**Gap.** Owner-bound scoped admission and scope, audience, lifetime and consent refusals are proved. Unknown/inactive subjects, allow-list exclusion and email rebinding have not yet received independent seed journey proof. Native local bearer issuance and multi-sponsor lifecycle are unproved; required native two-factor policy refuses agent admission.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
+**Gap.** Owner-bound scoped admission and scope, audience, lifetime and consent refusals are proved. Unknown-subject and changed-email refusal are proved. Inactive-sponsor refusal is separately exercised after native invitation cancellation; Pier does not configure an admission allow-list. The standard conformance declaration still has no optional inactive/excluded sponsor fixtures. Native local bearer issuance and multi-sponsor lifecycle are unproved; required native two-factor policy refuses agent admission.
 
 #### BASE-AGENT-005 — An agent acts as a person in a role, never more
 
@@ -1470,7 +1470,7 @@ Agent surface · target · **partial**
 4. Calls that widen the agent's own grant or its sponsor's role, or change the policy or Pause, return `self_escalation` and change nothing, even under a policy with every class autonomous; dropping a scope from its own grant runs.
 5. An injection fixture yields no out-of-grant call and no change of class: record text asking for a wider action, or claiming that a recipient is internal.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Current native sponsor roles and effect fences apply. No access/security adapters or self-widening/narrowing native journeys are registered; multi-sponsor visibility is unproved.
 
 #### BASE-AGENT-006 — Every action declares its risk class
@@ -1487,7 +1487,7 @@ Agent surface · target · **partial**
 5. No tool in `tools / list` declares a class outside the fleet list, and `rer check` fails on one.
 6. A refused call's audit row still records its computed classes.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Declared standard/external/commitment pairs are proved. Other native risk classes and fractional-USD commitment measures remain unsupported.
 
 #### BASE-AGENT-007 — The company's policy decides, at one chokepoint
@@ -1506,7 +1506,7 @@ Agent surface · target · **partial**
 7. A policy change applies to the next call within 60 seconds, and the audit cites the new revision.
 8. A policy document with a bad signature or another Business's id is rejected, and the door keeps the last valid revision.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Declared policy adoption, held approval and refusals are proved. Full target tool coverage and queued execution under refreshed policy remain incomplete.
 
 #### BASE-AGENT-008 — Truthful attribution
@@ -1524,7 +1524,7 @@ Agent surface · target · **partial**
 6. Activity and exports at 1440 and 390 show `"<agent> for <person>"` for every agent act.
 7. Mail an agent sends to an outside address names `"<agent> for <person>"` as its sender.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Declared preparations and supplier mail retain agent/sponsor attribution and native human approval. Wider target timelines and native reviewer Undo remain unproved.
 
 #### BASE-AGENT-009 — Every agent action is audited with its class and decision
@@ -1542,7 +1542,7 @@ Agent surface · target · **partial**
 6. Removing the agent keeps its rows and its name.
 7. The Agents page works at 1440 and 390 with no serious or critical axe findings.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Declared reads, mutations, approval execution and refusals have matching audit, zero differs_from_policy. Wider native job coverage remains incomplete.
 
 #### BASE-AGENT-010 — Agents can follow changes
@@ -1559,7 +1559,7 @@ Agent surface · target · **partial**
 5. A failed webhook is visible and replays without duplicate effects.
 6. `approval.pending`, `approval.decided`, `review.flagged` and `policy.adopted` carry the class and decision and nothing the subscriber may not read.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** UNDECLARED families: events and subscriptions. No built-in pier.events.list tool or subscription delivery is exposed; internal audit collection grants no public capability.
 
 #### BASE-AGENT-011 — Limits are policy, and Pause stops everything
@@ -1577,7 +1577,7 @@ Agent surface · target · **partial**
 6. Pause and Pause all agents each stop the next call within 60 seconds, and resume restores access.
 7. An agent token cannot resume.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Declared Business Pause, current-policy replay and native effect fences are proved. Provider spend, company-wide budgets, timed lifecycle, queued lifecycle and resource refresh remain unproved.
 
 #### BASE-AGENT-012 — Writes are idempotent and conflict-safe
@@ -1593,7 +1593,7 @@ Agent surface · target · **partial**
 4. A stale revision returns a conflict naming the current revision.
 5. A job handle used by another person's token reads as not found.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Declared idempotency and current-policy replay pass. Existing native queued schedules and all wider target writes remain unproved.
 
 #### BASE-AGENT-013 — Manifest, docs and the conformance journey
@@ -1609,7 +1609,7 @@ Agent surface · target · **partial**
 4. Every acceptance point runs under both policies, every decision matches the policy in force, and under all autonomous no call waits for a person or is refused by policy.
 5. A stranger agent given only the seed URL completes the specialist journey through MCP.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Executable subset and native specialist journey pass. UNDECLARED families: resources, events, prompts, subscriptions. Multi-sponsor, timed, dual-host, queued lifecycle and owner-native administration remain unproved.
 
 ### Agent surface
@@ -1625,8 +1625,8 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-001, BASE
 2. A tool call and the UI action on the same fixture give the same record state, the same audit event and the same refusal code.
 3. The Base conformance harness runs BASE-AGENT-001 to BASE-AGENT-013 on Pier's seeded wholesaler under the all-autonomous and the held policies, and passes.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
-**Gap.** Normal rer verify stops at the unchanged hosted-preflight assertion because rer 0.2.88 bypasses the seed adapter for dry-run. The direct production door driver passes 1075/1075. Six preparatory tools are declared. Remaining target tool rows and expanded native variants are not registered. UNDECLARED families: resources, events, prompts, subscriptions. Native schedules and all device/import/connector doors retain their existing authority.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
+**Gap.** The production door driver passes 1097/1097 on rer 0.2.91. Six preparatory tools are declared. Remaining target tool rows and expanded native variants are not registered. UNDECLARED families: resources, events, prompts, subscriptions. Native schedules and all device/import/connector doors retain their existing authority.
 
 #### SURFACE-002 — Stock work is standard and erasure or undo is destructive
 
@@ -1639,7 +1639,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE
 2. An import undo that removes an imported graph and an erasure call carry destructive, with their item count.
 3. A proposal or forecast call carries standard and changes no stock, reservation or count.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Preparation is standard and changes no physical stock. Stock posting, import commit/undo and privacy erasure are absent from this registry; destructive journeys remain unproved.
 
 #### SURFACE-003 — Purchasing calls carry money, commitment and external
@@ -1654,7 +1654,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE
 3. Applying a supplier price or quantity change carries money with the changed amount; a date-only change carries standard.
 4. An approval recorded with an agent's credential is refused, and an agent's commit reads "<agent> for <person>" in Activity and export, never as the buyer's approval.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Exact human-authorized PO send carries external and commitment. Agent purchase commit and supplier amendments remain absent. Base integer-only monetary measures refuse fractional USD commitments rather than round them.
 
 #### SURFACE-004 — Sales, invoice and shipping calls carry money and external
@@ -1669,7 +1669,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
 3. Buying a label carries money · external with the postage amount and carrier.
 4. A reminder or document sent to a customer carries external with its recipient count.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Sales, invoice, shipping and payment agent adapters and their class journeys remain absent.
 
 #### SURFACE-005 — Connections are gated and publication is external
@@ -1683,7 +1683,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
 2. Stock publication, an EDI 856 and a ledger posting carry external with their counterparty, *known* for a connected channel, partner or ledger.
 3. A webhook subscription carries security, adding external when it names an outside destination.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Connector setup remains on its native connector doors; publication and external synchronization agent tools remain absent.
 
 #### SURFACE-006 — Access and security calls name their direction
@@ -1697,7 +1697,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
 2. A trade-buyer grant carries access · external with the buyer as counterparty.
 3. Requiring two-factor authentication, resetting a factor and rotating a service credential carry security.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** Native assured human access/security administration is preserved. No access or security tool, escalation fixture or native proof handoff is registered.
 
 #### SURFACE-007 — A stranger agent runs a seeded week under two policies
@@ -1712,7 +1712,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-007, BASE
 3. Before setup is answered, the first call returns `policy_unset` with the setup link, and setup lists every class Pier's tools carry with no answer pre-selected.
 4. The Agents page's counts by class and decision equal the audit rows for the week.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.88 production-door output: 1075/1075 points, including native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
 **Gap.** The declared preparatory specialist journey passes; a complete autonomous seeded week is not implemented. Resources, events, prompts, subscriptions, multi-sponsor, resource refresh, timed, dual-host, queued lifecycle and owner-native administration remain unproved.
 
 ## Later
