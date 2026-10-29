@@ -8,10 +8,10 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 26 | 61 | 4 | 91 |
+| Core | 26 | 62 | 3 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 26 | 61 | 11 | 98 |
+| Full target | 26 | 62 | 10 | 98 |
 
 Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
@@ -1047,7 +1047,7 @@ Core · target · **done**
 
 #### API-002 — Webhooks and Zapier automation
 
-Core · target · **missing**
+Core · target · **partial**
 
 **Requirement.** Owners subscribe permission-scoped signed webhooks and Zapier triggers/actions for stock, orders, shipments, PO exceptions and reconciliation outcomes. Versioned payloads retain event identity and source links; secrets rotate and connections revoke. Owners preview actions and choose allowed fields, destinations and spend/stock permissions. Delivery failures remain inspectable; a Zap never records a person’s approval of a purchase or impersonates a physical receipt.
 
@@ -1055,8 +1055,8 @@ Core · target · **missing**
 1. Create a Zapier low-stock workflow and signed order webhook, rotate the secret, duplicate an action and revoke the subscriber.
 2. One authorized draft is created, failures remain visible and a revoked or over-scoped action is refused.
 
-**Evidence.** None.
-**Gap.** No outbound business webhook or Zapier connector exists.
+**Evidence.** `tests/api/webhooks.test.mjs` — “signed order notifications retain exact source bytes through rotation, replay, restart and revocation”; “receiver failures and response loss require event reconciliation before one reviewed recovery”; “owner-only preview and exact scope approval refuse overreach and revoked authority without business effects”. Native order events retain exact signed bytes, source versions and durable outcomes; public Worker commands prove rotation, replay, revocation, restricted fields and receiver-reviewed recovery.
+**Gap.** Native Settings browser proof is pending. No authorized Zapier account or integration is held: the low-stock workflow, triggers and actions, duplicated-action single-draft proof, action previews and spend and stock permission execution remain unimplemented. Stock, shipment, PO-exception and reconciliation webhook families and scoped service and agent credentials remain unimplemented. The conservative current-owner-only destination and finite-field approval default is ADOPTED pending ct; it does not grant automatic approval or physical-receipt authority.
 
 #### AUTO-001 — Follow exceptions until their work closes
 

@@ -40,7 +40,7 @@ export function anonymizeSubject(c: Context, kind: string, id: string, native?: 
         next.privacyErasedAt = c.now;
         if (['parties','salesReps'].includes(collection)) { next.name = anonymous; next.email = null; next.contacts = []; next.addresses = []; }
         for (const field of policyFields) if (next[field]) next[field] = { ...next[field], enabled:false, recipient:null, restorePaused:true, version:(next[field].version ?? 0) + 1 };
-        if (['recurringOrders','workflowRules','replenishmentPolicies','replenishmentSettings','slowStockPolicies','savedReports','channels','bookConnections','paymentConnections','shippingSettings','documentSettings','businessTemplates','aiSettings'].includes(collection)) {
+        if (['webhookSubscriptions','recurringOrders','workflowRules','replenishmentPolicies','replenishmentSettings','slowStockPolicies','savedReports','channels','bookConnections','paymentConnections','shippingSettings','documentSettings','businessTemplates','aiSettings'].includes(collection)) {
           next.enabled = false; next.autoDraft = false; next.restorePaused = true;
         }
         if (collection === 'recurringOrders') next.cancelled = true;

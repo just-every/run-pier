@@ -1,0 +1,122 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createHmac, createHash, randomUUID } from 'node:crypto';
+import { installation, basics, buy, receive } from './harness.mjs';
+
+import { receiver, signingSecret, rotatedSecret, orderSubscription, orderPayload } from './webhook-fixture.mjs';
+const business = s => ({ positions: s.positions, movements: s.movements, reservations: s.reservations, orders: s.orders, purchases: s.purchaseOrders, receipts: s.receipts, shipments: s.shipments });
+function signature(request, secret) {
+  return 'v1=' + createHmac('sha256', secret).update(request.headers['x-pier-timestamp'] + '.' + request.body).digest('hex');
+}
+async function schedule(h) { assert.equal((await (await h.mf.getWorker()).scheduled({ scheduledTime: new Date(), cron: '* * * * *' })).outcome, 'ok'); }
+
+test('signed order notifications retain exact source bytes through rotation, replay, restart and revocation', async t => {
+  const edge = receiver(), h = await installation(edge); t.after(() => h.close());
+  const b = await basics(h); await receive(h, b, await buy(h, b, '10'), '10');
+  const baselineOrder = await h.command('order.create', orderPayload(b));
+  let subscription = await orderSubscription(h, baselineOrder);
+  const commandId = randomUUID(), payload = orderPayload(b);
+  const order = await h.command('order.create', payload, { commandId });
+  await h.command('order.create', payload, { commandId });
+  let state = await h.state();
+  assert.equal(state.webhookEvents.length, 1); assert.equal(state.webhookDeliveries.length, 1);
+  const expectedEvent = createHash('sha256').update(`pier-order-event\0${commandId}\0${order.id}`).digest('hex');
+  const beforeDelivery = business(state);
+  await h.command('webhook.process', {}); await schedule(h); await h.command('webhook.process', {});
+  assert.equal(edge.requests.length, 1);
+  const first = edge.requests[0], event = JSON.parse(first.body);
+  assert.equal(first.headers['x-pier-signature'], signature(first, signingSecret));
+  assert.equal(first.headers['x-pier-event-id'], expectedEvent); assert.equal(first.headers['x-pier-key-version'], '1');
+  assert.equal(event.id, expectedEvent); assert.equal(event.schema, 'pier-order-webhook-v1'); assert.equal(event.type, 'order.changed');
+  assert.deepEqual(event.source, { orderId: order.id, orderVersion: order.version, commandId, channelId: null, importId: null });
+  assert.deepEqual(event.data, { status: 'open', lines: [{ id: order.lines[0].id, itemId: b.item.id, quantity: '2', dispatched: '0', cancelled: '0' }] });
+  assert.equal(first.body, state.webhookDeliveries[0].body);
+  assert.deepEqual(business(await h.state()), beforeDelivery);
+  const nextOrder = await h.command('order.create', orderPayload(b));
+  const rotateId = randomUUID(), rotate = { subscriptionId: subscription.id, version: subscription.version, secret: rotatedSecret, confirm: true };
+  subscription = await h.command('webhook.rotate', rotate, { commandId: rotateId });
+  await h.command('webhook.rotate', rotate, { commandId: rotateId });
+  await h.restart(); await schedule(h);
+  assert.equal(edge.requests.length, 2); const second = edge.requests[1];
+  assert.equal(JSON.parse(second.body).source.orderId, nextOrder.id);
+  assert.equal(second.headers['x-pier-key-version'], '2'); assert.equal(second.headers['x-pier-signature'], signature(second, rotatedSecret));
+  assert.notEqual(second.headers['x-pier-signature'], signature(second, signingSecret));
+  const queuedOrder = await h.command('order.create', orderPayload(b));
+  const beforeRevoke = business(await h.state());
+  subscription = await h.command('webhook.revoke', { subscriptionId: subscription.id, version: subscription.version });
+  await h.command('webhook.process', {}); await schedule(h); await h.restart(); await schedule(h);
+  assert.equal(edge.requests.length, 2);
+  state = await h.state(); const revoked = state.webhookDeliveries.find(row => row.orderId === queuedOrder.id);
+  assert.equal(revoked.status, 'revoked');
+  assert.deepEqual(business(state), beforeRevoke);
+  assert.equal((await h.db.prepare('SELECT * FROM pier_channel_secrets WHERE channel_id=?').bind('webhook:' + subscription.id).all()).results.length, 0);
+  const exported = await (await h.request('/api/pier/export')).text();
+  for (const secret of [signingSecret, rotatedSecret]) assert.equal(exported.includes(secret), false);
+  const audit = await (await h.request('/api/pier/audit')).json();
+  assert.ok(audit.some(event => event.type === 'provider.orderWebhook' && event.phase === 'attempt' && event.requestId === expectedEvent));
+  assert.ok(audit.some(event => event.type === 'provider.orderWebhook' && event.phase === 'outcome' && event.outcome === 'accepted'));
+});
+
+test('receiver failures and response loss require event reconciliation before one reviewed recovery', async t => {
+  const edge = receiver(), h = await installation(edge); t.after(() => h.close());
+  const b = await basics(h), baseline = await h.command('order.create', orderPayload(b));
+  const subscription = await orderSubscription(h, baseline, { fields: ['status'] });
+  const order = await h.command('order.create', orderPayload(b));
+  edge.outcome = 'failed'; const original = business(await h.state());
+  await h.command('webhook.process', {});
+  let delivery = (await h.state()).webhookDeliveries.find(row => row.orderId === order.id);
+  assert.equal(delivery.status, 'failed'); assert.equal(delivery.attempts[0].httpStatus, 422);
+  assert.deepEqual(Object.keys(JSON.parse(edge.requests[0].body).data), ['status']);
+  await h.restart(); await schedule(h); await h.command('webhook.process', {}); assert.equal(edge.requests.length, 1);
+  await h.command('webhook.recover', { deliveryId: delivery.id, version: delivery.version, confirm: false }, { error: 'WEBHOOK_RECOVERY' });
+  const recoveryId = randomUUID(), recovery = { deliveryId: delivery.id, version: delivery.version, resolution: 'receiver-confirmed-not-accepted', reason: 'Receiver event search confirms no acceptance', confirm: true };
+  await h.command('webhook.recover', recovery, { commandId: recoveryId });
+  edge.outcome = 'lost'; await h.command('webhook.process', {});
+  delivery = (await h.state()).webhookDeliveries.find(row => row.id === delivery.id);
+  assert.equal(delivery.status, 'uncertain'); assert.equal(edge.requests.length, 2);
+  await h.restart(); await schedule(h); await h.command('webhook.recover', recovery, { commandId: recoveryId }); await h.command('webhook.process', {});
+  assert.equal(edge.requests.length, 2, 'replaying a completed recovery command cannot requeue its uncertain attempt');
+  await h.command('webhook.recover', { deliveryId: delivery.id, version: delivery.version, resolution: 'receiver-confirmed-accepted', reason: 'Receiver confirms its retained event identity', confirm: true });
+  await schedule(h); assert.equal(edge.requests.length, 2);
+  delivery = (await h.state()).webhookDeliveries.find(row => row.id === delivery.id);
+  assert.equal(delivery.status, 'reviewed-accepted'); assert.equal(delivery.attempts.length, 2); assert.equal(delivery.reviews.length, 2);
+  assert.equal(edge.requests[0].body, edge.requests[1].body); assert.equal(edge.requests[0].headers['x-pier-event-id'], edge.requests[1].headers['x-pier-event-id']);
+  assert.notEqual(edge.requests[0].headers['x-pier-attempt-id'], edge.requests[1].headers['x-pier-attempt-id']);
+  assert.deepEqual(business(await h.state()), original);
+  const next = await h.command('order.create', orderPayload(b)); edge.outcome = 'redirect'; await h.command('webhook.process', {});
+  assert.equal(edge.requests.length, 3); assert.equal((await h.state()).webhookDeliveries.find(row => row.orderId === next.id).attempts[0].httpStatus, 307);
+  assert.equal((await h.state()).webhookSubscriptions[0].id, subscription.id);
+});
+
+test('owner-only preview and exact scope approval refuse overreach and revoked authority without business effects', async t => {
+  const edge = receiver(), h = await installation(edge); t.after(() => h.close());
+  const b = await basics(h), order = await h.command('order.create', orderPayload(b));
+  const original = business(await h.state());
+  for (const change of [{ fields: ['customer'] }, { events: ['stock.changed'] }, { action: 'po.approve' }, { destination: 'http://127.0.0.1/private' }, { destination: 'https://127.0.0.1/private' }, { destination: 'https://receiver.example.com/orders?credential=private' }]) {
+    await h.command('webhook.save', { name: 'Refused', destination: 'https://receiver.example.com/orders', fields: ['status'], secret: signingSecret, ...change }, { error: Object.hasOwn(change, 'destination') ? 'WEBHOOK_DESTINATION' : 'WEBHOOK_SCOPE' });
+  }
+  const entered = await fetch(h.origin + '/auth/dev/enter?as=member', { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
+  const as = entered.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
+  const session = await (await h.request('/auth/session', { as })).json();
+  await h.command('webhook.save', { name: 'Denied', destination: 'https://receiver.example.com/orders', fields: ['status'], secret: signingSecret }, { as, error: 'FORBIDDEN' });
+  await h.command('role.set', { operatorId: session.operator.id, role: 'owner' });
+  const member = { command: (type, payload, options) => h.command(type, payload, { ...options, as }) };
+  let subscription = await h.command('webhook.save', { name: 'Scoped owner', destination: 'https://receiver.example.com/orders', fields: ['status'], secret: signingSecret }, { as });
+  await h.command('webhook.approve', { subscriptionId: subscription.id, version: subscription.version, destination: subscription.destination, fields: subscription.fields, confirm: true }, { as, error: 'WEBHOOK_APPROVAL' });
+  subscription = await member.command('webhook.preview', { subscriptionId: subscription.id, version: subscription.version, orderId: order.id });
+  await member.command('webhook.approve', { subscriptionId: subscription.id, version: subscription.version, destination: 'https://other.example.com/orders', fields: subscription.fields, previewDigest: subscription.preview.digest, confirm: true }, { error: 'WEBHOOK_APPROVAL' });
+  subscription = await member.command('webhook.approve', { subscriptionId: subscription.id, version: subscription.version, destination: subscription.destination, fields: subscription.fields, previewDigest: subscription.preview.digest, confirm: true });
+  const pending = await h.command('order.create', orderPayload(b));
+  const beforeRevocation = business(await h.state());
+  await h.command('role.set', { operatorId: session.operator.id, role: 'viewer' });
+  await schedule(h); await h.command('webhook.process', {});
+  assert.equal(edge.requests.length, 0);
+  const state = await h.state(), delivery = state.webhookDeliveries.find(row => row.orderId === pending.id);
+  assert.equal(delivery.status, 'blocked'); assert.match(delivery.problem, /authority/);
+  assert.deepEqual(business(state), beforeRevocation);
+  const privateState = await (await h.request('/api/pier/state', { as })).json();
+  assert.deepEqual(privateState.webhookSubscriptions, []); assert.deepEqual(privateState.webhookDeliveries, []); assert.deepEqual(privateState.webhookEvents, []);
+  await member.command('webhook.process', {}, { error: 'FORBIDDEN' });
+  assert.deepEqual(business(await h.state()), beforeRevocation);
+  assert.equal((await h.state()).purchaseOrders.length, original.purchases.length);
+});

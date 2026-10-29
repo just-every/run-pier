@@ -1,0 +1,7 @@
+.webhooks-page { max-width: 1000px; }
+.webhooks-page pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+.webhooks-page code { overflow-wrap: anywhere; }
+.webhooks-page fieldset { border: 1px solid var(--line, #dce2e8); border-radius: 8px; padding: 12px; }
+.webhooks-page label:has(input[type=checkbox]) { display: block; margin: 8px 0; font-size: 14px; }
+.webhook-delivery { margin-top: 16px; }
+.webhook-delivery p { overflow-wrap: anywhere; }

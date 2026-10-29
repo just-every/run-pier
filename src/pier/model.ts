@@ -59,6 +59,9 @@ export type Row = {
   [key: string]: any;
 };
 export const collections = [
+  "webhookSubscriptions",
+  "webhookEvents",
+  "webhookDeliveries",
   "customFieldDefinitions",
   "purchaseApprovalPolicies",
   "savedReports",

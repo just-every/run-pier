@@ -1,3 +1,4 @@
+import { deliverOrderWebhooks } from './outbound-webhooks';
 import { runWorkflowRules } from './workflow-schedule';
 import { runRecurringSchedule } from './recurring-schedule';
 import type { Bindings } from '../auth.server';
@@ -36,5 +37,6 @@ export async function runReplenishmentSchedule(env: Bindings, scheduledTime = Da
   }
   await runRecurringSchedule(env,scheduledTime);
   await runWorkflowRules(env,scheduledTime);
+  await deliverOrderWebhooks(env);
   return deliverCorrespondence(env, now);
 }
