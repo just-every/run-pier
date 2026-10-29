@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { installation, basics, buy, receive, parse } from "./harness.mjs";
+import { installation, basics, buy, receive, parse, persona } from "./harness.mjs";
 
 test("Pier public Worker and D1 wholesale journey", async (t) => {
   const outbound = [];
@@ -200,19 +200,62 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
   await t.test(
     "05 exact purchase approval and agent preparation leave expected separate",
     async () => {
-      const draft = await h.command("po.draft", {
+      const agent = await persona(h, "member"), buyer = await persona(h, "admin");
+      const agentId = agent.session.operator.id, buyerId = buyer.session.operator.id;
+      assert.notEqual(agentId, buyerId);
+      await h.command("role.set", { operatorId: agentId, role: "agent" });
+      await h.command("role.set", { operatorId: buyerId, role: "buyer" });
+      const prepare = (type, payload, opts = {}) => h.command(type, payload, { as: agent.cookie, ...opts });
+      const review = (type, payload, opts = {}) => h.command(type, payload, { as: buyer.cookie, ...opts });
+      const business = async () => {
+        const response = await h.request("/api/pier/export");
+        assert.equal(response.status, 200);
+        // Refusal audit events may be added; the complete business graph and
+        // successful command results must stay identical.
+        const { exportedAt, auditEvents, ...exported } = await response.json();
+        const snapshot = await h.request("/api/pier/native-export");
+        assert.equal(snapshot.status, 200);
+        const expectedCsv = (await snapshot.json()).files.find((file) => file.kind === "purchaseOrders").csv;
+        return { ...exported, positions: (await h.state()).positions, expectedCsv };
+      };
+      const refuse = async (run, type, payload, error) => {
+        const before = await business();
+        await run(type, payload, { error });
+        assert.deepEqual(await business(), before, `${type} ${error} leaves all business effects unchanged`);
+      };
+      const physical = (s) => ({ positions: s.positions, movements: s.movements, reservations: s.reservations });
+      const expected = (s) => s.purchaseOrders.filter((p) => p.status === "committed")
+        .flatMap((p) => p.lines).filter((l) => l.itemId === b.item.id)
+        .reduce((sum, l) => sum + (parse(l.quantity) > parse(l.received) ? parse(l.quantity) - parse(l.received) : 0n), 0n);
+      const beforeDraft = await business(), draftCommandId = randomUUID();
+      assert.equal(expected(beforeDraft), parse("8.75"));
+      const draft = await prepare("po.draft", {
         supplierId: b.supplier.id,
         promiseDate: "2026-12-01",
         reason: "More demand",
         lines: [{ itemId: b.item.id, quantity: "2", price: "0.3" }],
-      });
-      await h.command(
-        "po.commit",
-        { poId: draft.id, version: draft.version },
-        { error: "APPROVAL" },
-      );
-      await h.command("po.approve", { poId: draft.id, version: draft.version });
-      const revised = await h.command("po.revise", {
+      }, { commandId: draftCommandId });
+      assert.equal(draft.status, "draft");
+      const afterDraft = await business();
+      const nativeDraft = afterDraft.purchaseOrders.find((p) => p.id === draft.id);
+      assert.equal(nativeDraft.approval, null);
+      const preparation = afterDraft.commands.find((c) => c.id === draftCommandId);
+      assert.equal(preparation.actorId, agentId);
+      assert.equal(preparation.result.admission.role, "agent");
+      assert.deepEqual(preparation.result.result, nativeDraft);
+      assert.deepEqual(physical(afterDraft), physical(beforeDraft));
+      assert.equal(expected(afterDraft), expected(beforeDraft));
+      assert.equal(afterDraft.expectedCsv, beforeDraft.expectedCsv, "agent preparation exports no committed supply");
+      await refuse(prepare, "po.approve", { poId: draft.id, version: draft.version }, "FORBIDDEN");
+      await refuse(review, "po.commit", { poId: draft.id, version: draft.version }, "APPROVAL");
+      const approved = await review("po.approve", { poId: draft.id, version: draft.version });
+      assert.equal(approved.approval.actorId, buyerId);
+      assert.equal(approved.approval.version, draft.version);
+      assert.equal(approved.supplierId, b.supplier.id);
+      assert.equal(approved.promiseDate, "2026-12-01");
+      assert.deepEqual(approved.lines, nativeDraft.lines);
+      await refuse(prepare, "po.commit", { poId: draft.id, version: draft.version }, "FORBIDDEN");
+      const revised = await prepare("po.revise", {
         poId: draft.id,
         version: draft.version,
         supplierId: b.supplier.id,
@@ -220,31 +263,63 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         reason: "Changed promise",
         lines: [{ itemId: b.item.id, quantity: "3", price: "0.3" }],
       });
-      await h.command(
-        "po.commit",
-        { poId: draft.id, version: draft.version },
-        { error: "STALE" },
-      );
-      await h.command(
-        "po.commit",
-        { poId: draft.id, version: revised.version },
-        { error: "APPROVAL" },
-      );
-      const proposal = await h.command("proposal.prepare", {
+      assert.equal(revised.version, draft.version + 1);
+      const nativeRevision = (await business()).purchaseOrders.find((p) => p.id === draft.id);
+      assert.equal(nativeRevision.approval, null);
+      assert.equal(revised.lines[0].quantity, "3");
+      assert.equal(revised.promiseDate, "2026-12-02");
+      await refuse(review, "po.commit", { poId: draft.id, version: draft.version }, "STALE");
+      await refuse(review, "po.commit", { poId: draft.id, version: revised.version }, "APPROVAL");
+      const proposal = await prepare("proposal.prepare", {
         kind: "replenishment",
         assumptions:
           "Observed backorders and supplier lead time; censored sales are not demand.",
         evidence: [order.id],
         plan: { poId: draft.id },
       });
-      await h.command("proposal.approve", {
+      assert.equal(proposal.preparation.actorId, agentId);
+      const approvedProposal = await review("proposal.approve", {
         proposalId: proposal.id,
         version: proposal.version,
       });
-      await h.command("proposal.execute", {
+      assert.equal(approvedProposal.approval.actorId, buyerId);
+      await review("proposal.execute", {
         proposalId: proposal.id,
         version: proposal.version,
       });
+      const beforeCommit = await business();
+      assert.equal(beforeCommit.purchaseOrders.find((p) => p.id === draft.id).status, "draft");
+      assert.equal(expected(beforeCommit), expected(beforeDraft), "reviewed preparation is not a purchase commitment");
+      assert.deepEqual(physical(beforeCommit), physical(beforeDraft));
+      assert.equal(beforeCommit.expectedCsv, beforeDraft.expectedCsv, "proposal review exports no committed supply");
+      const freshApproval = await review("po.approve", { poId: draft.id, version: revised.version });
+      assert.equal(freshApproval.approval.actorId, buyerId);
+      assert.equal(freshApproval.approval.version, revised.version);
+      assert.deepEqual(freshApproval.lines, nativeRevision.lines);
+      const commitId = randomUUID(), commitPayload = { poId: draft.id, version: revised.version };
+      const committed = await review("po.commit", commitPayload, { commandId: commitId });
+      assert.equal(committed.status, "committed");
+      assert.equal(committed.version, revised.version + 1);
+      assert.equal(committed.supplierId, b.supplier.id);
+      assert.equal(committed.promiseDate, "2026-12-02");
+      assert.deepEqual(committed.lines, nativeRevision.lines);
+      assert.deepEqual(committed.approval, freshApproval.approval);
+      const afterCommit = await business();
+      assert.deepEqual(afterCommit.purchaseOrders.find((p) => p.id === draft.id), committed);
+      assert.deepEqual(afterCommit.commands.find((c) => c.id === draftCommandId), preparation,
+        "the original agent preparation identity and result survive human review and commitment");
+      assert.equal(afterCommit.commands.find((c) => c.id === commitId).actorId, buyerId);
+      assert.equal(afterCommit.commands.length, beforeCommit.commands.length + 2);
+      assert.equal(expected(afterCommit) - expected(beforeCommit), parse("3"));
+      assert.equal(expected(afterCommit), parse("11.75"));
+      const committedSupplyRow = [revised.lines[0].id, draft.id, b.supplier.id, b.item.id,
+        "3", "each", "0.3", "2026-12-02"].map((value) => `"${value}"`).join(",") + "\r\n";
+      assert.equal(afterCommit.expectedCsv, beforeDraft.expectedCsv + committedSupplyRow,
+        "the cutover export adds only the freshly approved quantity and exact commercial terms");
+      assert.equal(parse((await h.state()).reorder.find((r) => r.itemId === b.item.id).expected), expected(afterCommit));
+      assert.deepEqual(physical(afterCommit), physical(beforeDraft), "a commitment creates expected supply only");
+      assert.deepEqual(await review("po.commit", commitPayload, { commandId: commitId }), committed);
+      assert.deepEqual(await business(), afterCommit, "replaying the commitment adds no supply or successful result");
       await h.invariant();
     },
   );
