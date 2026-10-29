@@ -1154,12 +1154,15 @@ test('two distinct agents share one draft while current human authority alone ap
     for (const persona of ['member', 'admin']) {
       const agentContext = await browser.newContext()
       const agentPage = await agentContext.newPage()
-      agents.push({ context: agentContext, page: agentPage })
+      const agent = { context: agentContext, page: agentPage, restoreRole: undefined as object | undefined }
+      agents.push(agent)
       const entry = new URL(process.env.PIER_OPEN!)
       const fragment = new URLSearchParams(entry.hash.slice(1)); fragment.set('as', persona); entry.hash = fragment.toString()
       try { await agentPage.goto(entry.href); await agentPage.waitForURL(url => !url.hash.includes('rer-dev') && url.pathname === '/app') }
       catch { throw new Error('The local agent could not sign in through its native development door.') }
       const session = await (await agentContext.request.get(`${base}/auth/session`)).json()
+      const previous = (await (await context.request.get(`${base}/api/pier/state`)).json()).roles.find((role: any) => role.id === session.operator.id)
+      agent.restoreRole = { operatorId: session.operator.id, role: previous?.role ?? 'viewer', permissions: previous?.permissions, visibility: previous?.visibility, preparationGrant: previous?.preparationGrant }
       await command('role.set', { operatorId: session.operator.id, role: 'agent' })
     }
     const first = agents[0], second = agents[1]
@@ -1301,7 +1304,10 @@ test('two distinct agents share one draft while current human authority alone ap
     expect(applied.counts).toEqual(beforeApply.counts)
     expect(applied.purchaseOrders).toEqual(beforeApply.purchaseOrders)
     expect(applied.proposals.find((row: any) => row.id === fresh.id).approval.actorId).not.toBe(firstSession.operator.id)
-  } finally { for (const agent of agents) await agent.context.close() }
+  } finally {
+    try { for (const agent of agents) if (agent.restoreRole) await command('role.set', agent.restoreRole) }
+    finally { await Promise.all(agents.map(agent => agent.context.close())) }
+  }
 })
 
 
