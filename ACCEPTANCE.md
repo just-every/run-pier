@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 17 | 70 | 4 | 91 |
+| Core | 22 | 65 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 17 | 70 | 11 | 98 |
+| Full target | 22 | 65 | 11 | 98 |
 
-Judged from the code and tests at commit `2795306bf0090a139f5f220dbe7ee592c92ec51a` (28 October 2026). AGENT-002 proof is re-run on the exact landing candidate; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -34,7 +34,7 @@ Core · published · **partial**
 
 #### PIER-002 — Maintain counterparties and supplier terms
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Operators link suppliers and customers. Each supplier/item pair has one versioned terms record with supplier code, pack, price, minimum order and lead time. Purchase commitments and receipts retain their exact terms snapshot when the supplier later changes terms.
 
@@ -42,12 +42,12 @@ Core · published · **partial**
 1. Journey 2: create supplier terms, commit a PO, revise terms and read the original PO/receipt.
 2. The commitment retains its original quantities, price and source version; duplicate-pair creation cannot bypass the versioned record.
 
-**Evidence.** `src/pier/catalogue.ts`; `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (02, 05)
-**Gap.** Unasserted in the cited evidence: revising the supplier terms after the PO, reading the original PO and receipt after that revision with their quantities, price and source version, and refusal of a duplicate supplier-item pair. Asserted: supplier terms are saved and the committed PO line snapshots that terms record and its price.
+**Evidence.** `tests/api/flows.test.mjs` — “02 supplier terms are exact snapshots” creates and revises terms, rereads the original committed PO and receipt through state and business export, verifies exact quantities, price, terms version and movement links, and refuses duplicate-pair creation without changing terms, history or successful commands; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” creates supplier terms and commits and receives the purchase.
+**Gap.** None.
 
 #### PIER-003 — Review native opening inventory
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Owners stage native CSV items, locations, counterparties, opening positions and open documents; review mappings, originals and reconciliation; resolve ambiguous rows; and approve one cutover. Optional reservations preserve exact per-line and bin allocations, including explicit zero backorders. Without that file, the six-kind importer reserves available stock. Changed source rows require reviewed revision, and downstream dependencies constrain undo. Safe undo before downstream work restores exact before-images and removes only that import’s created graph and movements; retained immutable originals and import custody explain this narrow exception to append-only operational corrections. Native CSV openings, open documents and counterparty prices carry an ISO 4217 currency per file or row. USD is the default for a US install: a row with no currency is read as USD and the preview shows it as USD, and an unknown currency code is refused with the row named. A non-USD opening, for example an AUD or CAD supplier cost as the supported source inventory systems allow, keeps its source amount and currency and is valued in USD only through a conversion rate the owner reviews and the batch records, never a silent or guessed rate, consistent with COST-001.
 
@@ -59,8 +59,8 @@ Core · published · **partial**
 5. A row with no currency on a US install is read as USD and shown so in the preview.
 6. An unknown currency code is refused with the row named.
 
-**Evidence.** `src/pier/imports.ts`; `src/pier/import-currency.ts`; `src/pier/native-export.ts`; `tests/api/security-import.test.mjs`; `tests/api/native-exit.test.mjs`
-**Gap.** Unasserted: reading the USD unit cost of an imported native opening in COST-001's ledger; `tests/api/security-import.test.mjs` asserts the resulting valuation total only. Every other point is asserted in the cited files.
+**Evidence.** `tests/api/security-import.test.mjs` — “native import graph revisions, grouped lines, frontier and safe undo” and “empty downstream import undo restores native snapshot and retains custody” prove reviewed cutover, unchanged replay, changed-source revision, safe undo and dependency refusal; “native import reads USD by default, refuses an unknown currency naming the row, and values AUD rows through the batch's reviewed rate” proves the MUG opening's 10 units, USD 2.50 unit cost and USD 25.00 source layer with exact import and movement links in reports and business export, reviewed AUD conversion, the USD default and named-row currency refusal. `tests/api/native-exit.test.mjs` — “native exit preserves approved allocation and explicit backorders across a fresh cutover” proves exact bin allocations, wholly backordered lines, replay and constrained undo.
+**Gap.** None.
 
 #### PIER-004 — Commit sales demand without overselling
 
@@ -90,7 +90,7 @@ Core · published · **partial** · Cites BASE-AGENT-008
 
 #### PIER-006 — Receive partial purchases atomically
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Warehouse staff receive some or all of a committed purchase into named bins, recording supplier reference and exact receipt cost. The remainder stays expected. Invalid or over-received lines cannot partially post an otherwise valid multi-line receipt.
 
@@ -98,8 +98,8 @@ Core · published · **partial**
 1. Journey 6: partially receive a multi-line PO, repeat the command, then submit one invalid line.
 2. The first receipt posts once, exact cost is retained, remaining expected quantities reconcile and the invalid receipt leaves every line unchanged.
 
-**Evidence.** `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (06)
-**Gap.** Unasserted: the remaining expected quantity after a partial receipt, and partial receipt of a multi-line PO (the PO received has one line). Asserted: the partial receipt posts once on replay with its exact cost, and a receipt carrying an invalid second line leaves movements unchanged.
+**Evidence.** `tests/api/flows.test.mjs` — “06 partial receipts and failed multi-line receipt are atomic” partially receives both SKUs of a committed PO, checks exact costs, independent movement sums and remaining expected quantities, replays without another receipt and refuses both an invalid line and an excessive second line without partial business effects; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” receives a partial purchase and recovers the exact command after response loss.
+**Gap.** None.
 
 #### PIER-007 — Correct receipts with physical evidence
 
@@ -142,7 +142,7 @@ Core · published · **partial**
 
 #### PIER-010 — Cancel and inspect returns
 
-Core · published · **partial** · Register R-6
+Core · published · **done** · Register R-6
 
 **Requirement.** Staff cancel only unshipped demand and release only its remaining reservations. A return points to an actual dispatch line and cannot exceed dispatched units less prior returns. It enters quarantine and requires separately reviewed restock before becoming sellable.
 
@@ -150,12 +150,12 @@ Core · published · **partial** · Register R-6
 1. Journey 10: cancel the remainder of a partially shipped order, return shipped units, reject an excess return and review a partial restock.
 2. Shipment history survives and quarantined units cannot be sold before restock.
 
-**Evidence.** `src/pier/orders.ts`; `tests/api/flows.test.mjs` (10) — exact partial restock, retained quarantine, replay and excess/mismatched-quantity refusal; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” reviews and posts a partial restock through Sales orders.
-**Gap.** Unasserted: that quarantined returned units cannot be sold before restock. Asserted: cancellation keeps the shipped quantity, the return, the excess-return refusal and the reviewed partial and full restock.
+**Evidence.** `tests/api/flows.test.mjs` — “10 cancellation preserves shipment and returns remain quarantine until review” proves cancellation and released reservations, preserved shipment history, actual dispatch-linked returns, excess-return refusal, exact partial and full restock, approval and replay; an isolated returned SKU reserves zero before restock and dispatch refuses without changing stock, movements, reservations, shipments, orders, returns or successful commands; after exact human approval and partial restock only the released quantity reserves and ships, with independent sellable and quarantine movement sums; `tests/browser/journey.spec.ts` — “owner completes real UI journeys at 1440px” reviews and posts partial restock through Sales orders, capturing the return at 1440 and 390.
+**Gap.** None.
 
 #### PIER-011 — Count at a captured movement frontier
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Warehouse staff capture a movement frontier, record a physical count, inspect variance and approve an exact adjustment or recount. A movement after capture makes the review stale; a model estimate cannot replace a physical count.
 
@@ -163,8 +163,8 @@ Core · published · **partial**
 1. Journey 11: capture and count a bin, move stock, then attempt the old approval.
 2. It fails without changing stock; a new captured count can produce the exact approved compensating movement.
 
-**Evidence.** `src/pier/warehouse.ts`; `tests/api/flows.test.mjs` (11)
-**Gap.** Unasserted: that the refused stale approval leaves stock unchanged (the test reads positions before the refusal). Asserted: the stale-frontier refusal and the exact compensating movement from a new captured count.
+**Evidence.** `tests/api/flows.test.mjs` — “11 count frontier prevents overwriting intervening movement” in “Pier public Worker and D1 wholesale journey” proves captured physical counts, stale approval refusal after an intervening receipt and after replacement of a captured movement, unchanged stock positions, movements, reservations, count review and approval state and successful command results, independent movement sums, and the exact fresh-count compensating adjustment. The enclosing journey asserts zero outbound requests.
+**Gap.** None.
 
 #### PIER-012 — Investigate and leave with native data
 

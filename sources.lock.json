@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "4c90eff09e1a31e45cd9c2e3e6b2bf86c717593959ce057ff489e7cc83ffc57d",
+      "sha256": "d1bc13911438a54256fcee447d3932ed661614e83848d8437488033cbf4bf304",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "4e30c72b83d53387a02740c2fb28a9acf88991cfb97a82abcd52fa529ba52e1e",
+      "sha256": "8aea63dd4ce59c281f600b132fbdf67b63b04f5be4703e084783af23a19fade1",
       "executable": false
     },
     "DEMO.md": {
@@ -363,7 +363,7 @@
       "executable": false
     },
     "deploy.json": {
-      "sha256": "029e7328cf953dcf955b8c28932ea8d24c1173f634fc6f728ff4f86e07df574d",
+      "sha256": "3a6dfed5368bf863a11028115558b7ee127e6840d39e7b1e024696f98c820136",
       "executable": false
     },
     "docs/activity.md": {
@@ -403,7 +403,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "719887056327359c516b80a3bddb4e136ab32364362744c424a69b01fcaf68a9",
+      "sha256": "b2bbeb2dca2e18d4db3ca427bb51a4983882bc1e03e10c343dc5ef4acdab3b3f",
       "executable": false
     },
     "docs/contract/acceptance-before-cleanup.md": {
@@ -555,7 +555,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "2f7dbb90709a0c789866cc3372d62f5b6e774b1823dedeff38bb02e6b6ac34e0",
+      "sha256": "e8175fba4526f138d8aa9c61935430dbe73948752f73e80ad7774b0bc3907334",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -5055,7 +5055,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "1ed9aadb34b6495ee4153bbc2be18d582e793fa63f9d36db927c4e6e4334181c",
+      "sha256": "451eae97d25b48ec352606b76f3b7fb3c5d0d2c3ff3ea93e7456b30cf1ee8bb1",
       "executable": false
     },
     "tests/api/harness.mjs": {
@@ -5139,7 +5139,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "bab3162d7263f98a2400b8ec83c45bc7625097d29e3c6596744155b7211ffa3b",
+      "sha256": "ca82d410520cd4e79c76f9ec8c483f85cc9480367bdf85ab6c7236b75b942d47",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {
