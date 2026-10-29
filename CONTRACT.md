@@ -1410,19 +1410,19 @@ Inherits BASE-AGENT-001 to BASE-AGENT-013. The company's policy decides every ca
 
 ## Status
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-011 proof is re-run on the exact landing candidate; other status judgments are preserved.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-011 proof is re-run on the exact landing candidate. PIER-003 source-layer proof from commit `54629d610394386c4e8076cc60a87b68252399e8` is extended and re-run on this landing candidate; other status judgments are preserved.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 4 | 8 | 0 | 12 |
+| Published | 5 | 7 | 0 | 12 |
 | Target and push further | 14 | 61 | 11 | 86 |
-| All | 18 | 69 | 11 | 98 |
+| All | 19 | 68 | 11 | 98 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
 | `PIER-001` | Define stock | published | partial | `src/pier/catalogue.ts`; `tests/api/flows.test.mjs` (01); `tests/api/security-import.test.mjs`; `tests/browser/journey.spec.ts` | Unasserted in the cited evidence: refusal of unit, pack and location-kind edits once a record is used, the atomicity of those refusals, and readable history after archiving. Asserted: fractional-pack items and bin and transit locations through the UI and authenticated commands, their use by purchase documents and counts, and archiving a used SKU, which then refuses new orders. `tests/api/catalogue.test.mjs` asserts a used item's pack-barcode change refused, outside this clause's evidence. |
 | `PIER-002` | Maintain counterparties and supplier terms | published | partial | `src/pier/catalogue.ts`; `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (02, 05) | Unasserted in the cited evidence: revising the supplier terms after the PO, reading the original PO and receipt after that revision with their quantities, price and source version, and refusal of a duplicate supplier-item pair. Asserted: supplier terms are saved and the committed PO line snapshots that terms record and its price. |
-| `PIER-003` | Review native opening inventory | published | partial | `src/pier/imports.ts`; `src/pier/import-currency.ts`; `src/pier/native-export.ts`; `tests/api/security-import.test.mjs`; `tests/api/native-exit.test.mjs` | Unasserted: reading the USD unit cost of an imported native opening in COST-001's ledger; `tests/api/security-import.test.mjs` asserts the resulting valuation total only. Every other point is asserted in the cited files. |
+| `PIER-003` | Review native opening inventory | published | done | `tests/api/security-import.test.mjs` — “native import graph revisions, grouped lines, frontier and safe undo” and “empty downstream import undo restores native snapshot and retains custody” prove reviewed cutover, unchanged replay, changed-source revision, safe undo and dependency refusal; “native import reads USD by default, refuses an unknown currency naming the row, and values AUD rows through the batch's reviewed rate” proves the MUG opening's 10 units, USD 2.50 unit cost and USD 25.00 source layer with exact import and movement links in reports and business export, reviewed AUD conversion, the USD default and named-row currency refusal. `tests/api/native-exit.test.mjs` — “native exit preserves approved allocation and explicit backorders across a fresh cutover” proves exact bin allocations, wholly backordered lines, replay and constrained undo. |  |
 | `PIER-004` | Commit sales demand without overselling | published | done | `src/pier/orders.ts`; `tests/api/flows.test.mjs` (04) |  |
 | `PIER-005` | Approve exact purchase commitments | published | partial | `src/pier/purchasing.ts`; `src/pier/proposals.ts`; `tests/api/flows.test.mjs` (05) | Unasserted in the cited evidence: preparing the PO as an agent, the refused approval attempted with the agent's credential, a commit of the freshly approved version and its effect on expected rather than on-hand stock. Asserted: the buyer's approval and refusal of the stale and the unapproved revised version. `tests/api/security-import.test.mjs` ('roles, agent preparation, revoked session, stale human approval and direct HTTP denial') holds agent refusals outside this clause's evidence. |
 | `PIER-006` | Receive partial purchases atomically | published | partial | `src/pier/purchasing.ts`; `tests/api/flows.test.mjs` (06) | Unasserted: the remaining expected quantity after a partial receipt, and partial receipt of a multi-line PO (the PO received has one line). Asserted: the partial receipt posts once on replay with its exact cost, and a receipt carrying an invalid second line leaves movements unchanged. |
