@@ -20,8 +20,9 @@ export function orderSource(c:Context,kind:string,sourceId:string):DocumentSourc
       const line=order.lines.find((l:any)=>l.id===r.orderLineId),bin=get(c.s,'locations',r.locationId);
       return itemLine(c,{...line,itemId:r.itemId,quantity:format(BigInt(r.quantity)),commercialQuantity:undefined,commercialUnit:undefined,lineTotal:undefined,amount:undefined,description:`Pick ${bin.warehouse} / ${bin.name}`},customer.id);
     }):order.lines.map((l:any)=>itemLine(c,l,customer.id));
+    if(kind!=='pick-list')for(const charge of order.charges??[])lines.push({description:charge.kind,quantity:'1',total:charge.amount});
     return {source:order,sourceKind:'orders',reference:order.reference,recipient:customer.name,lines,
-      fields:[{label:'Destination',value:businessParticulars(order.shipTo)},{label:'Customer PO',value:order.customerPO??'Not supplied'},{label:'Currency',value:order.currency??'USD'}],
+      fields:[{label:'Destination',value:businessParticulars(order.shipTo)},{label:'Customer PO',value:order.customerPO??'Not supplied'},{label:'Currency',value:order.currency??'USD'},...(order.tax?[{label:'Tax source',value:`${order.tax.source} · ${order.tax.status} · provider not configured`},{label:'Tax table',value:order.tax.table?`${order.tax.table.state} version ${order.tax.table.version}`:'Not configured'}]:[])],
       totals:order.total?[{label:'Subtotal',value:order.subtotal??order.total},{label:'Tax estimate',value:order.tax?.amount??'Pending'},{label:'Total',value:order.total}]:[]};
   }
   if(kind==='packing-slip'){

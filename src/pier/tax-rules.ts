@@ -42,7 +42,7 @@ export function saveTaxRules(c: Context, type: string, p: any): Row | undefined 
 
 export function quoteCharges(p: any) {
   return ['freight', 'handling'].filter(kind => p[kind] !== undefined && p[kind] !== '').map(kind => {
-    const value = decimal(String(p[kind]).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')) * SCALE;
+    const value = decimal(typeof p[kind] === 'string' ? p[kind].replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') : p[kind]) * SCALE;
     if (value % CENT) fail('QUOTE_CHARGES', 'Freight and handling must be whole cents.');
     return { id: crypto.randomUUID(), kind, description: kind, amount: money(value), taxable: false };
   });
@@ -72,8 +72,9 @@ export function estimateTax(c: Context, customerId: string, destination: any, wa
     const rule = rateTable.rules?.products.find((r: any) => r.code === product?.taxCode);
     if (table.rules && (!product || !rule)) return review('Review the product tax code and its jurisdiction rate');
     const basis = amount(line.amount), rate = certificate ? '0' : rule?.rate ?? rateTable.rate;
-    evidence.push({ lineId: line.id, itemId: line.itemId, kind: 'product', taxCode: product?.taxCode ?? null, product: structuredClone(product ?? null), taxableAmount: money(basis), rate, amount: money(toCents(basis * decimal(rate) / (100n * SCALE))), exemption: certificate ? certificate.number : null });
+    evidence.push({ lineId: line.id, itemId: line.itemId, description: line.sku ?? get(c.s, 'items', line.itemId).sku, kind: 'product', taxCode: product?.taxCode ?? null, product: structuredClone(product ?? null), taxableAmount: money(basis), rate, amount: money(toCents(basis * decimal(rate) / (100n * SCALE))), exemption: certificate ? certificate.number : null });
   }
+  if (table.rules && charges.some(charge => charge.kind === 'discount' && charge.taxable) && new Set(evidence.map(line => line.rate)).size > 1) return review('Apply discounts to product prices before tax when their rates differ');
   for (const charge of charges) {
     const taxable = table.rules && ['freight', 'handling'].includes(charge.kind) ? table.rules[charge.kind + 'Taxable'] : charge.taxable;
     const basis = taxable ? amount(charge.amount) : 0n, rate = certificate ? '0' : rateTable.rate;
