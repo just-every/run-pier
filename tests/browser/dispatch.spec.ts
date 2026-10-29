@@ -15,7 +15,8 @@ test('WMS-003: warehouse dispatch states, reviewed ship-by schedule, close downl
   await receive(h, b, await buy(h, b, '12'), '12')
   const zone = 'America/Chicago'
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-  const later = new Date(Date.now() + 86400000).toISOString().slice(0, 10), earlier = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  const day = Date.parse(`${today}T12:00:00Z`)
+  const later = new Date(day + 86400000).toISOString().slice(0, 10), earlier = new Date(day - 86400000).toISOString().slice(0, 10)
   const carrier = await command('carrier.save', { name: 'Parcel pickup', warehouse: 'North', dock: 'Dock A', cutoff: '23:59', timeZone: zone })
   const orders = []
   for (let index = 0; index < 5; index++) {
@@ -47,8 +48,14 @@ test('WMS-003: warehouse dispatch states, reviewed ship-by schedule, close downl
     if (shots) await page.screenshot({ path: join(shots, `${width}-dispatch-pickup.png`), fullPage: true })
     await page.goto(`${origin}/app#floor/dispatch`)
     const board = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Dispatch board', exact: true }) }).last()
+    const pickup = board.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Time zone', exact: true }) }).getByRole('row').filter({ hasText: carrier.name })
+    await expect(pickup).toContainText('11:59 PM')
+    await expect(pickup).toContainText(zone)
+    await expect(board.getByText(/Conservative: every unfinished due order/)).toContainText('at risk until dispatch posts')
+    await expect(board.getByText(/Conservative: every unfinished due order/)).toContainText('No processing-time estimate is assumed')
     await expect(board.getByRole('row').filter({ hasText: orders[0].reference })).toContainText('shipped')
     await expect(board.getByRole('row').filter({ hasText: orders[1].reference })).toContainText('unlabeled')
+    await expect(board.getByRole('row').filter({ hasText: orders[1].reference })).toContainText('At risk')
     await expect(board.getByRole('row').filter({ hasText: orders[2].reference })).toContainText('picking')
     await expect(board.getByRole('row').filter({ hasText: orders[3].reference })).toContainText('At risk before cut-off')
     if (!closed) {
@@ -68,5 +75,27 @@ test('WMS-003: warehouse dispatch states, reviewed ship-by schedule, close downl
     await expect(report).toContainText('1 orders · 2 units')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
     if (shots) await page.screenshot({ path: join(shots, `${width}-dispatch-report.png`), fullPage: true })
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(`${origin}/app#floor/pack`)
+  const station = page.locator('section').filter({ has: page.getByRole('heading', { name: `Pack ${orders[1].reference}`, exact: true }) }).last()
+  await station.getByLabel('Shipment reference', { exact: true }).fill('synthetic-pier-dispatch-1')
+  const dispatched = page.waitForResponse(response => response.url().endsWith('/api/pier/commands') && response.request().postDataJSON()?.type === 'pack.dispatch')
+  await station.getByRole('button', { name: 'Dispatch packed cartons', exact: true }).click()
+  expect((await (await dispatched).json()).ok).toBe(true)
+  await page.goto(`${origin}/app#floor/dispatch`)
+  const board = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Dispatch board', exact: true }) }).last()
+  const completed = board.getByRole('row').filter({ hasText: orders[1].reference })
+  await expect(completed).toContainText('shipped')
+  await expect(completed).toContainText('Dispatched')
+  await expect(completed).not.toContainText('At risk')
+  for (const order of orders.slice(2, 4)) await expect(board.getByRole('row').filter({ hasText: order.reference })).toContainText('At risk')
+  const retained = await context.request.get(`${origin}/api/pier/state`)
+  const state = await retained.json()
+  expect(state.shipments.filter((shipment: any) => shipment.orderId === orders[1].id)).toHaveLength(1)
+  expect(state.dispatchDays[0].summary.ordersShipped).toBe(1)
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    if (shots) await page.screenshot({ path: join(shots, `${width}-dispatch-posted.png`), fullPage: true })
   }
 })
