@@ -48,7 +48,7 @@ ignored. Reuse the event identity and identical content after response loss;
 changed content with that identity refuses. Event intake creates no stock
 reservation, order or message, and starts no connector sync.
 
-Without a recorded owner-approved `followupConsent` on the grant, abandonment
+For a buyer created in the current installation, without a recorded owner-approved `followupConsent` on the grant, abandonment
 returns `no-consent`. Consent names its explicit `recipient`, `purpose`, prior `at` timestamp and
 `source`, with the approving owner retained. A missing recipient or purpose
 refuses the grant. This records consent for review and grants no send authority. With consent it returns `pending-owner-review`; no reminder is sent.
@@ -58,6 +58,16 @@ Re-granting cannot reset unsubscribe suppression. Responses report the current
 cart suppression state, including on replay. At most 1,000 carts per buyer are
 retained; exceeding that bound refuses rather than deleting prior evidence.
 Automatic reminders, recipient authorization and delivery remain unimplemented.
+
+Every restored buyer also retains `followupRestoreFence` with reason
+`post-archive-suppression-unknown`: the archive cannot establish whether that
+buyer unsubscribed after it was captured. This is a restore-safety restriction,
+not a fabricated unsubscribe. Authentic suppression and purchase facts remain
+intact. Other restored carts return `restore-safety`, including delayed events
+and replay. Fresh owner grants, rotated credentials, re-enabled connections and
+new consent cannot clear the fence; repeated export and restore retains it.
+There is no operation to remove it or send a reminder. Fresh owner authorization
+can still restore the buyer's ordinary approved catalog access.
 
 CT approved this authority and consent boundary with riders on 27 October 2026.
 The authorized reminder workflow remains a required product target. Retained

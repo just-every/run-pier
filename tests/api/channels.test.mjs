@@ -358,6 +358,7 @@ test('trade cart intake is idempotent, consent gated and permanently suppressed 
   ch = await h.command('trade.grant', { ...grant, version: ch.version, followupConsent: { recipient: 'buyer@example.test', purpose: 'One abandoned wholesale cart reminder', source: 'synthetic-pier-8', at: '2026-10-26T12:00:00.000Z' } });
   const first = await event('e2', 'c2', 'abandoned');
   assert.deepEqual(first, { ok: true, cart: { cartId: 'c2', status: 'pending-owner-review' }, reminderSent: false });
+  assert.equal((await h.state()).channels.find(row => row.id === ch.id).tradeBuyers[0].followupRestoreFence, null, 'native consent remains reviewable before any restore');
   assert.deepEqual(await event('e2', 'c2', 'abandoned'), first);
   await event('e2', 'c2', 'purchased', 409);
   assert.equal((await event('e3', 'c2', 'purchased')).cart.status, 'purchased');

@@ -36,7 +36,10 @@ export function trade(c: Context, type: string, p: any): Row | undefined {
       if (p.followupConsent !== undefined && (!p.followupConsent || typeof p.followupConsent.at !== 'string' || !Number.isFinite(Date.parse(p.followupConsent.at)) || Date.parse(p.followupConsent.at) > Date.parse(c.now))) fail('TRADE_CONSENT', 'Record prior explicit consent with its source and time.');
       const consent = p.followupConsent ? { recipient: text(p.followupConsent.recipient, 'Consent recipient'), purpose: text(p.followupConsent.purpose, 'Consent purpose'), source: text(p.followupConsent.source, 'Consent source'), at: p.followupConsent.at, approvedBy: c.actor.id } : null;
       if (consent && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(consent.recipient)) fail('TRADE_CONSENT', 'Record one explicitly authorized recipient.');
-      const grant = { buyerId, customerId: p.customerId, keyHash: p.keyHash, itemIds: p.itemIds, shipTo: address, enabled: true, approvedAt: c.now, approvedBy: c.actor.id, followupConsent: consent, suppressed: old?.suppressed ?? false, carts: old?.carts ?? [] };
+      // Earlier archives already pause the connection but lack the buyer reason.
+      // Re-authorizing catalog access cannot establish post-archive suppression.
+      const restoreFence = old?.followupRestoreFence ?? (old && channel.restorePaused ? 'post-archive-suppression-unknown' : null);
+      const grant = { buyerId, customerId: p.customerId, keyHash: p.keyHash, itemIds: p.itemIds, shipTo: address, enabled: true, approvedAt: c.now, approvedBy: c.actor.id, followupConsent: consent, suppressed: old?.suppressed ?? false, followupRestoreFence: restoreFence, carts: old?.carts ?? [] };
       if (old) Object.assign(old, grant); else channel.tradeBuyers.push(grant);
     }
     channel.version++;
@@ -59,7 +62,7 @@ export function trade(c: Context, type: string, p: any): Row | undefined {
     buyer.carts.push(cart);
   }
   if (p.event === 'purchased') cart.purchasedAt = c.now;
-  cart.status = buyer.suppressed ? 'suppressed' : cart.purchasedAt ? 'purchased' : !buyer.followupConsent ? 'no-consent' : 'pending-owner-review';
+  cart.status = buyer.suppressed ? 'suppressed' : cart.purchasedAt ? 'purchased' : buyer.followupRestoreFence ? 'restore-safety' : !buyer.followupConsent ? 'no-consent' : 'pending-owner-review';
   cart.lastEvent = p.event;
   cart.updatedAt = c.now;
   cart.version++;
