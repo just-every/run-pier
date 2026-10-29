@@ -4623,7 +4623,7 @@
       "executable": false
     },
     "src/ui/stock-detail.tsx": {
-      "sha256": "4cdd61d39a123221077f740167e848fce9c34f808fd60583e0fb6e3d30531997",
+      "sha256": "72b3dfee0ce69f873b155054728d65bb715e93f77f22546d7c3146e6cec3dc38",
       "executable": false
     },
     "src/ui/stock-totals.tsx": {
@@ -4671,7 +4671,7 @@
       "executable": false
     },
     "src/ui/style/stock.css": {
-      "sha256": "2a3a1526ecad9f53be7684db4dc4e86f3f78e41cfebb367b33236fe2d577d84c",
+      "sha256": "0783d4313f3776714d69c7e62590755fc1e3ed6e2ff0cb9a51610397b574533d",
       "executable": false
     },
     "src/ui/style/tables.css": {
@@ -4963,7 +4963,7 @@
       "executable": false
     },
     "tests/browser/stock.spec.ts": {
-      "sha256": "ed9fb4c712556f82ae34e116450465ecb3fead6d1a1551c3dfd7363a6511fbd4",
+      "sha256": "6eb480779b534999ff5c0c55ad8b9de64beb3ec5facadb3889ab893bc54709ab",
       "executable": false
     },
     "tests/browser/supplier-bills.spec.ts": {
