@@ -671,7 +671,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "50346ac1ca2273c6e6215cf0462c4f4300ce823245eca95f9a1ab4693967bebf",
+      "sha256": "c729c2bf03fddf648488583e7107a1a0166a94d5c8ca06e2e4f88c76342c2b33",
       "executable": false
     },
     "packaging.json": {
@@ -4847,7 +4847,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "662b7719cdb7cdc12f7341b550386a2e510d04eb42d5e88f110bce9cea074941",
+      "sha256": "f041cd847d710d2b5226243c886bb27ca7de31167889ebda6fadeb05d558ba0c",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "01b13ea711ffa68f5970b388d9050783db4aa28d444ac09c43e9b0c2339c3da3",
+      "sha256": "acb9e5c8c1b9c03bd03dfc55595d9c6a2f1a321b1523494a92ad14004d984b79",
       "executable": false
     },
     "tests/browser/open.spec.ts": {

@@ -1202,6 +1202,86 @@ test('two distinct agents share one draft while current human authority alone ap
     const committed = await (await context.request.get(`${base}/api/pier/state`)).json()
     expect(committed.purchaseOrders.find((row: any) => row.id === po.id).status).toBe('committed')
     expect(committed.movements).toEqual(state.movements)
+
+    // The current owner inspects an agent's retained evidence, refuses stale
+    // application after a real count movement, and reviews a fresh preparation.
+    const bin = await command('location.save', { name: `${tag} proposal bin`, warehouse: tag, kind: 'bin' })
+    const customer = await command('party.save', { name: `${tag} proposal customer`, kind: 'customer' })
+    await command('receipt.create', { poId: po.id, supplierReference: `${tag} receipt`, lines: [{ poLineId: po.lines[0].id, locationId: bin.id, quantity: '2', cost: '3' }] })
+    let routing = await command('routing.save', { source: 'manual', mode: 'rules', shortage: 'hold', zones: [], defaultEligible: [tag] })
+    routing = await command('routing.preview', { ruleId: routing.id, version: routing.version })
+    await command('routing.activate', { ruleId: routing.id, version: routing.version })
+    const from = await command('order.create', { customerId: customer.id, promiseDate: '2026-11-05', lines: [{ itemId: item.id, quantity: '2' }] })
+    const to = await command('order.create', { customerId: customer.id, promiseDate: '2026-11-06', lines: [{ itemId: item.id, quantity: '2' }] })
+    let count = await command('count.capture', { locationId: bin.id })
+    count = await command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: item.id, status: 'sellable', quantity: '3' }], reason: `${tag} physical recount` })
+    const prepare = async (assumptions: string) => {
+      const response = await first.context.request.post(`${base}/api/pier/commands`, { headers: { origin: base }, data: {
+        commandId: crypto.randomUUID(), type: 'proposal.prepare', payload: { kind: 'reallocation', assumptions, evidence: [from.id, to.id], plan: { fromOrderId: from.id, toOrderId: to.id, itemId: item.id, quantity: '1' } },
+      } })
+      const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
+    }
+    const exported = async () => {
+      const response = await context.request.get(`${base}/api/pier/export`)
+      expect(response.status()).toBe(200)
+      const { exportedAt, ...business } = await response.json(); return business
+    }
+    const capture = async (panel: Locator, label: string) => {
+      if (!shots) return
+      await mkdir(shots, { recursive: true })
+      for (const width of [1440, 390]) {
+        await page.setViewportSize({ width, height: 1000 })
+        await panel.screenshot({ path: join(shots, `${width}-agent-proposal-${label}.png`) })
+      }
+      await page.setViewportSize({ width: 1440, height: 1000 })
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    const proposal = await prepare(`${tag} reservation review`)
+    await page.goto(`${base}/app#activity/${proposal.id}`); await page.reload()
+    let review = page.locator(`#document-${proposal.id}`)
+    await expect(review).toContainText(firstSession.operator.displayName)
+    await expect(review).toContainText(`${tag} reservation review`)
+    await expect(review).toContainText('Move 1 each')
+    await expect(review.locator('.proposal-evidence')).toContainText(from.reference)
+    await expect(review.locator('.proposal-evidence')).toContainText(to.reference)
+    await expect(review.locator('.proposal-evidence')).toContainText(customer.name)
+    await review.getByText('Show details', { exact: true }).click()
+    await expect(review.getByRole('heading', { name: 'Stock position at preparation', exact: true })).toBeVisible()
+    const promises = review.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Order', exact: true }) })
+    await expect(promises).toContainText(from.reference)
+    await expect(promises).toContainText(to.reference)
+    await capture(review, 'evidence')
+    await submit(page, review, await review.getByRole('button', { name: /^Approve exact version / }).innerText())
+    await command('count.approve', { countId: count.id, version: count.version })
+    const beforeRefusal = await exported()
+    const staleResponse = page.waitForResponse(response => response.url() === `${base}/api/pier/commands` && response.request().postDataJSON()?.type === 'proposal.execute')
+    await submit(page, review, 'Apply approved proposal', false)
+    expect((await (await staleResponse).json()).error.code).toBe('STALE')
+    await expect(page.getByRole('alert')).toContainText('inputs changed')
+    expect(await exported()).toEqual(beforeRefusal)
+    if (shots) for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await page.getByRole('alert').screenshot({ path: join(shots, `${width}-agent-proposal-stale.png`) })
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    const fresh = await prepare(`${tag} fresh reservation review`)
+    await page.goto(`${base}/app#activity/${fresh.id}`); await page.reload()
+    review = page.locator(`#document-${fresh.id}`)
+    await expect(review).toContainText(firstSession.operator.displayName)
+    await expect(review).toContainText(`${tag} fresh reservation review`)
+    await submit(page, review, await review.getByRole('button', { name: /^Approve exact version / }).innerText())
+    const beforeApply = await exported()
+    await submit(page, review, 'Apply approved proposal')
+    await expect(review).toContainText('Executed')
+    await capture(review, 'applied')
+    const applied = await exported()
+    const reserved = (orderId: string) => applied.reservations.filter((row: any) => row.orderId === orderId).reduce((n: bigint, row: any) => n + BigInt(row.quantity), 0n)
+    expect(reserved(from.id)).toBe(1000000n)
+    expect(reserved(to.id)).toBe(1000000n)
+    expect(applied.movements).toEqual(beforeApply.movements)
+    expect(applied.counts).toEqual(beforeApply.counts)
+    expect(applied.purchaseOrders).toEqual(beforeApply.purchaseOrders)
+    expect(applied.proposals.find((row: any) => row.id === fresh.id).approval.actorId).not.toBe(firstSession.operator.id)
   } finally { for (const agent of agents) await agent.context.close() }
 })
 

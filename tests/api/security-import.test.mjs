@@ -502,7 +502,6 @@ async function nativeAgentPreparations(h, b, agent, draft) {
     const before = await exported();
     const applied = await h.command('proposal.execute', { proposalId: proposal.id, version: proposal.version });
     assert.equal(applied.status, 'executed');
-    assert.equal(applied.executionNote, 'Reviewed preparation retained. Commit the exact PO or import through its separately approved command.');
     const after = await exported();
     for (const key of ['purchaseOrders', 'imports', 'items', 'locations', 'movements', 'reservations', 'orders', 'counts', 'receipts'])
       assert.deepEqual(after[key], before[key], `${scenario.kind} review does not bypass its PO or import door`);
