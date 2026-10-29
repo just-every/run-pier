@@ -671,7 +671,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "50346ac1ca2273c6e6215cf0462c4f4300ce823245eca95f9a1ab4693967bebf",
+      "sha256": "aa58a97a86dcca0322ecc6e9f555c0125e660fe69559afcf2c55aef4674fbbb5",
       "executable": false
     },
     "packaging.json": {
@@ -4823,7 +4823,7 @@
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
-      "sha256": "e9354f280d15cc2d8980e5129ff480814e2e085836e33e792b7143200f6179f6",
+      "sha256": "fa37b79901161d91086a77ed65eed0c51a70717fd6d4a688d84cdeeda99ee4bd",
       "executable": false
     },
     "tests/api/replenishment.test.mjs": {
@@ -4943,7 +4943,7 @@
       "executable": false
     },
     "tests/browser/reorder-list.spec.ts": {
-      "sha256": "73419b9b380e864e83058051e7d29d53595a9a85d65c84a85e5f7ce1ed7db6cc",
+      "sha256": "63242fc7e49566dc251026a16b40288d3e5d2ca6d504f5d812dedb90a6b05872",
       "executable": false
     },
     "tests/browser/role-access-journey.ts": {

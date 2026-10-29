@@ -83,8 +83,37 @@ test('BUY-005: exported A–E stock reproduces reorder batches, coverage, altern
  assert.equal(westDraft.supplierId, s2.id); assert.equal(westDraft.lines[0].quantity, '66');
  state = await concordance(); assert.equal(low(state).length, 4); assert.ok(low(state).every(f => f.suggestedQuantity === '0' && f.draftIds.length === 1));
  assert.deepEqual((await command('replenishment.plan', {})).draftIds, []);
+ const coverage = s => low(s).filter(f => f.itemId !== items.B.id).map(f => ({
+   itemId: f.itemId, scope: f.scope, warehouse: f.warehouse, supplierId: f.supplierId,
+   suggestedQuantity: f.suggestedQuantity, draftQuantity: f.draftQuantity,
+   draftIds: f.draftIds, drafts: f.drafts,
+ })).sort((a, b) => a.itemId.localeCompare(b.itemId));
+ const beforeDelete = await h.state(), beforeExport = await read('/api/pier/export');
+ const unaffected = coverage(beforeDelete), coveredB = low(beforeDelete).find(f => f.itemId === items.B.id);
+ assert.deepEqual(unaffected.map(f => f.itemId).sort(), [items.A.id, items.C.id, items.E.id].sort());
+ assert.deepEqual(coveredB.draftIds, [westDraft.id]); assert.equal(coveredB.draftQuantity, '66');
+ assert.equal(coveredB.suggestedQuantity, '0');
+ for (const f of unaffected) {
+   assert.deepEqual(f.draftIds, [eastDraft.id]);
+   assert.equal(f.draftQuantity, { [items.A.id]: '48', [items.C.id]: '10', [items.E.id]: '13' }[f.itemId]);
+   assert.equal(f.suggestedQuantity, '0');
+ }
+ await command('po.delete', { poId: westDraft.id, version: westDraft.version - 1 }, { error: 'STALE' });
+ assert.deepEqual((await h.state()).purchaseOrders, beforeDelete.purchaseOrders, 'stale deletion preserves every purchase document');
+ assert.deepEqual(coverage(await h.state()), unaffected);
+ assert.deepEqual((await read('/api/pier/export')).movements, beforeExport.movements);
  await command('po.delete', { poId: westDraft.id, version: westDraft.version });
  state = await concordance(); assert.equal(low(state).find(f => f.itemId === items.B.id).suggestedQuantity, '66');
+ const afterExport = await read('/api/pier/export'), restoredB = low(state).find(f => f.itemId === items.B.id);
+ assert.deepEqual(coverage(state), unaffected, 'A, C and E keep membership, destination, supplier, suggestion and exact draft coverage');
+ assert.deepEqual(restoredB.draftIds, []); assert.deepEqual(restoredB.drafts, []); assert.equal(restoredB.draftQuantity, '0');
+ assert.equal(calculate(afterExport, items.B.id, 'West', s2.id).remaining, 66);
+ assert.equal(restoredB.supplierId, s2.id); assert.equal(restoredB.warehouse, 'West');
+ assert.deepEqual(state.purchaseOrders, beforeDelete.purchaseOrders.filter(p => p.id !== westDraft.id), 'only the selected draft and its source lines disappear');
+ assert.deepEqual(afterExport.purchaseOrders, beforeExport.purchaseOrders.filter(p => p.id !== westDraft.id));
+ assert.deepEqual(afterExport.movements, beforeExport.movements, 'deleting coverage never changes physical stock');
+ assert.deepEqual(state.positions, beforeDelete.positions); assert.deepEqual(state.reservations, beforeDelete.reservations);
+ assert.deepEqual(state.receipts, beforeDelete.receipts);
  const alternate = await read(`/api/pier/replenishment?${new URLSearchParams({ itemId: items.B.id, warehouse: 'West', supplierId: s3.id })}`);
  assert.equal(alternate.find(f => f.itemId === items.B.id && f.warehouse === 'West').suggestedQuantity, '70');
  const altBatch = await command('replenishment.plan', { stateVersion: state.version, lines: [{ itemId: items.B.id, warehouse: 'West', supplierId: s3.id, quantity: '80' }] });
