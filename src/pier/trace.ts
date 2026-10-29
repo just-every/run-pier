@@ -1,4 +1,4 @@
-import { resolve } from './floor/codes';
+import { resolve, same } from './floor/codes';
 import { returnCost } from './returns-cost';
 import { available, balance, decimal, fail, format, fresh, get, id, min, move, requireRole, row, SCALE, text, type Context, type Movement, type Row, type State } from './model';
 import { codeOwners } from './catalogue-fields';
@@ -24,7 +24,10 @@ function receiptIdentity(c:Context,itemId:string,input:any,quantity:bigint,defin
   if(existing&&composition&&JSON.stringify(existing.kitComponents)!==JSON.stringify(composition))fail('TRACE_KIT','Use a new output lot for a different assembled composition.');
   if(existing&&parents.some(parent=>!(existing.parentIdentityIds??[]).includes(parent))){existing.parentIdentityIds=[...new Set([...(existing.parentIdentityIds??[]),...parents])];existing.version++;}
   if(existing?.blocked)fail('TRACE_BLOCKED','This lot is quarantined. Review its identity before receiving more.');
-  return existing ?? row(c,'traceIdentities',{itemId,lot,serial,expiry,productionDate,arrivalSequence:c.s.traceIdentities.length+1,kitComponents:composition,parentIdentityIds:parents,code:'trace-'+id(),blocked:false});
+  if(existing)return existing;
+  const code='trace-'+id();
+  if(codeOwners(c.s,code).length||same(code,serial))fail('DUPLICATE','The allocated trace code conflicts with an existing stock code. Retry this receipt.');
+  return row(c,'traceIdentities',{itemId,lot,serial,expiry,productionDate,arrivalSequence:c.s.traceIdentities.length+1,kitComponents:composition,parentIdentityIds:parents,code,blocked:false});
 }
 function selectors(s:State,itemId:string,inputs:any[]|undefined) {
   if(!inputs?.length)return undefined;
@@ -131,6 +134,22 @@ export function reconcileTrace(c:Context,before:State,payload:any) {
     const parts=counted?.identityId&&BigInt(m.quantity)>0n?[{identityId:counted.identityId,quantity:m.quantity}]:BigInt(m.quantity)>0n?incoming(c,m,selected):outgoing(c,m,before,selected);
     if(policyFor(c.s,m.itemId).mode==='serial' && parts.some((part:any)=>BigInt(part.quantity)!==SCALE))fail('TRACE_SERIAL','Move each serialized unit whole, never as fractional stock.');
     for(const part of parts)row(c,'traceEvents',{movementId:m.id,documentId:m.documentId,commandId:c.commandId,internal:!c.s.receipts.some(r=>r.id===m.documentId)&&!c.s.shipments.some(sh=>sh.id===m.documentId)&&(!c.s.returns.some(r=>r.id===m.documentId)||m.reason==='Reviewed restock'),itemId:m.itemId,identityId:part.identityId,locationId:m.locationId,status:m.status,quantity:(BigInt(part.quantity)*(BigInt(m.quantity)<0n?-1n:1n)).toString(),actorId:c.actor.id});
+  }
+  // Receiving groups movements by bin, but FIFO follows the original tally.
+  // Reassign only this receipt's newly allocated sequence slots; an old lot
+  // keeps its first receipt time and sequence when more of it arrives.
+  const newIds=new Set(c.s.traceIdentities.slice(before.traceIdentities.length).map(identity=>identity.id));
+  for(const receipt of c.s.receipts.slice(before.receipts.length)) {
+    const receiving=c.s.receivings.find(row=>row.id===receipt.receivingId);
+    if(!receiving)continue;
+    const ordered:Row[]=[];
+    for(const scan of receiving.scans) {
+      const identity=c.s.traceIdentities.find(row=>row.itemId===scan.itemId&&
+        (scan.trace?.serial ? row.serial===scan.trace.serial : row.lot===scan.trace?.lot&&!row.serial));
+      if(identity&&newIds.has(identity.id)&&!ordered.includes(identity))ordered.push(identity);
+    }
+    const slots=ordered.map(identity=>identity.arrivalSequence).sort((a,b)=>a-b);
+    ordered.forEach((identity,index)=>{identity.arrivalSequence=slots[index];});
   }
   c.s.traceReservations=c.s.traceReservations.filter(a=>c.s.reservations.some(r=>r.id===a.reservationId));
   for(const reservation of c.s.reservations.filter(r=>policyFor(c.s,r.itemId))) {

@@ -1,18 +1,31 @@
-import { publishedWarehouses } from '../routing';
-import { kitDefinition, kitAvailability } from '../kits';
-import { available, decimal, format, type Context, type Row, type State } from '../model';
+import { activeRule, publishedWarehouses } from '../routing';
+import { publicationQuantity, publicationTargets } from './publications';
+import { type Context, type Row, type State } from '../model';
 export function channelAvailability(s:State,channel:Row,itemId:string,listing?:Row){
-  const warehouses=publishedWarehouses(s,channel,listing?.locationId),kit=kitDefinition(s,itemId),buffer=decimal(channel.buffer??'0');
-  const free=kit?warehouses.reduce((n:bigint,w:string)=>n+kitAvailability(s,kit,w),0n):s.locations.filter(l=>l.kind==='bin'&&warehouses.includes(l.warehouse)).reduce((n,l)=>n+available(s,itemId,l.id),0n);
-  return format(free>buffer?free-buffer:0n);
+  return publicationQuantity(s, channel, itemId, publishedWarehouses(s, channel, listing?.locationId));
 }
-export function channelState(s: State) {
+export function channelState(s: State, actors?: Record<string, string>) {
   return { channelListings: s.channelListings.map(listing => {
     const channel = s.channels.find(c => c.id === listing.channelId);
-    const holds = s.channelHolds.filter(h => !h.releasedAt && h.itemId === listing.itemId && h.warehouse === channel?.warehouse);
-    const wanted = listing.itemId && channel && !listing.orderOnly ? channelAvailability(s, channel, listing.itemId,listing) : null;
-    const lag = wanted !== null && wanted !== listing.publishedQuantity;
-    return { ...listing, available: wanted, holds: holds.map(h => ({ id: h.id, quantity: h.quantity, reason: h.reason })), lag, lagSeconds: lag ? Math.max(0, Math.floor((Date.now() - Date.parse(listing.pendingSince ?? listing.createdAt)) / 1000)) : 0 };
+    const rule = channel && activeRule(s, `channel:${channel.id}`);
+    const authorized = Boolean(channel?.enabled && (!actors || actors[channel.approvedBy] === 'owner' && (!rule || actors[rule.activatedBy] === 'owner')));
+    const targets = listing.itemId && channel && !listing.orderOnly ? publicationTargets(s, channel, listing) : [];
+    const warehouses = new Set(targets.flatMap(t => t.warehouses));
+    const holds = s.channelHolds.filter(h => !h.releasedAt && h.itemId === listing.itemId && warehouses.has(h.warehouse));
+    const wanted = listing.itemId && channel && !listing.orderOnly ? channelAvailability(s, channel, listing.itemId, listing) : null;
+    const latest = new Map((listing.publications ?? []).map((p: any) => [p.locationId, p.id]));
+    const publications = (listing.publications ?? []).map((p: any) => {
+      const current = authorized && targets.some(t => t.key === p.key) && latest.get(p.locationId) === p.id;
+      return { ...p, current, invalidated: !current };
+    });
+    const locations = targets.map(target => ({ ...target, publication: [...publications].reverse().find((p: any) => p.locationId === target.locationId && p.key === target.key) ?? null }));
+    // Current routing controls future sends, not custody of earlier remote outcomes.
+    const unconfirmedPublications = publications.filter((p: any) => p.status === 'uncertain' && !locations.some(t => t.publication?.id === p.id));
+    const multiLocation = locations.length > 1 || rule?.mode === 'channel-location';
+    const lag = channel?.provider === 'shopify' ? !authorized || !locations.length || unconfirmedPublications.length > 0 || locations.some(t => t.publication?.status !== 'accepted') : wanted !== null && wanted !== listing.publishedQuantity;
+    return { ...listing, publications, unconfirmedPublications, publicationLocations: locations, multiLocation, publicationAuthorized: authorized,
+      available: multiLocation ? null : wanted, holds: holds.map(h => ({ id: h.id, warehouse: h.warehouse, quantity: h.quantity, reason: h.reason })),
+      lag, lagSeconds: lag ? Math.max(0, Math.floor((Date.now() - Date.parse(listing.pendingSince ?? listing.createdAt)) / 1000)) : 0 };
   }) };
 }
 
@@ -22,8 +35,9 @@ export function markChannelPending(c: Context, before: State) {
     const old = before.channelListings.find(l => l.id === listing.id);
     const oldChannel = before.channels.find(ch => ch.id === listing.channelId);
     if (!channel) continue;
-    const wanted = channelAvailability(c.s, channel, listing.itemId,listing);
-    if (wanted !== listing.publishedQuantity && (!old || !oldChannel || channelAvailability(before, oldChannel, old.itemId,old) !== wanted)) {
+    const targets = publicationTargets(c.s, channel, listing);
+    const oldKeys = old && oldChannel ? publicationTargets(before, oldChannel, old).map(t => t.key) : [];
+    if (targets.some(t => !oldKeys.includes(t.key)) || oldKeys.length !== targets.length) {
       listing.pendingSince = c.now; listing.version++;
     }
   }

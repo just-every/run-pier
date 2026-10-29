@@ -30,6 +30,9 @@ export const authority = (a: Actor) => ({
 });
 const effectiveRole = `CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`;
 const delegationScope = `(json_type(r.data,'$.permissions') IS NULL OR ${effectiveRole}='owner') AND NOT (${effectiveRole}='buyer' AND COALESCE(json_extract(r.data,'$.visibility.costs'),1)=0) AND NOT (${effectiveRole} IN ('operator','sales') AND COALESCE(json_extract(r.data,'$.visibility.prices'),1)=0)`;
+export function currentOwnerAuthority(operatorId: string) {
+  return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}='owner')`, params: [operatorId] };
+}
 export async function activeAutomationActors(db: D1Database): Promise<Record<string, string>> {
   const rows = await db.prepare(`SELECT o.id,CASE WHEN ${delegationScope} THEN ${effectiveRole} ELSE 'viewer' END AS role FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.status='active'`).all<any>();
   return Object.fromEntries(rows.results.map(r => [r.id, r.role]));
@@ -153,6 +156,10 @@ export async function commit(
     // A policy explicitly saved in this command is covered by the session guard.
     if (oldPolicy?.version !== d.policyVersion && d.actorId === c.actor.id) continue;
     guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}=?) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='orders' AND id=? AND json_extract(data,'$.promisePolicy.version')=? AND json_extract(data,'$.promisePolicy.enabled')=1 AND json_extract(data,'$.promisePolicy.approvedBy')=?)`, [d.actorId,d.role,d.orderId,d.policyVersion,d.actorId]);
+  }
+  for (const proof of c.substituteAuthorities ?? []) {
+    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.version=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}=? AND COALESCE(r.version,0)=?)`,
+      [proof.actorId, proof.operatorVersion, proof.role, proof.permissionVersion]);
   }
   for (const secret of c.channelSecrets ?? []) statements.push(db.prepare("INSERT INTO pier_channel_secrets(channel_id,secret) VALUES(?,?) ON CONFLICT(channel_id) DO UPDATE SET secret=excluded.secret").bind(secret.channelId, secret.secret));
   for (const kind of collections) {

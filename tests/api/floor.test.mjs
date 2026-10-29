@@ -1,7 +1,7 @@
 import { inboundNotice } from './inbound-asn-fixture.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
-import { installation } from "./harness.mjs";
+import { installation, parse } from "./harness.mjs";
 
 // The warehouse floor through the public command door: scan-to-receive with an
 // over and a short line, a pick wave whose wrong scans are refused and whose
@@ -181,7 +181,7 @@ test("warehouse floor: receive, wave pick, pack and dispatch summary", async (t)
 // Added to the existing warehouse journey budget: every business effect uses
 // the real authenticated Worker; only WooCommerce's network edge is synthetic.
 test('KIT-001: concurrent channel kits, whole shortages, versioned picks, assembly, returns and exact cost', async t => {
-  const { kitStock, kitFloor } = await import('./kits-fixture.mjs');
+  const { kitStock, kitFloor, kitExport, kitStockChange, kitMovementLinks } = await import('./kits-fixture.mjs');
   const incoming = [], publications = [];
   const h = await installation({ async outboundService(request) {
     const url = new URL(request.url);
@@ -240,39 +240,145 @@ test('KIT-001: concurrent channel kits, whole shortages, versioned picks, assemb
   await h.command('order.cancel',{orderId:quote.id,reason:'Quote lifecycle proof'});
   const packingSlip=await h.request(`/api/pier/orders/${manual.id}/packing-slip`);
   assert.match(await packingSlip.text(),/Kit definition 1.*Component picks and bins.*Kit bench/s);
+  const movement=(itemId,quantity,status='sellable')=>({itemId,locationId:b.bin.id,status,quantity:String(quantity*1000000)});
+  const reservation=(orderId,itemId,quantity)=>({orderId,itemId,locationId:b.bin.id,quantity:String(quantity*1000000)});
+  const replay=async(type,payload,commandId)=>{
+    const before=await kitExport(h);
+    const result=await h.command(type,payload,{commandId});
+    assert.deepEqual(await kitExport(h),before,'Replay changes no business record or successful command result');
+    return result;
+  };
+  // Pause provider polling after its concurrent-order proof; its allocations remain protected.
+  const channel=(await h.state()).channels[0];
+  await h.command('channel.save',{...channel,enabled:false});
+  const initial=await kitExport(h);
+  const componentReservations=structuredClone(initial.reservations);
   let task=await h.command('kitting.plan' ,{itemId:b.display.id,quantity:'5',locationId:b.bin.id,bins:Object.fromEntries(b.components.map(part=>[part.id,b.bin.id])),direction:'assemble',reason:'Preassemble five displays'});
+  const unapproved=await kitExport(h);
   await h.command('kitting.post',{taskId:task.id,version:task.version},{error:'APPROVAL'});
+  assert.deepEqual(await kitExport(h),unapproved);
   await h.command('kitting.approve',{taskId:task.id,version:task.version});
-  const taskCommand='synthetic-pier-assembly-1';
-  task=await h.command('kitting.post',{taskId:task.id,version:task.version},{commandId:taskCommand});
-  await h.command('kitting.post',{taskId:task.id,version:1},{commandId:taskCommand});
-  const displays=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.display.id,quantity:'2',price:'12'}]});
+  const taskCommand='synthetic-pier-assembly-1',taskPayload={taskId:task.id,version:task.version};
+  task=await h.command('kitting.post',taskPayload,{commandId:taskCommand});
+  const assembled=await kitExport(h);
+  const assemblyMoves=[...b.components.map(part=>movement(part.id,-5)),movement(b.display.id,5)];
+  kitStockChange(initial,assembled,{movements:assemblyMoves});
+  kitMovementLinks(initial,assembled,task.id,assemblyMoves);
+  assert.deepEqual(assembled.reservations,componentReservations,'Assembly preserves concurrent channel reservations');
+  report=await (await h.request('/api/pier/reports')).json();
+  const assemblyValue=report.valuation.rows.find(row=>row.itemId===b.display.id&&row.status==='sellable');
+  assert.deepEqual([assemblyValue.quantity,Number(assemblyValue.value)],['5',30]);
+  assert.deepEqual(assemblyValue.layers[0].parts.map(part=>[part.itemId,part.quantity,Number(part.value)]).sort(),b.components.map((part,n)=>[part.id,'5',5*(n+1)]).sort());
+  await replay('kitting.post',taskPayload,taskCommand);
+  const orderPayload={customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.display.id,quantity:'2',price:'12'}]};
+  const displays=await h.command('order.create',orderPayload,{commandId:'synthetic-pier-display-order'});
   assert.equal(displays.lines[0].reserved,'2');
+  const reserved=await kitExport(h);
+  kitStockChange(assembled,reserved,{reservations:[reservation(displays.id,b.display.id,2)]});
+  assert.deepEqual(reserved.reservations.filter(row=>row.itemId!==b.display.id),componentReservations,'Assembled kit orders reserve no components again');
+  await replay('order.create',orderPayload,'synthetic-pier-display-order');
   await h.command('kit.define',{itemId:b.display.id,version:b.displayDefinition.version,components:b.components.map((part,n)=>({itemId:part.id,quantity:n===0?'2':'1',unit:'each'})),shortagePolicy:'backorder',reason:'New display composition while old kits remain'});
   const revised=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.display.id,quantity:'1',price:'12'}]});
   assert.equal((await h.state()).reservations.filter(r=>r.orderId===revised.id&&r.itemId===b.display.id).length,0,'An old pre-assembled composition cannot satisfy a newer definition');
   await h.command('order.cancel',{orderId:revised.id,reason:'End versioned-stock probe'});
-  const shipment=await h.command('dispatch.create',{orderId:displays.id,shipmentReference:'synthetic-pier-shipment-5',lines:[{orderLineId:displays.lines[0].id,quantity:'2'}]});
+  const beforeShip=await kitExport(h);
+  kitStockChange(reserved,beforeShip);
+  const dispatchPayload={orderId:displays.id,shipmentReference:'synthetic-pier-shipment-5',lines:[{orderLineId:displays.lines[0].id,quantity:'2'}]};
+  const shipment=await h.command('dispatch.create',dispatchPayload,{commandId:'synthetic-pier-display-dispatch'});
+  const shipped=await kitExport(h),shipMoves=[movement(b.display.id,-2)];
+  kitStockChange(beforeShip,shipped,{movements:shipMoves,reservations:[reservation(displays.id,b.display.id,-2)]});
+  kitMovementLinks(beforeShip,shipped,shipment.id,shipMoves);
+  assert.deepEqual(shipment.lines[0].components,[{itemId:b.display.id,quantity:'2'}]);
+  const link=shipment.lines[0].reservations[0];
+  assert.equal(link.reservationId,reserved.reservations.find(row=>row.orderId===displays.id).id);
+  assert.equal(link.movementId,shipped.movements.at(-1).id);
+  assert.equal(link.quantity,'2');
+  assert.deepEqual(shipped.reservations,componentReservations,'Dispatch preserves every other order allocation');
+  await replay('dispatch.create',dispatchPayload,'synthetic-pier-display-dispatch');
   const payload={shipmentId:shipment.id,shipmentLineId:shipment.lines[0].id,locationId:b.bin.id,quantity:'1',reason:'Inspect each returned component'};
   await h.command('return.create',payload,{error:'KIT_INSPECTION'});
-  const returned=await h.command('return.create',{...payload,inspection:b.components.map(part=>({itemId:part.id,condition:'sellable',reason:'Checked intact'}))});
+  assert.deepEqual(await kitExport(h),shipped);
+  const returnPayload={...payload,inspection:b.components.map(part=>({itemId:part.id,condition:'sellable',reason:'Checked intact'}))};
+  const returned=await h.command('return.create',returnPayload,{commandId:'synthetic-pier-display-return'});
+  const quarantined=await kitExport(h),returnMoves=[movement(b.display.id,1,'quarantine')];
+  kitStockChange(shipped,quarantined,{movements:returnMoves});
+  kitMovementLinks(shipped,quarantined,returned.id,returnMoves);
+  assert.deepEqual([returned.shipmentId,returned.shipmentLineId,returned.kit.id],[shipment.id,shipment.lines[0].id,b.displayDefinition.id]);
+  report=await (await h.request('/api/pier/reports')).json();
+  assert.equal(Number(report.valuation.rows.find(row=>row.itemId===b.display.id&&row.status==='quarantine').value),6);
+  await replay('return.create',returnPayload,'synthetic-pier-display-return');
   await h.command('return.approve',{returnId:returned.id,version:returned.version});
-  await h.command('return.restock',{returnId:returned.id,version:returned.version});
+  const restockPayload={returnId:returned.id,version:returned.version};
+  await h.command('return.restock',restockPayload,{commandId:'synthetic-pier-display-restock'});
+  const restocked=await kitExport(h),restockMoves=[movement(b.display.id,-1,'quarantine'),movement(b.display.id,1)];
+  kitStockChange(quarantined,restocked,{movements:restockMoves});
+  kitMovementLinks(quarantined,restocked,returned.id,restockMoves);
+  await replay('return.restock',restockPayload,'synthetic-pier-display-restock');
   let disassembly=await h.command('kitting.plan',{itemId:b.display.id,definitionId:b.displayDefinition.id,quantity:'1',locationId:b.bin.id,bins:Object.fromEntries(b.components.map(part=>[part.id,b.bin.id])),direction:'disassemble',reason:'Recover returned display components'});
   await h.command('kitting.approve',{taskId:disassembly.id,version:disassembly.version});
-  await h.command('kitting.post',{taskId:disassembly.id,version:disassembly.version});
+  const disassemblyPayload={taskId:disassembly.id,version:disassembly.version};
+  await h.command('kitting.post',disassemblyPayload,{commandId:'synthetic-pier-display-disassembly'});
+  const disassembled=await kitExport(h),disassemblyMoves=[movement(b.display.id,-1),...b.components.map(part=>movement(part.id,1))];
+  kitStockChange(restocked,disassembled,{movements:disassemblyMoves});
+  kitMovementLinks(restocked,disassembled,disassembly.id,disassemblyMoves);
+  assert.deepEqual(disassembled.reservations,componentReservations);
+  await replay('kitting.post',disassemblyPayload,'synthetic-pier-display-disassembly');
   report=await (await h.request('/api/pier/reports')).json();
+  for(const [n,part] of b.components.entries()) {
+    const position=report.valuation.rows.find(row=>row.itemId===part.id&&row.locationId===b.bin.id&&row.status==='sellable');
+    const quantity=[22,24,26][n];
+    assert.deepEqual([position.quantity,Number(position.value)],[String(quantity),quantity*(n+1)]);
+    const recovered=position.layers.filter(layer=>layer.quantity==='1');
+    assert.equal(recovered.reduce((sum,layer)=>sum+Number(layer.value),0),n+1,'Disassembly recovers the actual component cost');
+    assert.deepEqual(recovered.map(layer=>layer.sourceId),[initial.receipts[0].lines.find(line=>line.itemId===part.id).movementId],'Recovered components keep their original receipt source');
+  }
   const displayMargin=report.margin.bySku.find(row=>row.key===b.display.id);
   assert.deepEqual([Number(displayMargin.revenue),Number(displayMargin.cost),Number(displayMargin.margin)],[24,12,12]);
   assert.equal(Number(report.valuation.reconciliation.difference),0);
   const net=report.kitMargins.find(row=>row.key===b.display.id);
   assert.deepEqual([net.quantity,net.returned,Number(net.revenue),Number(net.cost),Number(net.margin)],['1','1',12,6,6]);
-  const exported=await (await h.request('/api/pier/export')).json();
-  assert.equal(exported.kittingTasks.filter(task=>task.status==='posted').length,2);
-  assert.equal(exported.returns[0].inspection.length,3);
+  assert.equal(disassembled.kittingTasks.filter(task=>task.status==='posted').length,2);
+  assert.equal(disassembled.returns[0].inspection.length,3);
   s=await h.state();
   for(const position of s.positions) assert.ok(Number(position.available)>=0);
   assert.equal(s.positions.find(p=>p.itemId===b.display.id&&p.status==='sellable').quantity,'3');
+  await h.restart();
+  assert.deepEqual(await kitExport(h),disassembled,'Restart retains exact movements, allocations and command results');
+  await replay('kitting.post',taskPayload,taskCommand);
+  await replay('order.create',orderPayload,'synthetic-pier-display-order');
+  await replay('dispatch.create',dispatchPayload,'synthetic-pier-display-dispatch');
+  await replay('return.create',returnPayload,'synthetic-pier-display-return');
+  await replay('return.restock',restockPayload,'synthetic-pier-display-restock');
+  await replay('kitting.post',disassemblyPayload,'synthetic-pier-display-disassembly');
+
+  // Isolated scarce stock makes an accidental second component claim visible.
+  const scarce=await h.command('item.save',{sku:'synthetic-pier-950',name:'Scarce component',unit:'each',packSize:'1'});
+  const scarceKit=await h.command('item.save',{sku:'synthetic-pier-951',name:'Scarce display',unit:'kit',packSize:'1'});
+  let scarcePo=await h.command('po.draft',{supplierId:b.supplier.id,destinationWarehouse:'North',promiseDate:'2026-11-01',reason:'Exact scarce stock',lines:[{itemId:scarce.id,quantity:'1',price:'7'}]});
+  await h.command('po.approve',{poId:scarcePo.id,version:scarcePo.version});
+  scarcePo=await h.command('po.commit',{poId:scarcePo.id,version:scarcePo.version});
+  await h.command('receipt.create',{poId:scarcePo.id,supplierReference:'synthetic-pier-952',lines:[{poLineId:scarcePo.lines[0].id,locationId:b.bin.id,quantity:'1',cost:'7'}]});
+  // The first component is available, so a refusal on the second also proves rollback.
+  await h.command('kit.define',{itemId:scarceKit.id,components:[{itemId:b.components[2].id,quantity:'1',unit:'each'},{itemId:scarce.id,quantity:'1',unit:'each'}],shortagePolicy:'backorder',reason:'Protected reservation probe'});
+  const owner=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:scarce.id,quantity:'1',price:'10'}]});
+  const blocked=await h.command('kitting.plan',{itemId:scarceKit.id,quantity:'1',locationId:b.bin.id,bins:{[b.components[2].id]:b.bin.id,[scarce.id]:b.bin.id},direction:'assemble',reason:'Cannot steal another order allocation'});
+  await h.command('kitting.approve',{taskId:blocked.id,version:blocked.version});
+  const protectedStock=await kitExport(h);
+  await h.command('kitting.post',{taskId:blocked.id,version:blocked.version},{commandId:'synthetic-pier-scarce-assembly',error:'KIT_STOCK'});
+  assert.deepEqual(await kitExport(h),protectedStock,'Refused assembly changes no business exports or successful commands');
+  await h.command('order.cancel',{orderId:owner.id,reason:'Release scarce component for assembly'});
+  const released=await kitExport(h);
+  await h.command('kitting.post',{taskId:blocked.id,version:blocked.version},{commandId:'synthetic-pier-scarce-assembly'});
+  const scarceAssembled=await kitExport(h);
+  kitStockChange(released,scarceAssembled,{movements:[movement(b.components[2].id,-1),movement(scarce.id,-1),movement(scarceKit.id,1)]});
+  const scarceOrder=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:scarceKit.id,quantity:'1',price:'15'}]});
+  assert.deepEqual([scarceOrder.lines[0].reserved,scarceOrder.lines[0].backorder],['1','0']);
+  const scarceReserved=await kitExport(h);
+  kitStockChange(scarceAssembled,scarceReserved,{reservations:[reservation(scarceOrder.id,scarceKit.id,1)]});
+  const scarceShipment=await h.command('dispatch.create',{orderId:scarceOrder.id,shipmentReference:'synthetic-pier-953',lines:[{orderLineId:scarceOrder.lines[0].id,quantity:'1'}]});
+  kitStockChange(scarceReserved,await kitExport(h),{movements:[movement(scarceKit.id,-1)],reservations:[reservation(scarceOrder.id,scarceKit.id,-1)]});
+  assert.deepEqual(scarceShipment.lines[0].components,[{itemId:scarceKit.id,quantity:'1'}]);
+
 });
 
 test('KIT-001: splitting and disassembling cent-valued kits conserves every cost layer', async t => {
@@ -292,9 +398,109 @@ test('KIT-001: splitting and disassembling cent-valued kits conserves every cost
   assert.equal(Number(report.margin.bySku.find(row=>row.key===b.display.id).cost),0.03);
 });
 
+async function approvedTraceOrder(h, b) {
+  const {tracePolicyStock}=await import('./trace-fixture.mjs');
+  const owner=(await h.state()).actor.id;
+  const stock=await tracePolicyStock(h,b);
+  const exported=async()=>{
+    const response=await h.request('/api/pier/export');assert.equal(response.status,200);
+    const {exportedAt,auditEvents,...business}=await response.json();return business;
+  };
+  const refuses=async(type,payload,options={})=>{
+    const before=await exported();
+    await h.command(type,payload,{error:'DUPLICATE',...options});
+    assert.deepEqual(await exported(),before,`${type} refusal retains the entire business export and successful command results`);
+  };
+  const member=await h.request('/auth/dev/enter?as=member',{headers:{'x-rer-dev-key':h.devKey}});
+  assert.equal(member.status,303);
+  const as=member.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
+  const memberSession=await(await h.request('/auth/session',{as})).json();
+  await h.command('role.set',{operatorId:memberSession.operator.id,role:'warehouse'});
+  await refuses('trace.configure',{itemId:stock.fifo.id,version:stock.fifo.version,mode:'lot',allocation:'fefo',reason:'Unauthorized policy change'},{as,error:'FORBIDDEN'});
+  let current=await exported();
+  const approvals=current.items.filter(item=>[stock.fifo.id,stock.fefo.id,stock.other.id].includes(item.id)).map(item=>[item.id,item.tracePolicy]);
+  assert.deepEqual(stock.fifo.tracePolicy,{mode:'lot',allocation:'fifo',expiryRequired:false,approvedBy:owner,approvedAt:stock.fifo.tracePolicy.approvedAt,reason:'Owner approved first receipt and original arrival order',version:1});
+  assert.deepEqual(stock.fefo.tracePolicy,{mode:'lot',allocation:'fefo',expiryRequired:false,approvedBy:owner,approvedAt:stock.fefo.tracePolicy.approvedAt,reason:'Owner approved expiry first with undated stock last',version:2});
+  assert.ok(Number.isFinite(Date.parse(stock.fifo.tracePolicy.approvedAt)));
+  const original=current.commands.map(command=>command.result.result).find(result=>result?.id===stock.fefo.id&&result?.tracePolicy?.version===1);
+  assert.equal(original.tracePolicy.approvedBy,owner);
+  assert.equal(original.tracePolicy.reason,'Initial owner receipt policy');
+  assert.equal(original.tracePolicy.allocation,'fifo');
+  const identity=(sku,lot)=>current.traceIdentities.find(row=>row.itemId===sku.id&&row.lot===lot);
+  const early=identity(stock.fifo,'synthetic-pier-348');
+  assert.equal(early.createdAt,stock.firstAt,'Re-receiving a lot retains its first receipt time');
+  const sameReceipt=['synthetic-pier-348','synthetic-pier-349','synthetic-pier-347'].map(lot=>identity(stock.fifo,lot));
+  assert.ok(sameReceipt.every(row=>row.createdAt===stock.firstAt));
+  assert.ok(sameReceipt[0].arrivalSequence<sameReceipt[1].arrivalSequence&&sameReceipt[1].arrivalSequence<sameReceipt[2].arrivalSequence,'FIFO retains scan arrival order even when receipt movements group interleaved bins');
+  const exact=current.traceIdentities.filter(row=>row.itemId===stock.other.id);
+  assert.deepEqual(exact.map(row=>row.lot).sort(),['SYNTHETIC-PIER-348','synthetic-pier-348']);
+  assert.notEqual(exact.find(row=>row.lot===early.lot).id,early.id,'The same supplier lot text on another SKU is a separate identity');
+  const receiptProof=[
+    [stock.first,[[stock.fifo.id,b.destination.id,'synthetic-pier-348',1],[stock.fifo.id,b.source.id,'synthetic-pier-349',1],[stock.fifo.id,b.destination.id,'synthetic-pier-347',1]]],
+    [stock.later,[[stock.fifo.id,b.source.id,'synthetic-pier-346',1]]],
+    [stock.repeated,[[stock.fifo.id,b.destination.id,'synthetic-pier-348',1]]],
+    [stock.undated,[[stock.fefo.id,b.source.id,'synthetic-pier-350',1]]],
+    [stock.dated,[[stock.fefo.id,b.destination.id,'synthetic-pier-351',1],[stock.fefo.id,b.source.id,'synthetic-pier-352',1],[stock.fefo.id,b.destination.id,'synthetic-pier-353',1]]],
+    [stock.exact,[[stock.other.id,b.source.id,'synthetic-pier-348',1],[stock.other.id,b.source.id,'SYNTHETIC-PIER-348',1]]],
+  ];
+  for(const [receipt,expected] of receiptProof) {
+    assert.deepEqual(current.traceEvents.filter(event=>event.documentId===receipt.id).map(event=>[event.itemId,event.locationId,current.traceIdentities.find(row=>row.id===event.identityId).lot,Number(event.quantity)/1000000]).sort(),expected.sort(),'Exact source-linked receipt identities, bins and quantities');
+    const retained=current.receipts.find(row=>row.id===receipt.id);
+    assert.equal(retained.poId,stock.po.id);
+    for(const line of retained.lines) {
+      assert.equal(stock.po.lines.find(row=>row.id===line.poLineId).itemId,line.itemId);
+      const movement=current.movements.find(row=>row.id===line.movementId);
+      assert.equal(movement.documentId,receipt.id);assert.equal(movement.itemId,line.itemId);
+      const events=current.traceEvents.filter(row=>row.movementId===movement.id);
+      assert.equal(events.reduce((n,event)=>n+BigInt(event.quantity),0n),BigInt(movement.quantity));
+      for(const part of (Array.isArray(line.trace)?line.trace:[line.trace])) assert.equal(events.find(event=>event.identityId===identity({id:line.itemId},part.lot).id).quantity,parse(part.quantity??line.quantity).toString());
+    }
+  }
+  // Every refusal is measured against a fresh, complete business export. The
+  // first receipt line is valid so a later code collision also proves rollback.
+  let collisionPo=await h.command('po.draft',{supplierId:b.supplier.id,promiseDate:'2026-11-04',reason:'Namespace refusal proof',lines:[{itemId:b.serial.id,quantity:'2',price:'3'}]});
+  await h.command('po.approve',{poId:collisionPo.id,version:collisionPo.version});collisionPo=await h.command('po.commit',{poId:collisionPo.id,version:collisionPo.version});
+  const unit=current.traceIdentities.find(row=>row.serial==='synthetic-pier-307');
+  for(const serial of [b.lot.sku.toUpperCase(),b.lot.barcode,b.source.barcode.toUpperCase(),b.source.name,early.code]) await refuses('receipt.create',{poId:collisionPo.id,supplierReference:'synthetic-pier-357',lines:[
+    {poLineId:collisionPo.lines[0].id,locationId:b.source.id,quantity:'1',cost:'3',trace:{serial:'synthetic-pier-358'}},
+    {poLineId:collisionPo.lines[0].id,locationId:b.source.id,quantity:'1',cost:'3',trace:{serial}},
+  ]});
+  await refuses('receipt.create',{poId:collisionPo.id,supplierReference:'synthetic-pier-359',lines:[{poLineId:collisionPo.lines[0].id,locationId:b.source.id,quantity:'1',cost:'3',trace:{serial:unit.serial.toUpperCase()}}]},{error:'DUPLICATE_SERIAL'});
+  for(const code of [unit.serial.toUpperCase(),early.code.toUpperCase()]) {
+    for(const fields of [{sku:code},{barcode:code},{caseBarcode:code},{barcodes:[{code,quantity:'1'}]}]) await refuses('item.save',{sku:'synthetic-pier-360',name:'Refused namespace collision',unit:'each',packSize:'2',...fields});
+    for(const fields of [{name:code},{barcode:code}]) await refuses('location.save',{name:'synthetic-pier-361',warehouse:'Trace North',kind:'bin',...fields});
+  }
+  await h.restart();current=await exported();
+  assert.deepEqual(current.items.filter(item=>approvals.some(([id])=>item.id===id)).map(item=>[item.id,item.tracePolicy]),approvals,'Owner, reason and policy versions survive restart and export');
+  assert.deepEqual(current.traceIdentities.filter(row=>[early.id,...exact.map(row=>row.id)].includes(row.id)).map(row=>[row.id,row.itemId,row.lot]).sort(),[early,...exact].map(row=>[row.id,row.itemId,row.lot]).sort(),'Exact case and per-SKU supplier references survive restart');
+  const allocate=async(item,expected,dispatches,prefix)=>{
+    const reservations=business=>business.reservations.filter(row=>row.orderId===order.id).flatMap(reservation=>business.traceReservations.find(row=>row.reservationId===reservation.id).parts.map(part=>[business.traceIdentities.find(row=>row.id===part.identityId).lot,Number(part.quantity)/1000000]));
+    let order=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:item.id,quantity:String(prefix.reduce((n,[,quantity])=>n+quantity,0)),price:'5'}]});
+    assert.deepEqual(reservations(await exported()).sort(),[...prefix].sort(),'Partial demand takes the exact first identities before later arrivals');
+    await h.command('order.cancel',{orderId:order.id,reason:'Release prefix probe for the split-dispatch journey'});
+    order=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:item.id,quantity:String(expected.reduce((n,[,quantity])=>n+quantity,0)),price:'5'}]});
+    current=await exported();
+    assert.deepEqual(reservations(current).sort(),[...expected].sort(),`${item.tracePolicy.allocation} exact identity reservation order from exported receipts`);
+    for(const [index,parts] of dispatches.entries()) {
+      const shipment=await h.command('dispatch.create',{orderId:order.id,shipmentReference:`synthetic-pier-${item.sku.endsWith('340')?370:380}-${index}`,lines:[{orderLineId:order.lines[0].id,quantity:String(parts.reduce((n,[,quantity])=>n+quantity,0))}]});
+      current=await exported();
+      const issued=shipment.lines.flatMap(line=>line.reservations.flatMap(link=>current.traceEvents.filter(event=>event.movementId===link.movementId).map(event=>{
+        assert.equal(event.documentId,shipment.id);assert.equal(event.itemId,item.id);assert.equal(event.locationId,link.locationId);
+        assert.ok(current.traceEvents.some(source=>source.identityId===event.identityId&&[stock.first.id,stock.later.id,stock.repeated.id,stock.undated.id,stock.dated.id].includes(source.documentId)&&BigInt(source.quantity)>0n));
+        return [current.traceIdentities.find(row=>row.id===event.identityId).lot,-Number(event.quantity)/1000000];
+      })));
+      assert.deepEqual(issued,parts,'Split dispatch consumes the independently expected identity order');
+    }
+    assert.equal(current.reservations.filter(row=>row.orderId===order.id).length,0);
+  };
+  await allocate(stock.fifo,[['synthetic-pier-348',2],['synthetic-pier-349',1],['synthetic-pier-347',1],['synthetic-pier-346',1]],[[['synthetic-pier-348',1]],[['synthetic-pier-348',1],['synthetic-pier-349',1]],[['synthetic-pier-347',1],['synthetic-pier-346',1]]],[['synthetic-pier-348',2],['synthetic-pier-349',1]]);
+  await allocate(stock.fefo,[['synthetic-pier-352',1],['synthetic-pier-353',1],['synthetic-pier-351',1],['synthetic-pier-350',1]],[[['synthetic-pier-352',1],['synthetic-pier-353',1]],[['synthetic-pier-351',1],['synthetic-pier-350',1]]],[['synthetic-pier-352',1]]);
+}
+
 test('TRACE-001: dated lots and serials survive receiving, transfer, exact picks, split dispatch, quarantine and return tracing', async t=>{
   const {traceStock,gs1Lot}=await import('./trace-fixture.mjs');
-  const h=await installation();t.after(()=>h.close());const b=await traceStock(h);
+  let outbound=0;
+  const h=await installation({now:'2026-11-04T10:00:00.000Z',outboundService:()=>{outbound++;throw new Error('Traceability must make no outbound requests');}});t.after(()=>h.close());const b=await traceStock(h);
   let receiving=await h.command('receiving.start',{poId:b.po.id,locationId:b.source.id});
   receiving=await h.command('receiving.scan',{receivingId:receiving.id,code:gs1Lot('synthetic-pier-305','281231'),count:3});
   receiving=await h.command('receiving.scan',{receivingId:receiving.id,code:b.lot.barcode,count:3,trace:{lot:'synthetic-pier-306',expiry:'2027-06-30'}});
@@ -341,6 +547,7 @@ test('TRACE-001: dated lots and serials survive receiving, transfer, exact picks
   const trace=await (await h.request(`/api/pier/trace?identityId=${near.id}`)).json();
   assert.deepEqual(trace.receipts.map(r=>r.id),[receipt.id]);assert.deepEqual(trace.customers.map(p=>p.id),[b.customer.id]);assert.deepEqual(trace.shipments.map(sh=>sh.id).sort(),[first.id,second.id].sort());assert.deepEqual(trace.suppliers.map(p=>p.id),[b.supplier.id]);
   const serialTrace=await (await h.request(`/api/pier/trace?identityId=${unit.id}`)).json();assert.deepEqual(serialTrace.returns.map(r=>r.id),[returned.id]);
+  await approvedTraceOrder(h,b);
   await h.command('location.policy',{locationId:b.destination.id,version:(await h.state()).locations.find(l=>l.id===b.destination.id).version,capacityCm3:'20',lengthCm:'10',widthCm:'10',heightCm:'10',aisleMetres:'1',bayMetres:'1',pickSequence:'1',allowedItemIds:[b.serial.id]});
   let plan=await h.command('slotting.plan',{warehouse:'Trace North',sourceLocationId:b.source.id});
   assert.equal(plan.tasks.length,2);assert.ok(plan.tasks.every(task=>task.trace?.length===1&&task.quantity==='1'));
@@ -350,11 +557,12 @@ test('TRACE-001: dated lots and serials survive receiving, transfer, exact picks
   assert.equal(plan.status,'completed');
   const exportResponse=await h.request('/api/pier/export');assert.equal(exportResponse.status,200);const exported=await exportResponse.json();assert.ok(exported.traceEvents.every(event=>exported.movements.some(m=>m.id===event.movementId)));
   const reportResponse=await h.request('/api/pier/reports');assert.equal(reportResponse.status,200);const report=await reportResponse.json();assert.equal(Number(report.valuation.reconciliation.difference),0);
+  assert.equal(outbound,0,'All trace policy and identity operations stay within the authenticated installation');
 });
 
 test('TRACE-001: an already-reserved lot becomes unavailable for pick and dispatch after its expiry day', async t=>{
-  const {traceStock}=await import('./trace-fixture.mjs');const h=await installation();t.after(()=>h.close());const b=await traceStock(h);
-  const yesterday=new Date(Date.now()-86400000).toISOString(),expiry=yesterday.slice(0,10),at={headers:{'x-pier-test-now':yesterday}};
+  const {traceStock}=await import('./trace-fixture.mjs');const h=await installation({now:'2026-11-05T00:00:00.000Z'});t.after(()=>h.close());const b=await traceStock(h);
+  const expiry='2026-11-04',at={headers:{'x-pier-test-now':'2026-11-04T23:59:59.999Z'}};
   const receipt=await h.command('receipt.create',{poId:b.po.id,supplierReference:'synthetic-pier-320',lines:[{poLineId:b.po.lines[0].id,locationId:b.source.id,quantity:'1',cost:'2',trace:{lot:'synthetic-pier-321',expiry}}]},at);
   const order=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:b.lot.id,quantity:'1',price:'5'}]},at);
   const carrier=await h.command('carrier.save',{name:'Expiry pickup',warehouse:'Trace North',dock:'Trace dock',cutoff:'23:59',timeZone:'America/Chicago'},at);

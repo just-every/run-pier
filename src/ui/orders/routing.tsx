@@ -134,9 +134,7 @@ export function WarehouseRouting({
                 states: tokens(z.states.toUpperCase()),
                 countries: tokens(z.countries.toUpperCase()),
               })),
-            locations: Object.fromEntries(
-              locations.filter((l) => l.key).map((l) => [l.key, [l.warehouse]]),
-            ),
+            locationMappings: locations.filter((l) => l.key.trim()).map(l => ({ locationId: l.key.trim(), warehouse: l.warehouse })),
           })
         }
       >
@@ -311,6 +309,7 @@ export function WarehouseRouting({
               </button>
             </div>
           )}
+          {rule.dryRun && (<p>Reviewed orders from {rule.dryRun.from} to {rule.dryRun.to}</p>)}
           {rule.dryRun && (
             <Table
               headings={[

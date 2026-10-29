@@ -1,5 +1,6 @@
 import { decimal, fail, format, get, id, nextReference, SCALE, text, type Context, type Row } from '../model';
 import { amount, CENT, money, toCents } from '../money';
+import { estimateTax } from '../tax-rules';
 import { isoDay } from '../sales-quotes';
 import { invoiceTerms } from './terms';
 import { append, records } from './state';
@@ -36,22 +37,10 @@ export function chargeLines(value: any) {
   if (!Array.isArray(value ?? []) || (value?.length ?? 0) > 100) fail('INVOICE_CHARGES', 'Supply at most 100 charge lines.');
   return (value ?? []).map((r: any) => {
     if (!['freight', 'handling', 'surcharge', 'discount'].includes(r.kind) || typeof r.taxable !== 'boolean') fail('INVOICE_CHARGES', 'Choose freight, handling, surcharge or discount and explicitly review its taxability.');
-    const n = decimal(r.amount) * SCALE;
+    const n = decimal(typeof r.amount === 'string' ? r.amount.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') : r.amount) * SCALE;
     if (n % CENT) fail('INVOICE_CHARGES', 'Charge lines must be whole cents.');
     return { id: id(), kind: r.kind, description: text(r.description ?? r.kind), amount: money(r.kind === 'discount' ? -n : n), taxable: r.taxable };
   });
-}
-export function retainedTax(c: Context, order: Row, net: bigint, taxableCharges: bigint) {
-  const destination = order.shipTo;
-  const table = c.s.salesPolicies.find(r => r.kind === 'tax-table' && r.state === destination?.state && r.country === (destination?.country ?? 'US'));
-  const customer = get(c.s, 'parties', order.customerId), certificates = customer.resaleCertificates ?? [];
-  const certificate = certificates.find((r: any) => r.state === destination?.state);
-  if (certificates.length && (!certificate || certificate.expires < c.now.slice(0, 10))) fail('INVOICE_TAX', 'Review the missing or expired exemption for this destination before invoicing.');
-  if (!table) return fail('INVOICE_TAX', 'An owner-maintained jurisdiction estimate or a verified tax provider is required. No rate is assumed.');
-  const taxable = net + taxableCharges;
-  if (taxable < 0n) fail('INVOICE_CHARGES', 'Taxable discounts exceed taxable items and charges.');
-  const rate = certificate ? 0n : decimal(table.rate);
-  return { source: 'Owner-maintained jurisdiction table', status: 'retained-owner-estimate', providerCommit: 'not-configured', table: structuredClone(table), certificate: structuredClone(certificate ?? null), rate: format(rate), taxableAmount: money(taxable), amount: money(toCents(taxable * rate / (100n * SCALE))), destination: structuredClone(destination) };
 }
 export function draftInvoice(c: Context, p: any) {
   const order = get(c.s, 'orders', p.orderId), policy = invoicePolicy(c, order), mode = policy?.mode ?? 'shipment';
@@ -66,12 +55,13 @@ export function draftInvoice(c: Context, p: any) {
   const currency = p.currency ?? order.currency ?? 'USD';
   if (!['USD', 'CAD'].includes(currency)) fail('INVOICE_CURRENCY', 'Native invoices currently support USD and reviewed CAD.');
   if (currency !== (order.currency ?? 'USD') && (!p.usdRate || !Array.isArray(p.unitPrices) || order.lines.some((l: any) => !p.unitPrices.some((r: any) => r.orderLineId === l.id)))) fail('INVOICE_CURRENCY', 'A currency conversion requires a reviewed USD rate and an explicitly reviewed price for each order line.');
-  const rate = currency === 'USD' ? SCALE : decimal(p.usdRate, true), lines = sourceLines(c, order, shipment, p), charges = chargeLines(p.charges);
+  const rate = currency === 'USD' ? SCALE : decimal(p.usdRate, true), lines = sourceLines(c, order, shipment, p), charges = chargeLines(p.charges ?? (mode === 'prepay' ? order.charges : []));
   const itemNet = lines.reduce((n: bigint, l: any) => n + amount(l.amount), 0n), net = itemNet + charges.reduce((n: bigint, r: any) => n + amount(r.amount), 0n);
   if (net < 0n) fail('INVOICE_CHARGES', 'Discounts cannot exceed the invoice items and charges.');
-  const tax = retainedTax(c, order, itemNet, charges.filter((r: any) => r.taxable).reduce((n: bigint, r: any) => n + amount(r.amount), 0n));
-  const taxLines = [...lines.map((r: any) => ({ lineId: r.id, amount: money(toCents(amount(r.amount) * decimal(tax.rate) / (100n * SCALE))) })), ...charges.map((r: any) => ({ lineId: r.id, amount: money(r.taxable ? toCents(amount(r.amount) * decimal(tax.rate) / (100n * SCALE)) : 0n) }))];
-  Object.assign(tax, { lines: taxLines, amount: money(taxLines.reduce((n, r) => n + amount(r.amount), 0n)) });
+  const tax = estimateTax(c, order.customerId, order.shipTo, order.routing?.reserveWarehouses?.length>1?null:order.warehouse, lines, charges);
+  if (tax.status !== 'estimate' || tax.amount === null) return fail('INVOICE_TAX', tax.source + '. Review the source and prepare the draft again; no tax rate is assumed.');
+  if (tax.lines.reduce((n: bigint, line: any) => n + amount(line.taxableAmount), 0n) < 0n) fail('INVOICE_CHARGES', 'Taxable discounts exceed taxable items and charges.');
+  tax.status = 'retained-owner-estimate';
   const total = net + amount(tax.amount), date = isoDay(p.invoiceDate ?? c.now.slice(0, 10), 'Invoice date');
   return append(c, 'invoices', { reference: nextReference(records(c.s, 'invoices'), 'INV'), orderId: order.id, customerId: order.customerId, salesRepId: order.salesRepId ?? null, salesRep: structuredClone(order.salesRep ?? null), customer: structuredClone(get(c.s, 'parties', order.customerId)), shipmentId: shipment?.id ?? null, sourceVersion: shipment?.version ?? order.version, sourceOrderVersion: order.version, sourceSnapshot: structuredClone(shipment ?? order), policy: mode, policySnapshot: structuredClone(policy ?? { mode: 'shipment' }), date, invoiceDate: date, ...invoiceTerms(p.terms ?? policy?.terms ?? get(c.s, 'parties', order.customerId).paymentTerms, date, net), currency, usdRate: format(rate), usdTotal: money(toCents(total * rate / SCALE)), lines, charges, subtotal: money(net), tax, total: money(total), status: 'draft', priceReason: p.priceReason ? text(p.priceReason) : null, ledger: { status: 'pending-external-posting', reason: 'No verified native invoice ledger adapter is connected.' }, review: null });
 }

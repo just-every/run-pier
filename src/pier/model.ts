@@ -59,6 +59,9 @@ export type Row = {
   [key: string]: any;
 };
 export const collections = [
+  "webhookSubscriptions",
+  "webhookEvents",
+  "webhookDeliveries",
   "customFieldDefinitions",
   "purchaseApprovalPolicies",
   "savedReports",
@@ -104,6 +107,7 @@ export const collections = [
   "backorderPolicies",
   "backorderReleases",
   "proposals",
+  "substituteMappings",
   "imports",
   "roles",
   "priceLists",
@@ -190,6 +194,8 @@ export type Context = {
   commandId: string;
   now: string;
   backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "recurringOrders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies" | "operationalExceptionPolicies" | "paymentConnections" | "workflowRules"; id: string; version: number };
+  substituteActors?: { id: string; version: number; status: string }[];
+  substituteAuthorities?: { actorId: string; operatorVersion: number; permissionVersion: number; role: string }[];
   privacyStatements?: D1PreparedStatement[];
   channelSecrets?: { channelId: string; secret: string }[];
   booksCredentialPresent?: boolean;

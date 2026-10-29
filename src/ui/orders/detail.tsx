@@ -46,7 +46,7 @@ export function OrderCard({ state, order, run, busy, costs, resolve }: { state: 
       <h2>{order.reference}</h2><Pill order={order} />
       <span className="order-channel"><ChannelMark channel={order.channel} named /></span>
     </div>
-    <div className="order-customer"><h3>{customer?.name ?? 'Removed customer'}</h3><p>{customer?.email ? <><span>{customer.email}</span><i aria-hidden="true">|</i></> : null}<span>Created {when(order.createdAt)}</span></p></div>
+    <div className="order-customer"><h3>{customer?.name ?? (order.customerId ? 'Removed customer' : 'Private customer')}</h3><p>{customer?.email ? <><span>{customer.email}</span><i aria-hidden="true">|</i></> : null}<span>Created {when(order.createdAt)}</span></p></div>
     <div className="order-ship">
       <div className="ship-from"><Icon name="pin" /><div><small>Ships from</small><strong>{order.fulfilment==='dropship'?'Direct from supplier':orderWarehouses(state, order).join(', ') || 'No reserved bin yet'}</strong></div></div>
       <div className="ship-by"><Icon name="calendar" /><div><small>Ship by</small><strong>{order.promiseDate ? shipDay(order.promiseDate, true) : 'No promise date'}</strong></div></div>

@@ -3,6 +3,100 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { installation, basics, buy, receive, parse, persona } from "./harness.mjs";
 
+const history = (state) => Object.fromEntries([
+  "items", "locations", "positions", "movements", "reservations", "supplierItems",
+  "purchaseOrders", "receipts", "orders", "shipments", "returns", "transfers", "counts", "commands",
+].map((key) => [key, state[key]]));
+const exportedHistory = async (h) => {
+  const response = await h.request("/api/pier/export");
+  assert.equal(response.status, 200);
+  return history(await response.json());
+};
+const refusesHistory = async (h, type, payload) => {
+  const before = history(await h.state()), exported = await exportedHistory(h);
+  await h.command(type, payload, { error: "HISTORY" });
+  assert.deepEqual(history(await h.state()), before, "refusal preserves definitions and all physical and document effects");
+  assert.deepEqual(await exportedHistory(h), exported, "refusal preserves exact successful command results and history");
+};
+async function exactNativeProposalConsequences(h) {
+  const b = await basics(h);
+  const supply = await buy(h, b, '10');
+  await receive(h, b, supply, '10');
+  const from = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '6' }] });
+  const to = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '7' }] });
+  const entered = await fetch(`${h.origin}/auth/dev/enter?as=member`, { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
+  assert.equal(entered.status, 303);
+  const as = entered.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
+  const agent = await (await h.request('/auth/session', { as })).json();
+  const human = await (await h.request('/auth/session')).json();
+  assert.notEqual(agent.operator.id, human.operator.id);
+  await h.command('role.set', { operatorId: agent.operator.id, role: 'agent' });
+  const exported = async () => {
+    const response = await h.request('/api/pier/export');
+    assert.equal(response.status, 200);
+    const { exportedAt, ...business } = await response.json();
+    return business;
+  };
+  const prepare = (kind, plan, evidence) => h.command('proposal.prepare', {
+    kind, plan, evidence, assumptions: 'Observed physical stock and exact current customer demand',
+  }, { as });
+  const apply = async proposal => {
+    await h.command('proposal.approve', { proposalId: proposal.id, version: proposal.version });
+    const commandId = randomUUID(), payload = { proposalId: proposal.id, version: proposal.version };
+    const result = await h.command('proposal.execute', payload, { commandId });
+    const after = await exported();
+    assert.deepEqual(await h.command('proposal.execute', payload, { commandId }), result);
+    assert.deepEqual(await exported(), after, 'identical application recovery adds no second business effect');
+    await h.command('proposal.execute', payload, { error: 'STALE' });
+    assert.deepEqual(await exported(), after, 'an old proposal version cannot apply again under a new command identity');
+    return after;
+  };
+  const initial = await exported();
+  const quantity = (state, orderId) => state.reservations.filter(row => row.orderId === orderId).reduce((n, row) => n + BigInt(row.quantity), 0n);
+  assert.equal(quantity(initial, from.id), 6000000n);
+  assert.equal(quantity(initial, to.id), 4000000n);
+  const allocation = await prepare('reallocation', { fromOrderId: from.id, toOrderId: to.id, itemId: b.item.id, quantity: '2' }, [from.id, to.id]);
+  const reallocated = await apply(allocation);
+  assert.equal(quantity(reallocated, from.id), 4000000n);
+  assert.equal(quantity(reallocated, to.id), 6000000n);
+  assert.ok(reallocated.reservations.every(row => row.itemId === b.item.id && row.locationId === b.source.id));
+  for (const key of ['movements', 'purchaseOrders', 'receipts', 'counts', 'shipments', 'imports'])
+    assert.deepEqual(reallocated[key], initial[key], 'reallocation changes reservations only');
+  for (const original of [from, to]) {
+    const changed = reallocated.orders.find(row => row.id === original.id);
+    const before = initial.orders.find(row => row.id === original.id);
+    assert.deepEqual(changed, { ...before, version: before.version + 1 });
+  }
+  assert.equal(reallocated.proposals.find(row => row.id === allocation.id).approval.actorId, human.operator.id);
+  let count = await h.command('count.capture', { locationId: b.source.id });
+  count = await h.command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: b.item.id, status: 'sellable', quantity: '12' }], reason: 'synthetic-pier: physical recount found two extra units' });
+  const old = await prepare('count-drift', { countId: count.id, version: count.version }, [count.id]);
+  await h.command('proposal.approve', { proposalId: old.id, version: old.version });
+  count = await h.command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: b.item.id, status: 'sellable', quantity: '13' }], reason: 'synthetic-pier: corrected physical recount found three extra units' });
+  const beforeRefusal = await exported();
+  await h.command('proposal.execute', { proposalId: old.id, version: old.version }, { error: 'STALE' });
+  assert.deepEqual(await exported(), beforeRefusal, 'changed count input refuses with no stock, approval or successful command effect');
+  const current = await prepare('count-drift', { countId: count.id, version: count.version }, [count.id]);
+  const beforeCount = await exported();
+  const counted = await apply(current);
+  const added = counted.movements.filter(row => !beforeCount.movements.some(old => old.id === row.id));
+  assert.equal(added.length, 1);
+  assert.equal(added[0].quantity, '3000000');
+  assert.equal(added[0].itemId, b.item.id);
+  assert.equal(added[0].locationId, b.source.id);
+  assert.equal(added[0].status, 'sellable');
+  assert.equal(added[0].documentId, count.id);
+  assert.equal(added[0].actorId, human.operator.id);
+  assert.equal(counted.movements.reduce((n, row) => n + BigInt(row.quantity), 0n), 13000000n);
+  const posted = counted.counts.find(row => row.id === count.id);
+  assert.equal(posted.status, 'posted');
+  assert.equal(posted.version, count.version + 1);
+  assert.deepEqual(posted.approval, { actorId: human.operator.id, version: count.version, at: added[0].createdAt });
+  for (const key of ['orders', 'reservations', 'purchaseOrders', 'receipts', 'shipments', 'imports'])
+    assert.deepEqual(counted[key], beforeCount[key], 'count application posts only the reviewed count consequence');
+  await h.invariant();
+}
+
 test("Pier public Worker and D1 wholesale journey", async (t) => {
   const outbound = [];
   const outboundService = request => { outbound.push(new URL(request.url).origin); throw new Error('Native stock does not authorize external access.'); };
@@ -11,7 +105,7 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
   let b, po, receipt, order, shipment, returned;
   await t.test(
     "01 item definitions and archive preserve used history",
-    async () => {
+    async (t) => {
       assert.equal((await h.state()).items.length, 0);
       b = await basics(h);
       await h.command(
@@ -24,6 +118,79 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         { sku: "BAD", name: "Bad", unit: "each", packSize: "0.0000001" },
         { error: "DECIMAL" },
       );
+      const definitions = await installation({ outboundService });
+      t.after(() => definitions.close());
+      const d = await basics(definitions);
+      // Each item has only the named reference: one guard cannot mask another.
+      const referenced = [];
+      const terms = await definitions.command("supplierItem.save", {
+        supplierId: d.supplier.id, itemId: d.item.id, code: "synthetic-pier-1-terms",
+        packSize: "0.5", price: "0.25", minimum: "0", leadDays: 3,
+      });
+      assert.equal(terms.itemId, d.item.id);
+      referenced.push(d.item);
+      const createItem = (suffix) => definitions.command("item.save", {
+        sku: `synthetic-pier-1-${suffix}`, name: `Definition ${suffix}`, unit: "each", packSize: "0.5",
+      });
+      const purchaseItem = await createItem("purchase");
+      const draft = await definitions.command("po.draft", {
+        supplierId: d.supplier.id, promiseDate: "2026-11-01", reason: "Definition reference",
+        lines: [{ itemId: purchaseItem.id, quantity: "1.25", price: "0.25" }],
+      });
+      assert.equal(draft.lines[0].quantity, "1.25");
+      referenced.push(purchaseItem);
+      const salesItem = await createItem("sales");
+      const demand = await definitions.command("order.create", {
+        customerId: d.customer.id, lines: [{ itemId: salesItem.id, quantity: "0.75" }],
+      });
+      assert.equal(demand.lines[0].backorder, "0.75");
+      referenced.push(salesItem);
+      const countItem = await createItem("count");
+      const captured = await definitions.command("count.capture", { locationId: d.destination.id });
+      const count = await definitions.command("count.record", {
+        countId: captured.id, version: captured.version, reason: "Physical empty-bin count",
+        lines: [{ itemId: countItem.id, status: "sellable", quantity: "0" }],
+      });
+      assert.equal(count.lines[0].quantity, "0");
+      referenced.push(countItem);
+      let opening = await definitions.command("import.stage", {
+        namespace: "synthetic-pier-1", sourceVersion: "1", exportedAt: "2026-10-13T00:00:00Z",
+        filters: "one physical opening", cutoffTimezone: "America/Chicago", currency: "USD", mappingRevision: "1",
+        files: [
+          { name: "items.csv", kind: "items", csv: "key,sku,name,barcode,unit,packSize\nstock,synthetic-pier-1-movement,Movement only,,each,0.5\n" },
+          { name: "locations.csv", kind: "locations", csv: "key,name,warehouse,kind\nbin,synthetic-pier-1-bin,North,bin\n" },
+          { name: "positions.csv", kind: "positions", csv: "key,itemKey,locationKey,status,quantity,unit,cost\nopening,stock,bin,sellable,1.25,each,0.25\n" },
+        ],
+      });
+      assert.deepEqual(opening.errors, []);
+      for (const stage of ["mapped", "reconciled", "shadow", "frozen"])
+        opening = await definitions.command("import.review", {
+          batchId: opening.id, version: opening.version, stage, reason: "Reconciled physical opening",
+        });
+      await definitions.command("import.commit", { batchId: opening.id, version: opening.version });
+      const seeded = await definitions.state();
+      const movementItem = seeded.items.find((item) => item.sku === "synthetic-pier-1-movement");
+      const movementBin = seeded.locations.find((location) => location.name === "synthetic-pier-1-bin");
+      assert.equal(seeded.movements.find((movement) => movement.itemId === movementItem.id).quantity, "1250000");
+      referenced.push(movementItem);
+      for (const item of referenced) {
+        assert.equal(item.unit, "each");
+        assert.equal(item.packSize, "0.5");
+        await refusesHistory(definitions, "item.save", { ...item, unit: "kg" });
+        await refusesHistory(definitions, "item.save", { ...item, packSize: "0.25" });
+      }
+      // A count alone freezes an empty bin; movement alone freezes a stock bin and transit.
+      await refusesHistory(definitions, "location.save", { ...d.destination, kind: "transit" });
+      await refusesHistory(definitions, "location.save", { ...movementBin, kind: "transit" });
+      const transfer = await definitions.command("transfer.send", {
+        itemId: movementItem.id, fromLocationId: movementBin.id, toLocationId: d.source.id,
+        transitLocationId: d.transit.id, quantity: "0.5", reason: "Physical transit reference",
+      });
+      assert.equal(transfer.quantity, "0.5");
+      const transitState = await definitions.invariant();
+      assert.equal(transitState.positions.find((position) => position.itemId === movementItem.id && position.locationId === d.transit.id).quantity, "0.5");
+      assert.equal(transitState.positions.find((position) => position.itemId === movementItem.id && position.locationId === movementBin.id).quantity, "0.75");
+      await refusesHistory(definitions, "location.save", { ...d.transit, kind: "bin" });
       await h.invariant();
     },
   );
@@ -321,6 +488,9 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
       assert.deepEqual(await review("po.commit", commitPayload, { commandId: commitId }), committed);
       assert.deepEqual(await business(), afterCommit, "replaying the commitment adds no supply or successful result");
       await h.invariant();
+      const proposalInstallation = await installation({ outboundService });
+      try { await exactNativeProposalConsequences(proposalInstallation); }
+      finally { await proposalInstallation.close(); }
     },
   );
   await t.test(
@@ -365,6 +535,13 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         r,
       );
       assert.equal(r.lines[0].costTotal, "0.020000000000");
+      const businessState = async () => {
+        const response = await h.request("/api/pier/export");
+        assert.equal(response.status, 200);
+        const { exportedAt, auditEvents, ...business } = await response.json();
+        return business;
+      };
+      const beforeInvalid = await businessState();
       const before = (await h.state()).movements.length;
       await h.command(
         "receipt.create",
@@ -383,6 +560,8 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         { error: "LINE" },
       );
       assert.equal((await h.state()).movements.length, before);
+      assert.deepEqual(await businessState(), beforeInvalid);
+      { // Retain main’s independent two-line receipt scenario.
 
       const receiptItems = await Promise.all([1, 2].map((n) => h.command("item.save", {
         sku: `synthetic-pier-6-${n}`, name: `Partial receipt item ${n}`, unit: "each", packSize: "0.1",
@@ -440,6 +619,119 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
       }, { error: "RECEIPT_LIMIT" });
       assert.deepEqual(receiptBusiness(await h.state()), beforeLimit);
       await h.invariant();
+      }
+      { // Add the candidate’s full-export and cost-link reconciliation.
+
+      const first = await h.command("item.save", {
+        sku: "synthetic-pier-1", name: "Partial receipt first SKU", unit: "each", packSize: "1",
+      });
+      const second = await h.command("item.save", {
+        sku: "synthetic-pier-2", name: "Partial receipt second SKU", unit: "each", packSize: "1",
+      });
+      const multi = await h.command("po.draft", {
+        supplierId: b.supplier.id,
+        destinationWarehouse: b.source.warehouse,
+        promiseDate: "2026-11-01",
+        reason: "Reconcile independent partial deliveries for two SKUs",
+        lines: [
+          { itemId: first.id, quantity: "3.5", price: "0.2" },
+          { itemId: second.id, quantity: "7.25", price: "1.2" },
+        ],
+      });
+      await h.command("po.approve", { poId: multi.id, version: multi.version });
+      await h.command("po.commit", { poId: multi.id, version: multi.version });
+      const assertRemaining = async (received, remaining) => {
+        const state = await h.invariant();
+        const current = state.purchaseOrders.find(row => row.id === multi.id);
+        assert.equal(current.status, "committed");
+        for (const [index, item, original] of [[0, first, "3.5"], [1, second, "7.25"]]) {
+          const line = current.lines.find(row => row.id === multi.lines[index].id);
+          assert.equal(line.itemId, item.id);
+          assert.equal(line.quantity, original);
+          assert.equal(line.received, received[index]);
+          assert.equal(parse(original) - parse(line.received), parse(remaining[index]));
+          const company = state.companyStocks.find(row => row.itemId === item.id);
+          const warehouse = state.warehouseStocks.find(row => row.itemId === item.id && row.warehouse === b.source.warehouse);
+          assert.equal(company.expected, remaining[index]);
+          assert.equal(warehouse.expected, remaining[index]);
+          assert.equal(company.onHand, received[index]);
+          assert.equal(company.available, received[index]);
+          assert.equal(company.reserved, "0");
+          const movements = state.movements.filter(row => row.itemId === item.id);
+          assert.equal(movements.reduce((sum, row) => sum + BigInt(row.quantity), 0n), parse(received[index]));
+          assert.ok(movements.every(row => row.locationId === b.source.id && row.status === "sellable"));
+          const positions = state.positions.filter(row => row.itemId === item.id);
+          assert.equal(positions.length, received[index] === "0" ? 0 : 1);
+          if (positions.length) assert.equal(positions[0].quantity, received[index]);
+        }
+        return state;
+      };
+      await assertRemaining(["0", "0"], ["3.5", "7.25"]);
+      const partial = {
+        poId: multi.id,
+        supplierReference: "synthetic-pier-3",
+        lines: [
+          { poLineId: multi.lines[0].id, locationId: b.source.id, quantity: "0.75", cost: "0.2" },
+          { poLineId: multi.lines[1].id, locationId: b.source.id, quantity: "2.5", cost: "1.2" },
+        ],
+      };
+      const partialKey = randomUUID();
+      const posted = await h.command("receipt.create", partial, { commandId: partialKey });
+      const assertReceipt = (state, receipt, quantities, costs, totals) => {
+        const retained = state.receipts.find(row => row.id === receipt.id);
+        assert.equal(retained.poId, multi.id);
+        assert.equal(retained.supplierReference, receipt.supplierReference);
+        assert.equal(retained.status, "posted");
+        assert.equal(retained.lines.length, 2);
+        for (const [index, item] of [first, second].entries()) {
+          const line = retained.lines.find(row => row.poLineId === multi.lines[index].id);
+          assert.equal(line.itemId, item.id);
+          assert.equal(line.locationId, b.source.id);
+          assert.equal(line.quantity, quantities[index]);
+          assert.equal(line.cost, costs[index]);
+          assert.equal(line.costTotal, totals[index]);
+          assert.equal(line.costTotalScale, 12);
+          const movements = state.movements.filter(row => row.documentId === receipt.id && row.itemId === item.id);
+          assert.equal(movements.length, 1);
+          assert.equal(movements[0].id, line.movementId);
+          assert.equal(movements[0].quantity, parse(quantities[index]).toString());
+        }
+      };
+      assertReceipt(await assertRemaining(["0.75", "2.5"], ["2.75", "4.75"]), posted,
+        ["0.75", "2.5"], ["0.2", "1.2"], ["0.150000000000", "3.000000000000"]);
+      const beforeReplay = await businessState();
+      assert.equal(beforeReplay.commands.filter(row => row.id === partialKey).length, 1);
+      assert.deepEqual(await h.command("receipt.create", partial, { commandId: partialKey }), posted);
+      assert.deepEqual(await businessState(), beforeReplay, "replay adds no receipt, stock movement or successful command result");
+
+      const next = await h.command("receipt.create", {
+        ...partial,
+        supplierReference: "synthetic-pier-4",
+        lines: [
+          { ...partial.lines[0], quantity: "0.5", cost: "0.3" },
+          { ...partial.lines[1], quantity: "1.25", cost: "1.6" },
+        ],
+      });
+      assertReceipt(await assertRemaining(["1.25", "3.75"], ["2.25", "3.5"]), next,
+        ["0.5", "1.25"], ["0.3", "1.6"], ["0.150000000000", "2.000000000000"]);
+      const beforeExcess = await businessState();
+      const beforeExcessView = await h.state();
+      const excessKey = randomUUID();
+      await h.command("receipt.create", {
+        ...partial,
+        supplierReference: "synthetic-pier-5",
+        lines: [
+          { ...partial.lines[0], quantity: "0.25" },
+          { ...partial.lines[1], quantity: "3.75" },
+        ],
+      }, { commandId: excessKey, error: "RECEIPT_LIMIT" });
+      const afterExcess = await businessState();
+      assert.deepEqual(afterExcess, beforeExcess, "valid first line and excessive second line post no business effects");
+      assert.ok(!afterExcess.commands.some(row => row.id === excessKey));
+      const afterExcessView = await assertRemaining(["1.25", "3.75"], ["2.25", "3.5"]);
+      for (const key of ["positions", "companyStocks", "warehouseStocks", "movements", "reservations", "receipts", "purchaseOrders", "commands"])
+        assert.deepEqual(afterExcessView[key], beforeExcessView[key], key);
+      }
     },
   );
   await t.test(
@@ -490,6 +782,77 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
       assert.deepEqual((await h.state()).movements, beforeDenied);
       await h.command("transfer.receive", { transferId: transfer.id });
       await h.command("transfer.receive", { transferId: transfer.id }, { error: "TRANSFER_STATE" });
+
+      const transferItem = await h.command("item.save", {
+        sku: "synthetic-pier-8", name: "Isolated in-transit stock", unit: "each", packSize: "1",
+      });
+      const transferBasics = { ...b, item: transferItem };
+      const transferPo = await buy(h, transferBasics, "5");
+      await receive(h, transferBasics, transferPo, "5");
+      const transferEffects = async () => {
+        const state = await h.state();
+        const response = await h.request("/api/pier/export");
+        assert.equal(response.status, 200);
+        const exported = await response.json();
+        for (const field of ["movements", "reservations", "shipments", "transfers"])
+          assert.deepEqual(exported[field], state[field]);
+        return { version: state.version, positions: state.positions, movements: exported.movements,
+          reservations: exported.reservations, shipments: exported.shipments, transfers: exported.transfers,
+          orders: state.orders, exportedOrders: exported.orders, commands: exported.commands };
+      };
+      const conserved = (state, sourceQuantity, transitQuantity, destinationQuantity) => {
+        const stock = state.movements.filter((m) => m.itemId === transferItem.id);
+        let total = 0n;
+        for (const [locationId, status, expected] of [[b.source.id, "sellable", sourceQuantity],
+          [b.transit.id, "transit", transitQuantity], [b.destination.id, "sellable", destinationQuantity]]) {
+          const sum = stock.filter((m) => m.locationId === locationId && m.status === status)
+            .reduce((n, m) => n + BigInt(m.quantity), 0n);
+          assert.equal(sum, parse(expected));
+          const position = state.positions.find((p) => p.itemId === transferItem.id && p.locationId === locationId && p.status === status);
+          assert.equal(position?.quantity ?? "0", expected);
+          if (status === "transit") assert.equal(position?.available ?? "0", "0");
+          total += sum;
+        }
+        assert.equal(total, parse("5"));
+        assert.equal(stock.reduce((n, m) => n + BigInt(m.quantity), 0n), parse("5"));
+      };
+      conserved(await transferEffects(), "5", "0", "0");
+      const isolatedTransfer = await h.command("transfer.send", {
+        itemId: transferItem.id, fromLocationId: b.source.id, toLocationId: b.destination.id,
+        transitLocationId: b.transit.id, quantity: "5", reason: "Move the only stock through transit",
+      });
+      conserved(await transferEffects(), "0", "5", "0");
+      const transitDemand = await h.command("order.create", {
+        customerId: b.customer.id, warehouse: "North", promiseDate: "2026-11-02",
+        lines: [{ itemId: transferItem.id, quantity: "2" }],
+      });
+      const beforeTransitRefusal = await transferEffects();
+      const waitingLine = beforeTransitRefusal.orders.find((o) => o.id === transitDemand.id).lines[0];
+      assert.equal(waitingLine.reserved, "0");
+      assert.equal(waitingLine.backorder, "2");
+      assert.deepEqual(beforeTransitRefusal.reservations.filter((r) => r.itemId === transferItem.id), []);
+      await h.command("dispatch.create", {
+        orderId: transitDemand.id, shipmentReference: "synthetic-pier-8-transit-sale",
+        lines: [{ orderLineId: waitingLine.id, quantity: "1" }],
+      }, { error: "RESERVATION" });
+      assert.deepEqual(await transferEffects(), beforeTransitRefusal);
+      const isolatedReceiptKey = randomUUID();
+      const isolatedPartial = { transferId: isolatedTransfer.id, version: isolatedTransfer.version, quantity: "2" };
+      const isolatedArrival = await h.command("transfer.receive", isolatedPartial, { commandId: isolatedReceiptKey });
+      const afterPartial = await transferEffects();
+      conserved(afterPartial, "0", "3", "2");
+      assert.equal(afterPartial.transfers.find((t) => t.id === isolatedTransfer.id).received, "2");
+      assert.deepEqual(await h.command("transfer.receive", isolatedPartial, { commandId: isolatedReceiptKey }), isolatedArrival);
+      assert.deepEqual(await transferEffects(), afterPartial);
+      const completeKey = randomUUID();
+      const completePayload = { transferId: isolatedTransfer.id, version: isolatedArrival.version, quantity: "3" };
+      const completeArrival = await h.command("transfer.receive", completePayload, { commandId: completeKey });
+      const afterComplete = await transferEffects();
+      conserved(afterComplete, "0", "0", "5");
+      assert.equal(completeArrival.status, "received");
+      assert.equal(afterComplete.transfers.find((t) => t.id === isolatedTransfer.id).received, "5");
+      assert.deepEqual(await h.command("transfer.receive", completePayload, { commandId: completeKey }), completeArrival);
+      assert.deepEqual(await transferEffects(), afterComplete);
       await h.invariant();
     },
   );
@@ -523,6 +886,114 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         { receiptId: receipt.id, reason: "Would invalidate dispatch" },
         { error: "DEPENDENCY" },
       );
+
+      const dispatchItem = await h.command("item.save", {
+        sku: "synthetic-pier-9", name: "Isolated dispatch stock", unit: "each", packSize: "0.25",
+      });
+      const dispatchBasics = { ...b, item: dispatchItem };
+      const dispatchPo = await buy(h, dispatchBasics, "5.5");
+      await receive(h, dispatchBasics, dispatchPo, "5.5");
+      const owningOrder = await h.command("order.create", {
+        customerId: b.customer.id, warehouse: "North", promiseDate: "2026-11-02",
+        lines: [{ itemId: dispatchItem.id, quantity: "8" }],
+      });
+      const waitingOrder = await h.command("order.create", {
+        customerId: b.customer.id, warehouse: "North", promiseDate: "2026-11-02",
+        lines: [{ itemId: dispatchItem.id, quantity: "3" }],
+      });
+      const dispatchEffects = async () => {
+        const state = await h.state();
+        const response = await h.request("/api/pier/export");
+        assert.equal(response.status, 200);
+        const exported = await response.json();
+        for (const field of ["movements", "reservations", "shipments"])
+          assert.deepEqual(exported[field], state[field], `business export retains exact ${field}`);
+        return { version: state.version, positions: state.positions, movements: state.movements,
+          orders: state.orders, reservations: state.reservations, shipments: state.shipments,
+          exportedOrders: exported.orders, commands: exported.commands };
+      };
+      const beforeForeign = await dispatchEffects();
+      const owned = beforeForeign.reservations.filter((r) => r.itemId === dispatchItem.id);
+      assert.equal(owned.length, 1);
+      assert.equal(owned[0].orderId, owningOrder.id);
+      assert.equal(owned[0].orderLineId, owningOrder.lines[0].id);
+      assert.equal(owned[0].locationId, b.source.id);
+      assert.equal(BigInt(owned[0].quantity), parse("5.5"));
+      assert.equal(owningOrder.lines[0].reserved, "5.5");
+      assert.equal(owningOrder.lines[0].backorder, "2.5");
+      assert.equal(waitingOrder.lines[0].reserved, "0");
+      assert.equal(waitingOrder.lines[0].backorder, "3");
+      const foreignDispatch = {
+        orderId: waitingOrder.id, shipmentReference: "synthetic-pier-9-foreign",
+        lines: [{ orderLineId: waitingOrder.lines[0].id, quantity: "1" }],
+      };
+      await h.command("dispatch.create", foreignDispatch, { error: "RESERVATION" });
+      assert.deepEqual(await dispatchEffects(), beforeForeign);
+      const beforeWrongLine = await dispatchEffects();
+      await h.command("dispatch.create", {
+        ...foreignDispatch, lines: [{ orderLineId: owningOrder.lines[0].id, quantity: "1" }],
+      }, { error: "LINE" });
+      assert.deepEqual(await dispatchEffects(), beforeWrongLine);
+
+      const dispatchKey = randomUUID();
+      const partialDispatch = {
+        orderId: owningOrder.id, shipmentReference: "synthetic-pier-9-partial",
+        lines: [{ orderLineId: owningOrder.lines[0].id, quantity: "2.25" }],
+      };
+      const postedShipment = await h.command("dispatch.create", partialDispatch, { commandId: dispatchKey });
+      const afterDispatch = await dispatchEffects();
+      const remainingOrder = afterDispatch.orders.find((o) => o.id === owningOrder.id);
+      const remaining = remainingOrder.lines[0];
+      assert.equal(remaining.quantity, "8");
+      assert.equal(remaining.dispatched, "2.25");
+      assert.equal(remaining.cancelled, "0");
+      assert.equal(remaining.reserved, "3.25");
+      assert.equal(remaining.backorder, "2.5");
+      const exportedLine = afterDispatch.exportedOrders.find((o) => o.id === owningOrder.id).lines[0];
+      assert.equal(exportedLine.id, remaining.id);
+      assert.equal(exportedLine.quantity, "8");
+      assert.equal(exportedLine.dispatched, "2.25");
+      assert.equal(exportedLine.cancelled, "0");
+      assert.equal(parse(remaining.quantity) - parse(remaining.dispatched) - parse(remaining.cancelled), parse("5.75"));
+      assert.equal(parse(remaining.reserved) + parse(remaining.backorder), parse("5.75"));
+      assert.equal(remainingOrder.version, owningOrder.version + 1);
+      assert.deepEqual(afterDispatch.orders.find((o) => o.id === waitingOrder.id),
+        beforeForeign.orders.find((o) => o.id === waitingOrder.id));
+      const remainingReservations = afterDispatch.reservations.filter((r) => r.itemId === dispatchItem.id);
+      assert.deepEqual(remainingReservations, [{ ...owned[0], quantity: parse("3.25").toString() }]);
+      const position = afterDispatch.positions.find((p) => p.itemId === dispatchItem.id && p.locationId === b.source.id && p.status === "sellable");
+      assert.equal(position.quantity, "3.25");
+      assert.equal(position.reserved, "3.25");
+      assert.equal(position.available, "0");
+      assert.equal(afterDispatch.movements.filter((m) => m.itemId === dispatchItem.id)
+        .reduce((sum, m) => sum + BigInt(m.quantity), 0n), parse("3.25"));
+      const retainedShipment = afterDispatch.shipments.find((s) => s.id === postedShipment.id);
+      assert.deepEqual(retainedShipment, postedShipment);
+      assert.equal(retainedShipment.orderId, owningOrder.id);
+      assert.equal(retainedShipment.warehouse, "North");
+      assert.equal(retainedShipment.lines.length, 1);
+      assert.equal(retainedShipment.lines[0].orderLineId, remaining.id);
+      assert.equal(retainedShipment.lines[0].itemId, dispatchItem.id);
+      assert.equal(retainedShipment.lines[0].quantity, "2.25");
+      const links = retainedShipment.lines[0].reservations;
+      assert.equal(links.length, 1);
+      assert.equal(links[0].reservationId, owned[0].id);
+      assert.equal(links[0].locationId, owned[0].locationId);
+      assert.equal(links[0].quantity, "2.25");
+      const dispatchMovements = afterDispatch.movements.filter((m) => m.documentId === postedShipment.id);
+      assert.equal(dispatchMovements.length, 1);
+      assert.equal(dispatchMovements[0].id, links[0].movementId);
+      assert.equal(dispatchMovements[0].commandId, dispatchKey);
+      assert.equal(dispatchMovements[0].itemId, dispatchItem.id);
+      assert.equal(dispatchMovements[0].locationId, owned[0].locationId);
+      assert.equal(dispatchMovements[0].status, "sellable");
+      assert.equal(BigInt(dispatchMovements[0].quantity), -parse("2.25"));
+      assert.equal(BigInt(owned[0].quantity) - BigInt(remainingReservations[0].quantity), parse("2.25"));
+      assert.equal(afterDispatch.version, beforeForeign.version + 1);
+      assert.equal(afterDispatch.commands.length, beforeForeign.commands.length + 1);
+      assert.deepEqual(afterDispatch.commands.find((c) => c.id === dispatchKey).result.result, postedShipment);
+      assert.deepEqual(await h.command("dispatch.create", partialDispatch, { commandId: dispatchKey }), postedShipment);
+      assert.deepEqual(await dispatchEffects(), afterDispatch);
       await h.invariant();
     },
   );
@@ -852,6 +1323,28 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         archived: true,
       });
       assert.equal(used.archived, true);
+      const archived = await h.state(), archivedExport = await exportedHistory(h);
+      assert.deepEqual(archived.items.find((item) => item.id === used.id), { ...b.item, version: b.item.version + 1, archived: true });
+      for (const key of ["locations", "positions", "movements", "reservations", "supplierItems", "purchaseOrders", "receipts", "orders", "shipments", "returns", "transfers", "counts"]) {
+        assert.deepEqual(archived[key], state[key], `archiving retains ${key}`);
+        assert.deepEqual(archivedExport[key], exported[key], `business export retains ${key}`);
+      }
+      const originalReceipt = archivedExport.receipts.find((row) => row.id === receipt.id);
+      assert.equal(originalReceipt.poId, po.id);
+      assert.equal(originalReceipt.lines[0].poLineId, po.lines[0].id);
+      assert.equal(originalReceipt.lines[0].quantity, "1.25");
+      assert.equal(originalReceipt.lines[0].cost, "0.25");
+      assert.equal(originalReceipt.lines[0].costTotal, "0.312500000000");
+      const originalMovement = archivedExport.movements.find((row) => row.id === receipt.lines[0].movementId);
+      assert.equal(originalMovement.itemId, b.item.id);
+      assert.equal(originalMovement.locationId, b.source.id);
+      assert.equal(originalMovement.documentId, receipt.id);
+      assert.equal(originalMovement.quantity, "1250000");
+      assert.equal(archivedExport.shipments.find((row) => row.id === shipment.id).orderId, order.id);
+      assert.equal(archivedExport.orders.find((row) => row.id === order.id).lines[0].itemId, b.item.id);
+      for (const command of exported.commands)
+        assert.deepEqual(archivedExport.commands.find((saved) => saved.id === command.id), command);
+      const beforeRefusal = history(archived), beforeRefusalExport = archivedExport;
       await h.command(
         "order.create",
         {
@@ -860,6 +1353,8 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         },
         { error: "ARCHIVED" },
       );
+      assert.deepEqual(history(await h.state()), beforeRefusal);
+      assert.deepEqual(await exportedHistory(h), beforeRefusalExport);
       await h.invariant();
     },
   );

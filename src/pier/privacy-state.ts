@@ -1,7 +1,7 @@
 import { collections, type Context } from './model';
 import { subjectPlan, type NativeSubject } from './privacy-plan';
 
-const privateFields = new Set(['email','contacts','addresses','address','phone','telephone','fax','contact','contactName','attention','recipient','shipTo','shippingAddress','originalAddress','suggestedAddress','customerName','supplierName','customerPO','profileReason','resaleCertificates','certificate','body','subject','text','html','raw','pdf','filename','notes','note','reason','sourceReference','supplierReference','shipmentReference','channelReference','verificationUrl','checkoutUrl','labelPdfUrl','labelZplUrl','trackingUrl','replies','supplierReply','ambiguities','citations','verificationErrors','rateMessages','problem']);
+const privateFields = new Set(['email','contacts','addresses','address','phone','telephone','fax','contact','contactName','attention','recipient','shipTo','shippingAddress','originalAddress','suggestedAddress','customerName','supplierName','customerPO','profileReason','resaleCertificates','certificate','exemption','body','subject','text','html','raw','pdf','filename','notes','note','reason','sourceReference','supplierReference','shipmentReference','channelReference','verificationUrl','checkoutUrl','labelPdfUrl','labelZplUrl','trackingUrl','replies','supplierReply','ambiguities','citations','verificationErrors','rateMessages','problem']);
 const identityContainers = new Set(['customer','supplier','supplierSnapshot','customerSnapshot','party','salesRep']);
 const policyFields = ['promisePolicy','sendPolicy','chasePolicy','creditClearance'];
 export function personalValues(target: any, native?: NativeSubject): Set<string> {
@@ -21,6 +21,7 @@ export function anonymizeSubject(c: Context, kind: string, id: string, native?: 
     if (Array.isArray(value)) return value.map(v => redact(v, active, field));
     const identity = identityIds.has(value.id) || kind === 'operator' && value.operatorId === id;
     return Object.fromEntries(Object.entries(value).map(([key, v]) => {
+      if ((active || identity) && ['tax', 'originalInvoiceTax'].includes(field) && key === 'destination') return [key, null];
       if ((active || identity) && privateFields.has(key)) return [key, Array.isArray(v) ? [] : null];
       if (key === 'name' && (identity || active && identityContainers.has(field))) return [key, anonymous];
       return [key, redact(v, active || identity, key)];
@@ -40,9 +41,10 @@ export function anonymizeSubject(c: Context, kind: string, id: string, native?: 
         next.privacyErasedAt = c.now;
         if (['parties','salesReps'].includes(collection)) { next.name = anonymous; next.email = null; next.contacts = []; next.addresses = []; }
         for (const field of policyFields) if (next[field]) next[field] = { ...next[field], enabled:false, recipient:null, restorePaused:true, version:(next[field].version ?? 0) + 1 };
-        if (['recurringOrders','workflowRules','replenishmentPolicies','replenishmentSettings','slowStockPolicies','savedReports','channels','bookConnections','paymentConnections','shippingSettings','documentSettings','businessTemplates','aiSettings'].includes(collection)) {
+        if (['webhookSubscriptions','recurringOrders','workflowRules','replenishmentPolicies','replenishmentSettings','slowStockPolicies','savedReports','channels','bookConnections','paymentConnections','shippingSettings','documentSettings','businessTemplates','aiSettings'].includes(collection)) {
           next.enabled = false; next.autoDraft = false; next.restorePaused = true;
         }
+        if (collection === 'webhookDeliveries') { next.status = 'erasure-paused'; next.body = null; next.problem = 'Erased source work cannot be sent or recovered.'; }
         if (collection === 'recurringOrders') next.cancelled = true;
         if (collection === 'correspondence') { next.recipient = null; next.subject = null; next.body = null; next.restorePaused = true; }
         if (collection === 'businessProfile' && kind === 'operator') { next.name = 'Anonymous business'; next.address = null; next.shipTo = {}; }

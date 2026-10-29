@@ -1,5 +1,6 @@
 import { records, type PierState, type RecordData, type RunCommand } from '../api';
 import { Field, Form, Select, Table, text, Amount } from '../controls';
+import { TaxEvidence } from './tax-evidence';
 import { PaymentSettings } from './payment-settings';
 import { InvoiceDraftForm } from './invoice-draft-form';
 export function InvoiceWorkbench({state,run,busy}:{state:PierState;run:RunCommand;busy:boolean}){
@@ -29,7 +30,7 @@ export function InvoiceWorkbench({state,run,busy}:{state:PierState;run:RunComman
         </details>}
         {records(state,'invoicePayLinks').filter(l=>l.invoiceId===invoice.id).map(link=><p key={link.id}><a href={link.url} target="_blank" rel="noreferrer">Open invoice payment page</a> · {link.status}</p>)}
       </td></tr>)}
-    </Table></section>
+    </Table>{invoices.map(invoice=><details key={invoice.id}><summary>{`Inspect tax estimate for ${invoice.reference}`}</summary><TaxEvidence tax={invoice.tax} title={`Tax estimate for ${invoice.reference}`}/></details>)}</section>
     <Form title="Prepare a linked customer credit" submit="Draft credit note" busy={busy}
       note="A credit names its original invoice and line. Financial posting and refunds remain separate from this native credit."
       onSubmit={d=>run('invoice.credit.draft',{invoiceId:text(d,'invoiceId'),kind:text(d,'kind'),reason:text(d,'reason'),...(text(d,'returnId')?{returnId:text(d,'returnId')}:{}),lines:[{invoiceLineId:text(d,'invoiceLineId'),quantity:text(d,'quantity'),amount:text(d,'amount')}]})}>

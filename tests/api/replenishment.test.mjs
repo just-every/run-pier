@@ -104,7 +104,8 @@ test('sell-through drafts an approved supplier PO and re-promises backorders by 
 
 
 test('bounded workflow dry-runs, vendor and spend limits, worker loss and pause preserve human approval', async t => {
-  const h = await installation(); t.after(() => h.close()); const b = await basics(h);
+  // Keep the later cadence in the same budget day even when CI runs near midnight.
+  const h = await installation({ now: '2026-10-28T12:00:00.000Z' }); t.after(() => h.close()); const b = await basics(h);
   await h.command('supplierItem.save', { supplierId: b.supplier.id, itemId: b.item.id, code: 'synthetic-pier-1', packSize: '1', minimum: '1', price: '2', leadDays: 3 });
   await h.command('replenishment.save', { version: 0, itemId: b.item.id, warehouse: 'North', supplierId: b.supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '2', reorderQuantity: '2', autoDraft: false });
   const config = { name: 'Bounded drafts', kind: 'draft-po', warehouses: ['North'], supplierIds: [b.supplier.id], perRunBudget: '10', dailyBudget: '10', cadenceMinutes: 15, automaticApproval: false };

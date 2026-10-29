@@ -4,6 +4,7 @@ import { costsVisible, pricesVisible } from './role-visibility';
 import { stockPosition } from './stock-position';
 import { floorState } from './floor';
 import { pickFields } from './physical-documents';
+import { orderView } from './orders';
 
 const denied = (actor: Actor) => { throw new Problem(scoped(actor) ? 'SCOPE' : 'FORBIDDEN', 'This private door requires wider current authority.', null, 403); };
 export function admitRead(actor: Actor, url: URL) {
@@ -26,7 +27,7 @@ export function operationalState(full: State, actor: Actor) {
   const physicalActor = { ...actor, permissions: actor.permissions ?? { warehouses: [...new Set(full.locations.map(location => location.warehouse))], locationIds: [] } };
   const s = physicalState(full, physicalActor);
   const c = { s, actor, commandId: '', now: new Date().toISOString() };
-  return { ...s, actor, ...floorState(c), positions: positions(s), ...stockPosition(s),
+  return { ...s, orders: s.orders.map(order => orderView(c, order, false)), actor, ...floorState(c), positions: positions(s), ...stockPosition(s),
     commands: [], operators: [], people: [], bookConnections: [], receiptClosures: [], deliveries: [], auditEvents: [], forecasts: [], reorder: [], tracePositions: [], customerProfiles: [], customerBalances: {} };
 }
 
@@ -69,6 +70,7 @@ const privateCosts = new Set(['cost', 'costs', 'unitCost', 'costTotal', 'costTot
 const moneyFields = new Set(['price', 'unitPrice', 'listPrice', 'freight', 'duty', 'tax', 'total', 'maxSpend', 'approvalRoute', 'priceSnapshot', 'quoteHistory', 'quoteApproval']);
 export function commandProjection(value: any, actor: Actor): any {
   if (actor.role === 'owner' || !value || typeof value !== 'object') return value;
+  if (value.kind === 'supplier-substitutes') return pickFields(value, ['kind', 'status', 'preparation']);
   if (Array.isArray(value)) return value.map(entry => commandProjection(entry, actor));
   if (!costsVisible(actor) && Array.isArray(value.lines) && (value.supplierId || value.poId)) value = {
     ...pickFields(value, ['reference', 'supplierId', 'approved', 'status', 'promiseDate', 'destinationWarehouse', 'poId', 'supplierReference', 'receivingId', 'variance', 'overReason']),

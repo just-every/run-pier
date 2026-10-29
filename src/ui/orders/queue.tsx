@@ -54,7 +54,7 @@ export function Queue({ state, warehouse, filter, setFilter, selected, open }: {
     <table className="queue-table"><thead><tr><th scope="col">Order</th><th scope="col" className="q-customer">Customer</th>{!warehouse && <th scope="col">Warehouse</th>}<th scope="col">Channel</th>{!!warehouse && <th scope="col" className="num">Lines</th>}<th scope="col" className="num">{warehouse ? 'Order total' : 'Total'}</th><th scope="col">Ship by</th><th scope="col">Status</th></tr></thead>
       <tbody>{rows.map(order => <tr key={order.id} className={order.id === selected ? 'selected' : undefined} onClick={event => { if (!(event.target as HTMLElement).closest('button')) open(order.id) }}>
         <td className="q-ref"><button type="button" className="link" aria-label={`Open order ${order.reference}`} aria-current={order.id === selected ? 'true' : undefined} onClick={() => open(order.id)}>{order.reference}</button></td>
-        <WordClip className="q-customer" text={label(parties, order.customerId)} />
+        <WordClip className="q-customer" text={order.customerId ? label(parties, order.customerId) : 'Private customer'} />
         {!warehouse && <Where names={orderWarehouses(state, order)} />}
         <td className="q-channel"><ChannelMark channel={order.channel} /></td>
         {!!warehouse && <td className="q-lines num">{order.lines.length}<span className="q-unit"> lines</span></td>}

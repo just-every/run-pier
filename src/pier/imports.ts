@@ -12,6 +12,9 @@ import {
   move,
   positions,
   movementFrontier,
+  Problem,
+  type Actor,
+  type State,
   type Context,
   type Row,
 } from "./model";
@@ -369,4 +372,22 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
     return b;
   }
   fail("COMMAND", "Unknown import command.");
+}
+
+/** Retained native bytes stay behind the current authenticated owner door. */
+export function importOriginal(path: string, actor: Actor, state: State): Response | null {
+  const match = /^\/api\/pier\/imports\/([^/]+)\/originals\/([a-f0-9]{64})$/.exec(path);
+  if (!match) return null;
+  if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only the current owner can download retained native originals.', null, 403);
+  const batch = get(state, 'imports', decodeURIComponent(match[1]));
+  const artifact = batch.source?.artifacts?.find((entry: any) => entry.sha256 === match[2]);
+  if (!artifact || artifact.original?.status !== 'available') fail('NOT_FOUND', 'Retained original not found.');
+  return new Response(Uint8Array.from(atob(artifact.original.base64), char => char.charCodeAt(0)), {
+    headers: {
+      'content-type': 'text/csv; charset=utf-8',
+      'content-disposition': `attachment; filename="pier-original.csv"; filename*=UTF-8''${encodeURIComponent(artifact.name)}`,
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+    },
+  });
 }

@@ -17,6 +17,14 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
   const item = state.items.find((row: any) => row.sku === 'BOLT')
   const shots = process.env.PIER_SCREENSHOTS
   if (shots) await mkdir(shots, { recursive: true })
+  const capture = async (name: string) => {
+    if (!shots) return
+    for (const captureWidth of [1440, 390]) {
+      await page.setViewportSize({ width: captureWidth, height: 1000 })
+      await page.screenshot({ path: join(shots, `${captureWidth}-${name}.png`), fullPage: true })
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 })
+  }
   for (const width of [1440]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto(`${origin}/app#stock`)
@@ -25,10 +33,22 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     const totals = page.getByRole('region', { name: 'Stock totals', exact: true })
     await expect(totals.getByRole('row').filter({ hasText: 'South' })).toContainText('13 each')
     for (const row of [...state.warehouseStocks, ...state.companyStocks.map((r: any) => ({ ...r, warehouse: 'Company total' }))]) {
-      const shown = totals.getByRole('row').filter({ hasText: row.warehouse })
+      const shown = totals.getByRole('row').filter({ hasText: state.items.find((item: any) => item.id === row.itemId).name }).filter({ has: page.getByRole('cell').filter({ hasText: new RegExp(`^${row.warehouse}$`) }) })
       const cells = shown.getByRole('cell')
       for (const [offset, field] of ['onHand', 'reserved', 'available', 'quarantine', 'transit', 'expected'].entries()) await expect(cells.nth(offset + 2)).toHaveText(`${row[field]} each`)
     }
+    await expect(totals).toContainText(/Reserved includes protected channel holds/)
+    const unassigned = totals.getByRole('row').filter({ hasText: 'Unassigned receiving warehouse' })
+    await expect(unassigned).toHaveCount(1)
+    await expect(unassigned.getByRole('cell').nth(7)).toHaveText('7.25 each')
+    const protectedStock = totals.getByRole('row').filter({ hasText: 'Protected brass pins' })
+    await expect(protectedStock).toHaveCount(2)
+    for (const row of await protectedStock.all()) {
+      await expect(row.getByRole('cell').nth(2)).toHaveText('3.5 each')
+      await expect(row.getByRole('cell').nth(3)).toHaveText('3.5 each')
+      await expect(row.getByRole('cell').nth(4)).toHaveText('0 each')
+    }
+    await capture('stock-holds-unassigned')
     await expect(page.locator('.stock-table').getByRole('row').filter({ hasText: 'Unstocked steel washer' })).toContainText('No positions')
     for (const search of ['BOLT', '10001', 'Brass bolt']) {
       await page.getByRole('textbox', { name: 'Search product, barcode or SKU', exact: true }).fill(search)
@@ -45,12 +65,21 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await page.getByRole('group', { name: 'Warehouse', exact: true }).getByRole('button', { name: 'South', exact: true }).click()
     await expect(totals.getByRole('row').filter({ hasText: 'North' })).toHaveCount(0)
     await expect(page.locator('.stock-table').getByRole('row').filter({ hasText: 'Brass bolt' })).toHaveCount(2)
-    if (shots) await page.screenshot({ path: join(shots, `${width}-stock-south.png`), fullPage: true })
+    await capture('stock-south')
     await page.getByRole('group', { name: 'Warehouse', exact: true }).getByRole('button', { name: 'All', exact: true }).click()
     await page.getByRole('button', { name: 'Brass bolt', exact: true }).first().click()
-    await expect(page.getByRole('region', { name: 'Selected item details' })).toContainText('In transit')
+    const details = page.getByRole('region', { name: 'Selected item details' })
+    await expect(details).toContainText('In transit')
+    const close = details.getByRole('button', { name: 'Close item details', exact: true })
+    const tooltip = details.getByRole('tooltip', { name: 'Close item details', exact: true })
+    await close.hover()
+    await expect(tooltip).toBeVisible()
+    await page.mouse.move(0, 0)
+    await expect(tooltip).toBeHidden()
+    await close.focus()
+    await expect(tooltip).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
-    if (shots) await page.screenshot({ path: join(shots, `${width}-stock-all.png`), fullPage: true })
+    await capture('stock-all')
     const feed = await context.request.get(`${origin}/api/pier/stock-changes?consumer=synthetic-pier-health&limit=2`)
     expect(feed.status()).toBe(200)
     const pending = await feed.json()
@@ -61,7 +90,7 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await expect(health).toContainText('Acknowledged stock sequence; fetching does not advance it.')
     for (const event of pending.events) await expect(health).toContainText(event.eventId)
     await expect(health).toContainText('Stripe invoice payments · not connected')
-    await expect(health).toContainText('EasyPost shipping · active')
+    await expect(health).toContainText(width === 1440 ? 'EasyPost shipping · active' : 'EasyPost shipping · paused')
     if (width === 1440) {
       await health.locator('summary').filter({hasText:'EasyPost shipping'}).click()
       await health.getByRole('button',{name:'Pause shipping',exact:true}).click()
@@ -71,17 +100,11 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
     await expect(health.getByRole('button', { name: 'Refresh health', exact: true })).toBeEnabled()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
-    if (shots) {
-      for (const captureWidth of [1440, 390]) {
-        await page.setViewportSize({ width: captureWidth, height: 1000 })
-        await page.screenshot({ path: join(shots, `${captureWidth}-integration-health.png`), fullPage: true })
-      }
-      await page.setViewportSize({ width: 1440, height: 1000 })
-    }
+    await capture('integration-health')
     await context.request.post(`${origin}/auth/signout`, { headers: { origin }, data: {} })
     await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
     await expect(health.getByRole('alert')).toContainText('Check your owner access and retry.')
-    if (shots) await page.screenshot({ path: join(shots, `${width}-integration-health-expired.png`), fullPage: true })
+    await capture('integration-health-expired')
     await ownerEntry(page)
     await page.goto(`${origin}/app#channels`)
     await expect(health.locator('summary').filter({ hasText: 'Stock consumer synthetic-pier-health' })).toBeVisible()
@@ -96,9 +119,38 @@ test('KIT-001: define, assemble, pick, pack, print and inspect kits at 1440 and 
   const h={command:async(type:string,payload:object)=>{const response=await context.request.post(`${origin}/api/pier/commands`,{headers:{origin},data:{commandId:crypto.randomUUID(),type,payload}});const body=await response.json();expect(body.ok,JSON.stringify(body)).toBe(true);return body.result}}
   const b=await kitStock(h), shots=process.env.PIER_SCREENSHOTS
   if(shots) await mkdir(shots,{recursive:true})
-  for(const width of [1440,390]) {
+  {
+    const width=1440
     await page.setViewportSize({width,height:1000})
-    const shot=async(name:string)=>{expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);if(shots)await page.screenshot({path:join(shots,`${width}-kits-${name}.png`),fullPage:true})}
+    const shot=async(name:string)=>{
+      for(const captureWidth of [1440,390]) {
+        await page.setViewportSize({width:captureWidth,height:1000})
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true)
+        if(shots)await page.screenshot({path:join(shots,`${captureWidth}-kits-${name}.png`),fullPage:true})
+      }
+      await page.setViewportSize({width,height:1000})
+    }
+    const metric=async(label:string,value:string)=>{
+      const details=page.getByRole('region',{name:'Selected item details',exact:true})
+      await expect(details.locator('.metric').filter({has:page.getByText(label,{exact:true})}).locator('.metric-value')).toHaveText(value)
+    }
+    const components=async(quantities:number[],checkpoint:string)=>{
+      for(const [n,part] of b.components.entries()) {
+        await page.goto(`${origin}/app#stock/${part.id}`);await page.reload()
+        await metric('On hand (sellable)',String(quantities[n]));await metric('Reserved','0');await metric('Available',String(quantities[n]));await metric('Quarantine','0')
+      }
+      await shot(checkpoint)
+    }
+    const display=async(onHand:string,reserved:string,quarantine:string)=>{
+      await page.goto(`${origin}/app#stock/${b.display.id}`);await page.reload()
+      await metric('On hand (sellable)',onHand);await metric('Reserved',reserved);await metric('Available',String(Number(onHand)-Number(reserved)));await metric('Quarantine',quarantine)
+    }
+    const action=async(type:string,click:()=>Promise<unknown>)=>{
+      const reply=page.waitForResponse(response=>response.url().endsWith('/api/pier/commands')&&response.request().postDataJSON()?.type===type)
+      await click();const body=await(await reply).json();expect(body.ok,JSON.stringify(body)).toBe(true)
+      await expect(page.getByRole('button',{name:'Saving…',exact:true})).toHaveCount(0)
+      return body.result
+    }
     await page.goto(`${origin}/app#stock/${b.assortment.id}`);await page.reload()
     await expect(page.getByText(`Kits and assembly · ${b.assortment.sku}`,{exact:true})).toBeVisible()
     const definition=page.getByRole('heading',{name:'Revise kit definition',exact:true}).locator('..')
@@ -109,7 +161,7 @@ test('KIT-001: define, assemble, pick, pack, print and inspect kits at 1440 and 
     await definition.getByLabel('Quantity (base units)',{exact:true}).nth(1).fill('1')
     await definition.getByLabel('Definition reason',{exact:true}).fill(`Reviewed case assortment at ${width}`)
     await definition.getByRole('button',{name:'Save kit definition',exact:true}).click()
-    await expect(page.getByText(`Definition ${width===1440?2:3} · Backorder whole kits`,{exact:true})).toBeVisible()
+    await expect(page.getByText('Definition 2 · Backorder whole kits',{exact:true})).toBeVisible()
     await shot('definition')
     const order=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.assortment.id,quantity:'2',price:'10'}]})
     const carrier=await h.command('carrier.save',{name:`Kit pickup ${width}`,warehouse:'North',dock:'Kit dock',cutoff:'23:59',timeZone:'America/Chicago'})
@@ -147,6 +199,7 @@ test('KIT-001: define, assemble, pick, pack, print and inspect kits at 1440 and 
     await expect(page.getByRole('heading',{name:`Packing slip · ${order.reference}`,exact:true})).toBeVisible()
     await expect(page.getByText('Component picks and bins',{exact:true})).toBeVisible()
     await shot('packing-slip')
+    await components([26,28,30],'components-before-assembly')
     await page.goto(`${origin}/app#stock/${b.display.id}`);await page.reload()
     const task=page.getByRole('heading',{name:'Plan assembly or disassembly',exact:true}).locator('..')
     await task.getByLabel('Kit quantity',{exact:true}).fill('5')
@@ -157,20 +210,50 @@ test('KIT-001: define, assemble, pick, pack, print and inspect kits at 1440 and 
     await page.getByRole('button',{name:'Approve exact kitting task',exact:true}).click()
     await page.getByRole('button',{name:'Confirm physical kitting',exact:true}).click()
     await expect(page.getByRole('button',{name:'Confirm physical kitting',exact:true})).toHaveCount(0)
-    await shot('assembly-posted')
+    await display('5','0','0');await shot('assembly-posted')
+    await components([21,23,25],'components-after-assembly')
     const displayOrder=await h.command('order.create',{customerId:b.customer.id,warehouse:'North',lines:[{itemId:b.display.id,quantity:'2',price:'12'}]})
+    await display('5','2','0');await shot('assembled-reservations')
+    await components([21,23,25],'components-after-reservation')
     const shipment=await h.command('dispatch.create',{orderId:displayOrder.id,shipmentReference:`synthetic-pier-display-${width}`,lines:[{orderLineId:displayOrder.lines[0].id,quantity:'2'}]})
-    await page.reload()
+    await components([21,23,25],'components-after-dispatch')
+    await display('3','0','0');await shot('assembled-dispatched')
     await page.getByLabel('Kit dispatch',{exact:true}).selectOption(shipment.lines[0].id)
     await page.getByLabel('Returned kit quantity',{exact:true}).fill('1')
     await page.getByLabel('Returned kit bin',{exact:true}).selectOption(b.bin.id)
     await page.getByLabel('Kit return reason',{exact:true}).fill('Inspect display returned by customer')
     for(const part of b.components) await page.getByLabel(`Inspection · ${part.name}`,{exact:true}).fill('Component checked intact')
     await shot('component-inspection')
-    await page.getByRole('button',{name:'Receive inspected kit into quarantine',exact:true}).click()
+    const returned=await action('return.create',()=>page.getByRole('button',{name:'Receive inspected kit into quarantine',exact:true}).click())
     await expect(page.getByLabel('Returned kit quantity',{exact:true})).toHaveValue('')
+    await display('3','0','1');await shot('returned-quarantine')
+    await components([21,23,25],'components-after-return')
+    await page.goto(`${origin}/app#sales/${displayOrder.id}`);await page.reload()
+    const review=page.locator(`#document-${returned.id}`)
+    await expect(review).toContainText('Inspect display returned by customer')
+    await action('return.approve',()=>review.getByRole('button',{name:'Approve exact return for restocking',exact:true}).click())
+    await action('return.restock',()=>review.getByRole('button',{name:'Restock approved return',exact:true}).click())
+    await expect(review.getByText('Restocked',{exact:true}).last()).toBeVisible()
+    await shot('return-restocked')
+    await display('4','0','0')
+    const disassembly=page.getByRole('heading',{name:'Plan assembly or disassembly',exact:true}).locator('..')
+    await disassembly.getByLabel('Kitting direction',{exact:true}).selectOption('disassemble')
+    await disassembly.getByLabel('Kit quantity',{exact:true}).fill('1')
+    await disassembly.getByLabel('Kit bin',{exact:true}).selectOption(b.bin.id)
+    for(const part of b.components)await disassembly.getByLabel(`Component bin · ${part.name}`,{exact:true}).selectOption(b.bin.id)
+    await disassembly.getByLabel('Kitting reason',{exact:true}).fill('Recover one inspected display')
+    await action('kitting.plan',()=>disassembly.getByRole('button',{name:'Prepare kitting review',exact:true}).click())
+    await action('kitting.approve',()=>page.getByRole('button',{name:'Approve exact kitting task',exact:true}).click())
+    await action('kitting.post',()=>page.getByRole('button',{name:'Confirm physical kitting',exact:true}).click())
+    await display('3','0','0');await shot('returned-disassembled')
+    await components([22,24,26],'components-recovered')
     await page.goto(`${origin}/app#reports`);await page.reload()
     await expect(page.getByRole('heading',{name:'Net kit margin',exact:true})).toBeVisible()
+    const margin=page.getByRole('heading',{name:'Net kit margin',exact:true}).locator('..').getByRole('row').filter({hasText:'Display kit'})
+    await expect(margin.getByRole('cell').nth(1)).toHaveText('1')
+    await expect(margin.getByRole('cell').nth(2)).toContainText('12.00')
+    await expect(margin.getByRole('cell').nth(3)).toContainText('6.00')
+    await expect(margin.getByRole('cell').nth(4)).toContainText('6.00')
     await shot('net-margin')
     const existingTax=(await(await context.request.get(`${origin}/api/pier/state`)).json()).salesPolicies.find((r:any)=>r.kind==='tax-table'&&r.state==='IL')
     await h.command('sales.taxTable',{...(existingTax?{version:existingTax.version}:{}),state:'IL',rate:'0',reason:'Owner reviewed synthetic kit quote tax'})
@@ -198,12 +281,40 @@ test('TRACE-001: receive dated lots and serials, transfer, split ship, trace, qu
   for(const width of [1440,390]){
     const farLot=`synthetic-pier-${width+400}`,nearLot=`synthetic-pier-${width+401}`,serial=`synthetic-pier-${width+402}`
     await page.setViewportSize({width,height:1000})
-    const shot=async(name:string)=>{expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);if(shots)await page.screenshot({path:join(shots,`${width}-trace-${name}.png`),fullPage:true})}
+    const shot=async(name:string)=>{
+      for(const captureWidth of [1440,390]){
+        await page.setViewportSize({width:captureWidth,height:1000})
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true)
+        if(shots)await page.screenshot({path:join(shots,`${captureWidth}-trace-${name}.png`),fullPage:true})
+      }
+      await page.setViewportSize({width,height:1000})
+    }
     await page.goto(`${origin}/app#stock/${b.lot.id}`);await page.reload()
-    const policy=page.getByRole('heading',{name:'Review tracking policy',exact:true}).locator('..')
+    await page.getByRole('link',{name:'Review tracking in Settings',exact:true}).click()
+    const settings=page.getByRole('region',{name:'Stock tracking settings',exact:true})
+    await expect(settings.getByLabel('Tracking item',{exact:true})).toHaveValue(b.lot.id)
+    const policy=settings.getByRole('heading',{name:'Review tracking policy',exact:true}).locator('..')
+    const beforePolicy=(await state()).items.find((item:any)=>item.id===b.lot.id).tracePolicy
+    await policy.getByLabel('Allocation policy',{exact:true}).selectOption('fifo')
+    await policy.getByLabel('Tracking policy reason',{exact:true}).fill('Owner reviewed original receipt order')
+    const fifo=await action('trace.configure',()=>policy.getByRole('button',{name:'Save tracking policy',exact:true}).click())
+    expect(fifo.tracePolicy.allocation).toBe('fifo')
+    expect(fifo.tracePolicy.version).toBe(beforePolicy.version+1)
+    await expect(settings.getByRole('region',{name:'Approved tracking policy',exact:true})).toContainText('Owner reviewed original receipt order')
     await policy.getByLabel('Allocation policy',{exact:true}).selectOption('fefo')
     await policy.getByLabel('Tracking policy reason',{exact:true}).fill(`Owner reviewed FEFO at ${width}`)
-    await action('trace.configure',()=>policy.getByRole('button',{name:'Save tracking policy',exact:true}).click())
+    const approved=await action('trace.configure',()=>policy.getByRole('button',{name:'Save tracking policy',exact:true}).click())
+    const saved=await state()
+    expect(approved.tracePolicy.approvedBy).toBe(saved.actor.id)
+    expect(approved.tracePolicy.version).toBe(fifo.tracePolicy.version+1)
+    await page.reload()
+    const approval=settings.getByRole('region',{name:'Approved tracking policy',exact:true})
+    await expect(approval).toContainText(`Policy version ${approved.tracePolicy.version}`)
+    await expect(approval).toContainText(`Approved by ${saved.people.find((row:any)=>row.id===saved.actor.id).name}`)
+    await expect(approval).toContainText(`Owner reviewed FEFO at ${width}`)
+    await shot('policy-settings')
+    await page.goto(`${origin}/app#stock/${b.lot.id}`);await page.reload()
+    await expect(page.getByRole('region',{name:'Approved tracking policy',exact:true})).toContainText(`Owner reviewed FEFO at ${width}`)
     await shot('policy')
     await page.goto(`${origin}/app#floor/receive`);await page.reload()
     await page.getByLabel('Purchase order',{exact:true}).selectOption(b.po.id)
@@ -229,6 +340,15 @@ test('TRACE-001: receive dated lots and serials, transfer, split ship, trace, qu
     await shot('transfer')
     const order=await h.command('order.create',{customerId:b.customer.id,warehouse:'Trace North',lines:[{itemId:b.lot.id,quantity:'2',price:'5'},{itemId:b.serial.id,quantity:'1',price:'7'}]})
     await page.goto(`${origin}/app#sales/${order.id}`);await page.reload()
+    const allocated=page.getByRole('heading',{name:'Reserved sources for physical picking',exact:true}).locator('..')
+    const lotAllocation=allocated.getByRole('row').filter({hasText:'Dated stock'})
+    const serialAllocation=allocated.getByRole('row').filter({hasText:'Serialized stock'})
+    await expect(lotAllocation).toContainText(nearLot)
+    await expect(lotAllocation).not.toContainText(farLot)
+    await expect(lotAllocation.getByRole('cell').last()).toHaveText('2 each')
+    await expect(serialAllocation).toContainText(serial)
+    await expect(serialAllocation.getByRole('cell').last()).toHaveText('1 each')
+    await shot('allocated-identities')
     const dispatch=page.getByRole('heading',{name:'Pick and dispatch reserved lines',exact:true}).locator('..')
     const lotField=dispatch.getByLabel('Dated stock · synthetic-pier-301 · dispatch (each)',{exact:true}),serialField=dispatch.getByLabel('Serialized stock · synthetic-pier-302 · dispatch (each)',{exact:true})
     await dispatch.getByLabel('Shipment reference',{exact:true}).fill(`synthetic-pier-first-${width}`);await lotField.fill('1')

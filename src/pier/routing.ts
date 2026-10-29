@@ -202,6 +202,12 @@ export function routing(c: Context, type: string, p: any): Row | undefined {
   )
     fail("ROUTING_WAREHOUSE", "Fixed routing names exactly one warehouse.");
   const locations: Record<string, string[]> = {};
+  if (p.mode === 'channel-location' && p.locationMappings !== undefined) {
+    if (!Array.isArray(p.locationMappings) || p.locationMappings.some((m: any) => !m || typeof m.locationId !== 'string') ||
+      new Set(p.locationMappings.map((m: any) => m.locationId.trim())).size !== p.locationMappings.length)
+      fail('ROUTING_LOCATION', 'Map each distinct channel location once.');
+    p = { ...p, locations: Object.fromEntries(p.locationMappings.map((m: any) => [m.locationId.trim(), [m.warehouse]])) };
+  }
   if (p.mode === "channel-location") {
     if (
       !p.locations ||
@@ -209,7 +215,10 @@ export function routing(c: Context, type: string, p: any): Row | undefined {
       !Object.keys(p.locations).length
     )
       fail("ROUTING_LOCATION", "Map at least one channel location.");
+    const channel = source.startsWith('channel:') ? get(c.s, 'channels', source.slice(8)) : null;
     for (const [key, value] of Object.entries(p.locations)) {
+      if (channel?.provider === 'shopify' && !/^gid:\/\/shopify\/Location\/\d+$/.test(key))
+        fail('ROUTING_LOCATION', 'Use the exact Shopify location identity returned by the store.');
       const list = eligible(c.s, value);
       if (list.length !== 1)
         fail(

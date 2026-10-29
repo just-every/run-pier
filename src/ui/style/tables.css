@@ -27,3 +27,6 @@
   .pier-app .table-wrap td.action { display: flex; width: auto; justify-content: flex-end; }
   .pier-app .table-wrap tr.selected td, .pier-app .table-wrap tbody tr:hover td { background: none; }
 }
+
+.pier-app :is(.correspondence, .business-documents) :is(small, th, code) { font-size: 13px; }
+.pier-app :is(.correspondence, .business-documents) td[data-label]::before { font-size: 13px; }

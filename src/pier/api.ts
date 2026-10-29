@@ -1,3 +1,5 @@
+import { supplierSubstitutes, substituteActors, supplierSubstituteView, substituteSource } from './supplier-substitutes';
+import { webhooks, deliverOrderWebhooks, captureOrderWebhooks } from './outbound-webhooks';
 import { requireAssurance } from '../strong-auth/assurance';
 import { trade, tradeResponse } from './trade';
 import { integrationHealth } from './integration-health';
@@ -88,6 +90,7 @@ import { returnLookup } from "./returns-lookup";
 import { itemAgent, explainItem } from "./item-agent";
 import { purchasing } from "./purchasing";
 import { supplierReturns } from './supplier-returns';
+import { supplierReturnViews } from './books/supplier-return-planning';
 import { supplierInspections } from "./supplier-inspections";
 import { replenishment, forecast, draftReplenishment, refreshReorderExceptions } from './replenishment';
 import { backorderDates } from './backorders';
@@ -101,7 +104,7 @@ import { lateLandedCost } from './late-landed-cost';
 import { costing } from "./costing";
 import { reports } from "./reports";
 import { warehouse, countView } from "./warehouse";
-import { imports } from "./imports";
+import { imports, importOriginal } from "./imports";
 import { proposals, reorder } from "./proposals";
 import { floor, floorState } from "./floor";
 import { dispatchSummary } from "./floor/summary";
@@ -215,8 +218,10 @@ export async function execute(
     const before = await load(env.DB),
       s = structuredClone(before),
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, installationScope:sha256('pier-recurring-authority\0'+env.SESSION_SECRET), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
+    if (type.startsWith('substitute.')) c.substituteActors = await substituteActors(env.DB);
     await approver(env, c, type, payload);
-    let result: any = await privacy(c, type, payload, env);
+    let result: any = await webhooks(c, type, payload, env);
+    if (result === undefined) result = await privacy(c, type, payload, env);
     if (result === undefined) result = supplierBills(c, type, payload);
     if (result === undefined) result = await shipping(c, type, payload, env);
     if (result === undefined) result = business(c, type, payload);
@@ -234,6 +239,7 @@ export async function execute(
       customFieldCommands,
       purchaseApproval,
       purchaseChanges,
+      supplierSubstitutes,
       savedReports,
       workflowRules,
       trace,
@@ -287,6 +293,7 @@ export async function execute(
     validatePlacements(s, before);
     if (type === "import.commit" || type === "import.undo") {
       refreshReorderExceptions(c);
+      captureOrderWebhooks(c, before);
       await publishImport(
         env,
         c,
@@ -304,7 +311,7 @@ export async function execute(
       return outcome;
     }
     // Retaining and reviewing untrusted evidence never triggers unrelated plans.
-    if (!type.startsWith('trade.') && !['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && !['replenishment.compare', 'replenishment.review'].includes(type) && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
+    if (!type.startsWith('webhook.') && !type.startsWith('substitute.') && !type.startsWith('trade.') && !['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && !['replenishment.compare', 'replenishment.review'].includes(type) && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -314,9 +321,12 @@ export async function execute(
     refreshSlowStock(c, backgroundPolicy?.collection === "slowStockPolicies");
     markChannelPending(c, before);
     }
-    refreshOperationalExceptions(c, backgroundPolicy?.collection === "operationalExceptionPolicies");
-    invalidatePurchaseSends(c);
+    if (!type.startsWith('substitute.')) {
+      refreshOperationalExceptions(c, backgroundPolicy?.collection === "operationalExceptionPolicies");
+      invalidatePurchaseSends(c);
+    }
     if (type === 'itemAgent.bulkApply') result.sourceDigest = bulkInputDigest(c);
+    captureOrderWebhooks(c, before);
     const visibleResult = physicalResult(s, actor, result);
     c.audit = auditEvent(c, before, type, payload, result, type.endsWith(".failed") ? "failed" : "accepted");
     try {
@@ -377,7 +387,7 @@ export async function pierResponse(
     if (request.method === "GET") {
       admitRead(actor, url);
       const full = await load(env.DB), s = physicalState(full, actor),
-        c = { s, actor, commandId: "", now: new Date().toISOString(), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
+        c: Context = { s, actor, commandId: "", substituteActors: actor.role === 'owner' ? await substituteActors(env.DB) : undefined, now: new Date().toISOString(), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
       privateFields = privateFieldCustody(full);
       const gate = authority(actor);
       if (
@@ -424,6 +434,8 @@ export async function pierResponse(
           return !value || (key === 'itemId' ? event.itemIds.includes(value) : key === 'documentId' ? event.documentIds.includes(value) || event.commandId === value : key === 'userId' ? event.actorId === value : key === 'commandId' ? event.commandId === value : event.connectorId === value);
         })));
       }
+      const nativeOriginal = importOriginal(url.pathname, actor, s);
+      if (nativeOriginal) return nativeOriginal;
       const printDocument=printRead(url.pathname,actor,s);if(printDocument)return printDocument;
       const originalDocument = documentRead(url.pathname, actor, s);
       if (originalDocument) return originalDocument;
@@ -486,6 +498,7 @@ export async function pierResponse(
         );
       if (url.pathname === "/api/pier/export") {
         if(actor.role!=='owner')throw new Problem('FORBIDDEN','Only an owner can export the complete business record and commercial source artifacts.',null,403);
+        if (url.searchParams.has('source')) return reply(substituteSource(s, url.searchParams));
         const audit = await env.DB.batch([
           env.DB.prepare(
             "SELECT id,actor_id AS actorId,digest,result,created_at AS createdAt FROM pier_commands ORDER BY created_at,id",
@@ -503,6 +516,7 @@ export async function pierResponse(
           precision: 6,
           exportedAt: new Date().toISOString(),
           ...s,
+          supplierReturns: supplierReturnViews(s),
           auditEvents: await auditRows(env.DB),
           commands: audit[0].results.map((command: any) => ({
             ...command,
@@ -550,12 +564,14 @@ export async function pierResponse(
         documentInbox: actor.role === 'owner' ? documentViews(s).inbox : [],
         ...(actor.role==='owner'?{}:{savedReports:[],reportSnapshots:[],workflowRules:[],workflowJobs:[],privacyHolds:[],privacyPolicies:[],privacyReceipts:[],salesDocuments:[],businessTemplates:[],printMailEvents:[],invoices:[],invoiceCredits:[],paymentConnections:[],invoicePayLinks:[],invoicePaymentSessions:[],invoicePayments:[],salesImports:[],recurringOrders:[],dropships:[],customerCredits:[],parties:s.parties.map(({creditClearance,resaleCertificates,contacts,addresses,paymentTerms,salesRepId,...party})=>party)}),
         actor,
+        proposals: s.proposals.map(proposal => supplierSubstituteView(c, proposal)),
         people,
         bookConnections,
         operationalExceptions: actor.role === "owner" ? s.operationalExceptions.map(record => operationalCaseView(c, record)) : [],
         receiptClosures: receiptBookViews(s, bookConnections.some(row => row.enabled && row.credentialPresent && !row.problem)),
         orders: s.orders.map((o) => ({ ...orderView(c, o),...(actor.role==='owner'?{}:{creditClearance:undefined}), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),
+        supplierReturns: actor.role === 'owner' ? supplierReturnViews(s) : s.supplierReturns,
         purchaseOrders: s.purchaseOrders.map(po => {
           let approvalRoute = null, approvalRouteError = null;
           try { approvalRoute = purchaseApprovalRoute(c, po); } catch (error) { approvalRouteError = (error as Error).message; }
@@ -569,7 +585,7 @@ export async function pierResponse(
         ...floorState(c),
         ...kitState(s),
         ...traceState(s),
-        ...channelState(s),
+        ...channelState(s, c.automationActors),
         shippingUnavailable: shippingUnavailable(env),
         ...ediState(s, c.now),
         positions: positions(s),
@@ -683,13 +699,14 @@ export async function pierResponse(
       if (actor.role !== "owner") throw new Problem("FORBIDDEN","Only an owner can sync the books.",null,403);
       return reply({ok:true,result:await syncBooks(env),version:(await load(env.DB)).version});
     }
-    if (["channel.ingest", "channel.published", "channel.failed"].includes(type)) fail("CHANNEL_INTERNAL", "Pier records channel traffic itself.");
+    if (["channel.ingest", "channel.publicationPrepare", "channel.published", "channel.failed"].includes(type)) fail("CHANNEL_INTERNAL", "Pier records channel traffic itself.");
     if (type === "channel.sync") {
       if (actor.role !== "owner") throw new Problem("FORBIDDEN", "Only an owner can synchronize external connections.", null, 403);
       return reply({ ok: true, result: await syncChannels(env), version: (await load(env.DB)).version });
     }
     if (type === "dispatch.delivered")
       fail("COMMAND", "Pier records mail delivery itself.");
+    if (type === 'webhook.process') return reply({ ok: true, result: await deliverOrderWebhooks(env, actor), version: (await load(env.DB)).version });
     if (type === 'mail.process') {
       if (!['owner','buyer','operator'].includes(actor.role)) throw new Problem('FORBIDDEN','Your current role cannot send approved correspondence.',null,403);
       return reply({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
@@ -701,7 +718,7 @@ export async function pierResponse(
       if (error instanceof Problem) await refusedScan(env.DB, actor, commandId, type, payload, error.code, await load(env.DB));
       throw error;
     }
-    if (outcome && (type.startsWith('trade.') || ['replenishment.compare', 'replenishment.review'].includes(type) || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return reply(outcome);
+    if (outcome && (type.startsWith('substitute.') || type.startsWith('trade.') || ['replenishment.compare', 'replenishment.review'].includes(type) || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return reply(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'print.send' && outcome.result.kind === 'purchase-order') await deliverCorrespondence(env, new Date().toISOString(), outcome.result.id, actor);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {
