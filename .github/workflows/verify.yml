@@ -123,8 +123,6 @@ jobs:
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
       GH_TOKEN: ${{ github.token }}
-      PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-journeys
-      PIER_SCREENSHOTS: ${{ runner.temp }}/pier-journeys/screenshots
     steps:
       - uses: actions/checkout@v4
       - name: Make room for native installation journeys
@@ -147,6 +145,9 @@ jobs:
             node scripts/ci/chromium-probe.mjs
           }
       - run: node tests/run-journeys.mjs ${{ matrix.shard }}
+        env:
+          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-journeys
+          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-journeys/screenshots
       - uses: actions/upload-artifact@v4
         if: always()
         with:
