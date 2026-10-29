@@ -9,9 +9,9 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Core | 26 | 61 | 4 | 91 |
-| Agent surface | 0 | 20 | 0 | 20 |
+| Agent surface | 0 | 17 | 3 | 20 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 26 | 81 | 4 | 111 |
+| Full target | 26 | 78 | 7 | 111 |
 
 Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
@@ -1659,7 +1659,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE
 
 #### SURFACE-004 — Sales, invoice and shipping calls carry money and external
 
-Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-006
 
 **Requirement.** Sales calls carry their classes with server-computed facts: amounts in USD and source currency, the customer or carrier as counterparty and the recipients of a message.
 
@@ -1669,12 +1669,12 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
 3. Buying a label carries money · external with the postage amount and carrier.
 4. A reminder or document sent to a customer carries external with its recipient count.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** None.
 **Gap.** Sales, invoice, shipping and payment agent adapters and their class journeys remain absent.
 
 #### SURFACE-005 — Connections are gated and publication is external
 
-Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-006
 
 **Requirement.** Connecting a channel, ledger, payment or identity provider is gated where the provider keeps its consent step for a person signed in to the company's own account; publishing stock, EDI documents and ledger postings reach outside parties.
 
@@ -1683,12 +1683,12 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
 2. Stock publication, an EDI 856 and a ledger posting carry external with their counterparty, *known* for a connected channel, partner or ledger.
 3. A webhook subscription carries security, adding external when it names an outside destination.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** None.
 **Gap.** Connector setup remains on its native connector doors; publication and external synchronization agent tools remain absent.
 
 #### SURFACE-006 — Access and security calls name their direction
 
-Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-006
 
 **Requirement.** Staff, warehouse and trade-buyer grants carry access with the people affected and whether the grant widens or narrows; factor, session and credential calls carry security.
 
@@ -1697,7 +1697,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
 2. A trade-buyer grant carries access · external with the buyer as counterparty.
 3. Requiring two-factor authentication, resetting a factor and rotating a service credential carry security.
 
-**Evidence.** `agent-surface.json`; `tests/agent-door/`; own released rer 0.2.91 production-door output: 1097/1097 points, including owner bootstrap, unknown-subject and changed-email refusals, native relay receipt, policy replay and zero differs_from_policy.
+**Evidence.** None.
 **Gap.** Native assured human access/security administration is preserved. No access or security tool, escalation fixture or native proof handoff is registered.
 
 #### SURFACE-007 — A stranger agent runs a seeded week under two policies
