@@ -44,7 +44,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 36 | "Each scan, sale, count and bill writes a line" | `PIER-012` done; `AUDIT-001` partial | partial |
 | 37 | "Value moves with it" (FIFO · USD) | `COST-001` partial; `REPORT-002` partial | partial |
 | 38 | Reorder row: "571 available = 36 days; 40 needed (28 lead + 12 safety)" | `BUY-001` partial; `BUY-005` partial | partial |
-| 39 | "Items, bins, stock on hand, customers, suppliers and open orders come across from a supported source inventory system" | `MIGRATE-001` partial; `PIER-003` partial | partial |
+| 39 | "Items, bins, stock on hand, customers, suppliers and open orders come across from a supported source inventory system" | `MIGRATE-001` partial; `PIER-003` done | partial |
 | 40 | "Channels reconnect to the same listings" | `CHANNEL-001` partial; `MIGRATE-001` partial | partial |
 | 41 | The one-line start `npx -y @runeditrun/rer dev just-every/run-pier` and what it does | `OPS-001` partial | partial |
 | 42 | "Runs on your own computer or server" | `OPS-001` partial | partial |

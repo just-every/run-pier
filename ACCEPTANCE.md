@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 21 | 66 | 4 | 91 |
+| Core | 22 | 65 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 21 | 66 | 11 | 98 |
+| Full target | 22 | 65 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -47,7 +47,7 @@ Core · published · **done**
 
 #### PIER-003 — Review native opening inventory
 
-Core · published · **partial**
+Core · published · **done**
 
 **Requirement.** Owners stage native CSV items, locations, counterparties, opening positions and open documents; review mappings, originals and reconciliation; resolve ambiguous rows; and approve one cutover. Optional reservations preserve exact per-line and bin allocations, including explicit zero backorders. Without that file, the six-kind importer reserves available stock. Changed source rows require reviewed revision, and downstream dependencies constrain undo. Safe undo before downstream work restores exact before-images and removes only that import’s created graph and movements; retained immutable originals and import custody explain this narrow exception to append-only operational corrections. Native CSV openings, open documents and counterparty prices carry an ISO 4217 currency per file or row. USD is the default for a US install: a row with no currency is read as USD and the preview shows it as USD, and an unknown currency code is refused with the row named. A non-USD opening, for example an AUD or CAD supplier cost as the supported source inventory systems allow, keeps its source amount and currency and is valued in USD only through a conversion rate the owner reviews and the batch records, never a silent or guessed rate, consistent with COST-001.
 
@@ -59,8 +59,8 @@ Core · published · **partial**
 5. A row with no currency on a US install is read as USD and shown so in the preview.
 6. An unknown currency code is refused with the row named.
 
-**Evidence.** `src/pier/imports.ts`; `src/pier/import-currency.ts`; `src/pier/native-export.ts`; `tests/api/security-import.test.mjs`; `tests/api/native-exit.test.mjs`
-**Gap.** Unasserted: reading the USD unit cost of an imported native opening in COST-001's ledger; `tests/api/security-import.test.mjs` asserts the resulting valuation total only. Every other point is asserted in the cited files.
+**Evidence.** `tests/api/security-import.test.mjs` — “native import graph revisions, grouped lines, frontier and safe undo” and “empty downstream import undo restores native snapshot and retains custody” prove reviewed cutover, unchanged replay, changed-source revision, safe undo and dependency refusal; “native import reads USD by default, refuses an unknown currency naming the row, and values AUD rows through the batch's reviewed rate” proves the MUG opening's 10 units, USD 2.50 unit cost and USD 25.00 source layer with exact import and movement links in reports and business export, reviewed AUD conversion, the USD default and named-row currency refusal. `tests/api/native-exit.test.mjs` — “native exit preserves approved allocation and explicit backorders across a fresh cutover” proves exact bin allocations, wholly backordered lines, replay and constrained undo.
+**Gap.** None.
 
 #### PIER-004 — Commit sales demand without overselling
 
