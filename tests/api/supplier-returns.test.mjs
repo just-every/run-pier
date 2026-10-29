@@ -8,9 +8,16 @@ test('BUY-003: quarantine, supplier authority, once-only dispatch, credit and re
   const pantry=await pantryInstallation({revision:'e987ba0a2270a81c62d399c44c6e05d3b504bb07'});t.after(()=>pantry.close());
   await pantry.command('chart.start',{});
   const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),freight=await pantry.command('account.save',{code:'5100',name:'Freight and duty',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find(a=>a.code==='4000');
-  let loseCredit=false;
+  let loseCredit=false, mismatchCredit=false, mismatchedReads=0, creditCreates=0;
   const h=await installation({async outboundService(request){
     const response=await fetch(request.url,{method:request.method,headers:Object.fromEntries([...request.headers].filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),...(request.method==='GET'?{}:{body:await request.arrayBuffer()})});
+    if(request.method==='POST'&&request.url.endsWith('/vendor-credits'))creditCreates++;
+    if(mismatchCredit&&request.method==='GET'&&new URL(request.url).pathname.endsWith('/vendor-credits')){
+      const body=await response.json();
+      for(const credit of body.vendorCredits)credit.amount_cents+=1;
+      if(body.vendorCredits.length)mismatchedReads++;
+      return Response.json(body,{status:response.status});
+    }
     if(loseCredit&&request.method==='POST'&&request.url.endsWith('/vendor-credits')){loseCredit=false;await response.text();throw new Error('Synthetic loss after Pantry saved supplier credit');}
     return response;
   }});t.after(()=>h.close());
@@ -69,14 +76,44 @@ test('BUY-003: quarantine, supplier authority, once-only dispatch, credit and re
   const post={returnId:returned.id,version:returned.version,reference:'CM-42',supplierBillId:bill.id},postId=randomUUID();loseCredit=true;
   await h.command('supplierReturn.postCredit',post,{commandId:postId});
   state=await h.state();assert.equal(state.bookJobs.find(j=>j.key.startsWith('supplier-credit:')).status,'uncertain');
-  await h.command('supplierReturn.postCredit',post,{commandId:postId});await h.command('book.sync',{});await h.command('book.sync',{});
-  await reviewEvidence();
+  mismatchCredit=true;
+  await h.command('supplierReturn.postCredit',post,{commandId:postId});await h.command('book.sync',{});
+  const mismatched=await h.state(), creditJob=mismatched.bookJobs.find(j=>j.key.startsWith('supplier-credit:'));
+  assert.equal(creditJob.status,'review');assert.match(creditJob.reason,/different amounts, accounts or lines/);
+  assert.equal(mismatched.supplierReturns[0].resolutions[0].posting,'review');
+  assert.equal(mismatched.supplierReturns[0].clearing.nonCreditedCost,null,'unconfirmed credits cannot establish a final cost');
+  const physicalBeforeRestart={positions:mismatched.positions,movements:mismatched.movements,reservations:mismatched.reservations,receipts:mismatched.receipts,purchaseOrders:mismatched.purchaseOrders};
+  await h.restart();await h.command('book.sync',{});
+  const afterRestart=await h.state();
+  assert.equal(afterRestart.bookJobs.find(j=>j.id===creditJob.id).status,'review');
+  assert.equal(afterRestart.supplierReturns[0].resolutions[0].posting,'review');
+  assert.deepEqual({positions:afterRestart.positions,movements:afterRestart.movements,reservations:afterRestart.reservations,receipts:afterRestart.receipts,purchaseOrders:afterRestart.purchaseOrders},physicalBeforeRestart);
+  assert.ok(mismatchedReads>=2);assert.equal(creditCreates,1,'mismatched readback never creates a second credit');
+  const retainedCredits=(await pantry.view('sales')).vendorCredits;
+  assert.equal(retainedCredits.length,1);assert.equal(retainedCredits[0].amount_cents,25);assert.equal(retainedCredits[0].unallocated_cents,0);assert.equal(retainedCredits[0].allocations.length,1);
+  mismatchCredit=false;await reviewEvidence();
   state=await h.state();returned=state.supplierReturns[0];assert.equal(returned.resolutions[0].posting,'posted');assert.equal(returned.resolutions[0].books.allocated,'0.25');assert.equal(returned.resolutions[0].books.unallocated,'0.00');
   const creditResponse=await fetch(pantry.origin+'/api/pantry/integration/v1/vendor-credits',{headers:{authorization:`Bearer ${credential.token}`}});assert.equal(creditResponse.status,200);
   const credits=(await creditResponse.json()).vendorCredits;assert.equal(credits.length,1);assert.equal(credits[0].amount_cents,25);assert.equal(credits[0].unallocated_cents,0);assert.equal(credits[0].allocations.length,1);
   const remoteBill=(await pantry.view('sales')).bills[0];assert.equal(remoteBill.open_cents,175);assert.equal(credits[0].allocations[0].target_id,remoteBill.id);assert.equal((await pantry.view('sales')).bills.length,1,'replacement never creates a second payable');
   assert.equal(state.bookJobs.find(j=>j.key==='inventory-reconciliation').status,'reconciled');
   assert.equal((await pantry.view('./reports/trial-balance')).rows.find(r=>r.id===inventory.id).net,266);
+  const clearing=returned.clearing;
+  assert.equal(clearing.receiptId,receipt.id);assert.equal(clearing.status,'settled');
+  assert.equal(clearing.dispatched,'1.140000000000');assert.equal(clearing.replaced,'0.760000000000');assert.equal(clearing.credited,'0.250000000000');
+  assert.equal(clearing.remaining,'0.130000000000');assert.equal(clearing.nonCreditedCost,'0.130000000000');
+  assert.equal(clearing.dispatch.sourceId,returned.id);assert.equal(clearing.replacements[0].sourceId,replacedReceipt.id);assert.equal(clearing.credits[0].supplierBillId,bill.id);
+  const journals=(await pantry.view('journal')).entries;
+  const dispatchJournal=journals.find(j=>j.id===clearing.dispatch.remoteId),replacementJournal=journals.find(j=>j.id===clearing.replacements[0].remoteId);
+  assert.ok(dispatchJournal);assert.ok(replacementJournal);
+  assert.equal(dispatchJournal.lines.find(l=>l.account_id===cogs.id).debit_cents,114);
+  assert.equal(dispatchJournal.lines.find(l=>l.account_id===inventory.id).credit_cents,114);
+  assert.equal(replacementJournal.lines.find(l=>l.account_id===cogs.id).credit_cents,76);
+  assert.equal(replacementJournal.lines.find(l=>l.account_id===inventory.id).debit_cents,76);
+  const creditJournal=journals.find(j=>j.id===credits[0].journal_id);
+  assert.equal(creditJournal.lines.find(l=>l.account_id===cogs.id).credit_cents,25);
+  assert.equal((await pantry.view('./reports/trial-balance')).rows.find(r=>r.id===cogs.id).net,13,'114 cents clearing less 76 cents replacement and 25 cents accepted credit leaves 13 cents expense');
+  assert.equal((await pantry.view('sales')).payments.length,0,'a clearing residual never invents a supplier refund');
   const csv=await (await h.request('/api/pier/books/export.csv')).text();
   assert.ok(csv.includes('"Supplier credit total","Accounts Payable","1","0.25",""'));
   const iif=await h.request('/api/pier/books/export.iif');assert.equal(iif.status,200,await iif.clone().text());
@@ -84,6 +121,40 @@ test('BUY-003: quarantine, supplier authority, once-only dispatch, credit and re
   const exported = await stable();
   assert.deepEqual(exported.supplierReturns[0], returned);
   const reports = await h.request('/api/pier/reports'); assert.equal(reports.status, 200, await reports.clone().text());
+  // Pay down a different matched payable through Pantry's ordinary owner door.
+  const h2=await installation();t.after(()=>h2.close());
+  const b2=await basics(h2),po2=await buy(h2,b2,'2'),receipt2=await receive(h2,b2,po2,'2');
+  const bill2=await h2.command('supplierBill.save',{poId:po2.id,reference:'synthetic-pier-3',date:new Date().toISOString().slice(0,10),quantityTolerancePercent:'0',priceTolerancePercent:'0',lines:[{poLineId:po2.lines[0].id,quantity:'2',unitPrice:'0.25'}]});
+  await h2.command('supplierBill.approve',{id:bill2.id,version:bill2.version,receiptEvidence:bill2.match.receiptEvidence});
+  const credential2=await pantry.command('integration.create',{name:'Pier insufficient payable',scopes:['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','vendor-credits:read','vendor-credits:write','post']});
+  await h2.command('book.connect',{baseUrl:pantry.origin,integrationToken:credential2.token,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,taxCode:'exempt'});
+  for(const doc of (await pantry.view('documents')).documents.filter(d=>d.duplicate_of&&!d.duplicate_decision))await pantry.command('document.duplicate-decide',{id:doc.id,decision:'keep',reason:'Owner reviewed the distinct receipt and invoice evidence'});
+  await h2.command('book.sync',{});
+  const postedBill2=(await h2.state()).bookJobs.find(j=>j.key===`supplier-bill:${bill2.id}`||j.sourceId===bill2.id),payable2=(await pantry.view('sales')).bills.find(b=>b.id===postedBill2.remoteId);
+  assert.ok(payable2);assert.equal(payable2.open_cents,50);
+  const bank=await pantry.command('bank-account.save',{name:'Synthetic operating account',institution:'Synthetic',accountId:(await pantry.view('state')).accounts.find(a=>a.code==='1000').id,numberLast4:'0001',openingDate:'2026-01-01',openingBalance:'0.00'});
+  await pantry.command('payment.record',{direction:'paid',contactId:payable2.vendor_id,date:new Date().toISOString().slice(0,10),amount:'0.49',bankAccountId:bank.id,method:'check',reference:'synthetic-pier-4',allocations:[{targetId:payable2.id,amount:'0.49'}]});
+  assert.equal((await pantry.view('sales')).bills.find(b=>b.id===payable2.id).open_cents,1);
+  let short=await h2.command('supplierReturn.create',{receiptId:receipt2.id,reason:'One rejected unit after supplier payment',lines:[{receiptLineId:receipt2.lines[0].id,quantity:'1'}]});
+  short=await h2.command('supplierReturn.authorize',{returnId:short.id,version:short.version,authorizationReference:'synthetic-pier-5',evidence:'Supplier authorized one unit'});
+  short=await h2.command('supplierReturn.dispatch',{returnId:short.id,version:short.version,dispatchReference:'synthetic-pier-6'});
+  short=await h2.command('supplierReturn.credit',{returnId:short.id,version:short.version,reference:'synthetic-pier-7',evidence:'Supplier credit for one unit',amount:'0.25',lines:[{returnLineId:short.lines[0].id,quantity:'1'}]});
+  const remoteBefore=await pantry.view('sales');
+  await h2.command('supplierReturn.postCredit',{returnId:short.id,version:short.version,reference:'synthetic-pier-7',supplierBillId:bill2.id});
+  const assertInsufficient=async()=>{
+    const s=await h2.invariant(),job=s.bookJobs.find(j=>j.sourceKind==='supplierCredit');
+    assert.equal(job.status,'review');assert.match(job.reason,/insufficient open balance/);
+    assert.equal(s.supplierReturns[0].resolutions[0].posting,'review');assert.equal(s.supplierReturns[0].clearing.nonCreditedCost,null);
+    const remote=await pantry.view('sales');
+    assert.deepEqual(remote.vendorCredits,remoteBefore.vendorCredits);assert.deepEqual(remote.payments,remoteBefore.payments);
+    assert.deepEqual(remote.bills,remoteBefore.bills);
+    return {positions:s.positions,movements:s.movements,reservations:s.reservations,receipts:s.receipts,purchaseOrders:s.purchaseOrders};
+  };
+  const refusedEffects=await assertInsufficient();
+  await h2.command('book.sync',{});await h2.restart();await h2.command('book.sync',{});
+  assert.deepEqual(await assertInsufficient(),refusedEffects);
+  const exportedShort=await (await h2.request('/api/pier/export')).json();
+  assert.equal(exportedShort.supplierReturns[0].clearing.credited,'0.000000000000');assert.equal(exportedShort.supplierReturns[0].clearing.status,'review');
   // Existing sales reservations remain untouchable by a supplier rejection.
   await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '5', locationId: b.source.id }] });
   await unchanged('supplierReturn.create', { ...payload, lines: [{ receiptLineId: receipt.lines[0].id, quantity: '1' }] }, 'DEPENDENCY');

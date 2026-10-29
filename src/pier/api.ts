@@ -88,6 +88,7 @@ import { returnLookup } from "./returns-lookup";
 import { itemAgent, explainItem } from "./item-agent";
 import { purchasing } from "./purchasing";
 import { supplierReturns } from './supplier-returns';
+import { supplierReturnViews } from './books/supplier-return-planning';
 import { supplierInspections } from "./supplier-inspections";
 import { replenishment, forecast, draftReplenishment, refreshReorderExceptions } from './replenishment';
 import { backorderDates } from './backorders';
@@ -505,6 +506,7 @@ export async function pierResponse(
           precision: 6,
           exportedAt: new Date().toISOString(),
           ...s,
+          supplierReturns: supplierReturnViews(s),
           auditEvents: await auditRows(env.DB),
           commands: audit[0].results.map((command: any) => ({
             ...command,
@@ -558,6 +560,7 @@ export async function pierResponse(
         receiptClosures: receiptBookViews(s, bookConnections.some(row => row.enabled && row.credentialPresent && !row.problem)),
         orders: s.orders.map((o) => ({ ...orderView(c, o),...(actor.role==='owner'?{}:{creditClearance:undefined}), backorderPlan: backorderDates(c).find(r => r.orderId === o.id) })),
         supplierBills: supplierBillViews(s),
+        supplierReturns: actor.role === 'owner' ? supplierReturnViews(s) : s.supplierReturns,
         purchaseOrders: s.purchaseOrders.map(po => {
           let approvalRoute = null, approvalRouteError = null;
           try { approvalRoute = purchaseApprovalRoute(c, po); } catch (error) { approvalRouteError = (error as Error).message; }
