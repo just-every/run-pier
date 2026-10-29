@@ -10,25 +10,52 @@ test('STOCK-001: warehouse and company stock reconcile to exported movements, re
   const state = await h.state();
   const exported = await (await h.request('/api/pier/export')).json();
   const zero = () => ({ onHand: 0n, reserved: 0n, available: 0n, quarantine: 0n, transit: 0n, expected: 0n });
-  const warehouses = new Map();
-  const at = warehouse => { if (!warehouses.has(warehouse)) warehouses.set(warehouse, zero()); return warehouses.get(warehouse); };
-  for (const m of exported.movements.filter(m => m.itemId === b.item.id)) {
-    const q = at(exported.locations.find(l => l.id === m.locationId).warehouse);
-    q[m.status === 'sellable' ? 'onHand' : m.status] += BigInt(m.quantity);
+  for (const item of [b.item, b.heldItem]) {
+    const warehouses = new Map();
+    const at = warehouse => { if (!warehouses.has(warehouse)) warehouses.set(warehouse, zero()); return warehouses.get(warehouse); };
+    for (const m of exported.movements.filter(m => m.itemId === item.id)) {
+      const q = at(exported.locations.find(l => l.id === m.locationId).warehouse);
+      q[m.status === 'sellable' ? 'onHand' : m.status] += BigInt(m.quantity);
+    }
+    for (const r of exported.reservations.filter(r => r.itemId === item.id)) at(exported.locations.find(l => l.id === r.locationId).warehouse).reserved += BigInt(r.quantity);
+    for (const hold of exported.channelHolds.filter(row => !row.releasedAt && row.itemId === item.id)) for (const allocation of hold.allocations) at(exported.locations.find(l => l.id === allocation.locationId).warehouse).reserved += BigInt(allocation.quantity);
+    for (const po of exported.purchaseOrders.filter(po => po.status === 'committed')) for (const line of po.lines) if (line.itemId === item.id && parse(line.quantity) > parse(line.received)) at(line.destinationWarehouse ?? po.destinationWarehouse ?? 'Unassigned receiving warehouse').expected += parse(line.quantity) - parse(line.received);
+    const total = zero();
+    for (const [warehouse, q] of warehouses) {
+      q.available = q.onHand - q.reserved;
+      const actual = state.warehouseStocks.find(row => row.itemId === item.id && row.warehouse === warehouse);
+      for (const field of Object.keys(q)) { assert.equal(parse(actual[field]), q[field], `${item.sku} ${warehouse}: ${field}`); total[field] += q[field]; }
+    }
+    const company = state.companyStocks.find(row => row.itemId === item.id);
+    for (const field of Object.keys(total)) assert.equal(parse(company[field]), total[field], `${item.sku} company: ${field}`);
+    assert.equal(state.warehouseStocks.filter(row => row.itemId === item.id).length, warehouses.size);
   }
-  for (const r of exported.reservations.filter(r => r.itemId === b.item.id)) at(exported.locations.find(l => l.id === r.locationId).warehouse).reserved += BigInt(r.quantity);
-  for (const hold of exported.channelHolds.filter(row => !row.releasedAt && row.itemId === b.item.id)) for (const allocation of hold.allocations) at(exported.locations.find(l => l.id === allocation.locationId).warehouse).reserved += BigInt(allocation.quantity);
-  for (const po of exported.purchaseOrders.filter(po => po.status === 'committed')) for (const line of po.lines) if (line.itemId === b.item.id) at(line.destinationWarehouse ?? po.destinationWarehouse).expected += parse(line.quantity) - parse(line.received);
-  const total = zero();
-  for (const [warehouse, q] of warehouses) {
-    q.available = q.onHand - q.reserved;
-    const actual = state.warehouseStocks.find(row => row.itemId === b.item.id && row.warehouse === warehouse);
-    for (const field of Object.keys(q)) { assert.equal(parse(actual[field]), q[field], `${warehouse}: ${field}`); total[field] += q[field]; }
-  }
-  const company = state.companyStocks.find(row => row.itemId === b.item.id);
-  for (const field of Object.keys(total)) assert.equal(parse(company[field]), total[field], `Company: ${field}`);
-  assert.equal(state.warehouseStocks.find(row => row.warehouse === 'South').expected, '13');
-  assert.equal(state.warehouseStocks.filter(row => row.itemId === b.item.id).length, warehouses.size);
+  assert.equal(state.warehouseStocks.find(row => row.itemId === b.item.id && row.warehouse === 'South').expected, '13');
+  const heldLine = state.orders.find(row => row.id === b.heldOrder.id).lines[0];
+  assert.equal(heldLine.quantity, '5');
+  assert.equal(heldLine.reserved, '0');
+  assert.equal(heldLine.backorder, '5');
+  assert.deepEqual(exported.reservations.filter(row => row.itemId === b.heldItem.id), [], 'held units never become order reservations');
+  assert.ok(exported.reservations.some(row => row.itemId === b.item.id), 'ordinary order reservations remain separately exported');
+  assert.deepEqual(exported.channelHolds.filter(row => row.itemId === b.heldItem.id), [b.hold]);
+  assert.deepEqual(b.hold.allocations, [{ locationId: b.north2.id, quantity: '3500000' }]);
+  assert.equal(exported.movements.filter(row => row.itemId === b.heldItem.id).reduce((sum, row) => sum + BigInt(row.quantity), 0n), 3500000n, 'held stock remains physical');
+  const heldBin = state.stockPositions.find(row => row.itemId === b.heldItem.id && row.locationId === b.north2.id);
+  assert.equal(heldBin.quantity, '3.5');
+  assert.equal(heldBin.reserved, '3.5');
+  assert.equal(heldBin.available, '0');
+  const rawBin = state.positions.find(row => row.itemId === b.heldItem.id && row.locationId === b.north2.id);
+  assert.equal(rawBin.reserved, '0');
+  assert.equal(rawBin.held, '3.5');
+  const legacy = exported.purchaseOrders.find(row => row.id === b.legacyPo.id);
+  assert.equal(legacy.status, 'committed');
+  assert.equal(legacy.destinationWarehouse, null);
+  assert.equal(legacy.lines[0].destinationWarehouse, undefined);
+  assert.equal(legacy.lines[0].quantity, '9.25');
+  assert.equal(legacy.lines[0].received, '2');
+  assert.equal(state.warehouseStocks.find(row => row.itemId === b.item.id && row.warehouse === 'Unassigned receiving warehouse').expected, '7.25');
+  assert.equal(state.warehouseStocks.find(row => row.itemId === b.item.id && row.warehouse === 'North').expected, '10');
+  assert.equal(state.companyStocks.find(row => row.itemId === b.item.id).expected, '30.25');
   assert.ok(!state.positions.some(row => row.itemId === state.items.find(row => row.sku === 'EMPTY').id));
   for (const p of state.stockPositions) {
     const amount = exported.movements.filter(m => m.itemId === p.itemId && m.locationId === p.locationId && m.status === p.status).reduce((n, m) => n + BigInt(m.quantity), 0n);
