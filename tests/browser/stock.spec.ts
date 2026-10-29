@@ -17,7 +17,7 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
   const item = state.items.find((row: any) => row.sku === 'BOLT')
   const shots = process.env.PIER_SCREENSHOTS
   if (shots) await mkdir(shots, { recursive: true })
-  for (const width of [1440]) {
+  for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto(`${origin}/app#stock`)
     await page.reload()
@@ -25,10 +25,22 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     const totals = page.getByRole('region', { name: 'Stock totals', exact: true })
     await expect(totals.getByRole('row').filter({ hasText: 'South' })).toContainText('13 each')
     for (const row of [...state.warehouseStocks, ...state.companyStocks.map((r: any) => ({ ...r, warehouse: 'Company total' }))]) {
-      const shown = totals.getByRole('row').filter({ hasText: row.warehouse })
+      const shown = totals.getByRole('row').filter({ hasText: state.items.find((item: any) => item.id === row.itemId).name }).filter({ has: page.getByRole('cell', { name: row.warehouse, exact: true }) })
       const cells = shown.getByRole('cell')
       for (const [offset, field] of ['onHand', 'reserved', 'available', 'quarantine', 'transit', 'expected'].entries()) await expect(cells.nth(offset + 2)).toHaveText(`${row[field]} each`)
     }
+    await expect(totals).toContainText(/Reserved includes protected channel holds/)
+    const unassigned = totals.getByRole('row').filter({ hasText: 'Unassigned receiving warehouse' })
+    await expect(unassigned).toHaveCount(1)
+    await expect(unassigned.getByRole('cell').nth(7)).toHaveText('7.25 each')
+    const protectedStock = totals.getByRole('row').filter({ hasText: 'Protected brass pins' })
+    await expect(protectedStock).toHaveCount(2)
+    for (const row of await protectedStock.all()) {
+      await expect(row.getByRole('cell').nth(2)).toHaveText('3.5 each')
+      await expect(row.getByRole('cell').nth(3)).toHaveText('3.5 each')
+      await expect(row.getByRole('cell').nth(4)).toHaveText('0 each')
+    }
+    if (shots) await page.screenshot({ path: join(shots, `${width}-stock-holds-unassigned.png`), fullPage: true })
     await expect(page.locator('.stock-table').getByRole('row').filter({ hasText: 'Unstocked steel washer' })).toContainText('No positions')
     for (const search of ['BOLT', '10001', 'Brass bolt']) {
       await page.getByRole('textbox', { name: 'Search product, barcode or SKU', exact: true }).fill(search)
@@ -61,7 +73,7 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await expect(health).toContainText('Acknowledged stock sequence; fetching does not advance it.')
     for (const event of pending.events) await expect(health).toContainText(event.eventId)
     await expect(health).toContainText('Stripe invoice payments · not connected')
-    await expect(health).toContainText('EasyPost shipping · active')
+    await expect(health).toContainText(width === 1440 ? 'EasyPost shipping · active' : 'EasyPost shipping · paused')
     if (width === 1440) {
       await health.locator('summary').filter({hasText:'EasyPost shipping'}).click()
       await health.getByRole('button',{name:'Pause shipping',exact:true}).click()
@@ -71,13 +83,7 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
     await expect(health.getByRole('button', { name: 'Refresh health', exact: true })).toBeEnabled()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
-    if (shots) {
-      for (const captureWidth of [1440, 390]) {
-        await page.setViewportSize({ width: captureWidth, height: 1000 })
-        await page.screenshot({ path: join(shots, `${captureWidth}-integration-health.png`), fullPage: true })
-      }
-      await page.setViewportSize({ width: 1440, height: 1000 })
-    }
+    if (shots) await page.screenshot({ path: join(shots, `${width}-integration-health.png`), fullPage: true })
     await context.request.post(`${origin}/auth/signout`, { headers: { origin }, data: {} })
     await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
     await expect(health.getByRole('alert')).toContainText('Check your owner access and retry.')
