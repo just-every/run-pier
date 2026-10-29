@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installation } from './harness.mjs';
 
-test('BUY-005: exported A–E stock reproduces reorder batches, coverage, alternate supplier, defaults and shared company/location low stock', async t => {
+test('BUY-005: exported A–E stock reproduces reorder batches, coverage, alternate supplier, defaults and shared company and location low stock', async t => {
  const h = await installation(); t.after(() => h.close());
  const command = h.command;
  const supplier = async name => command('party.save', { name, kind: 'supplier' });
