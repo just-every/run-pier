@@ -387,34 +387,94 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
     "08 transfer conserves stock and transit cannot be sold",
     async () => {
       await receive(h, b, po, "2");
-      const transfer = await h.command("transfer.send", {
-        itemId: b.item.id,
+      const isolatedItem = await h.command("item.save", {
+        sku: "synthetic-pier-8", name: "Isolated transfer stock", unit: "each", packSize: "0.1",
+      });
+      const isolated = { ...b, item: isolatedItem };
+      const openingPo = await buy(h, isolated, "0.5");
+      await receive(h, isolated, openingPo, "0.5");
+      const effects = async () => {
+        const state = await h.invariant();
+        const response = await h.request("/api/pier/export");
+        assert.equal(response.status, 200);
+        const exported = await response.json();
+        assert.ok(exported.commands.length > 0);
+        assert.deepEqual(exported.movements, state.movements);
+        return { version: state.version, positions: state.positions, movements: exported.movements,
+          reservations: exported.reservations, orders: state.orders, shipments: exported.shipments,
+          transfers: exported.transfers, commands: exported.commands };
+      };
+      const stock = async (expected) => {
+        const snapshot = await effects();
+        const movements = snapshot.movements.filter((m) => m.itemId === isolatedItem.id);
+        const sums = [[b.source.id, "sellable"], [b.transit.id, "transit"], [b.destination.id, "sellable"]]
+          .map(([locationId, status], index) => {
+            const sum = movements.filter((m) => m.locationId === locationId && m.status === status)
+              .reduce((n, m) => n + BigInt(m.quantity), 0n);
+            assert.equal(sum, parse(expected[index]), `${status} stock at ${locationId}`);
+            const position = snapshot.positions.find((p) => p.itemId === isolatedItem.id && p.locationId === locationId && p.status === status);
+            assert.equal(parse(position?.quantity ?? "0"), sum);
+            if (status === "transit") assert.equal(position?.available ?? "0", "0");
+            return sum;
+          });
+        assert.equal(sums.reduce((n, sum) => n + sum, 0n), parse("0.5"));
+        assert.equal(movements.reduce((n, m) => n + BigInt(m.quantity), 0n), parse("0.5"));
+        return snapshot;
+      };
+      await stock(["0.5", "0", "0"]);
+      const sendKey = randomUUID();
+      const send = {
+        itemId: isolatedItem.id,
         fromLocationId: b.source.id,
         toLocationId: b.destination.id,
         transitLocationId: b.transit.id,
         quantity: "0.5",
         reason: "Move to South",
+      };
+      const transfer = await h.command("transfer.send", send, { commandId: sendKey });
+      const sent = await stock(["0", "0.5", "0"]);
+      assert.deepEqual(await h.command("transfer.send", send, { commandId: sendKey }), transfer);
+      assert.deepEqual(await effects(), sent);
+      const demand = await h.command("order.create", {
+        customerId: b.customer.id,
+        lines: [{ itemId: isolatedItem.id, quantity: "0.5" }],
       });
-      assert.equal(
-        (await h.state()).positions.find((p) => p.locationId === b.transit.id)
-          .available,
-        "0",
-      );
+      assert.equal(demand.lines[0].reserved, "0");
+      assert.equal(demand.lines[0].backorder, "0.5");
+      const beforeSale = await stock(["0", "0.5", "0"]);
+      const waiting = beforeSale.orders.find((o) => o.id === demand.id);
+      assert.equal(waiting.lines[0].reserved, "0");
+      assert.equal(waiting.lines[0].backorder, "0.5");
+      assert.deepEqual(beforeSale.reservations.filter((r) => r.itemId === isolatedItem.id), []);
+      await h.command("dispatch.create", {
+        orderId: demand.id, shipmentReference: "synthetic-pier-8",
+        lines: [{ orderLineId: demand.lines[0].id, quantity: "0.5" }],
+      }, { error: "RESERVATION" });
+      assert.deepEqual(await effects(), beforeSale,
+        "refused transit sale changes no stock, movements, reservations, orders, shipments, transfers or successful command results");
       const receiptKey = randomUUID();
       const partial = { transferId: transfer.id, version: transfer.version, quantity: "0.2" };
       const arrived = await h.command("transfer.receive", partial, { commandId: receiptKey });
       assert.equal(arrived.received, "0.2");
       assert.equal(arrived.status, "transit");
+      const midway = await stock(["0", "0.3", "0.2"]);
       assert.deepEqual(await h.command("transfer.receive", partial, { commandId: receiptKey }), arrived);
-      const midway = await h.invariant();
-      assert.equal(midway.positions.find(p => p.locationId === b.transit.id).quantity, "0.3");
-      assert.equal(midway.positions.find(p => p.locationId === b.destination.id).quantity, "0.2");
-      const beforeDenied = midway.movements;
+      assert.deepEqual(await effects(), midway);
       await h.command("transfer.receive", partial, { error: "STALE" });
+      assert.deepEqual(await effects(), midway);
       await h.command("transfer.receive", { ...partial, version: arrived.version, quantity: "0.4" }, { error: "TRANSFER_QUANTITY" });
-      assert.deepEqual((await h.state()).movements, beforeDenied);
-      await h.command("transfer.receive", { transferId: transfer.id });
+      assert.deepEqual(await effects(), midway);
+      const completeKey = randomUUID();
+      const complete = { transferId: transfer.id };
+      const received = await h.command("transfer.receive", complete, { commandId: completeKey });
+      assert.equal(received.status, "received");
+      assert.equal(received.received, "0.5");
+      assert.deepEqual(received.receipts.map((r) => r.quantity), ["0.2", "0.3"]);
+      const completed = await stock(["0", "0", "0.5"]);
+      assert.deepEqual(await h.command("transfer.receive", complete, { commandId: completeKey }), received);
+      assert.deepEqual(await effects(), completed);
       await h.command("transfer.receive", { transferId: transfer.id }, { error: "TRANSFER_STATE" });
+      assert.deepEqual(await effects(), completed);
       await h.invariant();
     },
   );
