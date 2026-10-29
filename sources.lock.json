@@ -4763,7 +4763,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "451eae97d25b48ec352606b76f3b7fb3c5d0d2c3ff3ea93e7456b30cf1ee8bb1",
+      "sha256": "9ea4fc117e8168ccf37a53e8249f9c0bc5339a8a5a906bf3f04dd4e14310a1de",
       "executable": false
     },
     "tests/api/harness.mjs": {
@@ -4923,7 +4923,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "ddd7ca5309fb52800df2bfde85bf1908abb2ca9d63a3955bd8267458d1c6835c",
+      "sha256": "f36ea5f63f0c45cc3cbdd2ccd006480856a7b482279a0780bbd0b39ce52d1f38",
       "executable": false
     },
     "tests/browser/open.spec.ts": {

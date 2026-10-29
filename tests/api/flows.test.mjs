@@ -448,6 +448,114 @@ test("Pier public Worker and D1 wholesale journey", async (t) => {
         { receiptId: receipt.id, reason: "Would invalidate dispatch" },
         { error: "DEPENDENCY" },
       );
+
+      const dispatchItem = await h.command("item.save", {
+        sku: "synthetic-pier-9", name: "Isolated dispatch stock", unit: "each", packSize: "0.25",
+      });
+      const dispatchBasics = { ...b, item: dispatchItem };
+      const dispatchPo = await buy(h, dispatchBasics, "5.5");
+      await receive(h, dispatchBasics, dispatchPo, "5.5");
+      const owningOrder = await h.command("order.create", {
+        customerId: b.customer.id, warehouse: "North", promiseDate: "2026-11-02",
+        lines: [{ itemId: dispatchItem.id, quantity: "8" }],
+      });
+      const waitingOrder = await h.command("order.create", {
+        customerId: b.customer.id, warehouse: "North", promiseDate: "2026-11-02",
+        lines: [{ itemId: dispatchItem.id, quantity: "3" }],
+      });
+      const dispatchEffects = async () => {
+        const state = await h.state();
+        const response = await h.request("/api/pier/export");
+        assert.equal(response.status, 200);
+        const exported = await response.json();
+        for (const field of ["movements", "reservations", "shipments"])
+          assert.deepEqual(exported[field], state[field], `business export retains exact ${field}`);
+        return { version: state.version, positions: state.positions, movements: state.movements,
+          orders: state.orders, reservations: state.reservations, shipments: state.shipments,
+          exportedOrders: exported.orders, commands: exported.commands };
+      };
+      const beforeForeign = await dispatchEffects();
+      const owned = beforeForeign.reservations.filter((r) => r.itemId === dispatchItem.id);
+      assert.equal(owned.length, 1);
+      assert.equal(owned[0].orderId, owningOrder.id);
+      assert.equal(owned[0].orderLineId, owningOrder.lines[0].id);
+      assert.equal(owned[0].locationId, b.source.id);
+      assert.equal(BigInt(owned[0].quantity), parse("5.5"));
+      assert.equal(owningOrder.lines[0].reserved, "5.5");
+      assert.equal(owningOrder.lines[0].backorder, "2.5");
+      assert.equal(waitingOrder.lines[0].reserved, "0");
+      assert.equal(waitingOrder.lines[0].backorder, "3");
+      const foreignDispatch = {
+        orderId: waitingOrder.id, shipmentReference: "synthetic-pier-9-foreign",
+        lines: [{ orderLineId: waitingOrder.lines[0].id, quantity: "1" }],
+      };
+      await h.command("dispatch.create", foreignDispatch, { error: "RESERVATION" });
+      assert.deepEqual(await dispatchEffects(), beforeForeign);
+      const beforeWrongLine = await dispatchEffects();
+      await h.command("dispatch.create", {
+        ...foreignDispatch, lines: [{ orderLineId: owningOrder.lines[0].id, quantity: "1" }],
+      }, { error: "LINE" });
+      assert.deepEqual(await dispatchEffects(), beforeWrongLine);
+
+      const dispatchKey = randomUUID();
+      const partialDispatch = {
+        orderId: owningOrder.id, shipmentReference: "synthetic-pier-9-partial",
+        lines: [{ orderLineId: owningOrder.lines[0].id, quantity: "2.25" }],
+      };
+      const postedShipment = await h.command("dispatch.create", partialDispatch, { commandId: dispatchKey });
+      const afterDispatch = await dispatchEffects();
+      const remainingOrder = afterDispatch.orders.find((o) => o.id === owningOrder.id);
+      const remaining = remainingOrder.lines[0];
+      assert.equal(remaining.quantity, "8");
+      assert.equal(remaining.dispatched, "2.25");
+      assert.equal(remaining.cancelled, "0");
+      assert.equal(remaining.reserved, "3.25");
+      assert.equal(remaining.backorder, "2.5");
+      const exportedLine = afterDispatch.exportedOrders.find((o) => o.id === owningOrder.id).lines[0];
+      assert.equal(exportedLine.id, remaining.id);
+      assert.equal(exportedLine.quantity, "8");
+      assert.equal(exportedLine.dispatched, "2.25");
+      assert.equal(exportedLine.cancelled, "0");
+      assert.equal(parse(remaining.quantity) - parse(remaining.dispatched) - parse(remaining.cancelled), parse("5.75"));
+      assert.equal(parse(remaining.reserved) + parse(remaining.backorder), parse("5.75"));
+      assert.equal(remainingOrder.version, owningOrder.version + 1);
+      assert.deepEqual(afterDispatch.orders.find((o) => o.id === waitingOrder.id),
+        beforeForeign.orders.find((o) => o.id === waitingOrder.id));
+      const remainingReservations = afterDispatch.reservations.filter((r) => r.itemId === dispatchItem.id);
+      assert.deepEqual(remainingReservations, [{ ...owned[0], quantity: parse("3.25").toString() }]);
+      const position = afterDispatch.positions.find((p) => p.itemId === dispatchItem.id && p.locationId === b.source.id && p.status === "sellable");
+      assert.equal(position.quantity, "3.25");
+      assert.equal(position.reserved, "3.25");
+      assert.equal(position.available, "0");
+      assert.equal(afterDispatch.movements.filter((m) => m.itemId === dispatchItem.id)
+        .reduce((sum, m) => sum + BigInt(m.quantity), 0n), parse("3.25"));
+      const retainedShipment = afterDispatch.shipments.find((s) => s.id === postedShipment.id);
+      assert.deepEqual(retainedShipment, postedShipment);
+      assert.equal(retainedShipment.orderId, owningOrder.id);
+      assert.equal(retainedShipment.warehouse, "North");
+      assert.equal(retainedShipment.lines.length, 1);
+      assert.equal(retainedShipment.lines[0].orderLineId, remaining.id);
+      assert.equal(retainedShipment.lines[0].itemId, dispatchItem.id);
+      assert.equal(retainedShipment.lines[0].quantity, "2.25");
+      const links = retainedShipment.lines[0].reservations;
+      assert.equal(links.length, 1);
+      assert.equal(links[0].reservationId, owned[0].id);
+      assert.equal(links[0].locationId, owned[0].locationId);
+      assert.equal(links[0].quantity, "2.25");
+      const dispatchMovements = afterDispatch.movements.filter((m) => m.documentId === postedShipment.id);
+      assert.equal(dispatchMovements.length, 1);
+      assert.equal(dispatchMovements[0].id, links[0].movementId);
+      assert.equal(dispatchMovements[0].commandId, dispatchKey);
+      assert.equal(dispatchMovements[0].itemId, dispatchItem.id);
+      assert.equal(dispatchMovements[0].locationId, owned[0].locationId);
+      assert.equal(dispatchMovements[0].status, "sellable");
+      assert.equal(BigInt(dispatchMovements[0].quantity), -parse("2.25"));
+      assert.equal(BigInt(owned[0].quantity) - BigInt(remainingReservations[0].quantity), parse("2.25"));
+      assert.equal(afterDispatch.version, beforeForeign.version + 1);
+      assert.equal(afterDispatch.commands.length, beforeForeign.commands.length + 1);
+      assert.deepEqual(afterDispatch.commands.find((c) => c.id === dispatchKey).result.result, postedShipment);
+      assert.deepEqual(await h.command("dispatch.create", partialDispatch, { commandId: dispatchKey }), postedShipment);
+      assert.deepEqual(await dispatchEffects(), afterDispatch);
       await h.invariant();
     },
   );
