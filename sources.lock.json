@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b68b6d5d2b3724c05adf22831ccf8cb5a60e5edae6fbac88c358f38bf97b86ac",
+      "sha256": "3c567a7a892e9482baa42213b180dc9806362fc5afdaed2312c668272ccbc715",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "f6e187c372f330195820f0aec5c10656db860d08897dc594689a7f1acee0cc7b",
+      "sha256": "4112c76acee09f95979e0b34582de4dc13987544752211c41ccf3f60b2a0b64e",
       "executable": false
     },
     "DEMO.md": {
@@ -4915,7 +4915,7 @@
       "executable": false
     },
     "tests/browser/catalogue-custody.ts": {
-      "sha256": "6ab9c3f23032a7e9d18a3033d65e664f805f8b38020627b1c4790fe8293127b2",
+      "sha256": "10cd23a7d48d9a99790f47d1e716f1fd99e1bd3a693c8b64f04a98aa7f0b3949",
       "executable": false
     },
     "tests/browser/catalogue.spec.ts": {
