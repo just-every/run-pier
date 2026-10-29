@@ -19,9 +19,10 @@ export function channelState(s: State, actors?: Record<string, string>) {
       return { ...p, current, invalidated: !current };
     });
     const locations = targets.map(target => ({ ...target, publication: [...publications].reverse().find((p: any) => p.locationId === target.locationId && p.key === target.key) ?? null }));
+    const unconfirmedPublications = publications.filter((p: any) => p.status !== 'accepted' && !locations.some(t => t.publication?.id === p.id));
     const multiLocation = locations.length > 1 || rule?.mode === 'channel-location';
-    const lag = channel?.provider === 'shopify' ? !authorized || !locations.length || locations.some(t => t.publication?.status !== 'accepted') : wanted !== null && wanted !== listing.publishedQuantity;
-    return { ...listing, publications, publicationLocations: locations, multiLocation, publicationAuthorized: authorized,
+    const lag = channel?.provider === 'shopify' ? !authorized || !locations.length || unconfirmedPublications.length > 0 || locations.some(t => t.publication?.status !== 'accepted') : wanted !== null && wanted !== listing.publishedQuantity;
+    return { ...listing, publications, publicationLocations: locations, unconfirmedPublications, multiLocation, publicationAuthorized: authorized,
       available: multiLocation ? null : wanted, holds: holds.map(h => ({ id: h.id, warehouse: h.warehouse, quantity: h.quantity, reason: h.reason })),
       lag, lagSeconds: lag ? Math.max(0, Math.floor((Date.now() - Date.parse(listing.pendingSince ?? listing.createdAt)) / 1000)) : 0 };
   }) };

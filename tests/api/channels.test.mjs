@@ -396,6 +396,31 @@ test('Shopify mapped publications retain exact warehouse quantities and reconcil
   assert.equal(revokedListing.publicationAuthorized, false);
   assert.ok(revokedListing.publications.every(p => p.invalidated), 'revoked approval invalidates pending work without discarding its history');
 
+  const ownerChannel = (await h.state()).channels.find(c => c.id === channel.id);
+  await h.command('channel.save', { ...ownerChannel, enabled: true });
+  edge.reject.add(loc2);
+  await demand('East', '1');
+  listing = (await h.state()).channelListings.find(l => l.id === listingId);
+  const removed = listing.publicationLocations.find(p => p.locationId === loc2).publication;
+  assert.equal(removed.status, 'uncertain');
+  const beforeRemoval = physical(await h.state()), removedWrites = edge.writes.filter(m => m.locationId === loc2).length;
+  await activate({ [loc1]: ['West'] });
+  const removedMutations = edge.mutations.filter(m => m.locationId === loc2).length;
+  await h.restart(); await h.command('channel.sync', {});
+  listing = (await h.state()).channelListings.find(l => l.id === listingId);
+  assert.deepEqual(listing.publicationLocations.map(p => p.locationId), [loc1]);
+  assert.ok(listing.publications.some(p => p.id === removed.id && p.invalidated && p.status === 'uncertain'));
+  const health = (await (await h.request('/api/pier/integrations')).json()).connectors.find(c => c.id === channel.id);
+  const retained = health.effects.find(e => e.id === removed.id);
+  assert.ok(retained, 'health retains an unconfirmed publication after its location mapping is removed');
+  assert.equal(retained.state, 'uncertain'); assert.ok(health.uncertain > 0);
+  assert.equal(listing.lag, true, 'removing a mapping cannot clear its unconfirmed outcome');
+  assert.ok(retained.mapping.includes(loc2)); assert.ok(retained.mapping.includes('East'));
+  assert.equal(retained.recovery, null, 'invalidated work has no automatic publication recovery');
+  assert.equal(edge.mutations.filter(m => m.locationId === loc2).length, removedMutations, 'removed targets are never retried');
+  assert.equal(edge.writes.filter(m => m.locationId === loc2).length, removedWrites, 'mapping review and removal publish no fallback stock');
+  assert.deepEqual(physical(await h.state()), beforeRemoval);
+
 });
 
 test('routing preview includes every changed order within the exact last thirty days and excludes older history', async t => {
