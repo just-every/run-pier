@@ -1,0 +1,10 @@
+/* Agent review is usable with the same touch targets on desktop and phone. */
+.pier-app:has(.app-main[data-view="activity"]) button,
+.pier-app:has(.app-main[data-view="activity"]) .button,
+.pier-app:has(.app-main[data-view="activity"]) select,
+.pier-app:has(.app-main[data-view="activity"]) input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.pier-app:has(.app-main[data-view="activity"]) textarea,
+.pier-app:has(.app-main[data-view="activity"]) .rail a,
+.pier-app:has(.app-main[data-view="activity"]) label:has(input[type="checkbox"]),
+.pier-app:has(.app-main[data-view="activity"]) label:has(input[type="radio"]) { min-height: 44px; }
+.pier-app:has(.app-main[data-view="activity"]) .global-search .search { min-height: 44px; height: auto; }

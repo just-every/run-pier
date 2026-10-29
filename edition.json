@@ -17,7 +17,8 @@
           "src/auth.server.ts",
           "src/server.ts",
           "scripts/installer",
-          "src/demo.ts"
+          "src/demo.ts",
+          "src/business-settings.server.ts"
         ]
       }
     },
@@ -48,7 +49,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
+          "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
           "paths": [
             "modules/operator-auth"
           ]
@@ -167,7 +168,7 @@
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
-          "revision": "d434ea67989fe10b6ddff01daba8bb350975e54a",
+          "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
           "paths": [
             "edition-authoring"
           ]
@@ -235,6 +236,40 @@
             "originPath": "foundation/template/src/mail.server.mjs"
           }
         ]
+      }
+    },
+    {
+      "id": "runeditrun/agent-door",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/agent-door"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+          "paths": [
+            "modules/agent-door"
+          ]
+        }
+      }
+    },
+    {
+      "id": "runeditrun/business-settings",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/business-settings"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+          "paths": [
+            "modules/business-settings"
+          ]
+        }
       }
     }
   ],

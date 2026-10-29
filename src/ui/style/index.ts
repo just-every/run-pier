@@ -12,3 +12,4 @@ import './channels.css'
 import './replenishment.css'
 
 import './tax.css'
+import './activity.css'
