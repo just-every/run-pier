@@ -13,7 +13,7 @@ export function CommercialVisibility({ role, nativeOwner }: { role?: RecordData;
   return <>Costs {costs ? 'visible' : 'hidden'}<small>Sales prices {prices ? 'visible' : 'hidden'}</small></>
 }
 
-const emptyEditor = { operatorId: '', role: 'viewer', physical: false, warehouses: '', locationIds: '', expiresAt: '', hideCosts: false, hidePrices: false }
+const emptyEditor = { operatorId: '', role: 'viewer', physical: false, warehouses: '', locationIds: '', expiresAt: '', hideCosts: false, hidePrices: false, preparation: false, evidenceIds: '', preparationExpiresAt: '' }
 
 export function OperatorRoleForm({ state, operators, run, busy }: { state: PierState; operators: RecordData[]; run: RunCommand; busy: boolean }) {
   const [editor, setEditor] = useState(emptyEditor)
@@ -26,6 +26,7 @@ export function OperatorRoleForm({ state, operators, run, busy }: { state: PierS
       locationIds: saved?.permissions?.locationIds.join(', ') ?? '',
       expiresAt: saved?.permissions?.expiresAt ?? '',
       hideCosts: saved?.visibility?.costs === false, hidePrices: saved?.visibility?.prices === false,
+      preparation: Boolean(saved?.preparationGrant), evidenceIds: saved?.preparationGrant?.evidenceIds.join('\n') ?? '', preparationExpiresAt: saved?.preparationGrant?.expiresAt ?? '',
     })
   }
 
@@ -34,6 +35,7 @@ export function OperatorRoleForm({ state, operators, run, busy }: { state: PierS
     const saved = await run('role.set', {
       operatorId: text(data, 'operatorId'), role: text(data, 'role'),
       ...(Object.keys(visibility).length ? { visibility } : {}),
+      ...(editor.role === 'agent' && editor.preparation ? { preparationGrant: { evidenceIds: editor.evidenceIds.split('\n').map(value => value.trim()).filter(Boolean), ...(editor.preparationExpiresAt ? { expiresAt: editor.preparationExpiresAt } : {}) } } : {}),
       ...(editor.physical ? { permissions: {
         warehouses: text(data, 'warehouses').split(',').map(value => value.trim()).filter(Boolean),
         locationIds: editor.locationIds.split(',').map(value => value.trim()).filter(Boolean),
@@ -49,12 +51,20 @@ export function OperatorRoleForm({ state, operators, run, busy }: { state: PierS
     <label className="field"><span>Role</span><select aria-label="Role" name="role" value={editor.role} onChange={event => setEditor({ ...editor, role: event.target.value })}>{['viewer', 'buyer', 'sales', 'operator', 'warehouse', 'finance', 'agent', 'owner'].map(role => <option key={role} value={role}>{roleLabel(role)}</option>)}</select></label>
     <label className="field"><span><input type="checkbox" checked={editor.hideCosts} onChange={event => setEditor({ ...editor, hideCosts: event.target.checked })} /> Hide purchasing costs</span></label>
     <label className="field"><span><input type="checkbox" checked={editor.hidePrices} onChange={event => setEditor({ ...editor, hidePrices: event.target.checked })} /> Hide sales prices</span></label>
-    <label className="field"><span><input type="checkbox" checked={editor.physical} onChange={event => setEditor({ ...editor, physical: event.target.checked })} /> Restrict to physical stock and counts</span></label>
+    <label className="field"><span><input type="checkbox" checked={editor.physical} onChange={event => setEditor({ ...editor, physical: event.target.checked, preparation: false })} /> Restrict to physical stock and counts</span></label>
     {editor.physical && <>
       <Field label="Granted warehouses (comma separated)" name="warehouses" required={false} value={editor.warehouses} onChange={warehouses => setEditor({ ...editor, warehouses })} />
       <fieldset><legend>Granted locations</legend><p>Leave all unchecked to allow every location in the granted warehouses.</p>{records(state, 'locations').map(location => <label className="check" key={location.id}><input type="checkbox" checked={editor.locationIds.split(',').map(value => value.trim()).includes(location.id)} onChange={event => { const current = editor.locationIds.split(',').map(value => value.trim()).filter(Boolean); setEditor({ ...editor, locationIds: (event.target.checked ? [...current, location.id] : current.filter(id => id !== location.id)).join(', ') }) }} />{location.warehouse} · {location.name}</label>)}</fieldset>
       <Field label="Grant expiry (ISO timestamp)" name="expiresAt" required={false} value={editor.expiresAt} onChange={expiresAt => setEditor({ ...editor, expiresAt })} />
       <details><summary>Physical grant details</summary><p>Receiving, picking, packing, dispatch and physical slips use this grant. Costs, sales prices and sensitive customer profiles stay private. Empty warehouses revoke physical access. Empty locations permit every location in the named warehouses. Use an ISO timestamp with Z or an explicit offset for expiry.</p></details>
+    </>}
+    {editor.role === 'agent' && <>
+      <label className="field"><span><input type="checkbox" checked={editor.preparation} onChange={event => setEditor({ ...editor, preparation: event.target.checked, physical: false })} /> Limit agent to preparation evidence</span></label>
+      {editor.preparation && <>
+        <label className="field"><span>Preparation evidence identities (one per line)</span><textarea aria-label="Preparation evidence identities (one per line)" value={editor.evidenceIds} onChange={event => setEditor({ ...editor, evidenceIds: event.target.value })} /></label>
+        <Field label="Preparation grant expiry (ISO timestamp)" required={false} value={editor.preparationExpiresAt} onChange={preparationExpiresAt => setEditor({ ...editor, preparationExpiresAt })} />
+        <p>Choose exact items, bins, suppliers, supplier terms, orders, purchases, counts and import previews from the owner’s Activity export. Include the items and bins a source needs. Only their operational evidence is shared; originals, contacts, typed fields, costs and prices remain private. Empty evidence revokes access. The grant permits preparation only.</p>
+      </>}
     </>}
     <details><summary>Role and visibility details</summary><p>Purchasing can see purchasing costs. Sales and Sales operations can see sales prices. The hide switches only restrict that access. Physical stock grants hide both. Finance has stock access; receivables authority remains with the owner.</p><p>Native owners retain full visibility. Your own authority and native owners are managed through native owner management. Originals, typed fields and sensitive customer profiles remain owner-only. The server checks current authority on every command.</p></details>
   </Form>

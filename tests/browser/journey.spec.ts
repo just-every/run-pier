@@ -1215,6 +1215,23 @@ test('two distinct agents share one draft while current human authority alone ap
     const to = await command('order.create', { customerId: customer.id, promiseDate: '2026-11-06', lines: [{ itemId: item.id, quantity: '2' }] })
     let count = await command('count.capture', { locationId: bin.id })
     count = await command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: item.id, status: 'sellable', quantity: '3' }], reason: `${tag} physical recount` })
+    await page.goto(`${base}/app#activity`); await page.reload()
+    const grantForm = section(page, 'Set an invited operator’s role')
+    await grantForm.getByLabel('Operator', { exact: true }).selectOption(firstSession.operator.id)
+    await grantForm.getByLabel('Limit agent to preparation evidence', { exact: true }).check()
+    await grantForm.getByLabel('Preparation evidence identities (one per line)', { exact: true }).fill([item.id, bin.id, supplier.id, po.id, from.id, to.id, count.id].join('\n'))
+    await submit(page, grantForm, 'Save')
+    await grantForm.getByLabel('Operator', { exact: true }).selectOption(firstSession.operator.id)
+    await expect(grantForm.getByLabel('Preparation evidence identities (one per line)', { exact: true })).toHaveValue([item.id, bin.id, supplier.id, po.id, from.id, to.id, count.id].join('\n'))
+    const scoped = await (await first.context.request.get(`${base}/api/pier/state`)).json()
+    expect(scoped.orders.map((order: any) => order.id).sort()).toEqual([from.id, to.id].sort())
+    expect(scoped.items.map((entry: any) => entry.id)).toEqual([item.id])
+    expect(scoped.orders.every((order: any) => !order.customerId && order.lines.every((line: any) => line.price === undefined))).toBe(true)
+    if (shots) for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await grantForm.screenshot({ path: join(shots, `${width}-agent-preparation-grant.png`) })
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 })
     const prepare = async (assumptions: string) => {
       const response = await first.context.request.post(`${base}/api/pier/commands`, { headers: { origin: base }, data: {
         commandId: crypto.randomUUID(), type: 'proposal.prepare', payload: { kind: 'reallocation', assumptions, evidence: [from.id, to.id], plan: { fromOrderId: from.id, toOrderId: to.id, itemId: item.id, quantity: '1' } },

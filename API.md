@@ -177,3 +177,11 @@ they do not offer automatic paid retries. EDI uncertainty requires its existing
 verified bridge receipt or explicit human reconciliation. Mail reports provider
 acceptance separately from actual inbox delivery, and has no shared incremental
 checkpoint.
+
+## Native preparation evidence grants
+
+The owner can give an agent `preparationGrant: {evidenceIds: [id], expiresAt?: "ISO timestamp"}` through `role.set`, or edit the same grant in Operator roles. Select exact items, locations, suppliers, supplier terms, sales orders, purchase orders, counts and import previews. A document needs its item definitions; purchases and terms also need their supplier, and counts need their bin. No record is selected implicitly. Empty evidence revokes access. A physical work grant and a preparation grant cannot be combined.
+
+The grant exposes operational quantities, promises and input versions through state and `GET /api/pier/scope-export`. Contacts, customer identity, arbitrary typed fields, costs, prices, originals and other operators remain private. Import grants expose stage and mapping version, never CSV contents. The only admitted business command is `proposal.prepare`, with cited records and plan inputs inside the current grant. A native agent without a preparation grant cannot prepare these four proposal kinds. Existing separately authorized agent tools retain their own admission rules.
+
+Changing the grant fences in-flight admission and saved-result recovery. Expiry blocks private reads and commands; restart retains the restriction and an installation restore demotes role authority. Preparation itself triggers no provider synchronization or other business planning. A current human reviews the exact proposal; replenishment and migration still require the separately approved purchase and import commands. These native grants do not qualify provider identity, service credentials or shared MCP policy conformance.

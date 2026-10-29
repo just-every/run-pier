@@ -57,7 +57,7 @@ export function anonymizeSubject(c: Context, kind: string, id: string, native?: 
           if (next.document?.attachment) next.document.attachment = null;
           if (!next.attempted) { next.status = 'skipped'; next.document = null; }
         }
-        if (collection === 'roles') { next.role = 'viewer'; next.permissions = null; }
+        if (collection === 'roles') { next.role = 'viewer'; next.permissions = null; next.preparationGrant = null; }
       }
       if (JSON.stringify(next) !== before) Object.assign(record, next, { version:record.version + 1 });
     }

@@ -181,6 +181,7 @@ export type Actor = {
   sessionId: string;
   operatorVersion: number;
   permissionVersion?: number;
+  preparationGrant?: import("./preparation-scope").PreparationGrant;
   permissions?: import("./permissions").Permissions;
   visibility?: import("./role-visibility").Visibility;
 };

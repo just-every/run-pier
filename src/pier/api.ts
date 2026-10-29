@@ -1,3 +1,4 @@
+import { preparationScoped, preparationView } from './preparation-scope';
 import { requireAssurance } from '../strong-auth/assurance';
 import { trade, tradeResponse } from './trade';
 import { integrationHealth } from './integration-health';
@@ -143,6 +144,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
     permissionVersion: role ? JSON.parse(role.data).version : 0,
     permissions: role ? JSON.parse(role.data).permissions : undefined,
     visibility: role ? JSON.parse(role.data).visibility : undefined,
+    preparationGrant: role ? JSON.parse(role.data).preparationGrant : undefined,
     sessionId: session.id,
     operatorVersion: session.operator.version,
   };
@@ -215,6 +217,7 @@ export async function execute(
     const before = await load(env.DB),
       s = structuredClone(before),
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, installationScope:sha256('pier-recurring-authority\0'+env.SESSION_SECRET), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
+    admitScopedCommand(before, actor, type, payload);
     await approver(env, c, type, payload);
     let result: any = await privacy(c, type, payload, env);
     if (result === undefined) result = supplierBills(c, type, payload);
@@ -304,7 +307,7 @@ export async function execute(
       return outcome;
     }
     // Retaining and reviewing untrusted evidence never triggers unrelated plans.
-    if (!type.startsWith('trade.') && !['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && !['replenishment.compare', 'replenishment.review'].includes(type) && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
+    if (type !== 'proposal.prepare' && !type.startsWith('trade.') && !['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && !['replenishment.compare', 'replenishment.review'].includes(type) && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -314,8 +317,10 @@ export async function execute(
     refreshSlowStock(c, backgroundPolicy?.collection === "slowStockPolicies");
     markChannelPending(c, before);
     }
-    refreshOperationalExceptions(c, backgroundPolicy?.collection === "operationalExceptionPolicies");
-    invalidatePurchaseSends(c);
+    if (type !== "proposal.prepare") {
+      refreshOperationalExceptions(c, backgroundPolicy?.collection === "operationalExceptionPolicies");
+      invalidatePurchaseSends(c);
+    }
     if (type === 'itemAgent.bulkApply') result.sourceDigest = bulkInputDigest(c);
     const visibleResult = physicalResult(s, actor, result);
     c.audit = auditEvent(c, before, type, payload, result, type.endsWith(".failed") ? "failed" : "accepted");
@@ -370,6 +375,7 @@ export async function pierResponse(
     const actor = await current(request, env);
     let privateFields = false;
     const reply = (body:unknown,status=200) => json(customFieldProjection(commandProjection(body,actor),actor,privateFields),status);
+    if (preparationScoped(actor) && !['/api/pier/state', '/api/pier/scope-export', '/api/pier/commands'].includes(url.pathname)) throw new Problem('SCOPE', 'This door is outside your current preparation grant.', null, 403);
     if (['/api/pier/stock-changes','/api/pier/stock-changes/ack'].includes(url.pathname)) {
       if (request.method === 'POST' && (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin || !request.headers.get('content-type')?.includes('application/json'))) throw new Problem('ORIGIN','Use same-origin JSON acknowledgement.',null,403);
       return await stockFeed(request,env.DB,actor,await load(env.DB));
@@ -395,6 +401,7 @@ export async function pierResponse(
           null,
           401,
         );
+      if (preparationScoped(actor)) return reply({ ...preparationView(full, actor), commands: await commandIdentities(env.DB, actor, url.searchParams.get('commandId')), ...(url.pathname === '/api/pier/scope-export' ? { format: 'pier-preparation-evidence-v1' } : {}) });
       if (url.pathname === '/api/pier/integrations') {
         if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only the current owner can inspect connector recovery.', null, 403);
         return reply(await integrationHealth(env, full));
@@ -703,7 +710,7 @@ export async function pierResponse(
       if (error instanceof Problem) await refusedScan(env.DB, actor, commandId, type, payload, error.code, await load(env.DB));
       throw error;
     }
-    if (outcome && (type.startsWith('trade.') || ['replenishment.compare', 'replenishment.review'].includes(type) || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return reply(outcome);
+    if (outcome && (type === 'proposal.prepare' || type.startsWith('trade.') || ['replenishment.compare', 'replenishment.review'].includes(type) || type.startsWith('document.') || type.startsWith('privacy.') || type.startsWith('workflow.') || type.startsWith('report.'))) return reply(outcome);
     if(outcome && ['quote.send','order.confirm','print.send'].includes(type)) await deliverDocument(env,actor,outcome.result.id);
     if (outcome && type === 'print.send' && outcome.result.kind === 'purchase-order') await deliverCorrespondence(env, new Date().toISOString(), outcome.result.id, actor);
     if (outcome && type === 'edi.receive' && outcome.result?.acknowledgmentDocumentId) {

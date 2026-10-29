@@ -1,3 +1,4 @@
+import { preparationInputs } from './preparation-scope';
 import { kitDefinition } from './kits';
 import { planningWarehouses, supplyPosition, signedQuantity } from './replenishment-position';
 import {
@@ -11,7 +12,6 @@ import {
   requireRole,
   min,
   positions,
-  movementFrontier,
   type Context,
   type Row,
 } from "./model";
@@ -57,25 +57,26 @@ export function proposals(c: Context, type: string, p: any): Row | undefined {
       fail("PROPOSAL", "Unknown preparation kind.");
     if (!Array.isArray(p.evidence) || !p.evidence.length)
       fail("EVIDENCE", "Cite at least one record or observed evidence.");
+    const inputs = preparationInputs(c.s, c.actor), prepared = inputs.state;
     return row(c, "proposals", {
       kind: p.kind,
-      preparation: { actorId: c.actor.id, at: c.now },
+      preparation: { actorId: c.actor.id, at: c.now, permissionVersion: c.actor.permissionVersion ?? 0 },
       assumptions: text(p.assumptions),
       evidence: p.evidence.map((e: any) => text(e)),
       plan: p.plan ?? {},
       snapshotVersion: c.s.version,
       context: {
-        reorder: reorder(c),
-        frontier: movementFrontier(c.s),
-        orders: c.s.orders.map((o) => ({
+        reorder: reorder({ ...c, s: prepared }),
+        frontier: inputs.frontier,
+        orders: prepared.orders.map((o) => ({
           id: o.id,
           version: o.version,
           customerId: o.customerId,
           promiseDate: o.promiseDate,
         })),
-        purchaseOrders: c.s.purchaseOrders.map((po) => ({ id: po.id, version: po.version })),
-        counts: c.s.counts.map((count) => ({ id: count.id, version: count.version })),
-        imports: c.s.imports.map((b) => ({ id: b.id, version: b.version })),
+        purchaseOrders: prepared.purchaseOrders.map((po) => ({ id: po.id, version: po.version })),
+        counts: prepared.counts.map((count) => ({ id: count.id, version: count.version })),
+        imports: prepared.imports.map((b) => ({ id: b.id, version: b.version })),
       },
       status: "prepared",
     });

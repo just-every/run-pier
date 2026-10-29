@@ -15,7 +15,8 @@ async function exactNativeProposalConsequences(h) {
   const agent = await (await h.request('/auth/session', { as })).json();
   const human = await (await h.request('/auth/session')).json();
   assert.notEqual(agent.operator.id, human.operator.id);
-  await h.command('role.set', { operatorId: agent.operator.id, role: 'agent' });
+  const grantIds = [b.item.id, b.source.id, b.destination.id, b.supplier.id, supply.id, from.id, to.id];
+  await h.command('role.set', { operatorId: agent.operator.id, role: 'agent', preparationGrant: { evidenceIds: grantIds } });
   const exported = async () => {
     const response = await h.request('/api/pier/export');
     assert.equal(response.status, 200);
@@ -55,6 +56,7 @@ async function exactNativeProposalConsequences(h) {
   assert.equal(reallocated.proposals.find(row => row.id === allocation.id).approval.actorId, human.operator.id);
   let count = await h.command('count.capture', { locationId: b.source.id });
   count = await h.command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: b.item.id, status: 'sellable', quantity: '12' }], reason: 'synthetic-pier: physical recount found two extra units' });
+  await h.command('role.set', { operatorId: agent.operator.id, role: 'agent', preparationGrant: { evidenceIds: [...grantIds, count.id] } });
   const old = await prepare('count-drift', { countId: count.id, version: count.version }, [count.id]);
   await h.command('proposal.approve', { proposalId: old.id, version: old.version });
   count = await h.command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: b.item.id, status: 'sellable', quantity: '13' }], reason: 'synthetic-pier: corrected physical recount found three extra units' });

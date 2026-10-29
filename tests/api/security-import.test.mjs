@@ -458,6 +458,35 @@ async function nativeAgentPreparations(h, b, agent, draft) {
   count = await h.command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: b.item.id, status: 'sellable', quantity: '1' }], reason: 'Observed count at an otherwise empty bin' });
   const batch = await h.command('import.stage', { ...native('2'), namespace: 'synthetic-pier-agent' });
   assert.deepEqual(batch.errors, []);
+  const hiddenItem = await h.command('item.save', { sku: 'synthetic-pier-private', name: 'Private item', unit: 'each', packSize: '1' });
+  const hiddenOrder = await h.command('order.create', { customerId: b.customer.id, lines: [{ itemId: hiddenItem.id, quantity: '9', price: '17' }] });
+  const scopeIds = [b.item.id, b.source.id, b.destination.id, b.supplier.id, draft.id, supply.id, from.id, to.id, count.id, batch.id];
+  await refuse('proposal.prepare', { kind: 'migration', assumptions: 'No implicit grant', evidence: [batch.id], plan: { batchId: batch.id } }, { as: agent.cookie, error: 'SCOPE' });
+  const grant = await h.command('role.set', { operatorId: agent.session.operator.id, role: 'agent', preparationGrant: { evidenceIds: scopeIds } });
+  const visible = async () => {
+    const response = await h.request('/api/pier/state', { as: agent.cookie });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  const view = await visible();
+  assert.deepEqual(view.items.map(row => row.id), [b.item.id]);
+  assert.deepEqual(new Set(view.locations.map(row => row.id)), new Set([b.source.id, b.destination.id]));
+  assert.deepEqual(new Set(view.orders.map(row => row.id)), new Set([from.id, to.id]));
+  assert.deepEqual(view.parties.map(row => row.id), [b.supplier.id]);
+  assert.deepEqual(view.counts.map(row => row.id), [count.id]);
+  assert.deepEqual(view.imports.map(row => row.id), [batch.id]);
+  assert.equal(view.imports[0].source, undefined, 'a grant to import evidence never discloses originals');
+  const privateKeys = new Set(['price', 'cost', 'supplierSnapshot', 'customerId', 'customFields', 'contacts', 'email', 'approval']);
+  const keys = value => value && typeof value === 'object' ? Object.entries(value).flatMap(([key, entry]) => [key, ...keys(entry)]) : [];
+  assert.ok(!keys(view).some(key => privateKeys.has(key)), 'explicit preparation grants expose only operational evidence');
+  for (const path of ['/api/pier/export', '/api/pier/native-export', '/api/pier/questions?kind=stock&itemId=' + hiddenItem.id, '/api/pier/stock-changes?consumer=synthetic-pier-agent', '/api/pier/imports/' + batch.id + '/original'])
+    assert.equal((await h.request(path, { as: agent.cookie })).status, 403, path + ' does not bypass evidence scope');
+  const scopeExport = await (await h.request('/api/pier/scope-export', { as: agent.cookie })).json();
+  assert.deepEqual(scopeExport.orders, view.orders);
+  await refuse('proposal.prepare', { kind: 'reallocation', assumptions: 'No foreign record', evidence: [hiddenOrder.id], plan: { fromOrderId: from.id, toOrderId: hiddenOrder.id, itemId: b.item.id, quantity: '1' } }, { as: agent.cookie, error: 'SCOPE' });
+  await refuse('proposal.prepare', { kind: 'reallocation', assumptions: 'A cited allowed record grants no other plan input', evidence: [from.id], plan: { fromOrderId: from.id, toOrderId: hiddenOrder.id, itemId: b.item.id, quantity: '1' } }, { as: agent.cookie, error: 'SCOPE' });
+  const grantEvent = (await (await h.request('/api/pier/audit')).json()).find(event => event.type === 'role.set' && event.changes.some(change => change.afterVersion === grant.version && change.id === agent.session.operator.id));
+  assert.deepEqual(grantEvent.changes.find(change => change.kind === 'roles').after.preparationGrant.evidenceIds, scopeIds);
   const cases = [
     { kind: 'replenishment', plan: { poId: draft.id }, evidence: [draft.id, to.id] },
     { kind: 'reallocation', plan: { fromOrderId: from.id, toOrderId: to.id, itemId: b.item.id, quantity: '1' }, evidence: [from.id, to.id] },
@@ -473,6 +502,9 @@ async function nativeAgentPreparations(h, b, agent, draft) {
     assert.equal(retained.kind, scenario.kind);
     assert.equal(retained.preparation.actorId, agent.session.operator.id);
     assert.notEqual(retained.preparation.actorId, human.operator.id);
+    assert.equal(retained.preparation.permissionVersion, grant.version);
+    assert.ok(!retained.context.orders.some(row => row.id === hiddenOrder.id));
+    assert.ok(!retained.context.reorder.some(row => row.itemId === hiddenItem.id));
     assert.equal(retained.assumptions, input.assumptions);
     assert.deepEqual(retained.evidence, scenario.evidence);
     assert.deepEqual(retained.plan, scenario.plan);
@@ -508,6 +540,38 @@ async function nativeAgentPreparations(h, b, agent, draft) {
     for (const key of ['purchaseOrders', 'imports', 'items', 'locations', 'movements', 'reservations', 'orders', 'counts', 'receipts'])
       assert.deepEqual(after[key], before[key], `${scenario.kind} review does not bypass its PO or import door`);
   }
+  const recoverId = randomUUID(), recoverPayload = { ...cases[0], assumptions: 'synthetic-pier recover only within current scope' };
+  const recoverable = await run('proposal.prepare', recoverPayload, { commandId: recoverId });
+  assert.deepEqual(await run('proposal.prepare', recoverPayload, { commandId: recoverId }), recoverable);
+  const barrier = randomUUID(), pendingId = randomUUID();
+  const pending = h.request('/api/pier/commands', { method: 'POST', as: agent.cookie, headers: { 'x-pier-test-pause': barrier }, body: { commandId: pendingId, type: 'proposal.prepare', payload: recoverPayload } });
+  let ready = false;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    ready = (await (await h.request('/__test/prepared/' + barrier)).json()).ready;
+    if (ready) break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.ok(ready, 'proposal reached real atomic admission before scope revocation');
+  await h.command('role.set', { operatorId: agent.session.operator.id, role: 'agent', preparationGrant: { evidenceIds: [b.item.id] } });
+  const afterRevocation = await exported();
+  await h.request('/__test/prepared/' + barrier, { method: 'DELETE' });
+  const pendingResponse = await pending;
+  assert.equal(pendingResponse.status, 409);
+  assert.equal((await pendingResponse.json()).error.code, 'TRANSACTION');
+  assert.deepEqual(await exported(), afterRevocation, 'revocation at D1 admission leaves no prepared record, stock or successful command result');
+  assert.deepEqual((await visible()).orders, []);
+  assert.deepEqual((await visible()).proposals, []);
+  await refuse('proposal.prepare', recoverPayload, { as: agent.cookie, commandId: recoverId, error: 'SCOPE' });
+  await refuse('proposal.prepare', { ...cases[2], assumptions: 'Revoked count cannot be prepared' }, { as: agent.cookie, error: 'SCOPE' });
+  await h.restart();
+  assert.deepEqual((await visible()).imports, [], 'restart does not widen the retained grant');
+  await h.command('role.set', { operatorId: agent.session.operator.id, role: 'agent', preparationGrant: { evidenceIds: scopeIds, expiresAt: new Date(Date.now() + 1000).toISOString() } });
+  const expiringId = randomUUID();
+  await run('proposal.prepare', recoverPayload, { commandId: expiringId });
+  await new Promise(resolve => setTimeout(resolve, 1050));
+  for (const path of ['/api/pier/state', '/api/pier/scope-export']) assert.equal((await h.request(path, { as: agent.cookie })).status, 401, 'expired grant cannot read retained evidence');
+  await refuse('proposal.prepare', recoverPayload, { as: agent.cookie, commandId: expiringId, error: 'AUTH' });
+  await h.command('role.set', { operatorId: agent.session.operator.id, role: 'agent' });
   await h.invariant();
 }
 

@@ -1,3 +1,4 @@
+import { admitPreparationCommand } from './preparation-scope';
 import { collections, Problem, type Actor, type State, type Row } from './model';
 import { physicalDocuments } from './physical-documents';
 import { admitPhysicalCommand } from './physical-admission';
@@ -41,6 +42,7 @@ export function physicalState(s: State, actor: Actor): State {
   return result;
 }
 export function admitScopedCommand(s: State, actor: Actor, type: string, p: any) {
+  admitPreparationCommand(s, actor, type, p);
   if (!scoped(actor)) return;
   admitPhysicalCommand(s, actor, allowedLocations(s, actor), type, p);
 }
