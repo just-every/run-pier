@@ -52,6 +52,18 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
       changes.push({ kind, id, changedFields, redactedFields: changedFields.filter(field => !businessFields.has(field) || field === 'name' && kind !== 'items' && kind !== 'locations'), beforeVersion: previous?.version ?? null, afterVersion: row?.version ?? null, before: image(kind, previous), after: image(kind, row) });
     }
   }
+  if (type === 'order.reroute') {
+    const old = new Map(before.reservations.filter(r => r.orderId === p.orderId).map(r => [r.id, r]));
+    const next = new Map(c.s.reservations.filter(r => r.orderId === p.orderId).map(r => [r.id, r]));
+    for (const id of new Set([...old.keys(), ...next.keys()])) {
+      const previous = old.get(id), row = next.get(id);
+      if (JSON.stringify(previous) === JSON.stringify(row)) continue;
+      const changedFields = [...new Set([...Object.keys(previous ?? {}), ...Object.keys(row ?? {})])]
+        .filter(field => JSON.stringify(previous?.[field as keyof typeof previous]) !== JSON.stringify(row?.[field as keyof typeof row]));
+      changes.push({ kind: 'reservations', id, changedFields, redactedFields: [],
+        beforeVersion: null, afterVersion: null, before: image('reservations', previous), after: image('reservations', row) });
+    }
+  }
   let resolution: any = null;
   if (scanTypes.has(type)) {
     try {
@@ -72,7 +84,7 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
     ...(modelTraffic ? { phase: modelAttempt ? 'attempt' : 'outcome', attemptId: p.operationId, requestId: p.operationId } : {}),
     ...(type === 'privacy.eraseSubject' && outcome === 'refused' && privateFieldCustody(c.s) ? { custody: { classes: [c.s.customFieldDefinitions.length ? 'customFieldDefinitions' : null, c.s.imports.some(batch=>batch.source?.records?.some((record:any)=>record.kind==='customFieldDefinitions')) ? 'imports' : null, c.s.salesDocuments.some(document=>document.typedFieldCustody) ? 'salesDocuments' : null].filter(Boolean), setupRequired: 'subject-attribution-and-governed-erasure' } } : {}),
     ...(type.startsWith('customField.') ? { fieldOperation: { ownerType: ['item','customer','supplier','order'].includes(p.ownerType) ? p.ownerType : null, recordIds: (p.recordId ? [p.recordId] : fieldRows.map((r: any) => r.recordId)).filter((id: string)=>knownFieldRecords.has(id)), fieldIds: c.s.customFieldDefinitions.filter(d => type === 'customField.define' ? d.id === result?.id : d.ownerType === p.ownerType && Object.hasOwn(p.values ?? {}, d.key) || fieldRows.some((r: any) => r.ownerType === d.ownerType && Object.hasOwn(r.values ?? {}, d.key))).map(d => d.id), count: type === 'customField.import' ? fieldRows.length : 1 } } : {}),
-    itemIds: [...itemIds], documentIds: [...documents], changes, ...(reason ? { reason } : type === 'receiving.link' ? { reason: p.reason } : {}),
+    itemIds: [...itemIds], documentIds: [...documents], changes, ...(reason ? { reason } : ['receiving.link', 'order.reroute'].includes(type) ? { reason: p.reason } : {}),
     ...(scanTypes.has(type) ? { code: typeof (p.code ?? p.itemCode) === 'string' ? (p.code ?? p.itemCode).slice(0, 200) : '', binCode: typeof p.binCode === 'string' ? p.binCode.slice(0, 200) : null, device: typeof p.device === 'string' ? p.device.slice(0, 120) : 'unspecified input', resolution } : {}),
   };
 }

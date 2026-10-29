@@ -3007,7 +3007,7 @@
       "executable": false
     },
     "src/pier/audit.ts": {
-      "sha256": "852db78d7c5256d360dee4db206cc2ff077966e263de3b44a7d93ac0a7376b41",
+      "sha256": "3a959993c4448b7237068e2734edecbf4fc041fc69b2b9d25ea6ccddfc2fa5ba",
       "executable": false
     },
     "src/pier/backorder-release.ts": {
@@ -4735,7 +4735,7 @@
       "executable": false
     },
     "tests/api/channels.test.mjs": {
-      "sha256": "5a948872ca0c444f1cbd9112aa0d92953e3dcaef77dbd108c5de18bbeda51d6a",
+      "sha256": "3ea09da665a09c56290f787cc1b449a3307ef74496208049c59a04dd33009527",
       "executable": false
     },
     "tests/api/costing.test.mjs": {
