@@ -1,6 +1,12 @@
 # Pier operations
 
-Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.79 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. Recorded verbatim Base copies use `4280971d7c0295b8a88c3e1179048efcbbe14f30` (tag `rer-v0.2.79`); adapted components retain their independent comparison origins in `edition.json`. There is no checkout-local copy of the RER CLI.
+Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.91 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. Base copies have independent immutable pins in `base-copies.json`; the agent runtime pin is listed below, while adapted components retain their comparison origins in `edition.json`. There is no checkout-local copy of the RER CLI.
+
+## Agent runtime sources
+
+The shared agent-door and Business settings source copies are independently pinned to Base `2135c394939f4a737adabdc8003b0e667b31ac5a` in `base-copies.json`. Their storage is added by migrations 0024–0026; previously applied migrations are unchanged. Theme dependencies for those copies are under `src/foundation/runtime`.
+
+The production Worker mounts the shared core agent door before native application authentication. The six native tools, signed company policy, approvals, review, audit and Pause are described in [Company agents](docs/agents.md). Resources, prompts, events and subscriptions remain undeclared; the full Agent surface target retains those gaps. No provider spend limit is enforced.
 
 ## Local start
 

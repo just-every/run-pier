@@ -66,7 +66,7 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
   }
   const listing = before.channelListings.find(l => l.id === p.listingId);
   if (listing?.itemId) itemIds.add(listing.itemId);
-  return { id: c.commandId + ':' + outcome, at: c.now, actorId: c.actor.id, authority: { role: c.actor.role, nativeVersion: c.actor.operatorVersion, permissionVersion: c.actor.permissionVersion ?? 0 }, commandId: c.commandId, type, outcome, version: before.version + (outcome === 'refused' ? 0 : 1), rule: c.backgroundPolicy ?? null,
+  return { id: c.commandId + ':' + outcome, at: c.now, actorId: c.actor.id, ...(c.actor.agent ? { actorName: c.actor.name, agent: { id: c.actor.agent.id, name: c.actor.agent.name }, sponsor: { id: c.actor.id, name: c.actor.agent.sponsorName } } : {}), authority: { role: c.actor.role, nativeVersion: c.actor.operatorVersion, permissionVersion: c.actor.permissionVersion ?? 0 }, commandId: c.commandId, type, outcome, version: before.version + (outcome === 'refused' ? 0 : 1), rule: c.backgroundPolicy ?? null,
     connectorId: p.channelId ?? (type.startsWith('book.') ? 'pantry' : modelTraffic ? 'openai' : null), direction: type === 'channel.ingest' ? 'inbound' : type === 'channel.published' ? 'outbound' : modelTraffic ? modelAttempt ? 'outbound' : 'inbound' : null,
     ...(type === 'itemAgent.bulkApply' ? { ordinaryCommand: { type: c.s.proposals.find(plan => plan.id === p.proposalId)?.rows.find((entry: any) => entry.id === p.rowId)?.type, commandId: c.commandId } } : {}),
     ...(modelTraffic ? { phase: modelAttempt ? 'attempt' : 'outcome', attemptId: p.operationId, requestId: p.operationId } : {}),
