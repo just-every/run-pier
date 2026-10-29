@@ -8,12 +8,12 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 22 | 65 | 4 | 91 |
+| Core | 24 | 63 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 22 | 65 | 11 | 98 |
+| Full target | 24 | 63 | 11 | 98 |
 
-Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010 and PIER-011 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
+Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010, PIER-011, WMS-003 and BUY-007 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
 ## Core
 
@@ -366,7 +366,7 @@ Core · target · **done**
 
 #### WMS-003 — Daily dispatch board and carrier cut-offs
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** Each warehouse has a dispatch board for the working day in its time zone: the orders due to ship that day, each carrier’s actual pickup cut-off time and time zone, and counts and lists by state: to pick, picking, picked, packed, labeled and shipped (WMS-001 states; shipped only when PIER-009 dispatch posts). An order is due by its promise date, or by the earlier explicit carrier-service ship-by date a person reviewed and recorded when its pickup was assigned; that date is validated by the public carrier-assignment command and visible in the pickup assignment field. Pier never infers a ship-by date and never claims an earlier shipment than the recorded dates; rate and service planning stay with SHIP-001. Without pick, pack and label handling-time estimates, the board conservatively flags every unfinished due order before its pickup with its remaining-work reason (short, unpicked, unpacked or unlabeled), labels that conservative basis on the board, and clears the flag only when the order’s dispatch posts; it never invents a calculated cannot-make time. At day close the board records the number of orders and units shipped, the time the last one left and every due order that did not ship with its reason; the record is kept, exportable and feeds the REPORT-002 overdue-orders report.
 
@@ -376,8 +376,8 @@ Core · target · **partial**
 3. The board shows the carrier’s 4 pm cut-off with its time zone and its counts equal the orders’ states throughout; before 4 pm every unfinished due order is flagged with its remaining-work reason under the labeled conservative basis, including the short and unpicked orders, and each flag clears only when that order’s dispatch posts.
 4. The day-close record shows 18 orders shipped, the last shipment’s time and the two missed orders with reasons, each equal to an independent count of the day’s dispatches.
 
-**Evidence.** `src/pier/floor/dispatch-board.ts`; `src/pier/floor/summary.ts`; `src/pier/reports.ts`; `src/ui/floor/dispatch.tsx`; `src/ui/reports.tsx`; `tests/api/dispatch.test.mjs`; `tests/browser/dispatch.spec.ts`
-**Gap.** Unasserted: the board's display of the carrier cut-off with its time zone, the labeled conservative basis, and each risk flag clearing only when its order's dispatch posts. Asserted: due-date precedence of the reviewed ship-by date, invalid ship-by refusal, state counts throughout the day, the short and unpicked flags before cut-off and the day-close record against independent counts.
+**Evidence.** `tests/api/dispatch.test.mjs` — “WMS-003: twenty due orders, eighteen dispatches and a retained close reconcile independently” proves twenty due orders, reviewed ship-by precedence and invalid-date refusal, the 16:00 carrier cut-off in its exact time zone, every remaining-work risk flag through picking, packing and labeling, clearance only after each order dispatches, the other unfinished flags, and eighteen shipments and day-close totals against independent movement-backed shipment records. `tests/browser/dispatch.spec.ts` — “WMS-003: warehouse dispatch states, reviewed ship-by schedule, close download and overdue report at 1440 and 390” proves the visible configured cut-off and time zone, conservative basis, native packed-to-dispatched risk transition, retained other-order flags, reviewed pickup schedule, day-close download and overdue report. Shipping recordings replace only the external provider network.
+**Gap.** None.
 
 #### COUNT-001 — Full-warehouse stocktake
 
@@ -657,7 +657,7 @@ Core · target · **partial** · From BUY-002 · Rules D-3
 
 #### BUY-007 — Supplier changes, re-approval and cancellations
 
-Core · target · **partial** · From BUY-002
+Core · target · **done** · From BUY-002
 
 **Requirement.** Pier follows supplier confirmation and ASN changes, partial supply and cancellations against the committed purchase. A changed price, quantity, destination or promise invalidates approval; live network certification remains EDI-001.
 
@@ -668,8 +668,8 @@ Core · target · **partial** · From BUY-002
 4. Received goods cannot be cancelled.
 5. Original-file X12 004010 856 notices use the existing reviewed receiving door.
 
-**Evidence.** `tests/api/purchase-send.test.mjs` — “purchase approval routes exact landed spend and exceptions to named humans with revocable delegation” proves threshold routing, supplier and exception limits, delegation, escalation and agent denial; “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves exact PDF bytes, delegated sends, expiry, revocation, duplicate refusal and uncertain outcomes; “supplier price and date evidence stops pending sends until exact human review and retains partial cancellations” proves material changes, renewed spend review, both send doors and partial and full cancellation; `tests/api/replenishment.test.mjs` — “sell-through drafts an approved supplier PO and re-promises backorders by email” proves recorded acknowledgments; `tests/api/floor.test.mjs` — “confirmed SSCC receives every 856 pallet line once and invalid notices leave stock unchanged” proves retained original ASN and once-only receiving; `tests/browser/journey.spec.ts` — “purchase approval names spend authority and exposes supplier re-approval at 1440 and 390” proves visible authority and stopped sends at both widths.
-**Gap.** Unasserted: that a supplier change stops pending chases. Asserted: re-approval after a supplier price and date change, retained source and previous lines, refused sends until exact review under the spend route, received goods that cannot be cancelled, and once-only 856 receiving through the reviewed door.
+**Evidence.** `tests/api/purchase-send.test.mjs` — “purchase approval routes exact landed spend and exceptions to named humans with revocable delegation” proves threshold routing, supplier and exception limits, delegation, escalation and agent denial; “BUY-006: an agent sends only the exact bounded human-approved purchase once” proves exact PDF bytes, delegated sends, expiry, revocation, duplicate refusal and uncertain outcomes; “supplier price and date evidence stops pending sends until exact human review and retains partial cancellations” proves retained supplier evidence and unchanged committed lines until exact human review, renewed spend review and atomic refusals, both send doors, disabled chase and delegated-send policies, accepted initial mail followed by two stopped chase identities through their due dates, repeated processing and restart, no silent resumption after review, a freshly approved changed-version send and chase exactly once, and partial and full cancellation; `tests/api/replenishment.test.mjs` — “sell-through drafts an approved supplier PO and re-promises backorders by email” proves recorded acknowledgments; `tests/api/floor.test.mjs` — “confirmed SSCC receives every 856 pallet line once and invalid notices leave stock unchanged” proves retained original ASN and once-only receiving; `tests/browser/journey.spec.ts` — “purchase approval names spend authority and exposes supplier re-approval at 1440 and 390” proves visible spend authority, current supplier review state, original lines until review and two stopped chases before and after re-approval at both widths.
+**Gap.** None.
 
 #### BUY-003 — Supplier returns and purchase credits
 

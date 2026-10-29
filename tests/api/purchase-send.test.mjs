@@ -321,7 +321,9 @@ test('supplier price and date evidence stops pending sends until exact human rev
   await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-6', lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '3', cost: '0.5' }] });
   po = await current(po.id);
   const partial = { poId: po.id, version: po.version, source: 'synthetic-pier-7', body: 'Supplier cancels remaining supply', lines: [{ poLineId: po.lines[0].id, quantity: '3', price: '0.5' }] };
+  const beforeCancellationRefusal = await business();
   await h.command('po.supplierChange', { ...partial, lines: [{ ...partial.lines[0], quantity: '2' }] }, { error: 'RECEIPT_LIMIT' });
+  assert.deepEqual(await business(), beforeCancellationRefusal, 'received goods cannot be cancelled or partially rewritten');
   po = await h.command('po.supplierChange', partial);
   po = await h.command('po.reviewSupplierChange', { poId: po.id, version: po.version, confirm: true });
   assert.equal(po.lines[0].received, '3');

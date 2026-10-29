@@ -15,8 +15,8 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 7 | "The inventory agent reads sell-through across your channels, sees the gap" | `AGENT-002` done; `BUY-001` partial | partial |
 | 8 | "Order 500 by Oct 7 · 12 days safety" | `BUY-001` partial; `BUY-005` partial | partial |
 | 9 | "… and sends the purchase order" (PO-1048 sent, confirmed) | `AGENT-002` done; `BUY-006` partial | partial |
-| 10 | "The supplier's ship notice drops to 480" (inbound EDI 856) | `BUY-007` partial; `EDI-001` partial | partial |
-| 11 | "20 follow on PO-1048-B · due Nov 12" | `PIER-006` done; `BUY-007` partial | partial |
+| 10 | "The supplier's ship notice drops to 480" (inbound EDI 856) | `BUY-007` done; `EDI-001` partial | partial |
+| 11 | "20 follow on PO-1048-B · due Nov 12" | `PIER-006` done; `BUY-007` done | done |
 | 12 | "The agent checks each open order against stock, and no promise moves" | `AGENT-003` partial; `SALES-003` partial | partial |
 | 13 | "Each carton is scanned against the PO as it comes off the truck" | `WMS-001` done; `SCAN-002` partial; `PIER-006` done | partial |
 | 14 | "480 of 500 received · 20 short" | `PIER-006` done | done |
@@ -35,7 +35,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 27 | "Address corrected · 1420 E Main St" | `SHIP-001` partial | partial |
 | 28 | "print the label" (label failed, re-weighed, printed) | `SHIP-001` partial; `WMS-001` done | partial |
 | 29 | "Tracking goes to each customer" | `SHIP-001` partial | partial |
-| 30 | "214 orders out" by 4 pm | `WMS-003` partial; `PIER-009` partial | partial |
+| 30 | "214 orders out" by 4 pm | `WMS-003` done; `PIER-009` partial | partial |
 | 31 | "Pier matches each bill to its PO and receipt, holds the difference" | `BUY-004` done | done |
 | 32 | "Agent requested a credit" | `BUY-003` partial; `AGENT-003` partial | partial |
 | 33 | "Credit memo CM-311" and "Paid $2,016.00 for 480" | `BUY-003` partial; `BUY-004` done | partial |
@@ -53,4 +53,4 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 45 | Tag "PO-1061 sent · 600 Blue Mug 12oz" | `AGENT-002` done; `BUY-006` partial | partial |
 | 46 | "Free and open source, MIT licensed" | `OPEN-001` done | done |
 
-Claims: 46; 6 done, 40 partial, 0 missing.
+Claims: 46; 7 done, 39 partial, 0 missing.

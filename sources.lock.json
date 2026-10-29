@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "f1c34588470872e8b2f3f1dd4995902e4c0de69d8e257aa15b43048a6f877a74",
+      "sha256": "1bd3e797246d141f70262ec6252c641a2d3b82b267e94d079e557d03d6b38d33",
       "executable": false
     },
     ".gitignore": {
@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "d1bc13911438a54256fcee447d3932ed661614e83848d8437488033cbf4bf304",
+      "sha256": "bd8ed070560f32af0d48ebef4f711308a87ec804827861c46ecdd1832ff9a2b4",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "8aea63dd4ce59c281f600b132fbdf67b63b04f5be4703e084783af23a19fade1",
+      "sha256": "79bedac7b5cf937d5cd56d11d473a470595ef8f5d48712609e6049fce10947a6",
       "executable": false
     },
     "DEMO.md": {
@@ -403,7 +403,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "b2bbeb2dca2e18d4db3ca427bb51a4983882bc1e03e10c343dc5ef4acdab3b3f",
+      "sha256": "de8337e81dff1485b1517defd91aefc1aea8e363cc29869a26a394f9fef863e3",
       "executable": false
     },
     "docs/contract/acceptance-before-cleanup.md": {
@@ -4747,7 +4747,7 @@
       "executable": false
     },
     "tests/api/dispatch.test.mjs": {
-      "sha256": "36567d60e81dda4df3217e86934b0489c6b56b7b6e993fda6a5dd3cb5a1ca9f0",
+      "sha256": "aa9d3e9cedcab05460df0ec7147f9bfe0219557e6fe4ec928848e1175ade9e2e",
       "executable": false
     },
     "tests/api/document-original.mjs": {
@@ -4819,7 +4819,7 @@
       "executable": false
     },
     "tests/api/purchase-send.test.mjs": {
-      "sha256": "36ff705798a40b678146d2419095d0d5b2175805955f37a5550324ce03e54798",
+      "sha256": "39b84f8657c6902f766846d7da97e58cd0331021b6c80ccfeb746c1e5850f383",
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
@@ -4919,11 +4919,11 @@
       "executable": false
     },
     "tests/browser/dispatch.spec.ts": {
-      "sha256": "bcd99916308f2b3402b174c74822656931c932f1987f8fa3ad7df11488eaade3",
+      "sha256": "93c81114613508441306bc57349f9f3c6d9517b0d2a974f577fda8de2ef04453",
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "2d706eaafa5dc52d1321cd23570034e23d3928fec01df79c19724b160623d148",
+      "sha256": "01b13ea711ffa68f5970b388d9050783db4aa28d444ac09c43e9b0c2339c3da3",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
