@@ -40,7 +40,7 @@
 .pier-app .stock-detail .collapse { position: relative; }
 .pier-app .stock-detail .collapse .item-tooltip { position: absolute; right: 0; top: 100%; z-index: 10; width: max-content; padding: 6px 9px; border: 1px solid var(--app-line); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 13px; line-height: 20px; visibility: hidden; pointer-events: none; }
 .pier-app .stock-detail .collapse:hover .item-tooltip { visibility: visible; transition: visibility 0s linear 300ms; }
-.pier-app .stock-detail .collapse:focus-visible .item-tooltip { visibility: visible; transition: none; }
+.pier-app .stock-detail .collapse:focus .item-tooltip { visibility: visible; transition: none; }
 .pier-app .stock-detail .collapse svg { transform: rotate(180deg); }
 
 @media (max-width: 1180px) {
