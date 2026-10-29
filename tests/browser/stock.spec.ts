@@ -17,6 +17,14 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
   const item = state.items.find((row: any) => row.sku === 'BOLT')
   const shots = process.env.PIER_SCREENSHOTS
   if (shots) await mkdir(shots, { recursive: true })
+  const capture = async (name: string) => {
+    if (!shots) return
+    for (const captureWidth of [1440, 390]) {
+      await page.setViewportSize({ width: captureWidth, height: 1000 })
+      await page.screenshot({ path: join(shots, `${captureWidth}-${name}.png`), fullPage: true })
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 })
+  }
   for (const width of [1440]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto(`${origin}/app#stock`)
@@ -25,10 +33,22 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     const totals = page.getByRole('region', { name: 'Stock totals', exact: true })
     await expect(totals.getByRole('row').filter({ hasText: 'South' })).toContainText('13 each')
     for (const row of [...state.warehouseStocks, ...state.companyStocks.map((r: any) => ({ ...r, warehouse: 'Company total' }))]) {
-      const shown = totals.getByRole('row').filter({ hasText: row.warehouse })
+      const shown = totals.getByRole('row').filter({ hasText: state.items.find((item: any) => item.id === row.itemId).name }).filter({ has: page.getByRole('cell').filter({ hasText: new RegExp(`^${row.warehouse}$`) }) })
       const cells = shown.getByRole('cell')
       for (const [offset, field] of ['onHand', 'reserved', 'available', 'quarantine', 'transit', 'expected'].entries()) await expect(cells.nth(offset + 2)).toHaveText(`${row[field]} each`)
     }
+    await expect(totals).toContainText(/Reserved includes protected channel holds/)
+    const unassigned = totals.getByRole('row').filter({ hasText: 'Unassigned receiving warehouse' })
+    await expect(unassigned).toHaveCount(1)
+    await expect(unassigned.getByRole('cell').nth(7)).toHaveText('7.25 each')
+    const protectedStock = totals.getByRole('row').filter({ hasText: 'Protected brass pins' })
+    await expect(protectedStock).toHaveCount(2)
+    for (const row of await protectedStock.all()) {
+      await expect(row.getByRole('cell').nth(2)).toHaveText('3.5 each')
+      await expect(row.getByRole('cell').nth(3)).toHaveText('3.5 each')
+      await expect(row.getByRole('cell').nth(4)).toHaveText('0 each')
+    }
+    await capture('stock-holds-unassigned')
     await expect(page.locator('.stock-table').getByRole('row').filter({ hasText: 'Unstocked steel washer' })).toContainText('No positions')
     for (const search of ['BOLT', '10001', 'Brass bolt']) {
       await page.getByRole('textbox', { name: 'Search product, barcode or SKU', exact: true }).fill(search)
@@ -45,12 +65,21 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await page.getByRole('group', { name: 'Warehouse', exact: true }).getByRole('button', { name: 'South', exact: true }).click()
     await expect(totals.getByRole('row').filter({ hasText: 'North' })).toHaveCount(0)
     await expect(page.locator('.stock-table').getByRole('row').filter({ hasText: 'Brass bolt' })).toHaveCount(2)
-    if (shots) await page.screenshot({ path: join(shots, `${width}-stock-south.png`), fullPage: true })
+    await capture('stock-south')
     await page.getByRole('group', { name: 'Warehouse', exact: true }).getByRole('button', { name: 'All', exact: true }).click()
     await page.getByRole('button', { name: 'Brass bolt', exact: true }).first().click()
-    await expect(page.getByRole('region', { name: 'Selected item details' })).toContainText('In transit')
+    const details = page.getByRole('region', { name: 'Selected item details' })
+    await expect(details).toContainText('In transit')
+    const close = details.getByRole('button', { name: 'Close item details', exact: true })
+    const tooltip = details.getByRole('tooltip', { name: 'Close item details', exact: true })
+    await close.hover()
+    await expect(tooltip).toBeVisible()
+    await page.mouse.move(0, 0)
+    await expect(tooltip).toBeHidden()
+    await close.focus()
+    await expect(tooltip).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
-    if (shots) await page.screenshot({ path: join(shots, `${width}-stock-all.png`), fullPage: true })
+    await capture('stock-all')
     const feed = await context.request.get(`${origin}/api/pier/stock-changes?consumer=synthetic-pier-health&limit=2`)
     expect(feed.status()).toBe(200)
     const pending = await feed.json()
@@ -61,7 +90,7 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await expect(health).toContainText('Acknowledged stock sequence; fetching does not advance it.')
     for (const event of pending.events) await expect(health).toContainText(event.eventId)
     await expect(health).toContainText('Stripe invoice payments · not connected')
-    await expect(health).toContainText('EasyPost shipping · active')
+    await expect(health).toContainText(width === 1440 ? 'EasyPost shipping · active' : 'EasyPost shipping · paused')
     if (width === 1440) {
       await health.locator('summary').filter({hasText:'EasyPost shipping'}).click()
       await health.getByRole('button',{name:'Pause shipping',exact:true}).click()
@@ -71,17 +100,11 @@ test('STOCK-001: stock totals, empty items and warehouse filters with connector 
     await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
     await expect(health.getByRole('button', { name: 'Refresh health', exact: true })).toBeEnabled()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
-    if (shots) {
-      for (const captureWidth of [1440, 390]) {
-        await page.setViewportSize({ width: captureWidth, height: 1000 })
-        await page.screenshot({ path: join(shots, `${captureWidth}-integration-health.png`), fullPage: true })
-      }
-      await page.setViewportSize({ width: 1440, height: 1000 })
-    }
+    await capture('integration-health')
     await context.request.post(`${origin}/auth/signout`, { headers: { origin }, data: {} })
     await health.getByRole('button', { name: 'Refresh health', exact: true }).click()
     await expect(health.getByRole('alert')).toContainText('Check your owner access and retry.')
-    if (shots) await page.screenshot({ path: join(shots, `${width}-integration-health-expired.png`), fullPage: true })
+    await capture('integration-health-expired')
     await ownerEntry(page)
     await page.goto(`${origin}/app#channels`)
     await expect(health.locator('summary').filter({ hasText: 'Stock consumer synthetic-pier-health' })).toBeVisible()

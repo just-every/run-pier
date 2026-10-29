@@ -101,7 +101,7 @@ import { lateLandedCost } from './late-landed-cost';
 import { costing } from "./costing";
 import { reports } from "./reports";
 import { warehouse, countView } from "./warehouse";
-import { imports } from "./imports";
+import { imports, importOriginal } from "./imports";
 import { proposals, reorder } from "./proposals";
 import { floor, floorState } from "./floor";
 import { dispatchSummary } from "./floor/summary";
@@ -433,6 +433,8 @@ export async function pierResponse(
           return !value || (key === 'itemId' ? event.itemIds.includes(value) : key === 'documentId' ? event.documentIds.includes(value) || event.commandId === value : key === 'userId' ? event.actorId === value : key === 'commandId' ? event.commandId === value : event.connectorId === value);
         })));
       }
+      const nativeOriginal = importOriginal(url.pathname, actor, s);
+      if (nativeOriginal) return nativeOriginal;
       const printDocument=printRead(url.pathname,actor,s);if(printDocument)return printDocument;
       const originalDocument = documentRead(url.pathname, actor, s);
       if (originalDocument) return originalDocument;

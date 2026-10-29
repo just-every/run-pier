@@ -64,3 +64,19 @@
 @media (max-width: 599px) {
   .pier-app .exception .nowrap, .pier-app .order-lines .line-sku { white-space: normal; overflow-wrap: anywhere; }
 }
+
+/* Custody details keep long identities readable at both release widths. */
+.pier-app .custody-records small, .pier-app .custody-records dt,
+.pier-app .custody-records th, .pier-app .custody-records code, .pier-app .custody-records pre,
+.pier-app .custody-records .badge, .pier-app .custody-records td[data-label]::before { font-size: 13px; }
+.pier-app .custody-records .record { border: 0; }
+.pier-app .custody-records .facts > div { border-left: 0; }
+.pier-app .custody-records .facts-list { grid-template-columns: minmax(0, 1fr); }
+.pier-app .custody-records .cell-value, .pier-app .custody-records small,
+.pier-app .custody-records dd { overflow-wrap: anywhere; }
+
+@media (max-width: 599px) {
+  .pier-app .custody-records td[data-label="Document"] { grid-template-columns: minmax(0, 1fr); }
+  .pier-app .custody-records .facts-list > div { display: block; }
+  .pier-app .custody-records .facts-list dt { margin-bottom: 4px; }
+}

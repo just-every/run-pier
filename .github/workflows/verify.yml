@@ -108,6 +108,9 @@ jobs:
           }
       - run: pnpm exec rer check --profile first-party
       - run: pnpm exec rer verify --no-queue
+        env:
+          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-browser
+          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-browser/screenshots
       # The run site: homepage, /run and the docs from the repository's Markdown,
       # refused on any broken, instance-only or other-origin reference.
       - run: pnpm exec rer build --site --no-queue
@@ -118,11 +121,15 @@ jobs:
         run: |
           timeout 1200 node tests/browser/run.mjs stock.spec.ts --grep STOCK-001
           timeout 1200 node tests/browser/run.mjs supplier-returns.spec.ts --grep BUY-003
+          timeout 1200 node tests/browser/run.mjs journey.spec.ts --grep 'purchase approval names spend authority'
+          timeout 1200 node tests/browser/run.mjs dispatch.spec.ts --grep WMS-003
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: connector-recovery-screens
-          path: ${{ runner.temp }}/pier-sync-browser
+          path: |
+            ${{ runner.temp }}/pier-sync-browser
+            ${{ runner.temp }}/pier-browser
           if-no-files-found: ignore
           retention-days: 7
 

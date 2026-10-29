@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ownerEntry } from './session'
+import { retainedFieldCustody } from './catalogue-custody'
 // @ts-expect-error Fixtures create records only through authenticated HTTP.
 import { catalogueCsv, catalogueJourney } from '../api/catalogue-fixtures.mjs'
 
@@ -122,7 +123,7 @@ test('owner typed-field controls define, edit, import and filter every record ty
     const body = await response.json(); expect(body.ok, JSON.stringify(body)).toBe(true); return body.result
   }
   const suffix = crypto.randomUUID().slice(0,8)
-  await command('location.save', { name: 'Typed fields ' + suffix, warehouse: 'Dallas', kind: 'bin' })
+  const location = await command('location.save', { name: 'Typed fields ' + suffix, warehouse: 'Dallas', kind: 'bin' })
   const item = await command('item.save', { sku: 'synthetic-pier-fields-' + suffix, name: 'Typed field item', unit: 'each', packSize: '1' })
   const customer = await command('party.save', { kind: 'customer', name: 'Typed field customer' })
   const supplier = await command('party.save', { kind: 'supplier', name: 'Typed field supplier' })
@@ -183,10 +184,14 @@ test('owner typed-field controls define, edit, import and filter every record ty
     await page.getByRole('button', { name: 'Inspect erasure dependencies', exact: true }).click()
     await expect(page.getByRole('alert').filter({ hasText: 'Erasure refused: subject attribution' })).toBeVisible()
     await shot('erasure-refusal')
+    const erasureReply = page.waitForResponse(response => response.url().endsWith('/api/pier/commands') && response.request().postDataJSON()?.type === 'privacy.eraseSubject')
     await page.getByRole('button', { name: 'Record erasure refusal', exact: true }).click()
+    const erasureCommand = (await erasureReply).request().postDataJSON().commandId
     await expect(page.getByRole('alert').filter({ hasText: 'No content was deleted by this request.' }).first()).toBeVisible()
     await page.getByLabel('Document identity filter', { exact: true }).fill('')
-    await expect(page.getByRole('table').filter({ hasText: 'Privacy.eraseSubject' })).toContainText('Refused')
+    const refusalRow = page.getByRole('row').filter({ hasText: erasureCommand })
+    await expect(refusalRow).toContainText('Erase customer records')
+    await expect(refusalRow).toContainText('Refused')
     await shot('activity-refused')
   }
   const staff = await browser.newContext()
@@ -201,4 +206,5 @@ test('owner typed-field controls define, edit, import and filter every record ty
       if (shots) await denied.screenshot({ path: join(shots, width + '-fields-denied.png'), fullPage: true })
     }
   } finally { await staff.close() }
+  await retainedFieldCustody({ page, context, browser, origin, suffix, item, customer, supplier, order, location, command })
 })
