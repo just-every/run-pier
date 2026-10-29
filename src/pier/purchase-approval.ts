@@ -41,7 +41,10 @@ export function purchaseApproval(c: Context, type: string, p: any): Row | undefi
       po.approval = null;
       po.purchaseApprovalVersion = (old?.version ?? 0) + 1;
       po.approvalEscalation = null;
-      if (po.sendPolicy) po.sendPolicy.enabled = false;
+      if (po.sendPolicy) {
+        po.sendPolicy.enabled = false;
+        po.sendPolicy.stoppedReason = 'Purchase approval policy changed. Review a new authority.';
+      }
       po.version++;
     }
     return old ? Object.assign(old, value, { version: old.version + 1 }) : row(c, 'purchaseApprovalPolicies', value);
