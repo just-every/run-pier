@@ -82,7 +82,9 @@ verification.
    liftgate or the other required accessorials and retain the manifest reference,
    origin, destination and commodity. Gross pallet weight includes its cartons.
 2. Retain the carrier's manually obtained quote, SCAC, quote reference, USD amount,
-   charge terms and evidence. Review the exact quote and enter the operator's PRO
+   charge terms and evidence. Third-party freight terms also require the payer's
+   name and billing address; the retained BOL uses that exact quote detail. Review
+   the exact quote and enter the operator's PRO
    number and planned pickup date with a reason. These steps leave stock,
    reservations, packs and shipment facts unchanged.
 3. Generate the VICS bill of lading before pickup. Download its retained PDF to
@@ -93,7 +95,8 @@ verification.
    dispatches the packed quantities through its ordinary pack and dispatch
    commands, consumes only the order's own reservations and links the one
    shipment to the manifest, reviewed BOL and operator pickup record. Recover a
-   lost response with the same command identity; it cannot dispatch again.
+   lost response with the same command identity; it cannot dispatch again. The
+   retained quote, payer and entered evidence remain visible after dispatch.
 
 A manifest revision retains earlier evidence and invalidates its pending quote,
 pickup review and BOL eligibility. Re-enter and review the quote and generate a

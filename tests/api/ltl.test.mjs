@@ -45,7 +45,10 @@ test('manual LTL retains two pallets and quote, prints before pickup, refuses st
   assert.equal(manifest.review, null); assert.equal(manifest.quote, null); assert.equal(manifest.history[0].quote.amount, '125.50');
   await refuse('ltl.pickup', { manifestId: manifest.id, version: oldVersion, confirmed: true, documentId: doc.id, evidence: 'Driver arrived' }, 'STALE');
   await refuse('ltl.pickup', { manifestId: manifest.id, version: manifest.version, confirmed: true, documentId: doc.id, evidence: 'Driver arrived' }, 'LTL_REVIEW');
-  manifest = await h.command('ltl.quote', { manifestId: manifest.id, version: manifest.version, ...manualQuote });
+  const thirdPartyQuote = { ...manualQuote, freightTerms: 'Third party', billTo: 'Synthetic Freight Payer, 30 Billing Road' };
+  await refuse('ltl.quote', { manifestId: manifest.id, version: manifest.version, ...thirdPartyQuote, billTo: '   ' }, 'LTL_BILL_TO');
+  manifest = await h.command('ltl.quote', { manifestId: manifest.id, version: manifest.version, ...thirdPartyQuote });
+  assert.equal(manifest.quote.billTo, thirdPartyQuote.billTo);
   manifest = await h.command('ltl.review', { manifestId: manifest.id, version: manifest.version, ...pickupReview });
   await refuse('ltl.pickup', { manifestId: manifest.id, version: manifest.version, confirmed: true, documentId: doc.id, evidence: 'Driver arrived' }, 'LTL_BOL');
   const entered = await fetch(h.origin + '/auth/dev/enter?as=member', { redirect: 'manual', headers: { 'x-rer-dev-key': h.devKey } });
@@ -69,7 +72,13 @@ test('manual LTL retains two pallets and quote, prints before pickup, refuses st
   const plan = await (await h.request('/api/pier/privacy?kind=customer&subjectId=' + b.customer.id)).json();
   assert.equal(plan.allowed, false); assert.ok(plan.blockers.some(blocker => blocker.kind === 'ltlManifests'));
   await refuse('privacy.eraseSubject', { kind: 'customer', subjectId: b.customer.id, planHash: plan.planHash, confirm: true }, 'PRIVACY_DEPENDENCY');
-  const current = await h.command('print.generate', { kind: 'bill-of-lading', sourceId: manifest.id });
+  const current = await h.command('print.generate', { kind: 'bill-of-lading', sourceId: manifest.id, freight: { billTo: 'synthetic-pier-wrong-payer-1' } });
+  const currentBytes = Buffer.from(await (await h.request(`/api/pier/sales-documents/${current.id}.pdf`)).arrayBuffer());
+  const currentText = await pdfText(currentBytes);
+  assert.ok(currentText.includes(thirdPartyQuote.billTo));
+  assert.ok(currentText.includes(thirdPartyQuote.freightTerms));
+  assert.ok(!currentText.includes('synthetic-pier-wrong-payer-1'));
+  assert.equal(current.snapshot.quote.billTo, thirdPartyQuote.billTo);
   await refuse('ltl.pickup', { manifestId: manifest.id, version: manifest.version, confirmed: false, documentId: current.id, evidence: 'Driver arrived' }, 'LTL_PICKUP');
   assert.deepEqual(business(await exported()), before);
   const commandId = crypto.randomUUID(), pickup = { manifestId: manifest.id, version: manifest.version, confirmed: true, documentId: current.id, evidence: 'Owner observed two pallets handed to the driver' };
@@ -83,5 +92,8 @@ test('manual LTL retains two pallets and quote, prints before pickup, refuses st
   assert.equal(dispatchMovements.length, 1); assert.equal(dispatchMovements.reduce((sum, row) => sum + BigInt(row.quantity), 0n), -4000000n);
   const posted = await stable(); await h.restart(); await h.command('ltl.pickup', pickup, { commandId }); assert.deepEqual(await stable(), posted);
   await refuse('ltl.pickup', { ...pickup, version: dispatched.version }, 'LTL_STATE');
-  assert.deepEqual(Buffer.from(await (await download()).arrayBuffer()), bytes); assert.equal(outbound, 0);
+  assert.deepEqual(Buffer.from(await (await download()).arrayBuffer()), bytes);
+  assert.deepEqual(Buffer.from(await (await h.request(`/api/pier/sales-documents/${current.id}.pdf`)).arrayBuffer()), currentBytes);
+  assert.equal((await exported()).ltlManifests.find(row => row.id === manifest.id).quote.billTo, thirdPartyQuote.billTo);
+  assert.equal(outbound, 0);
 });

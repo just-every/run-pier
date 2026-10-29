@@ -62,8 +62,12 @@ export function ltl(c: Context, type: string, p: any): Row | undefined {
   const pack = currentManifest(c, manifest);
   if (type === 'ltl.quote') {
     const amount = measure(p.amount, 'quote amount in USD');
+    const freightTerms = text(p.freightTerms, 'Freight terms');
+    const billTo = String(p.billTo ?? '').trim();
+    if (/third|3rd/i.test(freightTerms) && !billTo) fail('LTL_BILL_TO', 'Enter the third-party freight payer name and address before retaining this quote.');
+    if (billTo) text(billTo, 'Freight bill-to name and address');
     manifest.quoteHistory = [...(manifest.quoteHistory ?? []), ...(manifest.quote ? [manifest.quote] : [])];
-    manifest.quote = { version: (manifest.quote?.version ?? manifest.quoteHistory.at(-1)?.version ?? 0) + 1, revision: manifest.revision, carrier: text(p.carrier, 'Carrier'), scac: text(p.scac, 'SCAC'), reference: text(p.quoteReference, 'Carrier quote reference'), amount, currency: 'USD', freightTerms: text(p.freightTerms, 'Freight terms'), evidence: text(p.evidence, 'Carrier quote evidence'), enteredBy: c.actor.id, enteredAt: c.now };
+    manifest.quote = { version: (manifest.quote?.version ?? manifest.quoteHistory.at(-1)?.version ?? 0) + 1, revision: manifest.revision, carrier: text(p.carrier, 'Carrier'), scac: text(p.scac, 'SCAC'), reference: text(p.quoteReference, 'Carrier quote reference'), amount, currency: 'USD', freightTerms, billTo, evidence: text(p.evidence, 'Carrier quote evidence'), enteredBy: c.actor.id, enteredAt: c.now };
     manifest.reviewHistory = [...(manifest.reviewHistory ?? []), ...(manifest.review ? [manifest.review] : [])];
     manifest.review = null; manifest.status = 'quote';
   } else if (type === 'ltl.review') {

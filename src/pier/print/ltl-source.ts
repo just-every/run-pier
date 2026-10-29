@@ -21,7 +21,7 @@ export function ltlSource(c: Context, sourceId: string): DocumentSource | undefi
 }
 export function ltlFreight(manifest: any) {
   return { carrier: manifest.quote.carrier, scac: manifest.quote.scac, proNumber: manifest.review.proNumber, pickupDate: manifest.review.pickupDate,
-    shipFrom: manifest.shipFrom, shipTo: manifest.shipTo, freightTerms: manifest.quote.freightTerms,
+    shipFrom: manifest.shipFrom, shipTo: manifest.shipTo, billTo: manifest.quote.billTo ?? '', freightTerms: manifest.quote.freightTerms,
     palletCount: String(manifest.pallets.length), handlingType: 'Pallet', packageCount: String(manifest.pallets.reduce((sum: number, pallet: any) => sum + pallet.cartons.length, 0)), packageType: 'Carton',
     weight: format(manifest.pallets.reduce((sum: bigint, pallet: any) => sum + decimal(pallet.weight), 0n)),
     netWeight: format(manifest.pallets.flatMap((pallet: any) => pallet.cartons).reduce((sum: bigint, carton: any) => sum + decimal(carton.weight), 0n)),

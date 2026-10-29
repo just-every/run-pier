@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "459ae40c68feb7a3c8403efa9a490325d86451f12f49422b6c81e37b802f9dd8",
+      "sha256": "ef1b2b6592f7915b81ed920649d56b7c3aa2d9d4ca0dfdcba2c585fd40a318e2",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "b9453610e232b3a16b8cada63c99a80f055a2c4d3252f25363b8c558236f8392",
+      "sha256": "2649933a2196658d7176f123cffdfd8e5a61254da6c14a61623ef6d6cde96a0b",
       "executable": false
     },
     "DEMO.md": {
@@ -499,7 +499,7 @@
       "executable": false
     },
     "docs/shipping.md": {
-      "sha256": "97c47874d716ae69ec151aa8813be5e57817877e3b0a5fa7c909cac1248a527f",
+      "sha256": "3dbab134a97ca4df7c9918a553b43a3a63e7357eeff895e8a35e8c7614bd74f8",
       "executable": false
     },
     "docs/shopify.md": {
@@ -3607,7 +3607,7 @@
       "executable": false
     },
     "src/pier/print/ltl-source.ts": {
-      "sha256": "c0ea6eba5566f35ff2a64331dc8721d322224375054a6e491f4e0bc84d56183f",
+      "sha256": "4648c2e53e6cd4aa70a289f1cbfb8eb010dc531499c2f9b7d25a3ff83f811486",
       "executable": false
     },
     "src/pier/print/mail-settings.ts": {
@@ -3807,7 +3807,7 @@
       "executable": false
     },
     "src/pier/shipping/ltl.ts": {
-      "sha256": "79660472fada8777a903e61569da1479985172a6638f8ed7eba879036eb000b9",
+      "sha256": "2cb5898dee95437f91d9cf5a477cc6d7896fa0dadb9b552b7790adcadce328c4",
       "executable": false
     },
     "src/pier/shipping/mail.ts": {
@@ -4611,7 +4611,7 @@
       "executable": false
     },
     "src/ui/shipping/ltl.tsx": {
-      "sha256": "43f101d2e44cad225b28fdd9e07d8b01fa9022435d675b2999296c9b7f90b0e8",
+      "sha256": "e91dccb72286476afdaedfe57d012020f480016eed532efcff1fa60a4d164b6f",
       "executable": false
     },
     "src/ui/shipping/model.ts": {
@@ -4799,7 +4799,7 @@
       "executable": false
     },
     "tests/api/ltl.test.mjs": {
-      "sha256": "6feb4fc4e4a578e4822750ee5714e999adeeba63be65a41c1f9e4d74c823c0e6",
+      "sha256": "8c1d71cc061a24be7574a7b11bb401d29212a7014dca0b1b30e6a6f2915f4b30",
       "executable": false
     },
     "tests/api/managed-mail.test.mjs": {
@@ -4951,7 +4951,7 @@
       "executable": false
     },
     "tests/browser/ltl.spec.ts": {
-      "sha256": "4e29928384550fb0a20d62a6e353b695b3661a9df68533d5272c4158c6f0be9e",
+      "sha256": "d90ec11bf9da1ae4592bb057f7c852fbe8a1ee8cb9355d8bde33a1ebd87f065f",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
