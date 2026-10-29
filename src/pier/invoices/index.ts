@@ -1,4 +1,5 @@
 import { fail, fresh, get, requireRole, row, text, type Context, type Row } from '../model';
+import { currentTax } from '../tax-rules';
 import { amount } from '../money';
 import type { Bindings } from '../../auth.server';
 import { draftInvoice, invoicePolicy, noLegacyInvoice } from './draft';
@@ -12,9 +13,7 @@ function currentSource(c: Context, invoice: Row) {
   const order = get(c.s, 'orders', invoice.orderId), source = invoice.shipmentId ? get(c.s, 'shipments', invoice.shipmentId) : order;
   if (source.version !== invoice.sourceVersion || order.version !== invoice.sourceOrderVersion) fail('INVOICE_SOURCE_CHANGED', 'The source changed after this draft. Cancel it and prepare a new invoice.');
   noLegacyInvoice(c, order, invoice.shipmentId ?? undefined);
-  if (invoice.tax.table && get(c.s, 'salesPolicies', invoice.tax.table.id).version !== invoice.tax.table.version) fail('INVOICE_TAX_CHANGED', 'The owner tax estimate changed. Prepare a new invoice.');
-  const certificate = invoice.tax.certificate;
-  if (certificate && (certificate.expires < c.now.slice(0, 10) || !get(c.s, 'parties', invoice.customerId).resaleCertificates?.some((r: any) => JSON.stringify(r) === JSON.stringify(certificate)))) fail('INVOICE_TAX_CHANGED', 'The retained exemption changed or expired. Review the tax again.');
+  currentTax(c, invoice.tax, invoice.customerId, 'INVOICE_TAX_CHANGED', order.routing?.reserveWarehouses?.length>1?null:order.warehouse);
 }
 export async function invoices(c: Context, type: string, p: any, env?: Bindings): Promise<Row | undefined> {
   if (type.startsWith('payment.') || type === 'invoice.payLink') return paymentCommands(c, type, p, env!);

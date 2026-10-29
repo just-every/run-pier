@@ -1,3 +1,4 @@
+import { TaxEvidence } from './tax-evidence';
 import { useState } from "react";
 import { PrintWorkbench } from "./print-workbench";
 import { InvoiceWorkbench } from "./invoice-workbench";
@@ -28,6 +29,7 @@ export function Commercial({
   const approverRole = approvalPolicy(state)?.role ?? 'owner';
   return (
     <>
+      <TaxEvidence tax={order.tax}/>
       {quote && (
         <>
           <Form
@@ -67,6 +69,8 @@ export function Commercial({
                   state: text(d, "state").toUpperCase(),
                   postalCode: text(d, "postalCode"),
                 },
+                freight: text(d, "freight"),
+                handling: text(d, "handling"),
                 validUntil: text(d, "validUntil"),
                 discountPercent: text(d, "discountPercent"),
                 lines: order.lines.map((l: any) => ({
@@ -99,6 +103,8 @@ export function Commercial({
               name="discountPercent"
               defaultValue={order.discountPercent}
             />
+            <Field label="Revised quote freight" name="freight" required={false} defaultValue={order.charges?.find((c: any) => c.kind === 'freight')?.amount ?? ''}/>
+            <Field label="Revised quote handling" name="handling" required={false} defaultValue={order.charges?.find((c: any) => c.kind === 'handling')?.amount ?? ''}/>
             {order.lines.map((l: any, i: number) => (
               <div key={l.id}>
                 <Field
@@ -188,29 +194,7 @@ export function SalesIntake({
       <PrintWorkbench state={state} run={run} busy={busy} />
       <DocumentIntake state={state} run={run} busy={busy} />
       <QuoteApprovalSettings state={state} run={run} busy={busy} />
-      <Form
-        title="Owner tax estimate table"
-        submit="Save jurisdiction estimate"
-        busy={busy}
-        disabled={state.actor.role !== "owner"}
-        note="US state rates are owner-maintained estimates. Provider tax, final invoices and filing remain separate."
-        onSubmit={(d) => {
-          const stateCode = text(d, "state").toUpperCase(),
-            old = records(state, "salesPolicies").find(
-              (r) => r.kind === "tax-table" && r.state === stateCode,
-            );
-          return run("sales.taxTable", {
-            state: stateCode,
-            rate: text(d, "rate"),
-            reason: text(d, "reason"),
-            ...(old ? { version: old.version } : {}),
-          });
-        }}
-      >
-        <Field label="Tax state (two letters)" name="state" />
-        <Field label="Estimated tax percent" name="rate" inputMode="decimal" />
-        <Field label="Tax table review reason" name="reason" />
-      </Form>
+      <p><a href="#settings">Sales tax settings</a></p>
       <Form
         title="Review a customer order file"
         submit="Preview customer orders"

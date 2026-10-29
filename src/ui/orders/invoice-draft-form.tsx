@@ -39,6 +39,6 @@ export function InvoiceDraftForm({ state, run, busy }: { state: PierState; run: 
       <Field label="CAD price review reason" name="priceReason"/>
     </fieldset>}
     {['freight', 'handling', 'surcharge', 'discount'].map(kind => <Field key={kind} label={`Invoice ${kind} amount`} name={kind} required={false} inputMode="decimal"/>)}
-    <label className="field"><input type="checkbox" name="taxable"/> Tax these charge lines under the retained owner table</label>
+    <label className="field"><input type="checkbox" name="taxable"/> Tax surcharge and discount lines (detailed rules determine freight and handling)</label>
   </Form>;
 }

@@ -84,7 +84,7 @@ export function reserve(c: Context, o: Row) {
 export function orderView(c: Context, o: Row, privateCommercial=c.actor.role==='owner') {
   return {
     ...o,
-    ...(privateCommercial?{}:{salesRepId:undefined,salesRep:undefined,repHistory:undefined,creditClearance:undefined,quoteApproval:undefined,quoteHistory:undefined,tax:o.tax?{...o.tax,certificate:o.tax.certificate?{state:o.tax.certificate.state,expires:o.tax.certificate.expires}:null}:undefined}),
+    ...(privateCommercial?{}:{salesRepId:undefined,salesRep:undefined,repHistory:undefined,creditClearance:undefined,quoteApproval:undefined,quoteHistory:undefined,tax:o.tax?{status:o.tax.status,source:o.tax.source,amount:o.tax.amount,rate:o.tax.rate,providerCommit:o.tax.providerCommit}:undefined}),
     lines: o.lines.map((l: any) => {
       const q = l.kit ? reservedKits(c.s, l) : c.s.reservations
         .filter((r) => r.orderLineId === l.id)
@@ -166,18 +166,21 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     const reason=text(p.reason,'Quote revision reason');
     const {quoteHistory:priorHistory,...priorVersion}=structuredClone(q);
     q.quoteHistory=[...(priorHistory??[]),{...priorVersion,approval:priorVersion.quoteApproval,reason,at:c.now}];
-    q.lines=quoteLines(c,{...p,customerId:q.customerId});Object.assign(q,quoteTerms(c,{...p,customerId:q.customerId},q.lines));
+    const terms = { freight: q.charges?.find((r:any)=>r.kind==='freight')?.amount, handling: q.charges?.find((r:any)=>r.kind==='handling')?.amount, ...p, customerId:q.customerId };
+    q.lines=quoteLines(c,terms);
+    q.shipTo=p.shipTo??null;
     c.s.reservations=c.s.reservations.filter(r=>r.orderId!==q.id);c.s.traceReservations=c.s.traceReservations.filter(t=>c.s.reservations.some(r=>r.id===t.reservationId));
     for(const wave of c.s.waves.filter(w=>w.lines.some((l:any)=>l.orderId===q.id))){for(const line of wave.lines.filter((l:any)=>l.orderId===q.id&&l.status==='open')){line.status='revised';line.revisedAt=c.now;}if(wave.lines.every((l:any)=>l.status!=='open'))wave.status=wave.lines.some((l:any)=>l.status==='picked')?'picked':'cancelled';wave.version++;}
     routeOrder(c,q,{routingSource:q.routing?.source??'manual',shipTo:q.shipTo,channelLocation:q.channelLocation,warehouse:q.routing?.ruleId?undefined:q.warehouse});
+    Object.assign(q,quoteTerms(c,{...terms,warehouse:q.routing?.reserveWarehouses?.length>1?null:q.warehouse},q.lines));
     reserve(c,q);return orderView(c,q);
   }
   if (type === 'quote.create') {
     if(p.currency && p.currency!=='USD') fail('CURRENCY','Quotes currently use USD.');
     if(p.warehouse && !c.s.locations.some(l=>l.kind==='bin'&&l.warehouse===p.warehouse)) fail('WAREHOUSE','Choose an existing warehouse.');
     const lines=quoteLines(c,p);
-    const quote=row(c,'orders',{reference:nextReference(c.s.orders,'SO'),customerId:p.customerId,...repDefaults(c.s,p.customerId),warehouse:p.warehouse||null,promiseDate:p.promiseDate||null,channel:'manual',currency:'USD',documentType:'quote',lines,...quoteTerms(c,p,lines)});
-    routeOrder(c,quote,{...p,routingSource:p.routingSource??'manual'});reserve(c,quote);
+    const quote=row(c,'orders',{reference:nextReference(c.s.orders,'SO'),customerId:p.customerId,...repDefaults(c.s,p.customerId),warehouse:p.warehouse||null,promiseDate:p.promiseDate||null,channel:'manual',currency:'USD',documentType:'quote',lines});
+    routeOrder(c,quote,{...p,routingSource:p.routingSource??'manual'});Object.assign(quote,quoteTerms(c,{...p,warehouse:quote.routing?.reserveWarehouses?.length>1?null:quote.warehouse},lines));reserve(c,quote);
     return orderView(c,quote);
   }
   if (type === 'quote.accept') {
