@@ -1095,7 +1095,7 @@ test('purchase approval names spend authority and exposes supplier re-approval a
     po = (await state()).purchaseOrders.find((row: any) => row.id === po.id)
     const sendForm = section(page, 'Approve one agent send')
     await sendForm.getByLabel('Agent send recipient', { exact: true }).fill(['supplier', 'example.test'].join('@'))
-    await sendForm.getByLabel('Maximum landed spend (USD)', { exact: true }).fill('33.50')
+    await expect(sendForm.getByLabel('Maximum landed spend (USD)', { exact: true })).toHaveValue('33.5')
     await sendForm.getByLabel('Send authority expires (your local time)', { exact: true }).fill('2099-01-01T12:00')
     await sendForm.getByLabel('Agent maximum chases', { exact: true }).fill('0')
     await sendForm.getByRole('checkbox').check()

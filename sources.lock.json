@@ -4551,7 +4551,7 @@
       "executable": false
     },
     "src/ui/purchase-send.tsx": {
-      "sha256": "6572dcdac05fe1dfac7c72f13f3cc1490a2d44db0f6fbd14a5b85076d9b2f72a",
+      "sha256": "cab169e5d37a247d4b3c06837161e9cd8dfb8031713608875a96e234fe31d97d",
       "executable": false
     },
     "src/ui/purchasing.tsx": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "cbab97c0affa01a70a243e8ff1f94d1551306c7d3d27f3666d4c804f95f1125c",
+      "sha256": "c50ab4e9ec54c744b8c9daa90f3a864edf4273b94e73191c7c38e84a2e3a31e1",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
