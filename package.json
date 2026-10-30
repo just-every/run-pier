@@ -19,7 +19,7 @@
     "test:email-link": "node tests/email-link.mjs",
     "onboard": "node scripts/install.mjs",
     "build:app": "vite build",
-    "verify:app": "pnpm run build && pnpm run typecheck && pnpm run test:api && pnpm run test:site && node tests/email-link.mjs && node tests/portable.mjs && node tests/browser/run.mjs --grep 'native authenticator enrollment' && node tests/browser/run.mjs --grep 'owners assign overdue cases' && node tests/browser/run.mjs --grep 'buyers compare reviewed replenishment' && node tests/browser/run.mjs catalogue.spec.ts --grep 'owner typed-field controls' && node tests/browser/run.mjs --grep 'purchase approval names spend authority'",
+    "verify:app": "pnpm run build && pnpm run typecheck && pnpm run test:api && pnpm run test:site && node tests/email-link.mjs && node tests/portable.mjs && node tests/browser/run.mjs --grep 'native authenticator enrollment' && node tests/browser/run.mjs --grep 'owners assign overdue cases' && node tests/browser/run.mjs --grep 'buyers compare reviewed replenishment' && node tests/browser/run.mjs catalogue.spec.ts --grep 'owner typed-field controls' && node tests/browser/run.mjs --grep 'purchase approval names spend authority' && node tests/browser/run.mjs journey.spec.ts --grep 'receipt FX, weight allocation'",
     "reset": "rer reset",
     "export": "rer export",
     "import": "rer import",
