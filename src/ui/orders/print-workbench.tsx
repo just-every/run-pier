@@ -5,7 +5,7 @@ import { Facts, Field, Form, Select, Table, text } from '../controls';
 
 type PrintState={kinds:Record<string,string>;templates:RecordData[];sources:Record<string,RecordData[]>;documents:RecordData[];deliverySettings:RecordData};
 export function PrintWorkbench({state,run,busy}:{state:PierState;run:RunCommand;busy:boolean}){
-  const [data,setData]=useState<PrintState|null>(null),[kind,setKind]=useState('invoice'),[error,setError]=useState('');
+  const [data,setData]=useState<PrintState|null>(null),[kind,setKind]=useState('invoice'),[error,setError]=useState(''),[sendError,setSendError]=useState('');
   useEffect(()=>{
     if(state.actor.role!=='owner')return;const controller=new AbortController();
     setData(null);
@@ -14,7 +14,7 @@ export function PrintWorkbench({state,run,busy}:{state:PierState;run:RunCommand;
   },[state.version,state.actor.role]);
   if(state.actor.role!=='owner')return <section className="panel"><h2>Business documents</h2><p role="status">Only the current owner can generate or retrieve retained commercial PDFs. No protected document content is available to this session.</p></section>;
   const template=data?.templates.find(t=>t.kind===kind),title=data?.kinds[kind]??kind;
-  return <details className="custody-records"><summary>Business documents and templates</summary>
+  return <details className="custody-records business-documents"><summary>Business documents and templates</summary>
     <p>Field-bearing PDFs remain owner-only. Retrieving a retained PDF does not authorize email or model disclosure; those require separate current consent.</p>
     {error&&<p role="alert">{error}</p>}
     {!state.businessProfile?.length&&<p>Add your company identity in <a href="#purchasing">Purchasing</a> before generating business documents.</p>}
@@ -41,7 +41,8 @@ export function PrintWorkbench({state,run,busy}:{state:PierState;run:RunCommand;
       </details>
       <Form title="Email a retained business PDF" submit="Approve recipient and send retained PDF" busy={busy}
         note="Consent applies to this exact PDF and recipient. Sent means provider acceptance; signed bounce notifications change the outcome to failed."
-        onSubmit={d=>{const document=data.documents.find(doc=>doc.id===text(d,'documentId'));return run('print.send',{documentId:document?.id,version:document?.version,recipient:text(d,'recipient')})}}>
+        onSubmit={d=>{setSendError('');const document=data.documents.find(doc=>doc.id===text(d,'documentId'));return run('print.send',{documentId:document?.id,version:document?.version,recipient:text(d,'recipient')},{onRefused:refusal=>setSendError(refusal.message)})}}>
+        {sendError&&<p role="alert">{sendError}</p>}
         <Select label="Retained business PDF" name="documentId" rows={data.documents.map(d=>({...d,label:d.filename}))}/>
         <Field label="Business PDF recipient" name="recipient" type="email"/>
       </Form>

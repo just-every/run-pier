@@ -671,7 +671,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "8cf06ab42df6613bfb787ee9b3f10ba612c47d3c52650fe3811df726e181e694",
+      "sha256": "2c15ccecfec21668d5440a2094598f7c54706b4a91e7719d9b7a1000f4c7a958",
       "executable": false
     },
     "packaging.json": {
@@ -4275,7 +4275,7 @@
       "executable": false
     },
     "src/ui/correspondence.tsx": {
-      "sha256": "582278fec4f8ad776c28f25a551bd82fb5baa8aa51caead5af8f5c0b9feced3e",
+      "sha256": "dc21265015c3f8d952e044be6b3cb1a6c0f529217c113cb2c65213849137b25b",
       "executable": false
     },
     "src/ui/count-record.tsx": {
@@ -4511,7 +4511,7 @@
       "executable": false
     },
     "src/ui/orders/print-workbench.tsx": {
-      "sha256": "331ec9f2d22ba235b8d3ec63fe13e6069aef83d404294061a15b92cbd9995e24",
+      "sha256": "ecb97241ad4d53c0348018c9d61acaf6208f8e5f3d505ca8bd8850125a54a33c",
       "executable": false
     },
     "src/ui/orders/queue.tsx": {
@@ -4675,7 +4675,7 @@
       "executable": false
     },
     "src/ui/style/tables.css": {
-      "sha256": "7959c12b85b7dffef53299c4050c8c1c5bf7134824441e8ea5767d7e9788f47a",
+      "sha256": "e9b4107fddc7a05bcbd4eefdff37730532eeed2fb031a4afc07b290b52ce411d",
       "executable": false
     },
     "src/ui/style/tokens.css": {
@@ -4782,8 +4782,12 @@
       "sha256": "6f554522e3943bef013932b3ab52327ece6e22a89f7e459ffece63811b322f9c",
       "executable": false
     },
+    "tests/api/managed-mail-fixture.mjs": {
+      "sha256": "91455385de925b437beb2f8c80cd65e4adf29909cb10af265297e84866ba0902",
+      "executable": false
+    },
     "tests/api/managed-mail.test.mjs": {
-      "sha256": "cd1f71088086ab064a90cb3165e8c7bcb204291a78572e4d4aa4224446092bfb",
+      "sha256": "a33b23973114e87437263bf2c0564d0096a25ebceade0e47b23a22c5b7781b1d",
       "executable": false
     },
     "tests/api/movein.test.mjs": {
@@ -4927,7 +4931,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "0043c464561729af71615ff8a8eebd658bda40a44ac0d41dc12b103c03ea299b",
+      "sha256": "315725ef11edc23b1635ccd1acbd5d0181fd98e993c5195fd07e8bfffa193f96",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
