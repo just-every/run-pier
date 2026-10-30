@@ -6,6 +6,9 @@ import { join } from 'node:path'
 import { ownerEntry } from './session'
 
 test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evidence with connector recovery', async ({ page, context }) => {
+  // A sync rereads settled bills and journals under Pantry's real 120/minute
+  // credential budget. Leave room for its next minute without flooding sync.
+  const syncPolling = { timeout: 90_000, intervals: [5000] }
   let mismatchCredit=false, creditCreates=0, mismatchedReads=0
   const pantry=await pantryInstallation({revision:'e987ba0a2270a81c62d399c44c6e05d3b504bb07',async networkEdge(request:Request,response:Response){
     if(request.method==='POST'&&new URL(request.url).pathname.endsWith('/vendor-credits'))creditCreates++
@@ -17,7 +20,7 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     }
     return response
   }})
-  test.setTimeout(240_000)
+  test.setTimeout(360_000)
   try {
   await pantry.command('chart.start',{})
   const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),freight=await pantry.command('account.save',{code:'5100',name:'Freight and duty',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find((a:any)=>a.code==='4000')
@@ -98,7 +101,7 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
 
     await post.getByRole('button',{name:'Post supplier credit to Pantry',exact:true}).click()
     const state=async()=> (await (await context.request.get(`${origin}/api/pier/state`)).json())
-    await expect.poll(async()=> {await command('book.sync',{});return (await state()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting},{timeout:30_000,intervals:[1000]}).toBe('review')
+    await expect.poll(async()=> {await command('book.sync',{});return (await state()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting},syncPolling).toBe('review')
     await page.reload();await page.getByRole('button',{name:'All',exact:true}).click()
     await expect(returned).toContainText('Books: review')
     const clearing=returned.getByRole('region',{name:'Return clearing',exact:true})
@@ -121,7 +124,7 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     await page.reload();await page.getByRole('button',{name:'All',exact:true}).click()
     await clearing.getByText('Clearing source records',{exact:true}).click()
     await clearing.getByRole('button',{name:'Check supplier credit',exact:true}).click()
-    await expect.poll(async()=>{await command('book.sync',{});const response=await context.request.get(`${origin}/api/pier/state`);return (await response.json()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting},{timeout:30_000,intervals:[1000]}).toBe('posted')
+    await expect.poll(async()=>{await command('book.sync',{});const response=await context.request.get(`${origin}/api/pier/state`);return (await response.json()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting},syncPolling).toBe('posted')
     await page.reload();await page.getByRole('button',{name:'All',exact:true}).click();await expect(returned).toContainText('Books: posted')
     await expect(clearing).toContainText('Dispatched cost: USD 1.14')
     await expect(clearing).toContainText('Replacements: USD 0.76')
