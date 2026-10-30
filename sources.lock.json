@@ -671,7 +671,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "8cf06ab42df6613bfb787ee9b3f10ba612c47d3c52650fe3811df726e181e694",
+      "sha256": "fe34c4375538f2be875bc69e84717c823cb8de7811fe7e6342e49c5c360e66c4",
       "executable": false
     },
     "packaging.json": {
@@ -4831,7 +4831,7 @@
       "executable": false
     },
     "tests/api/returns.test.mjs": {
-      "sha256": "a56e087b612131186607ec4c2a2a3809185a523cdb31f0f057da79a6f43bd6fa",
+      "sha256": "6316659eea75e39bc756ea0f770218b4eb713482a5f1374896dfce41a6d98292",
       "executable": false
     },
     "tests/api/role-scenarios.mjs": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "f979e65bec59ec87b32b47f99763e5b9b7c6ca44e09f0c8f8ee9c50d5a0c5f67",
+      "sha256": "487406fb0fa4407837256967a8e65c2762bbdb2c17f5027a74fc0022fd82a08c",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
