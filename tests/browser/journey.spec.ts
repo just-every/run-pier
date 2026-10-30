@@ -992,6 +992,14 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
     // Real commands return before their background ledger work. Take refusal snapshots only after it finishes.
     await expect.poll(async () => (await h.command('book.sync', {})).busy === true,
       { timeout: 60_000, intervals: [250, 500, 1000] }).toBe(false)
+    // An older command can start its waitUntil work just after this sync releases its lease.
+    // Require the complete business snapshot to stay quiet before asserting atomic refusal.
+    let previous = JSON.stringify(await business()), quietSince = Date.now()
+    await expect.poll(async () => {
+      const current = JSON.stringify(await business())
+      if (current !== previous) { previous = current; quietSince = Date.now() }
+      return Date.now() - quietSince
+    }, { timeout: 60_000, intervals: [250] }).toBeGreaterThanOrEqual(2000)
   }
   const business = async () => {
     const state = await h.state(), response = await context.request.get(`${h.base}/api/pier/export`)
