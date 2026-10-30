@@ -347,6 +347,7 @@ test('owner routing versions choose zones, shortage policy, reroute and net chan
   assert.deepEqual([orderChange.before.warehouse, orderChange.after.warehouse], ['West', 'East']);
   assert.deepEqual(audit.changes.filter(change => change.kind === 'reservations' && change.before).map(change => [change.before.locationId, change.before.quantity]), [[west.id, '1000000']]);
   assert.deepEqual(audit.changes.filter(change => change.kind === 'reservations' && change.after).map(change => [change.after.locationId, change.after.quantity]), [[east.id, '1000000']]);
+  assert.ok(audit.changes.filter(change => change.kind === 'reservations').every(change => (change.before ?? change.after).orderId === changed.id), 'allocation audit retains the source order and quantity-unit context');
   const exportAudit = async () => (await (await h.request('/api/pier/export')).json()).auditEvents.find(event => event.id === audit.id);
   assert.deepEqual(await exportAudit(), audit);
   await h.restart();

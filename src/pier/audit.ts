@@ -61,7 +61,7 @@ export function auditEvent(c: Context, before: State, type: string, p: any, resu
       const changedFields = [...new Set([...Object.keys(previous ?? {}), ...Object.keys(row ?? {})])]
         .filter(field => JSON.stringify(previous?.[field as keyof typeof previous]) !== JSON.stringify(row?.[field as keyof typeof row]));
       changes.push({ kind: 'reservations', id, changedFields, redactedFields: [],
-        beforeVersion: null, afterVersion: null, before: image('reservations', previous), after: image('reservations', row) });
+        beforeVersion: null, afterVersion: null, before: previous ? { ...image('reservations', previous), orderId: previous.orderId } : null, after: row ? { ...image('reservations', row), orderId: row.orderId } : null });
     }
   }
   let resolution: any = null;
