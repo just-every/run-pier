@@ -671,7 +671,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "f58bb465714b17f891a1c461bbb46395be50d0f7b1b6d9ded8de563702cedd0a",
+      "sha256": "5d189904378fd88757b9a2fc6e8a363bb8bb54cc2ca24cf9f46860abf14afe57",
       "executable": false
     },
     "packaging.json": {
@@ -4275,7 +4275,7 @@
       "executable": false
     },
     "src/ui/correspondence.tsx": {
-      "sha256": "582278fec4f8ad776c28f25a551bd82fb5baa8aa51caead5af8f5c0b9feced3e",
+      "sha256": "9c055ea0c3b03723cd8a2e4d5d533dd269f8b49d874ddfdf9bf4ae8e2b639199",
       "executable": false
     },
     "src/ui/count-record.tsx": {
@@ -4767,7 +4767,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "1b23eef74ccfe87e3b9288ff6db8669f07804ef2801f0ec449c8a06ba9de1f5f",
+      "sha256": "b22f6329b0e791dbef1b111f8a38d9a9ec50e99ad981b7866738663decf671b0",
       "executable": false
     },
     "tests/api/inbound-asn-fixture.mjs": {
@@ -4782,8 +4782,12 @@
       "sha256": "6f554522e3943bef013932b3ab52327ece6e22a89f7e459ffece63811b322f9c",
       "executable": false
     },
+    "tests/api/managed-mail-fixture.mjs": {
+      "sha256": "37cc3e972f363974a6a572b8042648633c6b0f1605f73c9618df66b6120dec3f",
+      "executable": false
+    },
     "tests/api/managed-mail.test.mjs": {
-      "sha256": "cd1f71088086ab064a90cb3165e8c7bcb204291a78572e4d4aa4224446092bfb",
+      "sha256": "a33b23973114e87437263bf2c0564d0096a25ebceade0e47b23a22c5b7781b1d",
       "executable": false
     },
     "tests/api/movein.test.mjs": {
@@ -4903,7 +4907,7 @@
       "executable": false
     },
     "tests/api/worker.ts": {
-      "sha256": "c61b1a45a28b6d2424d03504c5a2c756bac8bce42d31360e559b7a7ee880a65b",
+      "sha256": "5d5aa18580162d03e61f1375951c8b59d9c812f3ac2e8a666c2ee23cb85cd783",
       "executable": false
     },
     "tests/browser/acceptance.mjs": {
@@ -4927,7 +4931,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "c50ab4e9ec54c744b8c9daa90f3a864edf4273b94e73191c7c38e84a2e3a31e1",
+      "sha256": "a9eda4524a3dfacd3da179a8c2bd95026baff2bd3c797c89aa7d06593fa452a0",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
