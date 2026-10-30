@@ -34,6 +34,9 @@ export async function installation(edge = {}) {
       compatibilityDate: "2026-09-08",
       compatibilityFlags: ["nodejs_compat"],
       d1Databases: ["DB"],
+      // Serve the actual built interface for browser journeys; business and
+      // authentication requests still terminate in this Worker and D1.
+      ...(edge.uiOrigin ? { serviceBindings: { TEST_UI: request => fetch(new URL(new URL(request.url).pathname + new URL(request.url).search, edge.uiOrigin)) } } : {}),
       ...(edge.outboundService ? { outboundService: edge.outboundService } : {}),
       bindings: {
         AUTH_LOCAL: "true",
