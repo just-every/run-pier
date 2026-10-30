@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "bd5b445f7b3c2cdf9c4d05a2aada413f92a2ee05620134aa3671e4d5afd81b8d",
+      "sha256": "6a056892aba740919c076ea724d18a23ab9e0bfaa2c4487d7ec8d21ddb6f8191",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
