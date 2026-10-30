@@ -1,5 +1,6 @@
 // Real sibling Worker/D1 through HTTP. Only its source is downloaded; no fixture ledger.
 import { build } from 'esbuild';
+import { createServer } from 'node:http';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { unstable_splitSqlQuery } from 'wrangler';
 import { mkdtemp, readdir, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
@@ -10,9 +11,9 @@ import { join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import assert from 'node:assert/strict';
 const exec=promisify(execFile);
-export async function pantryInstallation({ revision = '5c712d42d1c2107a7550aba3b0dd6add0f1927ff' } = {}){
+export async function pantryInstallation({ revision = '5c712d42d1c2107a7550aba3b0dd6add0f1927ff', networkEdge } = {}){
   const dir=await mkdtemp(join(tmpdir(),'pier-pantry-'));
-  let mf;
+  let mf, edge;
   try{
     let source=process.env.PANTRY_SOURCE;
     if(!source){
@@ -40,6 +41,23 @@ export async function pantryInstallation({ revision = '5c712d42d1c2107a7550aba3b
     const boot=await request('/auth/bootstrap',{token:setup,displayName:'Pantry test owner'});assert.equal(boot.status,303,await boot.text());cookie=boot.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
     const command=async(op,body)=>{const r=await request('/api/pantry/command/'+op,body),value=await r.json();assert.equal(r.status,200,`${op}: ${JSON.stringify(value)}`);return value;};
     const view=async(path)=>{const r=await request('/api/pantry/'+path);assert.equal(r.status,200);return r.json();};
-    return{origin,cookie,command,view,db,async close(){await mf.dispose();await rm(dir,{recursive:true,force:true});}};
-  }catch(error){await mf?.dispose();await rm(dir,{recursive:true,force:true});throw error;}
+    let integrationOrigin=origin;
+    if(networkEdge){
+      // The real sibling still owns every record. Only transport readback can change.
+      edge=createServer(async(req,res)=>{
+        try{
+          if(!req.url.startsWith('/api/pantry/integration/')){res.writeHead(404);res.end();return;}
+          const chunks=[];for await(const chunk of req)chunks.push(chunk);
+          const request=new Request(origin+req.url,{method:req.method,headers:Object.fromEntries(Object.entries(req.headers).filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),...(['GET','HEAD'].includes(req.method)?{}:{body:Buffer.concat(chunks)})});
+          const response=await networkEdge(request,await fetch(request));
+          res.writeHead(response.status,Object.fromEntries([...response.headers].filter(([key])=>!['transfer-encoding','content-length','content-encoding'].includes(key))));
+          res.end(Buffer.from(await response.arrayBuffer()));
+        }catch{res.destroy();}
+      });
+      await new Promise(resolve=>edge.listen(0,'127.0.0.1',resolve));
+      integrationOrigin=`http://127.0.0.1:${edge.address().port}`;
+    }
+    const closeEdge=async()=>{if(edge){edge.closeAllConnections();await new Promise((resolve,reject)=>edge.close(error=>error?reject(error):resolve()));}};
+    return{origin:integrationOrigin,cookie,command,view,db,async close(){await closeEdge();await mf.dispose();await rm(dir,{recursive:true,force:true});}};
+  }catch(error){edge?.closeAllConnections();edge?.close();await mf?.dispose();await rm(dir,{recursive:true,force:true});throw error;}
 }

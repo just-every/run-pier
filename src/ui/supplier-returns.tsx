@@ -1,6 +1,7 @@
 import { itemLabel, label, records, type PierState, type RunCommand } from './api'
 import { Field, Form, Select, Table, text } from './controls'
 import { reference, words } from './display'
+import { usdText } from '../pier/money'
 
 export function SupplierReturns({ state, run, busy }: { state: PierState; run: RunCommand; busy: boolean }) {
   const receipts = records(state, 'receipts').filter(r => r.status === 'posted'), bins = records(state, 'locations').filter(l => l.kind === 'bin')
@@ -8,7 +9,7 @@ export function SupplierReturns({ state, run, busy }: { state: PierState; run: R
     {receipts.map(receipt => <Form key={receipt.id} title={`Reject goods · ${receipt.supplierReference}`} submit="Quarantine rejected goods" busy={busy} onSubmit={data => run('supplierReturn.create', { receiptId: receipt.id, reason: text(data, 'reason'), lines: [{ receiptLineId: text(data, 'receiptLineId'), quantity: text(data, 'quantity') }] })}>
       <Select label="Receipt line to return" name="receiptLineId" rows={receipt.lines.map((l: any) => ({ id: l.id, label: `${itemLabel(state, l.itemId)} · ${l.quantity} received · ${label(bins, l.locationId)}` }))} /><Field label="Rejected quantity" name="quantity" inputMode="decimal" /><Field label="Rejection reason" name="reason" />
     </Form>)}
-    {records(state, 'supplierReturns').map(document => <article className="record" key={document.id} id={`supplier-return-${document.id}`}><h3>Supplier return {reference(document)}</h3><p>{words(document.status)} · {document.reason}</p><p>Original receipt: {receipts.find(r => r.id === document.receiptId)?.supplierReference ?? document.receiptId}. Authorization: {document.authorization?.reference ?? 'Awaiting supplier'}. Dispatch: {document.dispatch?.reference ?? 'Not dispatched'}.</p>
+    {records(state, 'supplierReturns').map(document => <article className="record" key={document.id} id={`supplier-return-${document.id}`}><h3>Supplier return {reference(document)}</h3><p>{words(document.status)} · {document.reason}</p><p>Original receipt: <a href={`#purchasing/${document.receiptId}`}>{receipts.find(r => r.id === document.receiptId)?.supplierReference ?? document.receiptId}</a>. Authorization: {document.authorization?.reference ?? 'Awaiting supplier'}. Dispatch: {document.dispatch?.reference ?? 'Not dispatched'}.</p>
       <Table headings={['Item', 'Quarantined / returned', 'Credit quantity', 'Replacement quantity']} numeric={[1, 2, 3]}>{document.lines.map((l: any) => <tr key={l.id}><td>{itemLabel(state, l.itemId)}</td><td>{l.quantity}</td><td>{l.credited}</td><td>{l.replaced}</td></tr>)}</Table>
       {document.status === 'quarantined' && <Form title="Record supplier authorization" submit="Authorize exact return" busy={busy} onSubmit={data => run('supplierReturn.authorize', { returnId: document.id, version: document.version, authorizationReference: text(data, 'authorizationReference'), evidence: text(data, 'evidence') })}><Field label="Supplier authorization reference" name="authorizationReference" /><Field label="Supplier authorization evidence" name="evidence" /></Form>}
       {document.status === 'authorized' && <Form title="Dispatch approved return" submit="Record return dispatch" busy={busy} onSubmit={data => run('supplierReturn.dispatch', { returnId: document.id, version: document.version, dispatchReference: text(data, 'dispatchReference') })}><Field label="Return dispatch reference" name="dispatchReference" /></Form>}
@@ -18,6 +19,14 @@ export function SupplierReturns({ state, run, busy }: { state: PierState; run: R
       {document.resolutions.filter((r: any) => r.kind === 'supplierReturn.credit' && !r.postingAuthorizedAt).map((resolution: any) => <Form key={resolution.reference} title={`Post supplier credit · ${resolution.reference}`} submit="Post supplier credit to Pantry" busy={busy} disabled={state.actor.role !== 'owner'} onSubmit={data => run('supplierReturn.postCredit', { returnId: document.id, version: document.version, reference: resolution.reference, supplierBillId: text(data, 'supplierBillId') })}>
         <Select label="Matched supplier payable" name="supplierBillId" rows={records(state, 'supplierBills').filter(b => b.poId === document.poId && ['approved', 'paid'].includes(b.status)).map(b => ({ ...b, label: b.reference }))} />
       </Form>)}
+      {document.clearing && <section aria-label="Return clearing"><h4>Return clearing</h4>
+        <p>Dispatched cost: {document.clearing.dispatched === null ? 'Awaiting posting' : usdText(document.clearing.dispatched)} · Replacements: {usdText(document.clearing.replaced)} · Accepted supplier credit: {usdText(document.clearing.credited)}.</p>
+        {document.clearing.nonCreditedCost !== null ? <p>Non-credited cost: {usdText(document.clearing.nonCreditedCost)} remains in the Cost of goods expense account. No supplier refund is recorded.</p> : <p>Clearing needs review. Pending or mismatched credit evidence is not an accepted credit or a final non-credited cost.</p>}
+        <details><summary>Clearing source records</summary><p>Return dispatch: {document.dispatch.reference} · {document.clearing.dispatch.reference} · {words(document.clearing.dispatch.status)}</p>
+          {document.clearing.replacements.map((entry: any) => <p key={entry.sourceId}><a href={`#purchasing/${entry.sourceId}`}>Replacement receipt {receipts.find(r => r.id === entry.sourceId)?.supplierReference ?? entry.sourceId}</a> · {entry.amount === null ? 'Awaiting valuation' : usdText(entry.amount)} · {words(entry.status)}</p>)}
+          {document.clearing.credits.map((entry: any) => <p key={entry.sourceId}>{entry.reference} · {words(entry.status)}{entry.reason ? ` · ${entry.reason}` : ''}{state.actor.role === 'owner' && ['pending', 'review', 'uncertain'].includes(entry.status) && <> <button disabled={busy} onClick={() => entry.jobId && entry.status !== 'pending' ? run('book.retry', { jobId: entry.jobId, version: entry.jobVersion }) : run('book.sync', {})}>Check supplier credit</button></>}</p>)}
+        </details>
+      </section>}
       {document.resolutions.map((r: any, index: number) => <p key={index}>{r.reference} · {r.kind === 'supplierReturn.credit' ? `Credit evidence USD ${r.amount} · ${r.postingAuthorizedAt ? `Books: ${r.posting}` : 'Not posted to books'}` : 'Replacement received'} · {r.evidence}</p>)}
     </article>)}
   </section>
