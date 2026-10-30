@@ -21,6 +21,7 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
   try {
   await pantry.command('chart.start',{})
   const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),freight=await pantry.command('account.save',{code:'5100',name:'Freight and duty',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find((a:any)=>a.code==='4000')
+  const bank=await pantry.command('bank-account.save',{name:'Return checking',institution:'Synthetic',accountId:(await pantry.view('state')).accounts.find((a:any)=>a.code==='1000').id,numberLast4:'0001',openingDate:'2026-01-01',openingBalance:'0.00'})
   const origin = process.env.PIER_BOOTSTRAP ? process.env.PIER_BASE_URL! : await ownerEntry(page)
   if (process.env.PIER_BOOTSTRAP) {
     const response = await context.request.post(`${origin}/auth/bootstrap`, { headers: { origin }, data: { token: process.env.PIER_BOOTSTRAP, displayName: 'Owner' }, maxRedirects: 0 })
@@ -92,13 +93,12 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     await post.getByLabel('Matched supplier payable',{exact:true}).selectOption(bill.id)
     const payable=(await pantry.view('sales')).bills.find((b:any)=>b.reference===`PIER-SB-${bill.id.replaceAll('-','').slice(0,24)}`)
     expect(payable.open_cents).toBe(200)
-    const bank=await pantry.command('bank-account.save',{name:`Return checking ${width}`,institution:'Synthetic',accountId:(await pantry.view('state')).accounts.find((a:any)=>a.code==='1000').id,numberLast4:'0001',openingDate:'2026-01-01',openingBalance:'0.00'})
     const payment=await pantry.command('payment.record',{direction:'paid',contactId:payable.vendor_id,date:new Date().toISOString().slice(0,10),amount:'1.76',bankAccountId:bank.id,method:'check',reference:`synthetic-pier-payment-${width}`,allocations:[{targetId:payable.id,amount:'1.76'}]})
     const createsBefore=creditCreates
 
     await post.getByRole('button',{name:'Post supplier credit to Pantry',exact:true}).click()
     const state=async()=> (await (await context.request.get(`${origin}/api/pier/state`)).json())
-    await expect.poll(async()=> (await state()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting).toBe('review')
+    await expect.poll(async()=> {await command('book.sync',{});return (await state()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting},{timeout:30_000,intervals:[1000]}).toBe('review')
     await page.reload();await page.getByRole('button',{name:'All',exact:true}).click()
     await expect(returned).toContainText('Books: review')
     const clearing=returned.getByRole('region',{name:'Return clearing',exact:true})
@@ -118,8 +118,10 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     expect(mismatchedReads).toBeGreaterThan(0)
     if(shots)await returned.screenshot({path:join(shots,`${width}-return-review.png`)})
     mismatchCredit=false
+    await page.reload();await page.getByRole('button',{name:'All',exact:true}).click()
+    await clearing.getByText('Clearing source records',{exact:true}).click()
     await clearing.getByRole('button',{name:'Check supplier credit',exact:true}).click()
-    await expect.poll(async()=>{const response=await context.request.get(`${origin}/api/pier/state`);return (await response.json()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting}).toBe('posted')
+    await expect.poll(async()=>{await command('book.sync',{});const response=await context.request.get(`${origin}/api/pier/state`);return (await response.json()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting},{timeout:30_000,intervals:[1000]}).toBe('posted')
     await page.reload();await page.getByRole('button',{name:'All',exact:true}).click();await expect(returned).toContainText('Books: posted')
     await expect(clearing).toContainText('Dispatched cost: USD 1.14')
     await expect(clearing).toContainText('Replacements: USD 0.76')
@@ -153,6 +155,7 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     if (shots) {
       await page.screenshot({ path: join(shots, `${width}-integration-health-resolved.png`), fullPage: true })
     }
+    await command('book.disconnect',{})
 
   }
   } finally { await pantry.close() }

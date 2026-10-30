@@ -4687,7 +4687,7 @@
       "executable": false
     },
     "src/ui/supplier-returns.tsx": {
-      "sha256": "5fd4664403271021c225d9fa951abdf9d67055bf8dc9465c9aa1db0913ed7580",
+      "sha256": "13b34a07a5aee5d3ca734d4b2fdaf8d19c8f589391b1b50c44601e8442bb3bd4",
       "executable": false
     },
     "src/ui/trace.tsx": {
@@ -4975,7 +4975,7 @@
       "executable": false
     },
     "tests/browser/supplier-returns.spec.ts": {
-      "sha256": "7683145c1c954007c496f3b502cc0261d52317cb0e1cc97baa1d626492840dc9",
+      "sha256": "7bb65f36b5eeccce724e4f3df99ba42e6823dbbc8f21f5ee009156ebc873846f",
       "executable": false
     },
     "tests/browser/warehouse-offline.spec.ts": {
