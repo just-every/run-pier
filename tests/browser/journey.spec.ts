@@ -1022,6 +1022,13 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
     for (const width of [1440,390]) {
       await page.setViewportSize({width,height:1000})
       await refuseLate(baselineReceipt,width,/Resolve the original cost posting reviews/,'cost-unbuilt-baseline-refusal')
+      // Command follow-up runs under waitUntil. An earlier sync may still own
+      // the lease, so request sync until this receipt's review is durable before
+      // loading the Books snapshot; the UI does not poll background job state.
+      await expect.poll(async () => {
+        await h.command('book.sync', {})
+        return (await h.state()).bookJobs.find((job:any)=>job.key===`landed:${baselineReceipt.id}`)?.reason
+      }, {timeout:30_000}).toContain('This receipt carries freight or duty.')
       await page.goto(`${h.base}/app#books`);await page.reload()
       const review = page.getByRole('row').filter({hasText:'This receipt carries freight or duty.'})
       await expect(review).toContainText('Choose the Freight and duty account in Books settings')
