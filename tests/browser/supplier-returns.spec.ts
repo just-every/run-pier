@@ -121,7 +121,22 @@ test('BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evid
     await page.reload();await page.getByRole('button',{name:'All',exact:true}).click()
     await clearing.getByText('Clearing source records',{exact:true}).click()
     await clearing.getByRole('button',{name:'Check supplier credit',exact:true}).click()
-    await expect.poll(async()=>{await command('book.sync',{});const response=await context.request.get(`${origin}/api/pier/state`);return (await response.json()).supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]?.posting},{timeout:30_000,intervals:[1000]}).toBe('posted')
+    // The UI retry schedules a background sync. It can still hold the 60 s
+    // lease, and Pantry shares a 120-request UTC-minute budget across syncs.
+    // A posted credit precedes the final report read and connector health update.
+    // Observe a successful sync after its readback; back off across either window.
+    const recoveredPosting=async()=>{
+      const current=await state()
+      const resolution=current.supplierReturns.find((r:any)=>r.reason===`Cracked handles ${width}`)?.resolutions[0]
+      const connection=current.bookConnections.find((c:any)=>c.enabled)
+      return !connection?.problem&&connection?.lastSuccessfulSync>=resolution?.books?.checkedAt ? resolution?.posting : null
+    }
+    await expect.poll(async()=>{
+      const posting=await recoveredPosting()
+      if(posting==='posted')return posting
+      await command('book.sync',{})
+      return recoveredPosting()
+    },{timeout:90_000,intervals:[1000,2000,5000]}).toBe('posted')
     await page.reload();await page.getByRole('button',{name:'All',exact:true}).click();await expect(returned).toContainText('Books: posted')
     await expect(clearing).toContainText('Dispatched cost: USD 1.14')
     await expect(clearing).toContainText('Replacements: USD 0.76')
