@@ -4975,7 +4975,7 @@
       "executable": false
     },
     "tests/browser/supplier-returns.spec.ts": {
-      "sha256": "7bb65f36b5eeccce724e4f3df99ba42e6823dbbc8f21f5ee009156ebc873846f",
+      "sha256": "33fe061817900d4f7c560a65970bc27f81b4b6ece5a9e88114a78af589574026",
       "executable": false
     },
     "tests/browser/warehouse-offline.spec.ts": {
