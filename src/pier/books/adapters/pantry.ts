@@ -83,7 +83,11 @@ export function createPantryAdapter(config:BooksAdapterConfig,journals?:()=>Prom
         const target=await lookup('bills','bills','reference',doc.vendorCreditForReference);
         if(!target||target.status!=='posted'||target.vendor_name!==doc.party?.name)throw new PantryRefusal('Post the matched supplier payable in Pantry before its credit.',409);
         if(!r){
-          if(BigInt(target.open_cents)<cents(doc.total))throw new PantryRefusal('The matched payable has insufficient open balance. Review the supplier credit with your accountant.',409);
+          if(BigInt(target.open_cents)<cents(doc.total)){
+            const refusal=new PantryRefusal('The matched payable has insufficient open balance. Review the supplier credit with your accountant.',409);
+            refusal.safeCreationRefusal=true;
+            throw refusal;
+          }
           r=await client.post('vendor-credits',{vendorId:target.vendor_id,reference:doc.reference,date:doc.date,amount:doc.total,accountId:doc.lines[0].account,allocations:[{targetId:target.id,amount:doc.total}]},doc,'vendor-credit');
         }
         return result(doc,r);
