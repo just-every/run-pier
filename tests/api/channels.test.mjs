@@ -246,10 +246,10 @@ test('owner routing versions choose zones, shortage policy, reroute and net chan
   const source = `channel:${channel.id}`;
   const allocations = (state, orderId) => state.reservations.filter(r => r.orderId === orderId)
     .map(r => [state.locations.find(l => l.id === r.locationId).warehouse, r.quantity]).sort();
-  const channelOrder = async id => {
+  const channelOrder = async (id, minimumEast = '10') => {
     const before = await h.state();
     assert.equal(before.positions.find(p => p.locationId === west.id).available, '2');
-    assert.ok(parse(before.positions.find(p => p.locationId === east.id).available) >= parse('10'));
+    assert.ok(parse(before.positions.find(p => p.locationId === east.id).available) >= parse(minimumEast));
     add(id, '94107', 'CA', 5);
     await h.command('channel.sync', {});
     const state = await h.invariant();
@@ -273,6 +273,15 @@ test('owner routing versions choose zones, shortage policy, reroute and net chan
   assert.deepEqual([incoming.warehouse, incoming.lines[0].reserved, incoming.lines[0].backorder], ['East', '5', '0']);
   assert.deepEqual(allocations(await h.state(), incoming.id), [['East', '5000000']]);
   await h.command('order.cancel', { orderId: incoming.id, reason: 'End Shopify next proof' });
+  assert.equal((await h.state()).positions.find(p => p.locationId === east.id).available, '19');
+  const eastDrain = await h.command('order.create', { customerId: b.customer.id, shipTo: { postalCode: '10001', state: 'NY', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '16' }] });
+  assert.equal((await h.state()).positions.find(p => p.locationId === east.id).available, '3');
+  incoming = await channelOrder(8, '3');
+  assert.deepEqual([incoming.warehouse, incoming.lines[0].reserved, incoming.lines[0].backorder], ['West', '2', '3']);
+  assert.deepEqual(allocations(await h.state(), incoming.id), [['West', '2000000']], 'next-eligible never splits when only combined warehouse stock can fill');
+  assert.equal((await h.state()).positions.find(p => p.locationId === east.id).available, '3');
+  await h.command('order.cancel', { orderId: incoming.id, reason: 'End no-full-warehouse fallback proof' });
+  await h.command('order.cancel', { orderId: eastDrain.id, reason: 'Release independent East demand' });
   await activate(source, 'split');
   incoming = await channelOrder(5);
   let shopCustomer = (await h.state()).parties.find(p => p.id === incoming.customerId);
