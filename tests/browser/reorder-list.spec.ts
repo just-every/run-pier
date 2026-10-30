@@ -31,11 +31,23 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   const eastName = `East ${width}`, westName = `West ${width}`
   const east = await command('location.save', { name: `East rack ${width}`, warehouse: eastName, kind: 'bin' }), west = await command('location.save', { name: `West rack ${width}`, warehouse: westName, kind: 'bin' })
   const a = await command('item.save', { sku: `PLAN-A-${width}`, name: `Blue mugs ${width}`, unit: 'each', packSize: '1' }), e = await command('item.save', { sku: `PLAN-E-${width}`, name: `Tea cups ${width}`, unit: 'each', packSize: '1' })
+  const b = await command('item.save', { sku: `PLAN-B-${width}`, name: `West mugs ${width}`, unit: 'each', packSize: '1' }), c = await command('item.save', { sku: `PLAN-C-${width}`, name: `East cups ${width}`, unit: 'each', packSize: '1' })
+  const westSupplier = await command('party.save', { name: `S2 supply ${width}`, kind: 'supplier' })
   const purchase = async (item: any, quantity: string, location: any, received = quantity) => {
    let po = await command('po.draft', { supplierId: supplier.id, destinationWarehouse: location.warehouse, promiseDate: '2026-11-01', reason: 'Browser planning fixture', lines: [{ itemId: item.id, quantity, price: '1' }] }); await command('po.approve', { poId: po.id, version: po.version }); po = await command('po.commit', { poId: po.id, version: po.version })
    if (received !== '0') await command('receipt.create', { poId: po.id, supplierReference: `DEL-${item.sku}-${location.name}`, lines: [{ poLineId: po.lines[0].id, locationId: location.id, quantity: received, cost: '1' }] })
+   return po
   }
   await purchase(a, '8', east); await purchase(a, '6', east, '0'); await purchase(e, '2', east); await purchase(e, '40', west)
+  const bp = await purchase(b, '30', west, '25')
+  const customer = await command('party.save', { name: `West buyer ${width}`, kind: 'customer' })
+  await command('order.create', { customerId: customer.id, warehouse: westName, lines: [{ itemId: b.id, quantity: '32', price: '2' }] })
+  await command('receipt.create', { poId: bp.id, supplierReference: `B later five ${width}`, lines: [{ poLineId: bp.lines[0].id, locationId: west.id, quantity: '5', cost: '1' }] })
+  await purchase(c, '4', east)
+  await command('supplierItem.save', { itemId: b.id, supplierId: westSupplier.id, code: b.sku, packSize: '6', minimum: '0', price: '1', leadDays: 7 })
+  await command('supplierItem.save', { itemId: c.id, supplierId: supplier.id, code: c.sku, packSize: '1', minimum: '10', price: '1', leadDays: 7, reorderQuantity: '3' })
+  await command('replenishment.save', { itemId: b.id, warehouse: westName, version: 0, supplierId: westSupplier.id, method: 'upTo', safetyStock: '0', reorderPoint: '10', maximum: '60' })
+  await command('replenishment.save', { itemId: c.id, warehouse: eastName, version: 0, supplierId: supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '5', reorderQuantity: '8' })
   for (const [item, source, pack, minimum] of [[a, supplier, '12', '24'], [a, alternate, '10', '0'], [e, supplier, '1', '0']] as const) await command('supplierItem.save', { itemId: item.id, supplierId: source.id, code: `${item.sku}-${pack}`, packSize: pack, minimum, price: '1', leadDays: 7, ...(source.id === alternate.id ? { minimumValue: '900' } : {}) })
   for (const [item, point, quantity] of [[a, '20', '40'], [e, '5', '10']] as const) await command('replenishment.save', { itemId: item.id, warehouse: eastName, version: 0, supplierId: supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: point, reorderQuantity: quantity })
   const state = await (await context.request.get(`${origin}/api/pier/state`)).json()
@@ -51,6 +63,7 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   await page.locator('main[aria-busy="false"]').waitFor()
   const batch = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Reorder list and purchase batch', exact: true }) }).last()
   const aLabel = `Blue mugs ${width} · PLAN-A-${width}`, eLabel = `Tea cups ${width} · PLAN-E-${width}`
+  const bLabel = `West mugs ${width} · PLAN-B-${width}`, cLabel = `East cups ${width} · PLAN-C-${width}`
   await expect(batch.getByLabel(`Purchase quantity for ${aLabel} at ${eastName}`, { exact: true })).toHaveValue('48')
   await batch.getByLabel(`Select ${aLabel} at ${eastName}`, { exact: true }).check()
   await batch.getByLabel(`Supplier for ${aLabel} at ${eastName}`, { exact: true }).selectOption(alternate.id)
@@ -58,6 +71,9 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   await batch.getByText(`Calculation for ${aLabel}`, { exact: true }).click()
   await batch.getByLabel(`Purchase quantity for ${aLabel} at ${eastName}`, { exact: true }).fill('60')
   await batch.getByLabel(`Select ${eLabel} at ${eastName}`, { exact: true }).check()
+  await expect(batch.getByLabel(`Purchase quantity for ${bLabel} at ${westName}`, { exact: true })).toHaveValue('66')
+  await batch.getByLabel(`Select ${bLabel} at ${westName}`, { exact: true }).check()
+  await batch.getByLabel(`Select ${cLabel} at ${eastName}`, { exact: true }).check()
   if (shots) await batch.screenshot({ path: join(shots, `${width}-reorder-batch.png`) })
   await batch.getByRole('button', { name: 'Create selected purchase drafts', exact: true }).click()
   await expect(batch.getByLabel(`Purchase quantity for ${aLabel} at ${eastName}`, { exact: true })).toHaveValue('0')
@@ -67,6 +83,40 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   const review = page.locator(`#document-${draft.id}`)
   await expect(review).toContainText('Supplier minimum order value of 1000 USD is unmet')
   if (shots) await review.screenshot({ path: join(shots, `${width}-reorder-draft.png`) })
+  const westDraft = after.purchaseOrders.find((p: any) => p.status === 'draft' && p.supplierId === westSupplier.id)
+  expect(westDraft.destinationWarehouse).toBe(westName); expect(westDraft.lines[0].quantity).toBe('66')
+  await page.getByRole('row').filter({ hasText: westDraft.reference }).getByRole('button', { name: 'Review', exact: true }).click()
+  const preserved = [[aLabel, supplier.id, draft.reference, '60'], [cLabel, supplier.id, after.purchaseOrders.find((p: any) => p.status === 'draft' && p.supplierId === supplier.id).reference, '10'], [eLabel, supplier.id, after.purchaseOrders.find((p: any) => p.status === 'draft' && p.supplierId === supplier.id).reference, '13']]
+  for (const [name, supplierId, reference, quantity] of preserved) {
+   await expect(batch.getByLabel(`Supplier for ${name} at ${eastName}`, { exact: true })).toHaveValue(supplierId)
+   await expect(batch.getByLabel(`Purchase quantity for ${name} at ${eastName}`, { exact: true })).toHaveValue('0')
+   const details = batch.getByRole('row').filter({ hasText: name }).locator('details')
+   if (!await details.evaluate(element => (element as HTMLDetailsElement).open)) await details.locator('summary').click()
+   await expect(details).toContainText(`${reference}: ${quantity} covered.`)
+  }
+  await batch.getByText(`Calculation for ${bLabel}`, { exact: true }).click()
+  await expect(batch.getByRole('row').filter({ hasText: bLabel })).toContainText(`${westDraft.reference}: 66 covered.`)
+  const rowSnapshot = async () => Promise.all(preserved.map(async ([name]) => {
+   const row = batch.getByRole('row').filter({ hasText: name })
+   return { name, supplier: await row.locator('select').inputValue(), suggestion: await row.locator('input[inputmode="decimal"]').inputValue(), calculation: await row.locator('details').innerText() }
+  }))
+  const beforeRows = await rowSnapshot()
+  const beforeDelete = await (await context.request.get(`${origin}/api/pier/export`)).json()
+  if (shots) await batch.screenshot({ path: join(shots, `${width}-reorder-before-delete.png`) })
+  const deletion = page.waitForResponse(response => response.url() === `${origin}/api/pier/commands` && response.request().postDataJSON()?.type === 'po.delete')
+  await page.locator(`#document-${westDraft.id}`).getByRole('button', { name: 'Delete uncommitted draft', exact: true }).click()
+  expect((await (await deletion).json()).ok).toBe(true)
+  await page.reload()
+  await expect(batch.getByLabel(`Purchase quantity for ${bLabel} at ${westName}`, { exact: true })).toHaveValue('66')
+  await expect(page.locator(`#document-${westDraft.id}`)).toHaveCount(0)
+  for (const [name] of preserved) await batch.getByText(`Calculation for ${name}`, { exact: true }).click()
+  expect(await rowSnapshot()).toEqual(beforeRows)
+  await batch.getByText(`Calculation for ${bLabel}`, { exact: true }).click()
+  await expect(batch.getByRole('row').filter({ hasText: bLabel })).not.toContainText(`${westDraft.reference}:`)
+  const afterDelete = await (await context.request.get(`${origin}/api/pier/export`)).json()
+  expect(afterDelete.purchaseOrders).toEqual(beforeDelete.purchaseOrders.filter((p: any) => p.id !== westDraft.id))
+  expect(afterDelete.movements).toEqual(beforeDelete.movements)
+  if (shots) await batch.screenshot({ path: join(shots, `${width}-reorder-after-delete.png`) })
   channelSku = e.sku; channelNumber = width
   const channel = await command('channel.save', { name: `Demand ${width}`, provider: 'woocommerce', baseUrl: `http://127.0.0.1:${edgePort}`, warehouse: eastName, credentials: { consumerKey: 'synthetic-pier-1', consumerSecret: 'synthetic-pier-2' } })
   await page.reload()
@@ -94,6 +144,7 @@ test('BUY-005: buyer selects suppliers and quantities, saves SKU defaults, chang
   if (shots) await report.screenshot({ path: join(shots, `${width}-reorder-report.png`) })
   await command('channel.save', { ...channel, enabled: false })
   await command('item.save', { ...a, archived: true }); await command('item.save', { ...e, archived: true })
+  await command('item.save', { ...b, archived: true }); await command('item.save', { ...c, archived: true })
  }
  } finally { await new Promise<void>((resolve, reject) => edge.close(error => error ? reject(error) : resolve())) }
 })
