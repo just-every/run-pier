@@ -3003,7 +3003,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "92c98bfc90be991dcde4c8ed15ac1955b575668c40836d0868bbc5df9b1175c0",
+      "sha256": "aa3ae6bbbef051c211fbea0d8ce96779ae8acb5cdb4f49dced3819d72e78e260",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3027,7 +3027,7 @@
       "executable": false
     },
     "src/pier/books/adapters/pantry.ts": {
-      "sha256": "2283b4f17ecf9ea1f28e2462ab5f2310e29a31a60d8371dc02520772fc0224a8",
+      "sha256": "76f771c8ee3eab64cfcca43ef087b99695bd091c55901325a38a7ab484920329",
       "executable": false
     },
     "src/pier/books/adapters/qbo.ts": {
@@ -3091,7 +3091,7 @@
       "executable": false
     },
     "src/pier/books/supplier-return-planning.ts": {
-      "sha256": "59e59941420cd847889d5dfece3e18695faa903015b16ffc9c72e642a62f0eda",
+      "sha256": "4eb1d32e54bcccefde0f9af06b880b869fcec0ebedaf8240fe76674dc7b1fa91",
       "executable": false
     },
     "src/pier/books/sync.ts": {
@@ -4687,7 +4687,7 @@
       "executable": false
     },
     "src/ui/supplier-returns.tsx": {
-      "sha256": "b5d4e6b86f941603cf993693bdfb100d74ab5b14efbd3758a1ad64e50022a4e5",
+      "sha256": "13b34a07a5aee5d3ca734d4b2fdaf8d19c8f589391b1b50c44601e8442bb3bd4",
       "executable": false
     },
     "src/ui/trace.tsx": {
@@ -4811,7 +4811,7 @@
       "executable": false
     },
     "tests/api/pantry-installation.mjs": {
-      "sha256": "609aedbe8a18daf1055cea4f2fc4d141db6e9183442525c5b682cd517967760b",
+      "sha256": "2031bb02ea1b4e956c7fa230282f072cde2fa1e50f67b15e9c07453121a1f48f",
       "executable": false
     },
     "tests/api/pdf-text.mjs": {
@@ -4891,7 +4891,7 @@
       "executable": false
     },
     "tests/api/supplier-returns.test.mjs": {
-      "sha256": "1f5a2e46efbe1a3d030bc9140215d85c4d08bf2d86191003ad180f33ee5d6dc9",
+      "sha256": "87d4012789bc815aece9231ded534af0c3c7341d87ca88ea2422a51631d87d83",
       "executable": false
     },
     "tests/api/trace-fixture.mjs": {
@@ -4975,7 +4975,7 @@
       "executable": false
     },
     "tests/browser/supplier-returns.spec.ts": {
-      "sha256": "199e553bd3e36c5d5c7686ce696c65b5aa7b67b1b2c9cb6909b716505870584d",
+      "sha256": "7bb65f36b5eeccce724e4f3df99ba42e6823dbbc8f21f5ee009156ebc873846f",
       "executable": false
     },
     "tests/browser/warehouse-offline.spec.ts": {
