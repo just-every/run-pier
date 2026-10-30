@@ -307,6 +307,12 @@ test(`owner completes real UI journeys at ${width}px`, async ({ page, context })
   const closeDetails = page.getByRole('button', { name: 'Close item details', exact: true })
   await closeDetails.focus()
   await expect(page.getByRole('tooltip', { name: 'Close item details', exact: true })).toBeVisible()
+  if (shots) for (const proofWidth of [1440, 390]) {
+    await page.setViewportSize({ width: proofWidth, height: 1000 })
+    await closeDetails.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: join(shots, `${proofWidth}-item-details-tooltip.png`) })
+  }
+  await page.setViewportSize({ width, height: 1000 })
   await closeDetails.blur()
   await closeDetails.hover()
   await expect(page.getByRole('tooltip', { name: 'Close item details', exact: true })).toBeVisible()
