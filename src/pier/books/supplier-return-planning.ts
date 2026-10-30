@@ -1,4 +1,4 @@
-import { decimal, type Context, type Row } from '../model';
+import { decimal, type Context, type Row, type State } from '../model';
 import { amount, money } from '../money';
 import { valuationLedger } from '../valuation-ledger';
 import type { BookDocument } from './adapters/types';
@@ -33,4 +33,27 @@ export function planSupplierReturns(c: Context, connection: Row, add: Add, dolla
       }
     }
   }
+}
+
+/** Retained ledger sources explain clearing without treating credit evidence as money. */
+export function supplierReturnViews(s: State) {
+  return s.supplierReturns.map(returned => {
+    if (!returned.dispatch) return returned;
+    const source = (key: string, sourceId: string) => {
+      const job = s.bookJobs.find(job => job.key === key);
+      return { sourceId, jobId: job?.id ?? null, jobVersion: job?.version ?? null, reference: job?.reference ?? null, remoteId: job?.remoteId ?? null, status: job?.status ?? 'pending', amount: job?.document?.total ?? null, reason: job?.reason ?? '' };
+    };
+    const dispatch = source(`supplier-return:${returned.id}`, returned.id);
+    const replacements = returned.resolutions.filter((r: Row) => r.kind === 'supplierReturn.replace').map((r: Row) => source(`supplier-replacement:${r.receiptId}`, r.receiptId));
+    const credits = returned.resolutions.filter((r: Row) => r.kind === 'supplierReturn.credit').map((r: Row) => ({ ...source(`supplier-credit:${r.id}`, r.id), reference: r.reference, supplierBillId: r.supplierBillId ?? null }));
+    const posted = (entry: typeof dispatch) => entry.status === 'posted' && !!entry.remoteId && entry.amount !== null;
+    const dispatched = posted(dispatch) ? amount(dispatch.amount!) : null;
+    const replaced = replacements.filter(posted).reduce((n: bigint, entry: typeof dispatch) => n + amount(entry.amount!), 0n);
+    const credited = credits.filter(posted).reduce((n: bigint, entry: typeof dispatch) => n + amount(entry.amount!), 0n);
+    const remaining = dispatched === null ? null : dispatched - replaced - credited;
+    const settled = returned.status === 'reconciled' && [dispatch, ...replacements, ...credits].every(posted) && remaining !== null && remaining >= 0n;
+    return { ...returned, clearing: { currency: 'USD', receiptId: returned.receiptId, dispatch, replacements, credits,
+      dispatched: dispatched === null ? null : money(dispatched), replaced: money(replaced), credited: money(credited), remaining: remaining === null ? null : money(remaining),
+      status: settled ? 'settled' : 'review', nonCreditedCost: settled ? money(remaining!) : null } };
+  });
 }
