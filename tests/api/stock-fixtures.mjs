@@ -29,3 +29,8 @@ export async function stockJourney(h) {
   const legacyPo = await purchase(undefined, '9.25', '2', b.source);
   return { ...b, north2, heldItem, hold, heldOrder, legacyPo };
 }
+
+// Public business effects that inspecting or acknowledging stock pages cannot change.
+export function stockBusiness(exported) {
+  return Object.fromEntries(['items', 'locations', 'movements', 'reservations', 'channelHolds', 'orders', 'purchaseOrders', 'receipts', 'shipments', 'transfers', 'returns', 'commands'].map(key => [key, exported[key]]));
+}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installation, parse } from './harness.mjs';
-import { stockJourney } from './stock-fixtures.mjs';
+import { stockJourney, stockBusiness } from './stock-fixtures.mjs';
 
 
 test('STOCK-001: warehouse and company stock reconcile to exported movements, reservations and destination POs', async t => {
@@ -70,8 +70,11 @@ test('STOCK-001: warehouse and company stock reconcile to exported movements, re
 
 
 test('stock consumers resume only acknowledged pages and replay stable events after Worker restart', async t => {
-  const h = await installation(); t.after(() => h.close());
+  const outbound = [];
+  const h = await installation({ outboundService: async request => { outbound.push(request.url); return new Response('No provider is authorized', { status: 503 }); } }); t.after(() => h.close());
   const b = await stockJourney(h);
+  const business = async () => ({ ...stockBusiness(await (await h.request('/api/pier/export')).json()), positions: (await h.state()).positions });
+  const beforeHealth = await business();
   // Upgrade fixture: business stock predates the newly installed journal tables.
   await h.db.batch([h.db.prepare('DELETE FROM pier_stock_events'),h.db.prepare('DELETE FROM pier_stock_feed_bootstrap')]);
   const page = async (consumer = 'synthetic-pier-1', checkpoint = '', as) => {
@@ -95,6 +98,16 @@ test('stock consumers resume only acknowledged pages and replay stable events af
   assert.equal(health.observedAt,healthClock);
   assert.equal(consumer.pending,(await h.state()).positions.length-first.events.length);
   const interrupted = await page(); assert.ok(interrupted.events[0].sequence>first.events.at(-1).sequence);
+  for (let read = 0; read < 2; read++) {
+    const inspected = await (await h.request('/api/pier/integrations')).json();
+    const retained = inspected.connectors.find(row => row.name === 'Stock consumer synthetic-pier-1');
+    assert.equal(retained.scope, 'All physical locations under current actor authority');
+    assert.equal(retained.cursor, String(first.events.at(-1).sequence));
+    assert.equal(retained.pending, (await h.state()).positions.length - first.events.length);
+    assert.deepEqual(retained.effects[0].mapping, interrupted.events.map(event => event.eventId));
+    assert.deepEqual(await page(), interrupted, 'health reads cannot acknowledge the outstanding page');
+    assert.deepEqual(await business(), beforeHealth, 'health reads leave business exports and successful results unchanged');
+  }
   await h.restartWithFreshSigningKey();
   assert.deepEqual(await page(),interrupted,'fetch never advances the acknowledged checkpoint');
   assert.deepEqual(await page(first.consumer,first.pageToken),interrupted);
@@ -124,6 +137,7 @@ test('stock consumers resume only acknowledged pages and replay stable events af
     for (const key of ['quantity','reserved','held','available']) assert.equal(actual[key],position[key]);
   }
   assert.ok(p.lagSeconds>=0); assert.ok(p.observedAt);
+  assert.deepEqual(await business(), beforeHealth, 'acknowledgements and Worker recovery do not post business effects');
   const entered=await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}});
   const cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
   const session=await(await h.request('/auth/session',{as:cookie})).json();
@@ -147,4 +161,9 @@ test('stock consumers resume only acknowledged pages and replay stable events af
   const expiredHealth = await (await h.request('/api/pier/integrations',{headers:{'x-pier-test-now':afterExpiry}})).json();
   assert.equal(expiredHealth.connectors.find(row => row.name === 'Stock consumer synthetic-pier-expiry').status,'authority changed');
   assert.equal((await h.request('/api/pier/stock-changes?consumer=synthetic-pier-expiry',{as:cookie,headers:{'x-pier-test-now':afterExpiry}})).status,403);
+  const beforeDenied = await business();
+  assert.equal((await h.request('/api/pier/integrations', { as: cookie })).status, 403);
+  assert.equal((await h.request('/api/pier/integrations', { as: '' })).status, 401);
+  assert.deepEqual(await business(), beforeDenied, 'denied health inspection changes no business effect or successful result');
+  assert.deepEqual(outbound, [], 'native stock health, acknowledgements and authority refusal never request a provider');
 });
