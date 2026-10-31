@@ -119,6 +119,7 @@ jobs:
           PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-sync-browser
           PIER_SCREENSHOTS: ${{ runner.temp }}/pier-sync-browser/screenshots
         run: |
+          timeout 1200 node tests/browser/run.mjs integration-health.spec.ts
           timeout 1200 node tests/browser/run.mjs stock.spec.ts --grep STOCK-001
           timeout 1200 node tests/browser/run.mjs supplier-returns.spec.ts --grep BUY-003
           timeout 1200 node tests/browser/run.mjs journey.spec.ts --grep 'purchase approval names spend authority'
