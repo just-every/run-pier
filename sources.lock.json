@@ -4843,7 +4843,7 @@
       "executable": false
     },
     "tests/api/returns.test.mjs": {
-      "sha256": "a56e087b612131186607ec4c2a2a3809185a523cdb31f0f057da79a6f43bd6fa",
+      "sha256": "6316659eea75e39bc756ea0f770218b4eb713482a5f1374896dfce41a6d98292",
       "executable": false
     },
     "tests/api/role-scenarios.mjs": {
@@ -4951,7 +4951,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "21566c7a8bd08341c41ac599db7fdc5afe261c249a7844ba8b01e8e2c97d3f0a",
+      "sha256": "47c379832344deb675439f5d0ec8150455843602b5a05eb3a979cb5454ddc171",
       "executable": false
     },
     "tests/browser/open.spec.ts": {

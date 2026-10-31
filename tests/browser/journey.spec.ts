@@ -1217,8 +1217,22 @@ test('owners inspect holds and erase reviewed customer copies with durable stock
 })
 
 test('receipt FX, weight allocation, late bills and mapped write-off settings remain reviewable at 1440 and 390', async ({ page, context }) => {
-  test.setTimeout(240_000)
+  test.setTimeout(600_000)
   const h = await salesHarness(page, context), pantry = await pantryInstallation()
+  const settleBooks = async () => {
+    // Real commands return before their background ledger work. Take refusal snapshots only after it finishes.
+    await expect.poll(async () => (await h.command('book.sync', {})).busy === true,
+      { timeout: 60_000, intervals: [250, 500, 1000] }).toBe(false)
+    // An older command can start its waitUntil work just after this sync releases its lease.
+    // Require the complete business snapshot to stay quiet for the full Worker
+    // waitUntil window (30 seconds). A two-second gap can precede delayed CI readback.
+    let previous = JSON.stringify(await business()), quietSince = Date.now()
+    await expect.poll(async () => {
+      const current = JSON.stringify(await business())
+      if (current !== previous) { previous = current; quietSince = Date.now() }
+      return Date.now() - quietSince
+    }, { timeout: 120_000, intervals: [250] }).toBeGreaterThanOrEqual(30_000)
+  }
   const business = async () => {
     const state = await h.state(), response = await context.request.get(`${h.base}/api/pier/export`)
     expect(response.ok()).toBe(true)
@@ -1326,6 +1340,7 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       state = await h.state();receipt=state.receipts.find((r:any)=>r.id===receipt.id)
       expect(receipt.lateBills[0].impacts).toEqual({inventory:'5.400000000000',cogs:'0.600000000000',expense:'0.000000000000'})
       await page.locator(`[id="document-${receipt.id}"]`).scrollIntoViewIfNeeded();await h.shot(width,'cost-retained-receipt')
+      await settleBooks()
       await page.goto(`${h.base}/app#floor/returns`);await page.reload()
       await page.getByLabel('Return bin',{exact:true}).selectOption(bin.id)
       await page.getByLabel('Condition',{exact:true}).selectOption('damaged');await page.getByLabel('Disposition',{exact:true}).selectOption('writeoff')
@@ -1341,7 +1356,7 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       await scan.fill(item.barcode)
       before = await business()
       expect((await scanned(scan,false)).error.code).toBe('WRITE_OFF_APPROVAL')
-      await expect(page.getByRole('alert')).toContainText('explicit owner approval')
+      await expect(h.panel('Returns bench').getByRole('alert')).toContainText('explicit owner approval')
       expect(await business()).toEqual(before)
       await h.shot(width,'cost-default-zero-refusal')
       await page.goto(`${h.base}/app#books/settings`);await page.reload()
@@ -1371,14 +1386,19 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       await page.getByLabel('Write-off reason code',{exact:true}).fill(tag+' damaged')
       await page.getByLabel('Write-off owner approval limit USD',{exact:true}).fill('5.82')
       await page.getByRole('button',{name:'Save and reconnect',exact:true}).click();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+      await settleBooks()
       await page.goto(`${h.base}/app#floor/returns`);await page.reload()
       form = h.panel(`Inspect returned ${second.sku}`)
       await form.getByLabel('Inspection disposition',{exact:true}).selectOption('writeoff')
       await form.getByLabel('Inspection write-off reason code',{exact:true}).selectOption(tag+' damaged')
       await form.getByLabel('Inspection reason',{exact:true}).fill('   ')
       before = await business()
-      await submit(page,form,'Post inspection decision',false)
-      await expect(page.getByRole('alert')).toContainText('Inspection reason is required')
+      const inspectionPost = page.waitForResponse(r => r.url() === `${h.base}/api/pier/commands` && r.request().postDataJSON()?.type === 'return.inspect')
+      await form.getByRole('button',{name:'Post inspection decision',exact:true}).click()
+      const refusal = await (await inspectionPost).json()
+      expect(refusal.ok).toBe(false);expect(refusal.error.code).toBe('INPUT')
+      await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+      await expect(h.panel('Returns bench').getByRole('alert')).toContainText('Inspection reason is required')
       expect(await business()).toEqual(before)
       await form.scrollIntoViewIfNeeded();await h.shot(width,'cost-inspection-reason-refusal')
       await form.getByLabel('Inspection reason',{exact:true}).fill('Inspected damaged unit at the inclusive limit')
