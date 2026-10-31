@@ -1225,7 +1225,46 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
     const freight = await pantry.command('account.save', {code:'5200',name:'Freight and duty',type:'expense',subtype:'other'})
     const revenue = (await pantry.view('state')).accounts.find((a:any)=>a.code==='4000')
     const grant = await pantry.command('integration.create', {name:'Cost acceptance',scopes:['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','post']})
-    await h.command('book.connect', {baseUrl:pantry.origin,integrationToken:grant.token,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,landedCostAccountId:freight.id,writeOffAccountId:damage.id,taxCode:'exempt'})
+    const connection = {baseUrl:pantry.origin,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,writeOffAccountId:damage.id,taxCode:'exempt'}
+    await h.command('book.connect', {...connection,integrationToken:grant.token})
+    const baseline = await h.fixture(1440)
+    const baselinePO = await h.command('po.draft', {supplierId:baseline.supplier.id,promiseDate:'2026-11-01',reason:'Freight account review',lines:[{itemId:baseline.item.id,quantity:'4',price:'2'}]})
+    await h.command('po.approve',{poId:baselinePO.id,version:baselinePO.version});await h.command('po.commit',{poId:baselinePO.id,version:baselinePO.version})
+    const baselineReceipt = await h.command('receipt.create',{poId:baselinePO.id,supplierReference:'synthetic-pier-224',landedCost:{freight:'4',allocation:'quantity'},lines:[{poLineId:baselinePO.lines[0].id,locationId:baseline.bin.id,quantity:'4',cost:'2'}]})
+    const refuseLate = async (receipt:any,width:number,message:RegExp,name:string) => {
+      await page.goto(`${h.base}/app#purchasing/${receipt.id}`);await page.reload()
+      const form = page.locator(`[id="document-${receipt.id}"]`).locator('section.panel').filter({has:page.getByRole('heading',{name:'Approve a late landed-cost bill',exact:true})})
+      await expect(form).toContainText('adjustments without a mapping require review')
+      await form.getByLabel('Late bill reference',{exact:true}).fill('synthetic-pier-225')
+      await form.getByLabel('Late freight USD',{exact:true}).fill('4')
+      await form.getByLabel('Late cost allocation',{exact:true}).selectOption('quantity')
+      await form.getByLabel('Late bill approval reason',{exact:true}).fill('Owner reviewed supplemental cost')
+      const before = (await h.state()).receipts.find((r:any)=>r.id===receipt.id)
+      const response = page.waitForResponse(r=>r.url()===`${h.base}/api/pier/commands`&&r.request().postDataJSON()?.type==='receipt.landed')
+      await form.getByRole('button',{name:'Approve late bill and allocation',exact:true}).click()
+      const result = await (await response).json();expect(result.ok).toBe(false);expect(result.error.code).toBe('COST_REVIEW')
+      await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+      await expect(page.getByRole('alert')).toContainText(message)
+      expect((await h.state()).receipts.find((r:any)=>r.id===receipt.id)).toEqual(before)
+      await page.getByRole('alert').scrollIntoViewIfNeeded();await h.shot(width,name)
+    }
+    for (const width of [1440,390]) {
+      await page.setViewportSize({width,height:1000})
+      await refuseLate(baselineReceipt,width,/Resolve the original cost posting reviews/,'cost-unbuilt-baseline-refusal')
+      // Command follow-up runs under waitUntil. An earlier sync may still own
+      // the lease, so request sync until this receipt's review is durable before
+      // loading the Books snapshot; the UI does not poll background job state.
+      await expect.poll(async () => {
+        await h.command('book.sync', {})
+        return (await h.state()).bookJobs.find((job:any)=>job.key===`landed:${baselineReceipt.id}`)?.reason
+      }, {timeout:30_000}).toContain('This receipt carries freight or duty.')
+      await page.goto(`${h.base}/app#books`);await page.reload()
+      const review = page.getByRole('row').filter({hasText:'This receipt carries freight or duty.'})
+      await expect(review).toContainText('Choose the Freight and duty account in Books settings')
+      await expect(review).toContainText('Reconnect Pantry')
+      await review.scrollIntoViewIfNeeded();await h.shot(width,'cost-baseline-review-guidance')
+    }
+    await h.command('book.connect', {...connection,landedCostAccountId:freight.id})
     for (const width of [1440, 390]) {
       await page.setViewportSize({width,height:1000})
       const suffix = crypto.randomUUID().slice(0,6), tag = `synthetic-pier-${width}-${suffix}`
@@ -1285,6 +1324,10 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       await expect(page.locator('main')).toHaveAttribute('aria-busy','false');state=await h.state()
       const written=state.returns.find((r:any)=>r.shipmentId===shipment.id&&r.status==='writtenoff');expect(written.writeOffReason.code).toBe(tag+' damaged');expect(written.writeOffReason.accountId).toBe(damage.id)
       await h.shot(width,'cost-approved-writeoff')
+      let count = await h.command('count.capture',{locationId:bin.id})
+      count = await h.command('count.record',{countId:count.id,version:count.version,reason:'Reviewed missing unit without an expense mapping',lines:count.lines.map((line:any)=>({...line,quantity:line.itemId===second.id?'1':line.quantity}))})
+      await h.command('count.approve',{countId:count.id,version:count.version})
+      await refuseLate(receipt,width,/prior stock adjustment without a mapped expense account/,'cost-unmapped-adjustment-refusal')
       await page.goto(`${h.base}/app#reports`);await page.reload();await expect(page.getByRole('heading',{name:'Reports',exact:true})).toBeVisible();await h.shot(width,'cost-valuation-report')
     }
   } finally { await pantry.close() }

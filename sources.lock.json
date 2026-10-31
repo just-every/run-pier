@@ -671,7 +671,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "1ae1fe78e264363f064fa004779e911327db84e1efc6a226f07604d6289f3bfc",
+      "sha256": "69da25573f2e08faaf9ec559ef5765d30ba1497acceb7f6a5a56e4c7f9b09f07",
       "executable": false
     },
     "packaging.json": {
@@ -4711,7 +4711,7 @@
       "executable": false
     },
     "tests/api/books-landed.test.mjs": {
-      "sha256": "67adb1ea23a70c75e456b2cb5d359f0ee98acfaf2b6167236faef690b6e89ce1",
+      "sha256": "3e2f8f7f5c21e454408ac31e9d7c0fc4cbdb1479daf4736efbf2c2928cc43e79",
       "executable": false
     },
     "tests/api/books-shop.test.mjs": {
@@ -4927,7 +4927,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "0043c464561729af71615ff8a8eebd658bda40a44ac0d41dc12b103c03ea299b",
+      "sha256": "ef3d55f80de3c79ae45cb40f81496618110828ef22f636f986462424515b0cc4",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
