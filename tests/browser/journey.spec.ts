@@ -1226,11 +1226,16 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
     // An older command can start its waitUntil work just after this sync releases its lease.
     // Require the complete business snapshot to stay quiet for the full Worker
     // waitUntil window (30 seconds). A two-second gap can precede delayed CI readback.
+    // wrangler.jsonc also runs Books on every minute, even in the real dev
+    // runtime. Leave 20 seconds before that next scheduled sync for the UI
+    // refusal and its full before/after comparison; quietness alone can end
+    // just before a new cron starts and legitimately changes jobs and commands.
     let previous = JSON.stringify(await business()), quietSince = Date.now()
     await expect.poll(async () => {
       const current = JSON.stringify(await business())
       if (current !== previous) { previous = current; quietSince = Date.now() }
-      return Date.now() - quietSince
+      const now = Date.now(), untilNextCron = 60_000 - now % 60_000
+      return untilNextCron >= 20_000 ? now - quietSince : 0
     }, { timeout: 120_000, intervals: [250] }).toBeGreaterThanOrEqual(30_000)
   }
   const business = async () => {
