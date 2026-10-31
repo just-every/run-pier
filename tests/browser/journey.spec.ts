@@ -1219,6 +1219,21 @@ test('owners inspect holds and erase reviewed customer copies with durable stock
 test('receipt FX, weight allocation, late bills and mapped write-off settings remain reviewable at 1440 and 390', async ({ page, context }) => {
   test.setTimeout(240_000)
   const h = await salesHarness(page, context), pantry = await pantryInstallation()
+  const business = async () => {
+    const state = await h.state(), response = await context.request.get(`${h.base}/api/pier/export`)
+    expect(response.ok()).toBe(true)
+    const exported = await response.json()
+    return { returns: state.returns, movements: state.movements, positions: state.positions,
+      jobs: state.bookJobs, commands: exported.commands }
+  }
+  const scanned = async (scan: Locator, success: boolean) => {
+    const posted = page.waitForResponse(r => r.url() === `${h.base}/api/pier/commands` && r.request().postDataJSON()?.type === 'return.scan')
+    await scan.press('Enter')
+    const body = await (await posted).json()
+    expect(body.ok).toBe(success)
+    await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
+    return body
+  }
   try {
     await pantry.command('chart.start', {})
     const inventory = await pantry.command('account.save', {code:'1300',name:'Inventory Asset',type:'asset',subtype:'other'})
@@ -1228,7 +1243,8 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
     const revenue = (await pantry.view('state')).accounts.find((a:any)=>a.code==='4000')
     const grant = await pantry.command('integration.create', {name:'Cost acceptance',scopes:['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','post']})
     const connection = {baseUrl:pantry.origin,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,writeOffAccountId:damage.id,taxCode:'exempt'}
-    await h.command('book.connect', {...connection,integrationToken:grant.token})
+    const initial = await h.command('book.connect', {...connection,integrationToken:grant.token})
+    expect(initial.writeOffReasons).toEqual([expect.objectContaining({code:'damaged',accountId:damage.id,approvalLimit:'0'})])
     const baseline = await h.fixture(1440)
     const baselinePO = await h.command('po.draft', {supplierId:baseline.supplier.id,promiseDate:'2026-11-01',reason:'Freight account review',lines:[{itemId:baseline.item.id,quantity:'4',price:'2'}]})
     await h.command('po.approve',{poId:baselinePO.id,version:baselinePO.version});await h.command('po.commit',{poId:baselinePO.id,version:baselinePO.version})
@@ -1266,9 +1282,11 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       await expect(review).toContainText('Reconnect Pantry')
       await review.scrollIntoViewIfNeeded();await h.shot(width,'cost-baseline-review-guidance')
     }
-    await h.command('book.connect', {...connection,landedCostAccountId:freight.id})
+    const accounts = {...connection,landedCostAccountId:freight.id}
+    await h.command('book.connect', accounts)
     for (const width of [1440, 390]) {
       await page.setViewportSize({width,height:1000})
+      if (width === 390) await h.command('book.connect', accounts)
       const suffix = crypto.randomUUID().slice(0,6), tag = `synthetic-pier-${width}-${suffix}`
       const item = await h.command('item.save', {sku:tag,name:tag,barcode:tag,unit:'each',packSize:'1',weight:'1'})
       const second = await h.command('item.save', {sku:tag+'-2',name:tag+'-2',unit:'each',packSize:'1',weight:'3'})
@@ -1308,6 +1326,24 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       state = await h.state();receipt=state.receipts.find((r:any)=>r.id===receipt.id)
       expect(receipt.lateBills[0].impacts).toEqual({inventory:'5.400000000000',cogs:'0.600000000000',expense:'0.000000000000'})
       await page.locator(`[id="document-${receipt.id}"]`).scrollIntoViewIfNeeded();await h.shot(width,'cost-retained-receipt')
+      await page.goto(`${h.base}/app#floor/returns`);await page.reload()
+      await page.getByLabel('Return bin',{exact:true}).selectOption(bin.id)
+      await page.getByLabel('Condition',{exact:true}).selectOption('damaged');await page.getByLabel('Disposition',{exact:true}).selectOption('writeoff')
+      await page.getByLabel('Write-off reason code',{exact:true}).selectOption('damaged')
+      await page.getByLabel('Return reason',{exact:true}).fill('   ')
+      let scan = page.getByLabel('Scan order label or returned item',{exact:true})
+      await scan.fill(item.barcode)
+      let before = await business()
+      await scan.press('Enter')
+      await expect(page.getByRole('alert')).toContainText('record the inspection reason')
+      expect(await business()).toEqual(before)
+      await page.getByLabel('Return reason',{exact:true}).fill('Owner reviewed actual damaged unit')
+      await scan.fill(item.barcode)
+      before = await business()
+      expect((await scanned(scan,false)).error.code).toBe('WRITE_OFF_APPROVAL')
+      await expect(page.getByRole('alert')).toContainText('explicit owner approval')
+      expect(await business()).toEqual(before)
+      await h.shot(width,'cost-default-zero-refusal')
       await page.goto(`${h.base}/app#books/settings`);await page.reload()
       await page.getByRole('button',{name:'Check Pantry and load accounts',exact:true}).click()
       await expect(page.getByLabel('Write-off reason code',{exact:true})).toBeVisible()
@@ -1321,7 +1357,7 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       await page.getByLabel('Write-off reason code',{exact:true}).selectOption(tag+' damaged')
       await page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Returns bench',exact:true})}).getByLabel('Approve this write-off above its mapped limit',{exact:true}).check()
       await page.getByLabel('Return reason',{exact:true}).fill('Owner reviewed actual damaged unit')
-      const scan=page.getByLabel('Scan order label or returned item',{exact:true});await scan.fill(item.barcode)
+      scan=page.getByLabel('Scan order label or returned item',{exact:true});await scan.fill(item.barcode)
       const posted=page.waitForResponse(r=>r.url()===`${h.base}/api/pier/commands`&&r.request().postDataJSON()?.type==='return.scan');await scan.press('Enter');expect((await(await posted).json()).ok).toBe(true)
       await expect(page.locator('main')).toHaveAttribute('aria-busy','false');state=await h.state()
       const written=state.returns.find((r:any)=>r.shipmentId===shipment.id&&r.status==='writtenoff');expect(written.writeOffReason.code).toBe(tag+' damaged');expect(written.writeOffReason.accountId).toBe(damage.id)
@@ -1330,6 +1366,34 @@ test('receipt FX, weight allocation, late bills and mapped write-off settings re
       count = await h.command('count.record',{countId:count.id,version:count.version,reason:'Reviewed missing unit without an expense mapping',lines:count.lines.map((line:any)=>({...line,quantity:line.itemId===second.id?'1':line.quantity}))})
       await h.command('count.approve',{countId:count.id,version:count.version})
       await refuseLate(receipt,width,/prior stock adjustment without a mapped expense account/,'cost-unmapped-adjustment-refusal')
+      // The second SKU's USD 4 cost receives 4 cents of initial charges and USD 3.60 late freight across two units.
+      const equalOrder = await h.command('order.create',{customerId:customer.id,warehouse:tag,lines:[{itemId:second.id,quantity:'1',price:'10'}]})
+      const equalShipment = await h.command('dispatch.create',{orderId:equalOrder.id,shipmentReference:tag+' equality',lines:[{orderLineId:equalOrder.lines[0].id,quantity:'1'}]})
+      const waiting = await h.command('return.scan',{code:equalShipment.reference,shipmentId:equalShipment.id,shipmentLineId:equalShipment.lines[0].id,quantity:'1',locationId:bin.id,condition:'damaged',disposition:'quarantine',reason:'Damaged unit awaiting inspection'})
+      await page.goto(`${h.base}/app#books/settings`);await page.reload()
+      await page.getByRole('button',{name:'Check Pantry and load accounts',exact:true}).click()
+      await page.getByLabel('Write-off reason code',{exact:true}).fill(tag+' damaged')
+      await page.getByLabel('Write-off owner approval limit USD',{exact:true}).fill('5.82')
+      await page.getByRole('button',{name:'Save and reconnect',exact:true}).click();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+      await page.goto(`${h.base}/app#floor/returns`);await page.reload()
+      form = h.panel(`Inspect returned ${second.sku}`)
+      await form.getByLabel('Inspection disposition',{exact:true}).selectOption('writeoff')
+      await form.getByLabel('Inspection write-off reason code',{exact:true}).selectOption(tag+' damaged')
+      await form.getByLabel('Inspection reason',{exact:true}).fill('   ')
+      before = await business()
+      await submit(page,form,'Post inspection decision',false)
+      await expect(page.getByRole('alert')).toContainText('Inspection reason is required')
+      expect(await business()).toEqual(before)
+      await form.scrollIntoViewIfNeeded();await h.shot(width,'cost-inspection-reason-refusal')
+      await form.getByLabel('Inspection reason',{exact:true}).fill('Inspected damaged unit at the inclusive limit')
+      await expect(form.getByLabel('Approve this write-off above its mapped limit',{exact:true})).not.toBeChecked()
+      await submit(page,form,'Post inspection decision')
+      state = await h.state()
+      const equal = state.returns.find((r:any)=>r.id===waiting.id)
+      expect(equal.status).toBe('writtenoff');expect(equal.writeOffCostTotal).toBe('5.820000000000')
+      expect(equal.writeOffReason.approvalLimit).toBe('5.82');expect(equal.writeOffReason.accountId).toBe(damage.id)
+      expect(state.returns.find((r:any)=>r.id===written.id).writeOffReason.approvalLimit).toBe('0.1')
+      await h.shot(width,'cost-inclusive-limit-writeoff')
       await page.goto(`${h.base}/app#reports`);await page.reload();await expect(page.getByRole('heading',{name:'Reports',exact:true})).toBeVisible();await h.shot(width,'cost-valuation-report')
     }
   } finally { await pantry.close() }
