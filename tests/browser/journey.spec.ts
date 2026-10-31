@@ -442,9 +442,13 @@ test('customer sales files preview prices and errors before creating orders at 1
   }
 })
 
-test('owners dry-run and activate routing and review an audited reroute at 1440 and 390',async({page,context})=>{
-  const h=await salesHarness(page,context)
+test.describe('owners dry-run and activate routing and review an audited reroute at 1440 and 390',()=>{
   for(const width of[1440,390]){
+  test(`routing, shortage policies and audited refusals at ${width}px`,async({page,context})=>{
+    // Each complete viewport journey owns its timeout and authenticated context.
+    // The shortage cases and their screenshots can exceed two minutes on hosted CI.
+    test.setTimeout(240_000)
+    const h=await salesHarness(page,context)
     await page.setViewportSize({width,height:1000});const b=await h.fixture(width),other=await h.command('location.save',{name:`Other ${b.name}`,warehouse:`West ${b.name}`,kind:'bin'});await h.sales();await page.getByText('Warehouse routing rules',{exact:true}).click()
     const form=h.panel('Prepare a warehouse routing rule');await form.getByLabel('Routing order source',{exact:true}).selectOption('manual');await form.getByLabel('Routing mode',{exact:true}).selectOption('rules');await form.getByLabel(`Default warehouse priority · ${b.name}`,{exact:true}).check();await form.getByLabel('Zone name 1',{exact:true}).fill('Western destinations');await form.getByLabel('ZIP prefixes, comma separated (900-961 allowed) 1',{exact:true}).fill('900-961');await form.getByLabel('US states, comma separated 1',{exact:true}).fill('OR,WA');await form.getByLabel(`Zone 1 warehouse priority · ${other.warehouse}`,{exact:true}).check();await form.getByLabel(`Zone 1 warehouse priority · ${b.name}`,{exact:true}).check();await h.shot(width,'routing-draft');await h.saved(form,'Save routing draft')
     let rule=(await h.state()).routingRules.filter((r:any)=>r.source==='manual').sort((a:any,b:any)=>b.revision-a.revision)[0];let review=h.panel(`Manual orders · routing revision ${rule.revision}`);await review.getByRole('button',{name:'Dry-run last 30 days',exact:true}).click();await expect(review.getByRole('table')).toBeVisible();await review.getByRole('button',{name:'Activate reviewed rule',exact:true}).click();await expect(review.getByText(/Activated/)).toBeVisible();await h.shot(width,'routing-reviewed')
@@ -601,6 +605,7 @@ test('owners dry-run and activate routing and review an audited reroute at 1440 
     expect(await business()).toEqual(beforeRefusal)
     await h.shot(width, 'routing-shipped-refusal')
 
+  })
   }
 })
 
