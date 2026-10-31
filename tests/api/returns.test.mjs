@@ -98,6 +98,7 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
     assert.equal(writtenoff.writeOffReason.accountId, damage.id);
     assert.equal(writtenoff.writeOffReason.approvalLimit, '0.1');
     assert.ok(writtenoff.writeOffApprovedBy);
+    assert.equal(writtenoff.writeOffApprovedBy, connected.approvedBy);
     const afterWriteOff = await business();
     assert.deepEqual(await pier.command('return.scan', defaultCodeWriteOff, { commandId: writeOffId }), writtenoff);
     assert.deepEqual(await business(), afterWriteOff, 'Replaying an approved write-off adds no stock or accounting effects');
