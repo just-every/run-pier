@@ -26,7 +26,25 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
     const bill = await pier.command('supplierBill.save', { poId: po.id, reference: 'METALS-RETURN-STOCK', date: new Date().toISOString().slice(0, 10), quantityTolerancePercent: '0', priceTolerancePercent: '0', lines: [{ poLineId: po.lines[0].id, quantity: '12', unitPrice: '0.25' }] });
     await pier.command('supplierBill.approve', { id: bill.id, version: bill.version, receiptEvidence: bill.match.receiptEvidence });
     const credential = await pantry.command('integration.create', { name: 'Pier', scopes: ['contacts:write', 'invoices:write', 'bills:write', 'journals:write', 'documents:write', 'payments:read', 'reports:read', 'post'] });
-    await pier.command('book.connect', { baseUrl: pantry.origin, integrationToken: credential.token, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, writeOffAccountId: damage.id, writeOffReasonCode: 'damaged', writeOffApprovalLimit: '0.10', taxCode: 'exempt' });
+    const accounts = { baseUrl: pantry.origin, inventoryAccountId: inventory.id, cogsAccountId: cogs.id, revenueAccountId: revenue.id, writeOffAccountId: damage.id, taxCode: 'exempt' };
+    const connected = await pier.command('book.connect', { ...accounts, integrationToken: credential.token });
+    const defaultReason = { code: 'damaged', accountId: damage.id, approvalLimit: '0', approvedBy: connected.approvedBy, approvedAt: connected.writeOffReasons[0].approvedAt };
+    assert.deepEqual(connected.writeOffReasons, [defaultReason]);
+    assert.deepEqual((await pier.state()).bookConnections[0].writeOffReasons, [defaultReason]);
+    const business = async () => {
+      const state = await pier.invariant();
+      const response = await pier.request('/api/pier/export');
+      assert.equal(response.status, 200);
+      const exported = await response.json();
+      return { returns: state.returns, movements: state.movements, positions: state.positions,
+        reservations: state.reservations, shipments: state.shipments, orders: state.orders,
+        jobs: state.bookJobs, connections: state.bookConnections, commands: exported.commands };
+    };
+    const refusedWithoutEffects = async (type, payload, error, options = {}) => {
+      const before = await business();
+      await pier.command(type, payload, { ...options, error });
+      assert.deepEqual(await business(), before, `${type}: ${error} changes no business records or successful command results`);
+    };
     const order = await pier.command('order.create', { customerId: b.customer.id, lines: [{ itemId: b.item.id, quantity: '4', price: '2' }] });
     const shipment = await pier.command('dispatch.create', { orderId: order.id, shipmentReference: 'SYNTHETIC-RETURN-LABEL', lines: [{ orderLineId: order.lines[0].id, quantity: '4' }] });
     const lookup = async code => {
@@ -58,18 +76,31 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
     assert.equal(invoice.open_cents, 600);
     // An order label needs a deliberate line/quantity confirmation, then posts without a second item scan.
     const fromLabel = { code: order.reference, shipmentId: shipment.id, shipmentLineId: shipment.lines[0].id, quantity: '1', ...destination, condition: 'damaged', disposition: 'writeoff', reasonCode: 'damaged', approveWriteOff: true, reason: 'Crushed in transit' };
+    for (const reason of [undefined, '', '   ']) {
+      await refusedWithoutEffects('return.scan', { ...fromLabel, reason }, 'INPUT');
+    }
+    await refusedWithoutEffects('return.scan', { ...fromLabel, reasonCode: 'unknown' }, 'WRITE_OFF_REASON');
+    // One dispatched unit cost USD 0.25, so the omitted limit must require exact owner consent.
+    await refusedWithoutEffects('return.scan', { ...fromLabel, reasonCode: undefined, approveWriteOff: undefined }, 'WRITE_OFF_APPROVAL');
+    await refusedWithoutEffects('return.scan', { ...fromLabel, approveWriteOff: 'true' }, 'WRITE_OFF_APPROVAL');
+    await pier.command('book.connect', { ...accounts, writeOffApprovalLimit: '0.10' });
     const beforeRefusal = await pier.state();
     await pier.command('return.scan', { ...fromLabel, disposition: 'restock' }, { error: 'RETURN_CONDITION' });
     const refused = await pier.state(); assert.equal(refused.returns.length, beforeRefusal.returns.length); assert.equal(refused.movements.length, beforeRefusal.movements.length);
     await pier.command('return.scan', { ...fromLabel, reasonCode: 'unknown' }, { error: 'WRITE_OFF_REASON' });
     await pier.command('return.scan', { ...fromLabel, approveWriteOff: false }, { error: 'WRITE_OFF_APPROVAL' });
     assert.equal((await pier.state()).movements.length, beforeRefusal.movements.length);
-    const writtenoff = await pier.command('return.scan', fromLabel);
+    const writeOffId = randomUUID();
+    const defaultCodeWriteOff = { ...fromLabel, reasonCode: undefined };
+    const writtenoff = await pier.command('return.scan', defaultCodeWriteOff, { commandId: writeOffId });
     assert.equal(writtenoff.status, 'writtenoff'); assert.equal(writtenoff.writeOffCostTotal, '0.250000000000');
     assert.equal(writtenoff.writeOffReason.code, 'damaged');
     assert.equal(writtenoff.writeOffReason.accountId, damage.id);
     assert.equal(writtenoff.writeOffReason.approvalLimit, '0.1');
     assert.ok(writtenoff.writeOffApprovedBy);
+    const afterWriteOff = await business();
+    assert.deepEqual(await pier.command('return.scan', defaultCodeWriteOff, { commandId: writeOffId }), writtenoff);
+    assert.deepEqual(await business(), afterWriteOff, 'Replaying an approved write-off adds no stock or accounting effects');
     await pier.command('return.scan', { ...fromLabel, quantity: '3' }, { error: 'RETURN_LIMIT' });
     // A receiver lacking inspection authority cannot make the same scan sellable.
     const entered = await fetch(`${pier.origin}/auth/dev/enter?as=member`, { redirect: 'manual', headers: { 'x-rer-dev-key': pier.devKey } });
@@ -108,6 +139,42 @@ test('one-scan returns restock, quarantine and write off actual dispatches with 
     assert.equal(cogsAccount.closing, 0); assert.equal(tb.rows.find(r => r.id === damage.id).net, 25);
     assert.equal(state.bookJobs.find(j => j.key === 'inventory-reconciliation').status, 'reconciled');
     assert.equal(state.bookJobs.filter(j => ['review', 'uncertain'].includes(j.status)).length, 0);
+    const inspectWriteOff = { returnId: quarantined.id, version: quarantined.version, condition: 'damaged', disposition: 'writeoff', reason: 'Owner inspected damaged packaging', reasonCode: 'damaged', approveWriteOff: false };
+    for (const reason of [undefined, '', '   ']) {
+      await refusedWithoutEffects('return.inspect', { ...inspectWriteOff, reason }, 'INPUT');
+    }
+    await refusedWithoutEffects('return.inspect', { ...inspectWriteOff, reasonCode: 'unknown' }, 'WRITE_OFF_REASON');
+    await refusedWithoutEffects('return.inspect', inspectWriteOff, 'WRITE_OFF_APPROVAL');
+    await pier.command('role.set', { operatorId: session.operator.id, role: 'warehouse' });
+    await refusedWithoutEffects('return.inspect', { ...inspectWriteOff, approveWriteOff: true }, 'WRITE_OFF_APPROVAL', { as: cookie });
+    const equalityConnection = await pier.command('book.connect', { ...accounts, writeOffApprovalLimit: '0.25' });
+    assert.equal(equalityConnection.writeOffReasons[0].approvalLimit, '0.25');
+    const inspectionId = randomUUID();
+    const equalWriteOff = await pier.command('return.inspect', inspectWriteOff, { commandId: inspectionId });
+    assert.equal(equalWriteOff.status, 'writtenoff');
+    assert.equal(equalWriteOff.quantity, '1');
+    assert.equal(equalWriteOff.writeOffCostTotal, '0.250000000000');
+    assert.equal(equalWriteOff.writeOffReason.approvalLimit, '0.25');
+    assert.equal(equalWriteOff.writeOffReason.accountId, damage.id);
+    assert.equal(equalWriteOff.writeOffApprovedBy, connected.approvedBy);
+    const afterEquality = await business();
+    assert.deepEqual(await pier.command('return.inspect', inspectWriteOff, { commandId: inspectionId }), equalWriteOff);
+    assert.deepEqual(await business(), afterEquality, 'Equality inspection replay preserves the one write-off');
+    await pier.command('book.sync', {}); await pier.command('book.sync', {});
+    state = await pier.invariant();
+    assert.equal(state.returns.find(r => r.id === writtenoff.id).writeOffReason.approvalLimit, '0.1', 'Later settings do not rewrite the earlier approved return');
+    assert.equal(state.bookJobs.filter(j => j.key === `return-writeoff:${equalWriteOff.id}`).length, 1);
+    assert.equal(state.bookJobs.find(j => j.key === `return-writeoff:${equalWriteOff.id}`).status, 'posted');
+    assert.equal((await pantry.view('sales')).invoices.filter(i => i.kind === 'credit').length, 4);
+    const finalBalance = await pantry.view('reports/trial-balance');
+    assert.equal(finalBalance.balanced, true);
+    assert.equal(finalBalance.rows.find(r => r.id === inventory.id).net, 250);
+    assert.equal(finalBalance.rows.find(r => r.id === damage.id).net, 50);
+    const damageLedger = await pantry.view(`reports/general-ledger?from=2000-01-01&to=${new Date().toISOString().slice(0, 10)}&account=${encodeURIComponent(damage.id)}`);
+    const damageAccount = damageLedger.accounts.find(a => a.id === damage.id);
+    assert.equal(damageAccount.rows.reduce((n, r) => n + r.debit_cents, 0), 50);
+    assert.equal(damageAccount.rows.reduce((n, r) => n + r.credit_cents, 0), 0);
+    assert.equal(damageAccount.closing, 50);
   } finally { await pier?.close(); await pantry.close(); }
 });
 
