@@ -1,3 +1,4 @@
+import { shareBuild } from '../shared-build.mjs'
 import { spawn } from 'node:child_process'
 import { realpathSync } from 'node:fs'
 import { cp, mkdir } from 'node:fs/promises'
@@ -20,6 +21,7 @@ export async function freshCopy(workspace, root) {
   // The native setup may repair pnpm links. Install in this owned tree instead
   // of sharing node_modules with the source checkout.
   await command('corepack', ['pnpm', 'install', '--frozen-lockfile'], root)
+  await shareBuild(workspace, root)
 }
 
 export async function freePort() {

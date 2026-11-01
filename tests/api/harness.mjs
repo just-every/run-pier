@@ -7,9 +7,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID, randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
+let workerBundle;
 export async function installation(edge = {}) {
   const root = await mkdtemp(join(tmpdir(), "pier-api-"));
-  const bundled = await build({
+  const bundled = await (workerBundle ||= build({
     entryPoints: ["tests/api/worker.ts"],
     bundle: true,
     write: false,
@@ -19,7 +20,7 @@ export async function installation(edge = {}) {
     target: "es2022",
     external: ["node:*", "cloudflare:*"],
     loader: { ".css": "text", ".svg": "text" },
-  });
+  }));
   let origin = edge.production ? "https://localhost" : "http://localhost";
   const setup = randomBytes(32).toString("hex"),
     devKey = randomBytes(32).toString("hex"), installationKey = randomBytes(32).toString("hex");

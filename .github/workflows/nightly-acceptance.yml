@@ -6,7 +6,25 @@ on:
 permissions:
   contents: read
 jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.20.0'
+      - run: corepack enable && corepack prepare pnpm@10.12.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec rer build --no-queue
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pier-nightly-build
+          path: dist
+          include-hidden-files: true
+          retention-days: 1
   browser:
+    needs: build
     name: Browser acceptance ${{ matrix.shard }} of 4
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -34,7 +52,11 @@ jobs:
       - run: corepack enable && corepack prepare pnpm@10.12.4 --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - name: Exercise existing desktop and phone acceptance
+      - uses: actions/download-artifact@v4
+        with:
+          name: pier-nightly-build
+          path: dist
+      - name: Exercise desktop journeys and the phone smoke
         env:
           PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-acceptance
           PIER_SCREENSHOTS: ${{ runner.temp }}/pier-acceptance/screenshots

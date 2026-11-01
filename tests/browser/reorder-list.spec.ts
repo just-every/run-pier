@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './installed'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createServer } from 'node:http'

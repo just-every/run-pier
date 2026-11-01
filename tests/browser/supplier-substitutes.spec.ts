@@ -1,7 +1,7 @@
 // @ts-expect-error Public command fixture shared with the real Worker journey.
 import { substituteScenario } from '../api/supplier-substitutes-fixture.mjs'
 import { ownerEntry } from './session'
-import { test, expect } from '@playwright/test'
+import { test, expect } from './installed'
 import { join } from 'node:path'
 
 test('owners inspect supplier substitute evidence, refuse stale review and retain recommendation decisions', async ({ page }) => {

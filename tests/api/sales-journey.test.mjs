@@ -1,0 +1,528 @@
+import test from 'node:test';
+import { phase, checkpoint } from './journey-resources.mjs';
+
+// Related public-door scenarios retain their own disposable D1 installations.
+// A failure stops this business journey; cleanup runs before its next scenario.
+test("Quote, import and repeat sales, fulfil direct demand, invoice and collect exact amounts", async () => {
+
+  // costing: the complete public lifecycle, including refused and uncertain outcomes.
+  {
+    const { pantryInstallation } = await import("./pantry-installation.mjs");
+    const { salesWorkbook } = await import("./sales-workbook.mjs");
+    const { pdfText } = await import("./pdf-text.mjs");
+    const { zipSync, strToU8 } = await import("fflate");
+
+    const { default: assert } = await import("node:assert/strict");
+    const { randomUUID, createHmac } = await import("node:crypto");
+    const { installation, basics, buy, receive } = await import("./harness.mjs");
+
+
+    await phase('landed receipts, priced shipments and dated FIFO/average reports reconcile', async t => {
+      const h = await installation();
+      t.after(() => h.close());
+      const b = await basics(h);
+      const slow = await h.command('item.save', { sku: 'SHELF', name: 'Shelf bracket', unit: 'each', packSize: '1' });
+      const purchase = async lines => {
+        const po = await h.command('po.draft', { supplierId: b.supplier.id, promiseDate: '2026-11-01', reason: 'Stock purchase', lines });
+        await h.command('po.approve', { poId: po.id, version: po.version });
+        await h.command('po.commit', { poId: po.id, version: po.version });
+        return po;
+      };
+      const receive = (po, costs, landedCost) => h.command('receipt.create', {
+        poId: po.id, supplierReference: 'Supplier delivery', landedCost,
+        lines: po.lines.map((l, i) => ({ poLineId: l.id, locationId: b.source.id, quantity: l.quantity, cost: costs[i] })),
+      });
+      const report = async query => {
+        const res = await h.request('/api/pier/reports' + (query ? '?' + query : ''));
+        assert.equal(res.status, 200, await res.clone().text());
+        return res.json();
+      };
+      await h.command('costing.method', { method: 'fifo', confirm: true, reason: 'Opening costing policy' });
+      const po = await purchase([{ itemId: b.item.id, quantity: '10', price: '2' }, { itemId: slow.id, quantity: '10', price: '8' }]);
+      await h.command('receipt.create', { poId: po.id, currency: 'AUD', supplierReference: 'Unsupported source currency', lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '1', cost: '2' }] }, { error: 'CURRENCY' });
+      assert.equal((await h.state()).receipts.length, 0);
+      const receipt = await receive(po, ['2', '8'], { freight: '8', duty: '2', allocation: 'value' });
+      assert.equal(receipt.lines[0].landedTotal, '22.000000000000');
+      assert.equal(receipt.lines[1].landedTotal, '88.000000000000');
+      assert.equal(receipt.landedCost.total, '110.000000000000');
+      await receive(await purchase([{ itemId: b.item.id, quantity: '10', price: '4' }]), ['4']);
+      const tier = await h.command('priceList.save', { customerId: b.customer.id, itemId: b.item.id, minimumQuantity: '10', price: '10' });
+      const order = await h.command('order.create', { customerId: b.customer.id, channel: 'Wholesale', lines: [{ itemId: b.item.id, quantity: '12' }] });
+      assert.equal(order.total, '120.000000000000');
+      assert.equal(order.lines[0].priceSnapshot.priceList.id, tier.id);
+      await h.command('priceList.save', { ...tier, version: tier.version, price: '11' });
+      const payload = { orderId: order.id, shipmentReference: 'WH-100', lines: [{ orderLineId: order.lines[0].id, quantity: '12' }] };
+      const commandId = randomUUID();
+      const shipment = await h.command('dispatch.create', payload, { commandId });
+      assert.deepEqual(await h.command('dispatch.create', payload, { commandId }), shipment);
+      let r = await report();
+      assert.equal(r.margin.revenue, '120.000000000000');
+      assert.equal(r.margin.cost, '30.000000000000');
+      assert.equal(r.margin.margin, '90.000000000000');
+      assert.equal(r.valuation.total, '120.000000000000');
+      assert.equal(r.valuation.reconciliation.receipts, '150.000000000000');
+      assert.equal(r.valuation.reconciliation.difference, '0.000000000000');
+      assert.equal(r.deadStock.rows.length, 0, 'fresh stock has not aged into dead stock');
+      assert.equal(r.deadStock.total, '0.000000000000');
+      for (const key of ['bySku', 'byChannel', 'byCustomer']) assert.equal(r.margin[key][0].margin, '90.000000000000');
+      // The order line keeps its own cost once shipped: the layers its dispatch consumed.
+      assert.deepEqual(r.orderCosts[order.lines[0].id], { quantity: '12', cost: '30.000000000000' });
+      const before = (await h.state()).version;
+      await h.command('costing.method', { method: 'average', reason: 'Reviewed policy change' }, { error: 'COSTING_CONFIRM' });
+      assert.equal((await h.state()).version, before);
+      const policy = await h.command('costing.method', { method: 'average', confirm: true, reason: 'Reviewed policy change' });
+      assert.ok(policy.effectiveAt);
+      const next = await purchase([{ itemId: b.item.id, quantity: '8', price: '8' }, { itemId: slow.id, quantity: '8', price: '1' }]);
+      const nextReceipt = await receive(next, ['8', '1'], { freight: '16', duty: '0', allocation: 'quantity' });
+      assert.equal(nextReceipt.lines[0].freight, '8.000000000000');
+      assert.equal(nextReceipt.lines[1].freight, '8.000000000000');
+      const retail = await h.command('order.create', { customerId: b.customer.id, channel: 'Retail', lines: [{ itemId: b.item.id, quantity: '4', price: '10' }] });
+      const secondShipment = await h.command('dispatch.create', { orderId: retail.id, shipmentReference: 'RT-200', lines: [{ orderLineId: retail.lines[0].id, quantity: '4' }] });
+      r = await report();
+      assert.equal(r.method, 'average');
+      assert.equal(r.margin.rows.find(row => row.shipmentId === shipment.id).cost, '30.000000000000');
+      assert.equal(r.margin.rows.find(row => row.shipmentId === secondShipment.id).cost, '26.000000000000');
+      assert.deepEqual(r.orderCosts[order.lines[0].id], { quantity: '12', cost: '30.000000000000' }, 'a later receipt at another cost leaves a shipped line\'s cost');
+      assert.equal(r.margin.margin, '104.000000000000');
+      assert.equal(r.valuation.total, '182.000000000000');
+      assert.equal(r.valuation.reconciliation.difference, '0.000000000000');
+      const transfer = await h.command('transfer.send', { itemId: b.item.id, fromLocationId: b.source.id, toLocationId: b.destination.id, transitLocationId: b.transit.id, quantity: '2', reason: 'Move shelf stock' });
+      await h.command('transfer.receive', { transferId: transfer.id });
+      const returned = await h.command('return.create', { shipmentId: secondShipment.id, shipmentLineId: secondShipment.lines[0].id, locationId: b.source.id, quantity: '1', reason: 'Customer returned one' });
+      await h.command('return.approve', { returnId: returned.id, version: returned.version });
+      await h.command('return.restock', { returnId: returned.id, version: returned.version });
+      r = await report();
+      assert.equal(r.valuation.total, '188.500000000000');
+      assert.equal(r.valuation.reconciliation.returns, '6.500000000000');
+      assert.equal(r.valuation.reconciliation.difference, '0.000000000000');
+      const reversible = await receive(await purchase([{ itemId: b.item.id, quantity: '1', price: '100' }]), ['100']);
+      await h.command('receipt.reverse', { receiptId: reversible.id, reason: 'Supplier confirms duplicate receiving record' });
+      r = await report();
+      assert.equal(r.valuation.total, '188.500000000000');
+      assert.equal(r.valuation.reconciliation.receipts, '238.000000000000');
+      assert.equal(r.valuation.reconciliation.difference, '0.000000000000');
+      await h.command('costing.method', { method: 'fifo', confirm: true, reason: 'Keep current layers and change future issues' });
+      assert.equal((await report()).valuation.total, r.valuation.total);
+      const past = await report('asOf=2026-01-01&from=2026-01-01&to=2026-01-01');
+      assert.equal(past.valuation.total, '0.000000000000');
+      assert.equal(past.margin.rows.length, 0);
+      assert.equal((await h.request('/api/pier/reports?days=0')).status, 409);
+      assert.equal((await h.request('/api/pier/reports', { as: '' })).status, 401);
+      await h.command('item.save', { ...b.item, weight: '1' });
+      await h.command('item.save', { ...slow, weight: '2' });
+      const fxPO = await purchase([{ itemId: b.item.id, quantity: '3', price: '2' }, { itemId: slow.id, quantity: '2', price: '4' }]);
+      const fxInput = { poId: fxPO.id, currency: 'AUD', usdRate: '0.5', supplierReference: 'synthetic-pier-202', landedCost: { freight: '0.05', duty: '0.02', allocation: 'weight' }, lines: fxPO.lines.map((l, i) => ({ poLineId: l.id, locationId: b.source.id, quantity: l.quantity, cost: i ? '8' : '4' })) };
+      const fxReceipt = await h.command('receipt.create', fxInput);
+      assert.equal(fxReceipt.sourceCurrency, 'AUD');
+      assert.equal(fxReceipt.usdRate, '0.5');
+      assert.ok(fxReceipt.rateRecordedBy);
+      assert.deepEqual(fxReceipt.lines.map(l => [l.source.cost, l.source.currency, l.source.usdRate, l.cost, l.freight, l.duty]), [
+        ['4', 'AUD', '0.5', '2', '0.020000000000', '0.010000000000'],
+        ['8', 'AUD', '0.5', '4', '0.030000000000', '0.010000000000'],
+      ]);
+      assert.equal(fxReceipt.landedCost.total, '14.070000000000');
+      assert.equal((await report()).valuation.reconciliation.difference, '0.000000000000');
+      await h.invariant();
+    });
+
+
+
+    await phase('versioned case quotes retain discounted tax PDFs, exact approval and once-only acceptance', async t => {
+      const mail=[];let reject=false,uncertain=false;
+      const h=await installation({bindings:{MAIL_PROVIDER:'resend',MAIL_FROM:'sales@example.test',MAIL_API_KEY:'synthetic-pier-1'},outboundService:async request=>{mail.push(await request.json());if(uncertain)return new Response('No confirmed acceptance',{status:503});return reject?new Response('Declined',{status:422}):Response.json({id:`synthetic-pier-${mail.length}`});}});t.after(()=>h.close());
+      const b=await basics(h);
+      await h.command('business.save',{name:'Harbor Wholesale Supply',address:'30 Dock Road, San Francisco CA 94107',shipTo:{}});
+      const po=await h.command('po.draft',{supplierId:b.supplier.id,promiseDate:'2026-11-01',reason:'Quote stock',lines:[{itemId:b.item.id,quantity:'20',price:'1'}]});
+      await h.command('po.approve',{poId:po.id,version:po.version});await h.command('po.commit',{poId:po.id,version:po.version});await h.command('receipt.create',{poId:po.id,supplierReference:'synthetic-pier-1',lines:[{poLineId:po.lines[0].id,locationId:b.source.id,quantity:'20',cost:'1'}]});
+      await h.command('sales.taxTable',{state:'CA',rate:'8',reason:'Owner reviewed jurisdiction estimate'});
+      await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'0',price:'10'});
+      await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'5',price:'8'});
+      const params={customerId:b.customer.id,warehouse:'North',shipTo:{state:'CA',country:'US',postalCode:'94107'},discountPercent:'10',lines:[{itemId:b.item.id,quantity:'12',unit:'case'}]};
+      await h.command('quote.create',{...params,routingSource:'channel:synthetic-pier-1'},{error:'ROUTING_SOURCE'});
+      let quote=await h.command('quote.create',params);
+      assert.deepEqual([quote.lines[0].quantity,quote.lines[0].price,quote.subtotal,quote.tax.amount,quote.total],['6','7.2','43.200000000000','3.460000000000','46.660000000000']);
+      const small=await h.command('quote.create',{...params,lines:[{itemId:b.item.id,quantity:'1'}]});assert.equal(small.lines[0].price,'9');
+      await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
+      const entered=await fetch(`${h.origin}/auth/dev/enter?as=member`,{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}}),cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+      const member=await (await h.request('/api/pier/state',{as:cookie})).json();await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
+      await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Unprivileged discount'},{as:cookie,error:'FORBIDDEN'});
+      quote=await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Reviewed discount and retained stock costs'});
+      const send={orderId:quote.id,version:quote.version,recipient:'buyer@example.test'},commandId=randomUUID();
+      const doc=await h.command('quote.send',send,{commandId});await h.command('quote.send',send,{commandId});assert.equal(mail.length,1);assert.equal(mail[0].to[0],'buyer@example.test');
+      const pdf=Buffer.from(mail[0].attachments[0].content,'base64');assert.match(pdf.toString(),/^%PDF-/);const rendered=await pdfText(pdf);assert.match(rendered,/12 case.*6 each/s);assert.match(rendered,/46\.66(?:0000000000)?/);
+      const pdfResponse=await h.request(`/api/pier/sales-documents/${doc.id}.pdf`);assert.equal(pdfResponse.status,200);assert.equal(pdfResponse.headers.get('content-type'),'application/pdf');assert.deepEqual(Buffer.from(await pdfResponse.arrayBuffer()),pdf);
+      assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:''})).status,401);
+      const old=quote;quote=await h.command('quote.revise',{...params,orderId:quote.id,version:quote.version,lines:[{itemId:b.item.id,quantity:'10',price:'9'}],reason:'Buyer revised draft quantity and price'});
+      assert.equal(quote.quoteApproval,null);assert.deepEqual([quote.quoteHistory.at(-1).validUntil,quote.quoteHistory.at(-1).shipTo,quote.quoteHistory.at(-1).discountPercent,quote.quoteHistory.at(-1).routing],[old.validUntil,old.shipTo,old.discountPercent,old.routing]);await h.command('quote.accept',{orderId:quote.id,version:old.version},{error:'STALE'});
+      assert.deepEqual(Buffer.from(await (await h.request(`/api/pier/sales-documents/${doc.id}.pdf`)).arrayBuffer()),pdf);
+      await h.command('print.send',{documentId:doc.id,version:doc.version,recipient:'buyer@example.test'},{error:'QUOTE_STATE'});
+      quote=await h.command('quote.approve',{orderId:quote.id,version:quote.version,reason:'Reviewed revised price and quantity'});
+      const accepted=await h.command('quote.accept',{orderId:quote.id,version:quote.version});const count=(await h.state()).orders.length;
+      await h.command('quote.accept',{orderId:quote.id,version:quote.version});assert.equal((await h.state()).orders.length,count);assert.equal(accepted.lines[0].reserved,'10');
+      const confirmation=await h.command('order.confirm',{orderId:accepted.id,version:accepted.version,recipient:'buyer@example.test'});assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===confirmation.id).phase,'sent');
+      reject=true;const failed=await h.command('order.confirm',{orderId:accepted.id,version:accepted.version,recipient:'buyer@example.test'});assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===failed.id).phase,'failed');
+      await h.command('mail.process',{});assert.equal(mail.length,3);
+      reject=false;uncertain=true;const pendingPayload={orderId:accepted.id,version:accepted.version,recipient:'buyer@example.test'},pendingId=randomUUID();
+      const pending=await h.command('order.confirm',pendingPayload,{commandId:pendingId});assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===pending.id).phase,'uncertain');await h.command('order.confirm',pendingPayload,{commandId:pendingId});await h.command('mail.process',{});assert.equal(mail.length,4,'uncertain submission is never blindly replayed');uncertain=false;
+      const mailHealth = (await (await h.request('/api/pier/integrations')).json()).connectors.find(row => row.id === 'mail');
+      assert.equal(mailHealth.uncertain,1); assert.equal(mailHealth.failed,1);
+      assert.ok(mailHealth.lastSuccessfulSync);
+      assert.ok(mailHealth.effects.some(row => row.id === pending.id && row.state === 'uncertain'));
+      assert.ok(!JSON.stringify(mailHealth).includes('buyer@example.test'));
+      let expiring=await h.command('quote.create',{...params,validUntil:new Date().toISOString().slice(0,10)});expiring=await h.command('quote.approve',{orderId:expiring.id,version:expiring.version,reason:'Exact expiring quote'});
+      await h.command('quote.accept',{orderId:expiring.id,version:expiring.version},{headers:{'x-pier-test-now':new Date(Date.now()+86400000).toISOString()},error:'QUOTE_EXPIRED'});
+      assert.equal((await h.request('/api/pier/export',{as:cookie})).status,403);assert.equal((await h.request(`/api/pier/sales-documents/${doc.id}.pdf`,{as:cookie})).status,403);
+      let revisedAcceptance=await h.command('quote.revise',{...params,orderId:accepted.id,version:accepted.version,lines:[{itemId:b.item.id,quantity:'9',price:'9'}],reason:'Buyer changed an accepted unpicked quantity'});assert.equal(revisedAcceptance.acceptedAt,null);assert.equal(revisedAcceptance.quoteApproval,null);assert.ok(revisedAcceptance.quoteHistory.at(-1).acceptedAt);assert.deepEqual(revisedAcceptance.quoteHistory.at(-1).lines,accepted.lines.map(({reserved,backorder,...line})=>line));
+      await h.command('quote.accept',{orderId:accepted.id,version:accepted.version},{error:'STALE'});revisedAcceptance=await h.command('quote.approve',{orderId:accepted.id,version:revisedAcceptance.version,reason:'Approved the buyer revision'});await h.command('quote.accept',{orderId:accepted.id,version:revisedAcceptance.version});assert.equal((await h.state()).orders.filter(o=>o.id===accepted.id).length,1);
+
+      const alternateCustomer=await h.command('party.save',{kind:'customer',name:'synthetic-pier-2'});
+      const tier=await h.command('priceList.save',{customerId:alternateCustomer.id,itemId:b.item.id,minimumQuantity:'0',price:'12',validTo:new Date().toISOString().slice(0,10)});
+      let tierQuote=await h.command('quote.create',{...params,customerId:alternateCustomer.id,discountPercent:'0',lines:[{itemId:b.item.id,quantity:'1'}]});
+      assert.equal(tierQuote.lines[0].price,'12','a different customer tier is used');
+      tierQuote=await h.command('quote.approve',{orderId:tierQuote.id,version:tierQuote.version,reason:'Reviewed this customer price tier'});
+      await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{headers:{'x-pier-test-now':new Date(Date.now()+86400000).toISOString()},error:'QUOTE_PRICING'});
+      await h.command('priceList.save',{...tier,price:'13'});
+      await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{error:'QUOTE_PRICING'});
+      await h.command('quote.send',{orderId:tierQuote.id,version:tierQuote.version,recipient:'buyer@example.test'},{error:'QUOTE_PRICING'});
+      tierQuote=await h.command('quote.revise',{...params,customerId:alternateCustomer.id,orderId:tierQuote.id,version:tierQuote.version,discountPercent:'0',lines:[{itemId:b.item.id,quantity:'1'}],reason:'New price requires renewed acceptance'});
+      assert.equal(tierQuote.lines[0].price,'13');assert.equal(tierQuote.quoteApproval,null);await h.command('quote.accept',{orderId:tierQuote.id,version:tierQuote.version},{error:'QUOTE_APPROVAL'});
+      const customer=(await h.state()).parties.find(p=>p.id===b.customer.id),certificateExpiry=new Date(Date.now()+3*86400000).toISOString().slice(0,10);
+      await h.command('customer.resaleCertificate',{customerId:customer.id,version:customer.version,state:'CA',number:'synthetic-pier-1',document:'Owner-retained synthetic certificate',reason:'Resale exemption',expires:certificateExpiry});
+      let exempt=await h.command('quote.create',params);assert.equal(exempt.tax.amount,'0.000000000000');assert.equal(exempt.tax.certificate.number,'synthetic-pier-1');exempt=await h.command('quote.approve',{orderId:exempt.id,version:exempt.version,reason:'Reviewed resale exemption and price'});
+      const expiredClock={headers:{'x-pier-test-now':new Date(Date.now()+4*86400000).toISOString()}};
+      await h.command('quote.accept',{orderId:exempt.id,version:exempt.version},{...expiredClock,error:'QUOTE_TAX'});
+      const flagged=await h.command('quote.create',params,expiredClock);assert.equal(flagged.tax.status,'review');assert.equal(flagged.total,null);
+      await h.command('quote.approve',{orderId:flagged.id,version:flagged.version,reason:'Cannot waive expired certificate'},{...expiredClock,error:'QUOTE_TAX'});
+      await h.invariant();
+    });
+
+
+    await phase('customer CSV and XLSX intake resolves 40 lines, names unknown rows and prices three customer POs once', async t=>{
+      const h=await installation();t.after(()=>h.close());const b=await basics(h);
+      const customers=[b.customer,await h.command('party.save',{kind:'customer',name:'synthetic-pier-2'}),await h.command('party.save',{kind:'customer',name:'synthetic-pier-3'})];
+      const item=await h.command('item.save',{...b.item,references:customers.map((c,i)=>({partyId:c.id,code:`synthetic-pier-${i+1}`}))});
+      for(const [i,c] of customers.entries())await h.command('priceList.save',{customerId:c.id,itemId:item.id,minimumQuantity:'0',price:String(i+2)});
+      let fileRoute=await h.command('routing.save',{source:'file',mode:'fixed',shortage:'hold',eligible:['South']});fileRoute=await h.command('routing.preview',{ruleId:fileRoute.id,version:fileRoute.version});await h.command('routing.activate',{ruleId:fileRoute.id,version:fileRoute.version});
+      const header='customer,poReference,item,quantity,unit,price,shipTo,state,postalCode,country,requestedDate,warehouse';
+      const lines=Array.from({length:40},(_,i)=>{const n=i%3;return [customers[n].id,`synthetic-pier-${n+1}`,`synthetic-pier-${n+1}`,'1','each',i%2?'':'7','40 Pier Road','CA','94107','US','2026-11-01','North'].join(',')});
+      const bad=[...lines];bad[19]=bad[19].replace('synthetic-pier-2,1,each','unknown-pier-code,1,each');
+      let batch=await h.command('salesImport.stage',{name:'synthetic-pier-1.csv',csv:[header,...bad].join('\n')});
+      assert.equal(batch.preview.length,40);assert.equal(batch.preview[19].row,21);assert.match(batch.preview[19].errors[0].message,/unknown-pier-code/);assert.equal(batch.preview[19].source.warehouse,'North');assert.equal(batch.preview[19].warehouse,'South');
+      await h.command('salesImport.apply',{importId:batch.id,version:batch.version},{error:'IMPORT_ERRORS'});assert.equal((await h.state()).orders.length,0);
+      const csv=[header,...lines].join('\n');
+      const xlsx=salesWorkbook([header.split(','),...lines.map(line=>line.split(','))]);
+      const xlsxBase64=Buffer.from(xlsx).toString('base64');
+      const hostile=zipSync({'[Content_Types].xml':strToU8('<!DOCTYPE Types [<!ENTITY injected "unsafe">]><Types>&injected;</Types>')});
+      await h.command('salesImport.stage',{name:'synthetic-pier-hostile.xlsx',xlsxBase64:Buffer.from(hostile).toString('base64')},{error:'SPREADSHEET'});assert.equal((await h.state()).orders.length,0);
+      batch=await h.command('salesImport.stage',{name:'synthetic-pier-2.xlsx',xlsxBase64});assert.equal(batch.preview.flatMap(r=>r.errors).length,0);
+      for(const row of batch.preview)assert.equal(row.line.price,row.source.price||String(customers.findIndex(c=>c.id===row.customerId)+2));
+      batch=await h.command('salesImport.apply',{importId:batch.id,version:batch.version});assert.equal(batch.orderIds.length,3);assert.equal((await h.state()).orders.length,3);assert.ok((await h.state()).orders.every(o=>o.warehouse==='South'));
+      await h.command('salesImport.apply',{importId:batch.id,version:1});const again=await h.command('salesImport.stage',{name:'renamed.xlsx',xlsxBase64});assert.equal(again.id,batch.id);assert.equal((await h.state()).orders.length,3);
+      const duplicate=await h.command('salesImport.stage',{name:'changed.csv',csv:csv.replace('40 Pier Road','41 Pier Road')});assert.ok(duplicate.preview.every(r=>r.errors.some(e=>e.code==='DUPLICATE')));
+      const exported=await (await h.request('/api/pier/export')).json();assert.equal(exported.salesImports.find(r=>r.id===batch.id).csv,csv);assert.equal(exported.salesImports.find(r=>r.id===batch.id).original.base64,xlsxBase64);assert.equal(exported.orders.reduce((n,o)=>n+o.lines.length,0),40);
+    });
+
+
+
+    await phase('recurring orders apply price, stock and credit policy once per due day and stop after pause or cancel',async t=>{
+      const h=await installation();t.after(()=>h.close());const b=await basics(h),po=await h.command('po.draft',{supplierId:b.supplier.id,promiseDate:'2026-11-01',reason:'Recurring stock',lines:[{itemId:b.item.id,quantity:'50',price:'1'}]});await h.command('po.approve',{poId:po.id,version:po.version});await h.command('po.commit',{poId:po.id,version:po.version});await h.command('receipt.create',{poId:po.id,supplierReference:'synthetic-pier-1',lines:[{poLineId:po.lines[0].id,locationId:b.source.id,quantity:'50',cost:'1'}]});
+      let tier=await h.command('priceList.save',{customerId:b.customer.id,itemId:b.item.id,minimumQuantity:'0',price:'2'});
+      const today=new Date().toISOString().slice(0,10),tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10),future=new Date(Date.now()+10*86400000).toISOString().slice(0,10);
+      const policy={name:'Weekly case order',customerId:b.customer.id,warehouse:'North',cadenceDays:1,nextDue:today,pricePolicy:'hold-on-change',stockPolicy:'full-stock',ceiling:'10',lines:[{itemId:b.item.id,quantity:'2'}],enabled:true,reason:'Explicit recurring order approval'};
+      let schedule=await h.command('recurring.save',policy);schedule=await h.command('recurring.run',{scheduleId:schedule.id,version:schedule.version});assert.match(schedule.lastOutcome.reason,/credit clearance/);assert.equal((await h.state()).orders.length,0);
+      const clearance=async(status)=>{const c=(await h.state()).parties.find(p=>p.id===b.customer.id);return h.command('customer.creditClearance',{customerId:c.id,version:c.version,status,allowance:'20',validThrough:future,reason:'Reviewed customer credit allowance'});};await clearance('clear');
+      let worker=await h.mf.getWorker();await Promise.all([1,2].map(()=>worker.scheduled({scheduledTime:new Date(),cron:'* * * * *'})));let s=await h.state();schedule=s.recurringOrders[0];assert.equal(schedule.occurrences.length,1);assert.equal(s.orders.length,1);assert.equal(s.orders[0].lines[0].reserved,'2');assert.equal(s.parties.find(p=>p.id===b.customer.id).creditClearance.used,'4.000000000000');
+      tier=await h.command('priceList.save',{...tier,price:'3'});await worker.scheduled({scheduledTime:new Date(`${tomorrow}T12:00:00Z`),cron:'* * * * *'});s=await h.state();schedule=s.recurringOrders[0];assert.match(schedule.lastOutcome.reason,/price changed/);assert.equal(s.orders.length,1);
+      schedule=await h.command('recurring.save',{...policy,id:schedule.id,version:schedule.version,nextDue:tomorrow});await clearance('hold');await worker.scheduled({scheduledTime:new Date(`${tomorrow}T12:00:00Z`),cron:'* * * * *'});s=await h.state();schedule=s.recurringOrders[0];assert.match(schedule.lastOutcome.reason,/credit clearance/);assert.equal(s.orders.length,1);
+      await clearance('clear');await worker.scheduled({scheduledTime:new Date(`${tomorrow}T12:01:00Z`),cron:'* * * * *'});s=await h.state();schedule=s.recurringOrders[0];assert.equal(s.orders.length,2);assert.equal(s.orders.find(o=>o.id===schedule.occurrences[1].orderId).lines[0].price,'3');
+      await h.restartWithFreshSigningKey();worker=await h.mf.getWorker();await worker.scheduled({scheduledTime:new Date(Date.now()+2*86400000),cron:'* * * * *'});s=await h.state();schedule=s.recurringOrders[0];assert.match(schedule.lastOutcome.reason,/Re-authorize/);assert.equal(s.orders.length,2);
+      schedule=await h.command('recurring.pause',{scheduleId:schedule.id,version:schedule.version,reason:'Customer paused'});await worker.scheduled({scheduledTime:new Date(Date.now()+3*86400000),cron:'* * * * *'});assert.equal((await h.state()).orders.length,2);
+      schedule=await h.command('recurring.cancel',{scheduleId:schedule.id,version:schedule.version,reason:'Customer cancelled'});await h.command('recurring.save',{...policy,id:schedule.id,version:schedule.version},{error:'RECURRING_CANCELLED'});assert.equal((await h.state()).orders.length,2);
+      const entered=await fetch(`${h.origin}/auth/dev/enter?as=member`,{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}}),cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+      const member=await (await h.request('/api/pier/state',{as:cookie})).json();await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
+      await h.command('recurring.save',policy,{as:cookie,error:'FORBIDDEN'});
+      await h.command('customer.creditClearance',{customerId:b.customer.id,version:(await h.state()).parties.find(p=>p.id===b.customer.id).version,status:'clear',allowance:'100',validThrough:future,reason:'New signing scope'},{as:cookie,error:'FORBIDDEN'});
+      for(const cadenceDays of [0,367])await h.command('recurring.save',{...policy,cadenceDays},{error:'CADENCE'});
+      await clearance('clear');
+      const bounded=async(change,expected)=>{let schedule=await h.command('recurring.save',{...policy,...change});schedule=await h.command('recurring.run',{scheduleId:schedule.id,version:schedule.version});assert.match(schedule.lastOutcome.reason,expected);assert.equal(schedule.occurrences.length,0);};
+      await bounded({enabled:false},/paused/);
+      await bounded({nextDue:future},/not due/);
+      await bounded({ceiling:'1'},/price ceiling/);
+      await bounded({lines:[{itemId:b.item.id,quantity:'100'}],ceiling:'1000'},/allowance/);
+      const customer=(await h.state()).parties.find(p=>p.id===b.customer.id);
+      await h.command('customer.creditClearance',{customerId:customer.id,version:customer.version,status:'clear',allowance:'1000',validThrough:future,reason:'Reviewed stock bound'});
+      await bounded({lines:[{itemId:b.item.id,quantity:'100'}],ceiling:'1000'},/Full-stock/);
+      const expired=(await h.state()).parties.find(p=>p.id===b.customer.id);
+      await h.command('customer.creditClearance',{customerId:expired.id,version:expired.version,status:'clear',allowance:'1000',validThrough:'2020-01-01',reason:'Expired reviewed allowance'});
+      await bounded({},/credit clearance/);
+      await clearance('clear');
+      const other=await h.command('party.save',{name:'Other recurring customer',kind:'customer'});
+      await bounded({customerId:other.id,lines:[{itemId:b.item.id,quantity:'1',price:'3'}]},/credit clearance/);
+      const overdue=await h.command('recurring.save',{...policy,nextDue:new Date(Date.now()-3*86400000).toISOString().slice(0,10)});
+      await worker.scheduled({scheduledTime:new Date(),cron:'* * * * *'});
+      s=await h.state();assert.equal(s.recurringOrders.find(r=>r.id===overdue.id).occurrences.length,1,'one overdue occurrence per policy in a pass');
+      assert.equal(s.shipments.length,0);assert.equal(s.invoices.length,0);assert.equal(s.bookJobs.length,0);assert.equal(s.correspondence?.length??0,0);
+
+    });
+
+
+    await phase('direct dropship demand retains supplier PO, confirmation, tracking, cost and bounded customer credit without warehouse stock',async t=>{
+      const pantry=await pantryInstallation({revision:'e987ba0a2270a81c62d399c44c6e05d3b504bb07'});t.after(()=>pantry.close());
+      await pantry.command('chart.start',{});
+      const inventory=await pantry.command('account.save',{code:'1300',name:'Inventory',type:'asset',subtype:'other'}),cogs=await pantry.command('account.save',{code:'5000',name:'Cost of goods',type:'expense',subtype:'other'}),revenue=(await pantry.view('state')).accounts.find(a=>a.code==='4000');
+      let loseCredit=false;
+      const h=await installation({async outboundService(request){
+        const response=await fetch(request.url,{method:request.method,headers:Object.fromEntries([...request.headers].filter(([key])=>!['transfer-encoding','content-length','host','connection'].includes(key))),...(request.method==='GET'?{}:{body:await request.arrayBuffer()})});
+        if(loseCredit&&request.method==='POST'&&request.url.endsWith('/invoices')){const body=await response.clone().json();if(body.kind==='credit'){loseCredit=false;await response.text();throw new Error('Synthetic response loss after saving customer credit');}}
+        return response;
+      }});t.after(()=>h.close());const b=await basics(h),stable=async()=>{const s=await h.state();return {movements:s.movements,reservations:s.reservations,positions:s.positions,companyStocks:s.companyStocks};};const before=await stable();
+      let drop=await h.command('dropship.create',{customerId:b.customer.id,supplierId:b.supplier.id,shipTo:'40 Pier Road, Portland OR 97210',promiseDate:'2026-11-01',reason:'Supplier ships directly',lines:[{itemId:b.item.id,quantity:'3',price:'10',cost:'4'}]});let s=await h.state(),po=s.purchaseOrders.find(p=>p.id===drop.poId);assert.equal(po.directToCustomer,drop.shipTo);assert.deepEqual(await stable(),before);
+      await h.command('dropship.confirm',{dropshipId:drop.id,version:drop.version,supplierReference:'synthetic-pier-1',shipDate:'2026-11-01'},{error:'DROPSHIP_PO'});
+      await h.command('po.approve',{poId:po.id,version:po.version});po=await h.command('po.commit',{poId:po.id,version:po.version});assert.deepEqual(await stable(),before);
+      await h.command('receipt.create',{poId:po.id,supplierReference:'Never warehouse stock',lines:[{poLineId:po.lines[0].id,locationId:b.source.id,quantity:'3',cost:'4'}]},{error:'DROPSHIP'});await h.command('receiving.start',{poId:po.id,locationId:b.source.id},{error:'DROPSHIP'});
+      drop=await h.command('dropship.confirm',{dropshipId:drop.id,version:drop.version,supplierReference:'synthetic-pier-1',shipDate:'2026-11-01'});
+      const payload={dropshipId:drop.id,version:drop.version,supplierReference:'synthetic-pier-2',carrier:'Supplier carrier',tracking:'synthetic-pier-3',shipDate:new Date().toISOString().slice(0,10),lines:[{orderLineId:drop.lines[0].orderLineId,quantity:'3'}]},commandId=randomUUID();await h.command('dropship.ship',{...payload,shipDate:new Date(Date.now()+86400000).toISOString().slice(0,10)},{error:'DATE'});await h.command('dropship.ship',{...payload,supplierReference:b.item.sku},{error:'DUPLICATE'});drop=await h.command('dropship.ship',payload,{commandId});assert.deepEqual(await h.command('dropship.ship',payload,{commandId}),drop);assert.equal(drop.shipments[0].lines[0].costTotal,'12.000000000000');
+      const credit={dropshipId:drop.id,version:drop.version,shipmentId:drop.shipments[0].id,orderLineId:drop.lines[0].orderLineId,quantity:'2',reference:'synthetic-pier-4',reason:'Customer credit for supplier damage'};drop=await h.command('dropship.credit',credit);assert.equal(drop.credits[0].amount,'20.000000000000');assert.equal(drop.credits[0].posting,'not-posted');
+      await h.command('dropship.credit',{...credit,version:drop.version,quantity:'2',reference:'synthetic-pier-5'},{error:'CREDIT_LIMIT'});assert.deepEqual(await stable(),before);
+      const credential=await pantry.command('integration.create',{name:'Pier',scopes:['contacts:write','invoices:write','bills:write','journals:write','documents:write','payments:read','reports:read','post']});
+      await h.command('book.connect',{baseUrl:pantry.origin,integrationToken:credential.token,inventoryAccountId:inventory.id,cogsAccountId:cogs.id,revenueAccountId:revenue.id,taxCode:'exempt'});
+      assert.equal((await pantry.view('sales')).invoices.length,0,'retaining a credit alone does not authorize posting');
+      const posting={dropshipId:drop.id,version:drop.version,creditId:drop.credits[0].id},postingId=randomUUID();loseCredit=true;
+      await h.command('dropship.postCredit',posting,{commandId:postingId});
+      s=await h.state();assert.equal(s.bookJobs.find(j=>j.key.startsWith('dropship-credit:')).status,'uncertain',JSON.stringify(s.bookJobs.filter(j=>j.key.startsWith('dropship-'))));
+      await h.command('dropship.postCredit',posting,{commandId:postingId});await h.command('book.sync',{});
+      const financial=(await pantry.view('sales')).invoices,invoice=financial.find(i=>i.kind==='invoice'),posted=financial.find(i=>i.kind==='credit');
+      assert.equal(financial.length,2);assert.equal(posted.credit_for,invoice.id);assert.equal(posted.total_cents,2000);assert.equal(invoice.open_cents,1000);
+      s=await h.state();assert.equal(s.customerCredits[0].posting,'posted');assert.equal(s.customerCredits[0].books.creditId,posted.id);assert.equal(s.dropships[0].credits[0].posting,'posted');
+      await h.command('dropship.postCredit',{...posting,version:s.dropships[0].version},{error:'CREDIT'});
+      assert.deepEqual(await stable(),before);
+      s=await h.state();assert.equal(s.orders.find(o=>o.id===drop.orderId).lines[0].dispatched,'3');assert.equal(s.receipts.length,0);assert.equal(s.customerCredits.length,1);const nativeExit=await h.request('/api/pier/native-export');assert.equal(nativeExit.status,409);assert.equal((await nativeExit.json()).error.code,'NATIVE_DROPSHIP');assert.equal((await (await h.request('/api/pier/export')).json()).dropships[0].shipments[0].tracking,'synthetic-pier-3');
+    });
+
+
+
+    await phase('quote approver role defaults to Owner and policy or live role changes revoke open approvals', async t => {
+      const h=await installation();t.after(()=>h.close());const b=await basics(h);
+      await h.command('sales.taxTable',{state:'CA',rate:'0',reason:'Owner tax estimate'});
+      const entered=await fetch(`${h.origin}/auth/dev/enter?as=member`,{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}}),cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+      const member=await (await h.request('/api/pier/state',{as:cookie})).json();await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
+      const params={customerId:b.customer.id,warehouse:'North',shipTo:{state:'CA',country:'US'},discountPercent:'10',lines:[{itemId:b.item.id,quantity:'1',price:'2'}]};
+      let quote=await h.command('quote.create',params);
+      const approve=()=>({orderId:quote.id,version:quote.version,reason:'Reviewed exact price, discount and cost'});
+      await h.command('quote.approve',approve(),{as:cookie,error:'FORBIDDEN'});
+      await h.command('sales.quoteApprovalPolicy',{version:0,role:'operator',reason:'Unapproved delegation'},{as:cookie,error:'FORBIDDEN'});
+      await h.command('sales.quoteApprovalPolicy',{version:0,role:'agent',reason:'Agents cannot approve themselves'},{error:'APPROVER_ROLE'});
+      quote=await h.command('quote.approve',approve());
+      let policy=await h.command('sales.quoteApprovalPolicy',{version:0,role:'operator',reason:'Owner delegates commercial approval to sales operators'});
+      await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
+      quote=await h.command('quote.approve',approve(),{as:cookie});assert.equal(quote.quoteApproval.actorId,member.actor.id);assert.equal(quote.quoteApproval.policyVersion,policy.version);
+      await h.command('business.save',{name:'Harbor Wholesale',address:'30 Dock Road',shipTo:{}});const retained=await h.command('print.generate',{kind:'quote',sourceId:quote.id});
+      await h.command('quote.send',{orderId:quote.id,version:quote.version,recipient:'buyer@example.test'},{as:cookie,error:'FORBIDDEN'});
+      await h.command('role.set',{operatorId:member.actor.id,role:'viewer'});
+      const before=(await h.state()).version;
+      await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'APPROVER_REVOKED'});
+      await h.command('quote.send',{orderId:quote.id,version:quote.version,recipient:'buyer@example.test'},{error:'APPROVER_REVOKED'});
+      await h.command('print.send',{documentId:retained.id,version:retained.version,recipient:'buyer@example.test'},{error:'APPROVER_REVOKED'});
+      assert.equal((await h.state()).version,before,'refused acceptance and send leave state unchanged');
+      await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
+      policy=await h.command('sales.quoteApprovalPolicy',{version:policy.version,role:'owner',reason:'Return approval to Owner'});
+      assert.equal(policy.history.at(-1).role,'operator');assert.equal(policy.approvedBy,(await h.state()).actor.id);
+      await h.command('quote.approve',approve(),{as:cookie,error:'FORBIDDEN'});
+      await h.command('quote.accept',{orderId:quote.id,version:quote.version},{error:'QUOTE_APPROVAL'});
+      quote=await h.command('quote.approve',approve());
+      const accepted=await h.command('quote.accept',{orderId:quote.id,version:quote.version});assert.ok(accepted.acceptedAt);await h.invariant();
+    });
+
+
+    // Native invoices are operational originals. Provider posting remains an explicit
+    // external obligation rather than being represented by an invented ledger result.
+    await phase('native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids', async t => {
+      const h = await installation(); t.after(() => h.close()); const b = await basics(h);
+      const po = await h.command('po.draft', { supplierId: b.supplier.id, promiseDate: '2026-11-01', reason: 'Invoice stock', lines: [{ itemId: b.item.id, quantity: '10', price: '1' }] });
+      await h.command('po.approve', { poId: po.id, version: po.version }); await h.command('po.commit', { poId: po.id, version: po.version });
+      await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-1', lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '10', cost: '1' }] });
+      await h.command('sales.taxTable', { state: 'CA', rate: '8', reason: 'Owner jurisdiction estimate' });
+      const order = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '4', price: '10' }] });
+      await h.command('invoice.policy', { orderId: order.id, mode: 'shipment', terms: { kind: 'net30' }, reason: 'Invoice each shipment' });
+      const ship = async quantity => h.command('dispatch.create', { orderId: order.id, shipmentReference: `synthetic-pier-${quantity}`, lines: [{ orderLineId: order.lines[0].id, quantity }] });
+      const first = await ship('2');
+      const authorize = async invoice => {
+        invoice = await h.command('invoice.review', { invoiceId: invoice.id, version: invoice.version });
+        return h.command('invoice.authorize', { invoiceId: invoice.id, version: invoice.version });
+      };
+      let invoice = await h.command('invoice.draft', { orderId: order.id, shipmentId: first.id, invoiceDate: '2026-10-01', charges: [{ kind: 'freight', amount: '3', taxable: true }, { kind: 'handling', amount: '1', taxable: false }, { kind: 'surcharge', amount: '1', taxable: false }, { kind: 'discount', amount: '1', taxable: true }] });
+      assert.equal(invoice.lines[0].quantity, '2'); assert.equal(invoice.subtotal, '24.000000000000'); assert.equal(invoice.tax.amount, '1.760000000000'); assert.equal(invoice.total, '25.760000000000'); assert.equal(invoice.dueDate, '2026-10-31');
+      invoice = await authorize(invoice);
+      assert.deepEqual(invoice.original.lines, invoice.lines);
+      await h.command('invoice.draft', { orderId: order.id, shipmentId: first.id }, { error: 'INVOICE_EXISTS' });
+      await h.command('invoice.revise', { invoiceId: invoice.id, version: invoice.version, total: '1' }, { error: 'INVOICE_IMMUTABLE' });
+      const second = await ship('1'); let other = await authorize(await h.command('invoice.draft', { orderId: order.id, shipmentId: second.id, invoiceDate: '2026-10-02', charges:[{kind:'freight',amount:'2.00',taxable:false}] }));
+      assert.equal(other.total, '12.800000000000');assert.equal(other.charges[0].kind,'freight'); assert.equal(other.dueDate, '2026-11-01');
+      const returned = await h.command('return.create', { shipmentId: first.id, shipmentLineId: first.lines[0].id, locationId: b.source.id, quantity: '1', reason: 'Customer returned one' });
+      let credit = await h.command('invoice.credit.draft', { invoiceId: invoice.id, kind: 'return', returnId: returned.id, reason: 'Return one invoiced item', lines: [{ invoiceLineId: invoice.lines[0].id, quantity: '1' }] });
+      credit = await h.command('invoice.credit.review', { creditId: credit.id, version: credit.version });
+      const creditId = randomUUID(); credit = await h.command('invoice.credit.authorize', { creditId: credit.id, version: credit.version }, { commandId: creditId });
+      assert.equal(credit.total, '10.800000000000'); assert.equal((await h.state()).invoiceCredits.filter(r => r.status === 'authorized').length, 1);
+      await h.command('invoice.credit.draft', { invoiceId: invoice.id, kind: 'return', returnId: returned.id, reason: 'Duplicate return credit', lines: [{ invoiceLineId: invoice.lines[0].id, quantity: '1' }] }, { error: 'INVOICE_CREDIT' });
+      other = await h.command('invoice.void', { invoiceId: other.id, version: other.version, reason: 'Duplicate commercial source was reviewed' });
+      assert.equal(other.status, 'voided'); assert.equal(other.ledger.status, 'void-pending-external-reversal'); assert.deepEqual(other.original.lines, other.lines);
+      const replacement = await h.command('invoice.draft', { orderId: order.id, shipmentId: second.id }); assert.equal(replacement.lines[0].quantity, '1');
+      const prepay = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '1', price: '10' }] });
+      await h.command('invoice.policy', { orderId: prepay.id, mode: 'prepay', reason: 'Payment before shipment' });
+      const prepayInvoice = await authorize(await h.command('invoice.draft', { orderId: prepay.id, terms: { kind: 'earlyDiscount', discountPercent: '2', withinDays: 10, netDays: 30 } }));
+      assert.equal(prepayInvoice.terms.earlyDiscount.amount, '0.200000000000');
+      const prepayShipment = await h.command('dispatch.create', { orderId: prepay.id, shipmentReference: 'synthetic-pier-9', lines: [{ orderLineId: prepay.lines[0].id, quantity: '1' }] });
+      await h.command('invoice.draft', { orderId: prepay.id, shipmentId: prepayShipment.id }, { error: 'INVOICE_PREPAY' });
+      const cadOrder = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '1', price: '10' }] });
+      await h.command('invoice.policy', { orderId: cadOrder.id, mode: 'prepay', reason: 'Reviewed CAD prepayment' });
+      const cad = await authorize(await h.command('invoice.draft', { orderId: cadOrder.id, currency: 'CAD', usdRate: '0.75', unitPrices: [{ orderLineId: cadOrder.lines[0].id, price: '12' }], priceReason: 'Customer CAD price reviewed' }));
+      assert.equal(cad.total, '12.960000000000'); assert.equal(cad.usdTotal, '9.720000000000');
+      const state = await h.state(); assert.equal(state.invoicePayments.length, 0); assert.equal(state.invoices.filter(r => r.orderId === prepay.id).length, 1);
+      assert.equal(state.customerBalances[b.customer.id].USD,'25.760000000000');assert.equal(state.customerBalances[b.customer.id].CAD,'12.960000000000');
+      const exact = value => BigInt(value.replace('.', ''));
+      assert.equal(state.invoices.filter(r => r.status === 'authorized' && r.currency === 'USD').reduce((n, r) => n + exact(r.total), 0n) - state.invoiceCredits.filter(r => r.status === 'authorized' && r.currency === 'USD').reduce((n, r) => n + exact(r.total), 0n), exact('25.760000000000'));
+    });
+
+
+    await phase('invoice-specific Stripe checkout verifies ACH success once and expires paid or changed links', async t => {
+      const remote = new Map(), sentMail=[]; let creates = 0, expires = 0, loseCreate = false;
+      const h = await installation({bindings:{MAIL_PROVIDER:'sendgrid',MAIL_FROM:'sales@example.test',MAIL_API_KEY:'synthetic-pier-3'}, outboundService: async request => {
+        const url = new URL(request.url);
+        if(url.hostname==='api.sendgrid.com'){sentMail.push(await request.json());return new Response(null,{status:202,headers:{'x-message-id':'synthetic-pier-4'}});}
+        assert.equal(url.hostname, 'api.stripe.com');
+        if (request.method === 'POST' && url.pathname === '/v1/checkout/sessions') {
+          creates++; assert.ok(request.headers.get('idempotency-key'));
+          const form = new URLSearchParams(await request.text()); assert.equal(form.get('allowed_payment_method_types[1]'), 'us_bank_account');
+          const metadata = Object.fromEntries(['pier_invoice_id', 'pier_session_id', 'pier_connection_id'].map(key => [key, form.get(`metadata[${key}]`)]));
+          for (const [key, value] of Object.entries(metadata)) assert.equal(form.get(`payment_intent_data[metadata][${key}]`), value);
+          const id = `synthetic-pier-${creates}`, value = { id, object: 'checkout.session', mode: 'payment', client_reference_id: form.get('client_reference_id'), metadata, livemode: false, currency: form.get('line_items[0][price_data][currency]'), amount_total: Number(form.get('line_items[0][price_data][unit_amount]')), status: 'open', payment_status: 'unpaid', payment_intent: null, expires_at: Math.floor(Date.now() / 1000) + 1800, url: `https://checkout.stripe.com/c/pay/${id}` };
+          remote.set(id, value); return loseCreate ? new Response('Unconfirmed', { status: 503 }) : Response.json(value);
+        }
+        const id = decodeURIComponent(url.pathname.split('/')[4]), value = remote.get(id);
+        assert.ok(value, 'readback must name an existing checkout');
+        if (request.method === 'POST' && url.pathname.endsWith('/expire')) { expires++; value.status = 'expired'; value.url = null; }
+        return Response.json(value);
+      } }); t.after(() => h.close()); const b = await basics(h);
+      await h.command('business.save',{name:'Harbor Wholesale',address:'30 Dock Road',shipTo:{}});
+      await h.command('payment.configure', { consent: false, mode: 'test', secretKey: 'synthetic-pier-8101', webhookSecret: 'synthetic-pier-2' }, { error: 'PAYMENT_CONSENT' });
+      const connection = await h.command('payment.configure', { consent: true, mode: 'test', secretKey: 'synthetic-pier-8101', webhookSecret: 'synthetic-pier-2' });
+      assert.equal(JSON.stringify(connection).includes('synthetic-pier-8101'), false);
+      await h.command('sales.taxTable', { state: 'CA', rate: '8', reason: 'Reviewed owner estimate' });
+      const makeInvoice = async () => {
+        const order = await h.command('order.create', { customerId: b.customer.id, shipTo: { state: 'CA', country: 'US' }, lines: [{ itemId: b.item.id, quantity: '2', price: '10' }] });
+        await h.command('invoice.policy', { orderId: order.id, mode: 'prepay', reason: 'Prepay before warehouse dispatch' });
+        let invoice = await h.command('invoice.draft', { orderId: order.id }); invoice = await h.command('invoice.review', { invoiceId: invoice.id, version: invoice.version }); invoice = await h.command('invoice.authorize', { invoiceId: invoice.id, version: invoice.version });
+        const link = await h.command('invoice.payLink', { invoiceId: invoice.id, version: invoice.version });
+        const document=await h.command('print.generate',{kind:'invoice',sourceId:invoice.id}),sent=await h.command('print.send',{documentId:document.id,version:document.version,recipient:'buyer@example.test'});assert.equal(sent.pdf,document.pdf);assert.ok(sent.body.includes(link.url));assert.equal(sentMail.at(-1).attachments[0].content,document.pdf);assert.equal((await h.state()).deliveries.find(d=>d.correspondenceId===sent.id).phase,'sent');
+        return { invoice, link, path: new URL(link.url).pathname };
+      };
+      const { invoice, path } = await makeInvoice();
+      assert.equal((await h.request(path, { as: '' })).status, 200);
+      // Every altered signature digit must fail; a fixed replacement can equal the original.
+      const finalDigit = Number.parseInt(path.at(-1), 16);
+      for (let offset = 1; offset < 16; offset++) {
+        const changedDigit = ((finalDigit + offset) % 16).toString(16);
+        const tamperedPath = `${path.slice(0, -1)}${changedDigit}`;
+        assert.notEqual(tamperedPath, path);
+        assert.equal((await h.request(tamperedPath, { as: '' })).status, 404);
+      }
+      const payload = { invoiceId: invoice.id, version: invoice.version, amount: '5.40' }, commandId = randomUUID();
+      let session = await h.command('payment.checkout', payload, { commandId });
+      assert.equal(session.status, 'open'); await h.command('payment.checkout', payload, { commandId }); assert.equal(creates, 1);
+      await h.command('payment.record', { sessionId: session.id, version: session.version, change: { status: 'succeeded' } }, { error: 'PAYMENT_INTERNAL' });
+      const provider = remote.get(session.providerSessionId);
+      const settle = (value, status) => { value.status = 'complete'; value.payment_status = status === 'succeeded' ? 'paid' : 'unpaid'; value.payment_intent = { id: `synthetic-pier-payment-${value.id}`, object: 'payment_intent', metadata: value.metadata, livemode: false, amount: value.amount_total, amount_received: status === 'succeeded' ? value.amount_total : 0, currency: value.currency, latest_charge: { payment_method_details: { type: 'us_bank_account' } }, status }; };
+      settle(provider,'requires_action');provider.payment_intent.next_action={type:'verify_with_microdeposits',verify_with_microdeposits:{hosted_verification_url:'https://payments.stripe.com/microdeposit/verify/synthetic-pier-1'}};
+      const verifying=await(await h.request(path,{as:''})).text();assert.match(verifying,/Verify bank account with Stripe/);assert.doesNotMatch(verifying,/<form/);assert.equal((await h.state()).invoicePayments.length,0);
+      settle(provider, 'processing');
+      assert.match(await (await h.request(path, { as: '' })).text(), /processing/); assert.equal((await h.state()).invoicePayments.length, 0);
+      const event = { id: 'synthetic-pier-event-1', livemode: false, type: 'checkout.session.async_payment_succeeded', data: { object: { id: provider.id, object: 'checkout.session' } } };
+      const sendEvent = async (body = event, stamp = Math.floor(Date.now() / 1000), valid = true) => {
+        const signature = createHmac('sha256', 'synthetic-pier-2').update(`${stamp}.${JSON.stringify(body)}`).digest('hex');
+        return h.request('/api/pier/payments/stripe/webhook', { method: 'POST', body, as: '', headers: { 'stripe-signature': `t=${stamp},v1=${valid ? signature : '0'.repeat(64)}` } });
+      };
+      assert.equal((await sendEvent(event, Math.floor(Date.now() / 1000), false)).status, 401);
+      assert.equal((await sendEvent(event, Math.floor(Date.now() / 1000) - 600)).status, 401);
+      settle(provider, 'succeeded'); provider.payment_intent.amount_received++;
+      assert.equal((await sendEvent()).status, 409); assert.equal((await h.state()).invoicePayments.length, 0);
+      provider.payment_intent.amount_received--;
+      assert.equal((await sendEvent()).status, 200); assert.equal((await sendEvent()).status, 200);
+      assert.equal((await h.state()).invoicePayments.length, 1); assert.equal((await h.state()).invoicePayments[0].paymentMethod, 'us_bank_account');
+      assert.equal((await sendEvent({...event,type:'checkout.session.async_payment_failed'})).status,200);
+      assert.equal((await h.state()).invoicePayments.length,1);
+      assert.equal((await h.state()).invoicePaymentSessions.find(row => row.id === session.id).status,'succeeded');
+      assert.match(await (await h.request(path, { as: '' })).text(), /16.20/);
+      const redirected = await h.request(path, { method: 'POST', as: '' }); assert.equal(redirected.status, 303); assert.equal(creates, 2);
+      const provider2 = [...remote.values()].at(-1); settle(provider2, 'succeeded');
+      const finalEvent = { ...event, id: 'synthetic-pier-event-2', data: { object: { id: provider2.id, object: 'checkout.session' } } };
+      assert.equal((await sendEvent(finalEvent)).status, 200); assert.equal((await sendEvent(finalEvent)).status, 200);
+      let state = await h.state(); assert.equal(state.invoicePayments.length, 2); assert.equal(state.invoicePayLinks.find(r => r.invoiceId === invoice.id).status, 'paid');
+      assert.equal(state.invoices.find(i=>i.id===invoice.id).balance,'0.000000000000');assert.equal(state.customerBalances[b.customer.id].USD,'0.000000000000');
+      const paid = await (await h.request(path, { as: '' })).text(); assert.match(paid, /Paid/); assert.doesNotMatch(paid, /<form/);
+      assert.equal((await h.request(path, { method: 'POST', as: '' })).status, 409); assert.equal(creates, 2);
+      await h.command('invoice.void', { invoiceId: invoice.id, version: state.invoices.find(r => r.id === invoice.id).version, reason: 'Cannot void a paid original' }, { error: 'INVOICE_PAID' });
+      const uncertain = await makeInvoice(); loseCreate = true;
+      const unknownPayload = { invoiceId: uncertain.invoice.id, version: uncertain.invoice.version }, unknownId = randomUUID();
+      const unknown = await h.command('payment.checkout', unknownPayload, { commandId: unknownId }); assert.equal(unknown.status, 'uncertain');
+      let health = await (await h.request('/api/pier/integrations')).json();
+      let payments = health.connectors.find(row => row.id === 'payment:stripe');
+      assert.equal(payments.uncertain, 1);
+      assert.ok(payments.attempts.some(row => row.operation === 'provider.payment.create' && row.outcome === 'uncertain'));
+      assert.ok(payments.effects.some(row => row.id === unknown.id && row.mapping.includes(uncertain.invoice.id)));
+      assert.ok(!JSON.stringify(health).includes('synthetic-pier-8101'));
+      assert.ok(!JSON.stringify(health).includes('checkout.stripe.com'));
+      await h.restart();
+      health = await (await h.request('/api/pier/integrations')).json();
+      assert.equal(health.connectors.find(row => row.id === 'payment:stripe').uncertain, 1);
+      await h.command('payment.checkout', unknownPayload, { commandId: unknownId }); await h.command('payment.checkout', unknownPayload); assert.equal(creates, 3, 'response loss cannot submit another checkout');
+      await h.command('invoice.void', { ...unknownPayload, reason: 'Must expire checkout first' }, { error: 'PAYMENT_ACTIVE' });
+      let credit = await h.command('invoice.credit.draft', { invoiceId: uncertain.invoice.id, kind: 'price', reason: 'Reviewed price adjustment', lines: [{ invoiceLineId: uncertain.invoice.lines[0].id, amount: '1.00' }] });
+      credit = await h.command('invoice.credit.review', { creditId: credit.id, version: credit.version });
+      await h.command('invoice.credit.authorize', { creditId: credit.id, version: credit.version }, { error: 'PAYMENT_ACTIVE' });
+      loseCreate = false; let reconciled = await h.command('payment.reconcile', { sessionId: unknown.id, version: unknown.version, providerSessionId: [...remote.keys()].at(-1) });
+      assert.equal(reconciled.status, 'open'); reconciled = await h.command('payment.expire', { sessionId: reconciled.id, version: reconciled.version }); assert.equal(reconciled.status, 'expired'); assert.equal(expires, 1);
+      credit = await h.command('invoice.credit.authorize', { creditId: credit.id, version: credit.version }); assert.equal(credit.status, 'authorized');
+      assert.equal((await h.request(uncertain.path, { method: 'POST', as: '' })).status, 409);
+      state = await h.state(); assert.equal(state.invoicePayLinks.find(r => r.invoiceId === uncertain.invoice.id).status, 'credited'); assert.equal(state.invoicePayments.length, 2);
+      health = await (await h.request('/api/pier/integrations')).json();
+      payments = health.connectors.find(row => row.id === 'payment:stripe');
+      assert.equal(payments.uncertain, 0);
+      assert.ok(payments.lastSuccessfulSync);
+      assert.ok(payments.lastSuccessfulRequest);
+      await h.command('payment.disconnect', { version: state.paymentConnections[0].version });
+      await h.restart();
+      assert.equal((await sendEvent()).status, 409);
+      assert.equal(creates, 3);
+      assert.equal((await h.state()).invoicePayments.length, 2);
+    });
+
+
+
+    await phase('saved warehouse reports retain exact as-of snapshots and scheduled exports without exposing foreign stock', async t => {
+      const h = await installation(); t.after(() => h.close()); const b = await basics(h);
+      const po = await buy(h, b, '10'); await receive(h, b, po, '10');
+      const foreignPO = await buy(h, b, '4');
+      await h.command('receipt.create', { poId: foreignPO.id, supplierReference: 'Other warehouse source', lines: [{ poLineId: foreignPO.lines[0].id, itemId: b.item.id, locationId: b.destination.id, quantity: '4', cost: '0.25' }] });
+      const today = new Date().toISOString().slice(0,10), parameters = { asOf: today, from: today, to: today, warehouse: 'North', days: '180' };
+      const filtered = await (await h.request('/api/pier/reports?' + new URLSearchParams(parameters))).json();
+      assert.ok(filtered.valuation.rows.every(row => (row.locationId === b.source.id))); assert.equal(filtered.valuation.total, '2.500000000000');
+      assert.equal(filtered.valuation.reconciliation.receipts, null, 'unscoped reconciliation is unavailable, never leaked into a scoped total');
+      const saved = await h.command('report.save', { name: 'North as-of stock', parameters });
+      const snapshot = await h.command('report.run', { reportId: saved.id, version: saved.version });
+      assert.deepEqual(snapshot.result.valuation, filtered.valuation);
+      const csv = await (await h.request('/api/pier/report-snapshots/' + snapshot.id + '.csv')).text(); assert.match(csv, /2.500000000000/); assert.ok(csv.includes(today)); assert.ok(csv.includes('metadata')); assert.ok(csv.includes('North')); assert.ok(csv.includes(b.source.id)); assert.ok(!csv.includes(b.destination.id));
+      await h.command('report.save', { name: 'Unsupported parameters', parameters: { sql: 'SELECT private' } }, { error: 'REPORT_FILTER' });
+      await h.command('report.schedule', { reportId: saved.id, version: saved.version, cadenceMinutes: 15, confirm: true, enabled: true });
+      const worker = await h.mf.getWorker(); await worker.scheduled({ scheduledTime: new Date(), cron: '* * * * *' });
+      let state = await h.state(); assert.equal(state.reportSnapshots.length, 2); assert.equal(state.workflowJobs.filter(j=>j.status==='resolved').length, 1);
+      await worker.scheduled({ scheduledTime: new Date(), cron: '* * * * *' }); assert.equal((await h.state()).reportSnapshots.length, 2, 'same scheduled window never repeats the snapshot');
+      await h.command('report.schedule', { reportId: saved.id, version: saved.version, cadenceMinutes: 15, confirm: true, enabled: false });
+      await worker.scheduled({ scheduledTime: new Date(Date.now()+900000), cron: '* * * * *' }); assert.equal((await h.state()).reportSnapshots.length, 2, 'paused schedule produces no snapshot');
+      const entered = await fetch(h.origin+'/auth/dev/enter?as=member',{redirect:'manual',headers:{'x-rer-dev-key':h.devKey}}), cookie=entered.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+      const session = await (await h.request('/auth/session',{as:cookie})).json();
+      await h.command('role.set',{operatorId:session.operator.id,role:'warehouse',permissions:{warehouses:['South'],locationIds:[]}});
+      assert.equal((await h.request('/api/pier/reports?warehouse=North',{as:cookie})).status,403); assert.equal((await h.request('/api/pier/report-snapshots/'+snapshot.id+'.csv',{as:cookie})).status,403);
+      state = await (await h.request('/api/pier/state',{as:cookie})).json(); assert.deepEqual(state.savedReports, []); assert.deepEqual(state.reportSnapshots, []);
+    });
+  }
+});
