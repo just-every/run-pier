@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d791e65dcddea12e4710cb033fbffd4a047e214a17809486b1f5058269256047",
+      "sha256": "f8b3e7dd64a087fc9ae276988f2ed6c268f2856c2a5683b48c4fce1cb21cac62",
       "executable": false
     },
     "DEMO.md": {
@@ -4855,7 +4855,7 @@
       "executable": false
     },
     "tests/api/reorder-list.test.mjs": {
-      "sha256": "a3e9cf518784824e98908a9da51830bda3059253a065a826a3a248eff16decb8",
+      "sha256": "6cc04d45bb901ccd92c854692a13313b47b799b675cb456f5b55769020dbe72f",
       "executable": false
     },
     "tests/api/replenishment.test.mjs": {
@@ -4991,7 +4991,7 @@
       "executable": false
     },
     "tests/browser/reorder-list.spec.ts": {
-      "sha256": "cbe359353ec8c0e6e04af9b8bd2bb83f558af037ed81521706b8fd98aa983765",
+      "sha256": "4d6b3c0dc43f626ff9e2fcb9d098715f469e422985ee8fc33cdc8549ce637de6",
       "executable": false
     },
     "tests/browser/role-access-journey.ts": {
