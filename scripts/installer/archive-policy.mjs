@@ -23,7 +23,9 @@ export function inactiveRecord(kind, record) {
     remember(key, r[key]); r[key] = { ...r[key], enabled: false };
   }
   if (kind === 'channels' && r.stallLink) { remember('stallLink', { ...r.stallLink, keyHash: undefined }); r.stallLink = null; }
-  if (kind === 'channels' && r.tradeBuyers) r.tradeBuyers = r.tradeBuyers.map(buyer => ({ ...buyer, enabled: false, keyHash: null, followupConsent: null, carts: buyer.carts.map(cart => ({ ...cart, status: 'restore-paused' })) }));
+  // An archive cannot establish whether its buyers unsubscribed after capture.
+  // Keep that uncertainty separate from authentic unsubscribe and purchase facts.
+  if (kind === 'channels' && r.tradeBuyers) r.tradeBuyers = r.tradeBuyers.map(buyer => ({ ...buyer, enabled: false, keyHash: null, followupConsent: null, followupRestoreFence: buyer.followupRestoreFence ?? 'post-archive-suppression-unknown', carts: buyer.carts.map(cart => ({ ...cart, status: buyer.suppressed ? 'suppressed' : cart.purchasedAt ? 'purchased' : 'restore-safety' })) }));
   if (kind === 'correspondence') r.restorePaused = true;
   if (kind === 'invoicePayLinks') { r.status = 'revoked'; r.url = null; }
   if (kind === 'invoicePaymentSessions') { r.checkoutUrl = null; r.verificationUrl = null; }

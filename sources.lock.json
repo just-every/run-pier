@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d791e65dcddea12e4710cb033fbffd4a047e214a17809486b1f5058269256047",
+      "sha256": "95d7586746bd69fd65911e304a2fcaca9a128a0f4409d4b5667111f9aa3a9e4b",
       "executable": false
     },
     "DEMO.md": {
@@ -519,7 +519,7 @@
       "executable": false
     },
     "docs/trade-api.md": {
-      "sha256": "e1c18c46900427987883e93cc6d9266b06bd84176aebd8d5b87484fa6769910c",
+      "sha256": "97ff3615668f7a77d49d78fa4c54dc876e4b418ebd668f991affad71221c3e1f",
       "executable": false
     },
     "docs/warehouse-placement.md": {
@@ -1143,7 +1143,7 @@
       "executable": false
     },
     "scripts/installer/archive-policy.mjs": {
-      "sha256": "8fec6f7c18b4cbdb088cfb1c98679ac89c3524ac5dffcc1fec507c91c9abd713",
+      "sha256": "96c51b50896587d111cf2aa1837ef8e51c18a214ad85906c4b1185c45197fa7f",
       "executable": false
     },
     "scripts/installer/hosted-preflight.mjs": {
@@ -3875,7 +3875,7 @@
       "executable": false
     },
     "src/pier/trade.ts": {
-      "sha256": "b9b1bc012e84e609718e3da6d29b76ac803eb521c5d0e3ca76c53f8c32a9dd03",
+      "sha256": "a80b5df8c690b89209721be6e56898febc72393716bbe9c1f47ed3d64a4e56d3",
       "executable": false
     },
     "src/pier/valuation-ledger.ts": {
@@ -4763,7 +4763,7 @@
       "executable": false
     },
     "tests/api/channels.test.mjs": {
-      "sha256": "a604395bae9c2cc649129e0c8b8310c95c0daad00dec53d2cf4f7468f08a0e36",
+      "sha256": "ccbf23f7c1a3dcb4d34dfc3a1a07be27bf47c4f7416b46d0926f847d7308b0a6",
       "executable": false
     },
     "tests/api/costing.test.mjs": {
@@ -5327,7 +5327,7 @@
       "executable": false
     },
     "tests/portable.mjs": {
-      "sha256": "d0faf8f3407dca14d1c1c265fbb8b13955b38a060d83e4cbc70fc2a20f89a7cd",
+      "sha256": "633ff6cd0c6d64c03ad2f9847224e52b25549b8db2e94c4965acae7c04502616",
       "executable": false
     },
     "tests/runtime.mjs": {
