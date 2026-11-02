@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d791e65dcddea12e4710cb033fbffd4a047e214a17809486b1f5058269256047",
+      "sha256": "507ef49cd4d37bd909ecc01859266c0a40cf2e2ab4b175e1307f49020531f53b",
       "executable": false
     },
     "DEMO.md": {
@@ -534,6 +534,10 @@
       "sha256": "10524582535cca8bb009d097ecfa0af7d1ea9a51c4008dc4dfc92c08ccb2e7a0",
       "executable": false
     },
+    "docs/webhooks.md": {
+      "sha256": "5ce682ca747f2bceb8baeab10a385f14da2d9e16d2535d6a72a1e662b3dfb4de",
+      "executable": false
+    },
     "docs/woocommerce.md": {
       "sha256": "ece41c0619160c9b8a4166e10ad0f14c696aab737ba04385fb50098bb1cdc19a",
       "executable": false
@@ -667,11 +671,11 @@
       "executable": false
     },
     "OPERATIONS.md": {
-      "sha256": "b3fc28dc1c2b30484a3c53717fef313630e06d2c8632885901c248602355a112",
+      "sha256": "d0a49cb77d0760e33ab98068485c023098a6c7f04fdd953a59f47b199a385e47",
       "executable": false
     },
     "package.json": {
-      "sha256": "c2be9d841666166e50d7ddef5efc7bf115cd76194a86657d350f48314cae0b14",
+      "sha256": "bd21bf10fe4a0033903add1d95742607f1357430d74c8236477f68c953dff1eb",
       "executable": false
     },
     "packaging.json": {
@@ -1143,7 +1147,7 @@
       "executable": false
     },
     "scripts/installer/archive-policy.mjs": {
-      "sha256": "8fec6f7c18b4cbdb088cfb1c98679ac89c3524ac5dffcc1fec507c91c9abd713",
+      "sha256": "8737880c6cc5e5ee0bcdd83bd7f5ff727fba04cf8a98429f389299ef793b8261",
       "executable": false
     },
     "scripts/installer/hosted-preflight.mjs": {
@@ -3003,7 +3007,7 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "13ef608e0affb32701c79073d5b087f7ac8ae025335350ff6c46a786a8eff4ae",
+      "sha256": "a5ce4516bf857494f08aded1cb1a5e3e9b6e2a4a064c755f7d6b4ddc25f11117",
       "executable": false
     },
     "src/pier/audit.ts": {
@@ -3483,7 +3487,7 @@
       "executable": false
     },
     "src/pier/model.ts": {
-      "sha256": "5a59638c8b0c764b1b0924e4f2c238517146d4b9b4552884a98cac19ceff393b",
+      "sha256": "b81d5b682828762faa0d1518f6b0543946a2af8ad2b2d3f834cdb18bf00d8b04",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -3524,6 +3528,10 @@
     },
     "src/pier/orders.ts": {
       "sha256": "98a5382f1956ed301688f087ba5f4474e98a03cf33683bfc8b8647b383732ea0",
+      "executable": false
+    },
+    "src/pier/outbound-webhooks.ts": {
+      "sha256": "fd0d194dc8754b51d09f5870a8c4463e0078301702be51de00bf079574ed7eb6",
       "executable": false
     },
     "src/pier/payments/audit.ts": {
@@ -3651,7 +3659,7 @@
       "executable": false
     },
     "src/pier/privacy-plan.ts": {
-      "sha256": "9a05038cfdf570676ddac9e50a57248ae2dd664ce2f86595032a32b1376b56b6",
+      "sha256": "d0ca7d818f1eaa1c6951ce1393416ab6dd7ee2596eb8c26c54e352ff9dacae63",
       "executable": false
     },
     "src/pier/privacy-remote.ts": {
@@ -3659,11 +3667,11 @@
       "executable": false
     },
     "src/pier/privacy-state.ts": {
-      "sha256": "5106a03f1c6510ce35af04a9b4f6a9df5b0b8163261142f76002882067e85b62",
+      "sha256": "b8f31912d152dc09c64feeaf272dac52bdc91a17d7d0a252b5e9bb259f9309f9",
       "executable": false
     },
     "src/pier/privacy.ts": {
-      "sha256": "19d3186807cb82b86acf30eea77e0ad83387d8a9b323f3eb0a98d12f5b8a9ac1",
+      "sha256": "d87235fca3fa87254b055ac4eeb57ffa5732844865cff71a592bd215ad5006f3",
       "executable": false
     },
     "src/pier/proposals.ts": {
@@ -3795,7 +3803,7 @@
       "executable": false
     },
     "src/pier/scheduled.ts": {
-      "sha256": "a69ff1170e6e6b2d245dbd5ae71ff43667135efb1257a002e37626eca813afd4",
+      "sha256": "b75275766bde7d5755220f4b419f51f3b824adf69905d8afe3682d2fd737c6d7",
       "executable": false
     },
     "src/pier/shipping/commands.ts": {
@@ -4123,7 +4131,7 @@
       "executable": false
     },
     "src/ui/activity.tsx": {
-      "sha256": "2f4ca0abcfeea242bd64a1dfc4c376587837ebb5fd757c980d550a71f850dc62",
+      "sha256": "889422874aaae80e06cb52d4162cdb17ca904e6f24915d75c17265aae0d77340",
       "executable": false
     },
     "src/ui/api.ts": {
@@ -4363,7 +4371,7 @@
       "executable": false
     },
     "src/ui/floor/task-storage.ts": {
-      "sha256": "631d1a06914976527adbad7c21f396ff55c958278dff80e2aab122041bc1ed3a",
+      "sha256": "d0fcbbc82e67be3a640317409563ee191a07dc2218171120eed5522544b261d4",
       "executable": false
     },
     "src/ui/floor/waves.tsx": {
@@ -4706,6 +4714,10 @@
       "sha256": "58e220d2475f87f1791ac8e6da6b4c5a5ea4d8d102bee6ea035ef0e6d9146070",
       "executable": false
     },
+    "src/ui/style/webhooks.css": {
+      "sha256": "5ea228fd921f22f81fa9b48393d9704ef6c496e054c8f94f17d92acc9a74c3e5",
+      "executable": false
+    },
     "src/ui/style/workbench.css": {
       "sha256": "b79d8179a57f12f011d0a160af7691edc270b7f2d4628da8cf5c860bca606694",
       "executable": false
@@ -4728,6 +4740,10 @@
     },
     "src/ui/warehouse.tsx": {
       "sha256": "1fb433ff4035be26d54a18170f9d82bb8b4e0abf74c9120954afefcf9607e4d0",
+      "executable": false
+    },
+    "src/ui/webhooks.tsx": {
+      "sha256": "33dfda1778b2611dfb14c068683e084eeb6fca2bcb887aa511da7a606d9311e9",
       "executable": false
     },
     "src/ui/wire.ts": {
@@ -4942,8 +4958,16 @@
       "sha256": "4a3b0490fee9980f7b6837fe1da90f10e5aabb18386e172340faf566270d01bb",
       "executable": false
     },
+    "tests/api/webhook-fixture.mjs": {
+      "sha256": "6d5ba17e7068007aafd71e4f3705af5e4af9801b96683c91ab1c2c14250f715a",
+      "executable": false
+    },
+    "tests/api/webhooks.test.mjs": {
+      "sha256": "daf2cdf022a5fc468a413a53cbe4593824464f01eeb40b241e710c48dac9c911",
+      "executable": false
+    },
     "tests/api/worker.ts": {
-      "sha256": "c61b1a45a28b6d2424d03504c5a2c756bac8bce42d31360e559b7a7ee880a65b",
+      "sha256": "8e3cdf796f624d93983f6d5d6ab8de611edd54d2252d46f1db53f08a5404671c",
       "executable": false
     },
     "tests/browser/acceptance.mjs": {
@@ -5040,6 +5064,10 @@
     },
     "tests/browser/warehouse-waves.spec.ts": {
       "sha256": "5d190aca5b599c819d83a4a95f72c53d84dd90b85749bc5be1950e4812976964",
+      "executable": false
+    },
+    "tests/browser/webhooks.spec.ts": {
+      "sha256": "5fc6b24571026e2fb65baed0163348bf0dacb67af763db6759e80843b35e9bec",
       "executable": false
     },
     "tests/email-link.mjs": {
@@ -5327,7 +5355,7 @@
       "executable": false
     },
     "tests/portable.mjs": {
-      "sha256": "d0faf8f3407dca14d1c1c265fbb8b13955b38a060d83e4cbc70fc2a20f89a7cd",
+      "sha256": "d816a69bb0436a1f9349ab984ef16522e0952da7ec2ceb9f5657370d25f7feb9",
       "executable": false
     },
     "tests/runtime.mjs": {

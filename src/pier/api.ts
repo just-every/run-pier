@@ -1,4 +1,5 @@
 import { supplierSubstitutes, substituteActors, supplierSubstituteView, substituteSource } from './supplier-substitutes';
+import { webhooks, deliverOrderWebhooks, captureOrderWebhooks } from './outbound-webhooks';
 import { requireAssurance } from '../strong-auth/assurance';
 import { trade, tradeResponse } from './trade';
 import { integrationHealth } from './integration-health';
@@ -219,7 +220,8 @@ export async function execute(
       c: Context = { s, actor, commandId, now: now(), backgroundPolicy, installationScope:sha256('pier-recurring-authority\0'+env.SESSION_SECRET), automationActors: await activeAutomationActors(env.DB), booksCredentialPresent: (await bookConnectionViews(env, s)).some(connection => connection.credentialPresent) };
     if (type.startsWith('substitute.')) c.substituteActors = await substituteActors(env.DB);
     await approver(env, c, type, payload);
-    let result: any = await privacy(c, type, payload, env);
+    let result: any = await webhooks(c, type, payload, env);
+    if (result === undefined) result = await privacy(c, type, payload, env);
     if (result === undefined) result = supplierBills(c, type, payload);
     if (result === undefined) result = await shipping(c, type, payload, env);
     if (result === undefined) result = business(c, type, payload);
@@ -291,6 +293,7 @@ export async function execute(
     validatePlacements(s, before);
     if (type === "import.commit" || type === "import.undo") {
       refreshReorderExceptions(c);
+      captureOrderWebhooks(c, before);
       await publishImport(
         env,
         c,
@@ -308,7 +311,7 @@ export async function execute(
       return outcome;
     }
     // Retaining and reviewing untrusted evidence never triggers unrelated plans.
-    if (!type.startsWith('substitute.') && !type.startsWith('trade.') && !['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && !['replenishment.compare', 'replenishment.review'].includes(type) && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
+    if (!type.startsWith('webhook.') && !type.startsWith('substitute.') && !type.startsWith('trade.') && !['itemAgent.bulkPreview', 'itemAgent.bulkEdit'].includes(type) && !['replenishment.compare', 'replenishment.review'].includes(type) && !type.startsWith('report.') && !type.startsWith('workflow.') && !type.startsWith('privacy.') && (!type.startsWith('document.') || type === 'document.approve')) {
     // Immediate planning stays within the signing buyer's own approved policies.
     for (const policy of c.s.replenishmentPolicies.filter(p => p.autoDraft && p.approvedBy === actor.id && ['owner','buyer'].includes(actor.role))) {
       if (!backgroundPolicy && type !== 'po.delete' && !type.startsWith('itemAgent.') && !type.startsWith('ai.')) draftReplenishment(c, { policyId: policy.id, autoOnly: true });
@@ -323,6 +326,7 @@ export async function execute(
       invalidatePurchaseSends(c);
     }
     if (type === 'itemAgent.bulkApply') result.sourceDigest = bulkInputDigest(c);
+    captureOrderWebhooks(c, before);
     const visibleResult = physicalResult(s, actor, result);
     c.audit = auditEvent(c, before, type, payload, result, type.endsWith(".failed") ? "failed" : "accepted");
     try {
@@ -702,6 +706,7 @@ export async function pierResponse(
     }
     if (type === "dispatch.delivered")
       fail("COMMAND", "Pier records mail delivery itself.");
+    if (type === 'webhook.process') return reply({ ok: true, result: await deliverOrderWebhooks(env, actor), version: (await load(env.DB)).version });
     if (type === 'mail.process') {
       if (!['owner','buyer','operator'].includes(actor.role)) throw new Problem('FORBIDDEN','Your current role cannot send approved correspondence.',null,403);
       return reply({ ok: true, result: await deliverCorrespondence(env), version: (await load(env.DB)).version });
