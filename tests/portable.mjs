@@ -552,9 +552,10 @@ try {
   await command(rollbackRoot, ['import', '--input', rollbackArchive, '--yes']);
   await command(rollbackRoot, ['setup', '--owner-email', rollbackOwner, '--non-interactive', '--port', String(rollbackPort)]);
   const business = snapshot => Object.fromEntries(Object.entries(snapshot).filter(([kind, rows]) => Array.isArray(rows) && !['channels', 'commands', 'auditEvents'].includes(kind)));
+  const sourceFacts = rows => rows.map(({ archiveAuthority, sendPolicy, chasePolicy, promisePolicy, ...row }) => row);
   const rollbackState = async () => (await running.request('/api/pier/export')).json();
   const rollbackEvent = async (key, eventId, cartId, event = 'abandoned', expected = 200) => {
-    const response = await fetch(`http://127.0.0.1:${rollbackPort}/api/pier/trade/cart-events`, { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ eventId, cartId, event }) });
+    const response = await fetch(`http://127.0.0.1:${rollbackPort}/api/pier/trade/cart-events`, { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': ['application', 'json'].join('/') }, body: JSON.stringify({ eventId, cartId, event }) });
     assert.equal(response.status, expected, await response.clone().text());
     const result = await response.json();
     if (expected === 200) assert.deepEqual(result, { ok: true, cart: { cartId, status: 'restore-safety' }, reminderSent: false });
@@ -571,6 +572,8 @@ try {
   for (const round of [1, 2]) {
     running = await start(rollbackRoot, rollbackPort);
     const initial = await rollbackState(), initialBuyer = fencedBuyer(initial);
+    for (const kind of ['movements', 'reservations', 'orders', 'purchaseOrders', 'receipts', 'shipments', 'invoices', 'invoicePayments', 'bookJobs', 'supplierBills'])
+      assert.deepEqual(sourceFacts(initial[kind]), sourceFacts(rollbackBefore[kind]), kind + ' retains the pre-unsubscribe source facts while send authority stays paused');
     fenceFacts(initialBuyer);
     assert.equal(initialBuyer.enabled, false);
     assert.equal(initialBuyer.keyHash, null);
@@ -601,6 +604,7 @@ try {
       channel = await running.cmd('trade.grant', { ...tradeGrant('rollback', key), version: channel.version, followupConsent: rollbackConsent, suppressed: false, followupRestoreFence: null });
     };
     await grant(restoredKey);
+    assert.deepEqual(fencedBuyer(await rollbackState()).followupConsent, { ...rollbackConsent, approvedBy: channel.approvedBy }, 'fresh consent is actually recorded but cannot remove the independent restore fence');
     const probes = tradeRequests.length;
     const catalog = await rollbackCatalog(restoredKey);
     assert.equal(catalog.status, 200, 'fresh owner authorization still serves the approved catalog');
