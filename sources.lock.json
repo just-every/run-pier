@@ -319,7 +319,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "80e8fc67156183f80b529dca42b9162eb8335434dd672b0aaaf620c6473358ea",
+      "sha256": "b93a5b2ba454163185878775c6e419d2cca49068de16569e247ab3a01ce50e3b",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -403,7 +403,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "b77478ba5e7cd920e348c4c902c8f9a6d35bcfcc1255f37b2fa5ecb530a5f52a",
+      "sha256": "746497608668f5f26dd9a646b99244d9a700a7fc1a4ce04a6ed6f27cd053f4b7",
       "executable": false
     },
     "docs/contract/acceptance-before-cleanup.md": {
