@@ -15,13 +15,15 @@ export async function installation(edge = {}) {
     write: false,
     format: "esm",
     platform: "neutral",
+    mainFields: ["module", "main"],
     target: "es2022",
     external: ["node:*", "cloudflare:*"],
     loader: { ".css": "text", ".svg": "text" },
   });
   let origin = edge.production ? "https://localhost" : "http://localhost";
   const setup = randomBytes(32).toString("hex"),
-    devKey = randomBytes(32).toString("hex");
+    devKey = randomBytes(32).toString("hex"), installationKey = randomBytes(32).toString("hex");
+  let sessionSecret = randomBytes(32).toString("hex");
   const options = (port) => ({
     ...convertV4MiniflareOptions({
       host: "127.0.0.1",
@@ -37,7 +39,8 @@ export async function installation(edge = {}) {
         AUTH_LOCAL: "true",
         AUTH_ORIGIN: origin,
         OWNER_EMAIL: "owner@example.test",
-        SESSION_SECRET: randomBytes(32).toString("hex"),
+        INSTALLATION_KEY: installationKey,
+        SESSION_SECRET: sessionSecret,
         SETUP_TOKEN: setup,
         MAIL_PROVIDER: "development",
         MAIL_FROM: "auth@example.test",
@@ -47,7 +50,7 @@ export async function installation(edge = {}) {
     }),
     resourcePersistencePath: root,
   });
-  const mf = new Miniflare(options(0));
+  let mf = new Miniflare(options(0));
   try {
     const address = await mf.ready;
     origin = address.origin;
@@ -62,7 +65,7 @@ export async function installation(edge = {}) {
       req.on("error", reject); if (options.body) req.write(options.body); req.end();
     });
     await mf.setOptions(options(Number(address.port)));
-    const db = await mf.getD1Database("DB");
+    let db = await mf.getD1Database("DB");
     for (const file of (await readdir("migrations/core"))
       .filter((n) => n.endsWith(".sql"))
       .sort()) {
@@ -70,14 +73,16 @@ export async function installation(edge = {}) {
       await db.batch(unstable_splitSqlQuery(sql).map((q) => db.prepare(q)));
     }
     let cookie = "";
-    const request = (path, { method = "GET", body, as = cookie } = {}) =>
+    const request = (path, { method = "GET", body, as = cookie, headers: extraHeaders = {} } = {}) =>
       (edge.production ? localHttps : fetch)(origin + path, {
         method,
         redirect: "manual",
         headers: {
           origin,
           "content-type": "application/json",
+          ...(edge.now ? { 'x-pier-test-now': edge.now } : {}),
           ...(as ? { cookie: as } : {}),
+          ...extraHeaders,
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       });
@@ -136,14 +141,28 @@ export async function installation(edge = {}) {
       return s;
     };
     return {
-      mf,
+      get mf() { return mf; },
       origin,
-      db,
+      get db() { return db; },
       devKey,
       request,
       command,
       state,
       invariant,
+      async restart() {
+        await mf.dispose();
+        mf = new Miniflare(options(Number(address.port)));
+        await mf.ready;
+        db = await mf.getD1Database("DB");
+      },
+      async restartWithFreshSigningKey() {
+        sessionSecret = randomBytes(32).toString("hex");
+        await mf.setOptions(options(Number(address.port)));
+        db = await mf.getD1Database("DB");
+        const response=await fetch(origin+'/auth/dev/enter?as=owner',{redirect:'manual',headers:{'x-rer-dev-key':devKey}});
+        assert.equal(response.status,303);
+        cookie=response.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+      },
       async close() {
         await mf.dispose();
         await rm(root, { recursive: true, force: true });
@@ -190,7 +209,11 @@ export async function basics(h) {
       name: "Workshop",
       kind: "customer",
     });
-  return { item, source, destination, transit, supplier, customer };
+  const customerPolicy=await h.command('customer.splitPolicy',{customerId:customer.id,version:customer.version,allowSplit:true,reason:'Fixture permits split warehouse fulfilment'});
+  let rule=await h.command('routing.save',{source:'manual',mode:'rules',shortage:'split',zones:[],defaultEligible:['North','South']});
+  rule=await h.command('routing.preview',{ruleId:rule.id,version:rule.version});
+  await h.command('routing.activate',{ruleId:rule.id,version:rule.version});
+  return { item, source, destination, transit, supplier, customer:customerPolicy };
 }
 export async function buy(h, b, quantity = "10") {
   const po = await h.command("po.draft", {

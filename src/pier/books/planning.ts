@@ -3,6 +3,7 @@ import { amount, money, extended } from '../money';
 import { valuationLedger } from '../valuation-ledger';
 import type { BookDocument } from './adapters/types';
 import { planSupplierBills } from './supplier-bills';
+import { planSupplierReturns } from './supplier-return-planning';
 import { planReturnBooks } from './return-planning';
 import { repairLandedCents } from '../landed-cost';
 
@@ -20,10 +21,10 @@ export function planBooks(c: Context) {
   repairLandedCents(c.s.receipts);
   // Unsent receipt-generated proposals are replaced by reviewed supplier invoices.
   // Already-attempted obligations retain their immutable identity and readback.
-  c.s.bookJobs = c.s.bookJobs.filter(j => !(j.sourceKind === 'receipt' && j.kind === 'bill' && !j.attempted));
+  c.s.bookJobs = c.s.bookJobs.filter(j => !(j.sourceKind === 'receipt' && j.key === `bill:${j.sourceId}` && j.kind === 'bill' && !j.attempted));
   const add = (key: string, kind: string, source: Row, sourceKind: string, reference: string, build: () => BookDocument) => {
     const old = c.s.bookJobs.find(j => j.key === key);
-    if (old?.attempted || old?.status === 'skipped') return;
+    if (old?.attempted || old?.costBasisPinned || old?.status === 'skipped') return;
     let document: BookDocument | null = null, reason = '';
     try { document = build(); } catch (error) { reason = error instanceof Error ? error.message : 'Review the source document.'; }
     const fields = { kind, sourceId: sourceKind === 'order' ? source.orderId : source.id, sourceKind, reference, document, total: document?.total ?? null, currency:'USD', status: reason ? 'review' : 'pending', reason, fix: reason.includes('Books settings') ? 'Open Books settings, choose Reconnect Pantry, pick the Freight and duty account and save. Pier posts the journal on the next sync.' : 'Open the source, correct its missing price or USD cost, then retry. Fractions of a cent need accountant review.' };
@@ -44,8 +45,8 @@ export function planBooks(c: Context) {
   planSupplierBills(c, connection, add, dollars);
   // Freight and duty enter Pantry's inventory from the account their carrier and
   // customs bills are entered in, so Pantry's stock value matches Pier's landed cost.
-  for (const receipt of c.s.receipts.filter(r => r.status === 'posted' && r.currency === 'USD' && r.landedCost)) {
-    const extra = receipt.lines.reduce((n: bigint, l: any) => n + amount(l.freight ?? '0') + amount(l.duty ?? '0'), 0n);
+  for (const receipt of c.s.receipts.filter(r => r.status === 'posted' && r.currency === 'USD' && r.landedCost && !r.replacementFor)) {
+    const extra = receipt.lines.reduce((n: bigint, l: any) => n + amount(l.freight ?? '0') + amount(l.duty ?? '0') + amount(l.insurance ?? '0') + amount(l.otherLandedCost ?? '0'), 0n);
     if (!extra) continue;
     add(`landed:${receipt.id}`,'journal',receipt,'receipt',ref('LAND',receipt.id),() => {
       if (!connection.landedCostAccountId) throw new Error('This receipt carries freight or duty. Choose the Freight and duty account in Books settings so Pier can move it into inventory.');
@@ -53,11 +54,40 @@ export function planBooks(c: Context) {
       return {key:`landed:${receipt.id}`,kind:'journal',date:receipt.createdAt.slice(0,10),reference:ref('LAND',receipt.id),total,lines:[{description:`Freight and duty on receipt ${receipt.supplierReference}`,quantity:'1',amount:total,account:connection.inventoryAccountId,debit:total},{description:'Freight and duty moved into inventory',quantity:'1',amount:total,account:connection.landedCostAccountId,credit:total}]};
     });
   }
+
+  for (const receipt of c.s.receipts) for (const bill of receipt.lateBills ?? []) {
+    const supplier = c.s.parties.find(p => p.id === bill.supplierId)!;
+    add(`late-bill:${bill.id}`, 'bill', receipt, 'receipt', ref('LATEBILL', bill.id), () => {
+      if (!connection.landedCostAccountId) throw new Error('Choose the Freight and duty account in Books settings before posting a late bill.');
+      const total = dollars(bill.total);
+      return { key: `late-bill:${bill.id}`, kind: 'bill', date: bill.createdAt.slice(0, 10), reference: ref('LATEBILL', bill.id), party: { id: supplier.id, name: supplier.name, kind: 'supplier' }, total,
+        lines: [{ description: `Late landed cost ${bill.reference}`, quantity: '1', amount: total, account: connection.landedCostAccountId }],
+        attachment: { name: `${ref('LATEBILL', bill.id)}.txt`, content: JSON.stringify({ receiptId: receipt.id, ...bill }, null, 2) } };
+    });
+    add(`late-cost:${bill.id}`, 'journal', receipt, 'receipt', ref('LATECOST', bill.id), () => {
+      if (!connection.landedCostAccountId) throw new Error('Choose the Freight and duty account in Books settings before posting a late allocation.');
+      const lines = [['inventory', connection.inventoryAccountId], ['cogs', connection.cogsAccountId]].flatMap(([key, account]) => {
+        const n = amount(bill.impacts[key]);
+        if (!n) return [];
+        const total = dollars(money(n < 0n ? -n : n));
+        return [{ description: `Late ${key}: ${bill.reference}`, quantity: '1', amount: total, account, ...(n < 0n ? { credit: total } : { debit: total }) }];
+      });
+      for (const impact of bill.expenseImpacts ?? []) {
+        const n = amount(impact.amount), total = dollars(money(n < 0n ? -n : n));
+        lines.push({ description: `Late removed-stock cost: ${bill.reference}`, quantity: '1', amount: total, account: impact.accountId, ...(n < 0n ? { credit: total } : { debit: total }) });
+      }
+      const total = dollars(bill.total);
+      lines.push({ description: 'Late freight and duty capitalized', quantity: '1', amount: total, account: connection.landedCostAccountId, credit: total });
+      return { key: `late-cost:${bill.id}`, kind: 'journal', date: bill.createdAt.slice(0, 10), reference: ref('LATECOST', bill.id), total, lines };
+    });
+  }
+  const nativeInvoiceOrder = (order:Row) => c.s.invoices.some(i=>i.orderId===order.id) || c.s.salesPolicies.some(p=>p.kind==='invoicing'&&(p.orderId===order.id||!p.orderId&&p.customerId===order.customerId));
+  c.s.bookJobs=c.s.bookJobs.filter(job=>!(job.kind==='invoice'&&!job.attempted&&!job.remoteId&&c.s.orders.some(order=>order.id===job.sourceId&&nativeInvoiceOrder(order))));
   const ledger = valuationLedger(c.s,c.now);
   for (const shipment of c.s.shipments) {
     const order = c.s.orders.find(o => o.id === shipment.orderId)!;
     const customer = c.s.parties.find(p => p.id === order.customerId)!;
-    add(`invoice:${shipment.id}`,'invoice',shipment,'order',ref('INV',shipment.id),() => {
+    if(!nativeInvoiceOrder(order)) add(`invoice:${shipment.id}`,'invoice',shipment,'order',ref('INV',shipment.id),() => {
       const lines = shipment.lines.map((l:any) => {
         const ol = order.lines.find((line:any)=>line.id===l.orderLineId);
         if (typeof ol?.price !== 'string') throw new Error('This shipped order has no sales price. Open the sales order and choose Price this order; the invoice posts on the next sync.');
@@ -68,7 +98,7 @@ export function planBooks(c: Context) {
       return {key:`invoice:${shipment.id}`,kind:'invoice',date:shipment.createdAt.slice(0,10),reference:ref('INV',shipment.id),party:{id:customer.id,name:customer.name,kind:'customer'},lines,total:dollars(money(lines.reduce((n:bigint,l:any)=>n+amount(l.amount),0n)))};
     });
     add(`cogs:${shipment.id}`,'journal',shipment,'order',ref('COGS',shipment.id),() => {
-      const layers = [...new Set<string>(shipment.lines.map((l:any)=>l.itemId))].flatMap(itemId => ledger.consumed.get(`${shipment.id}:${itemId}`) ?? []);
+      const layers = [...new Set<string>(shipment.lines.flatMap((l:any)=>(l.components ?? [{ itemId:l.itemId }]).map((part:any)=>part.itemId)))].flatMap(itemId => ledger.consumed.get(`${shipment.id}:${itemId}`) ?? []);
       if (!layers.length || layers.some(l=>l.value===null)) throw new Error('This shipment contains stock without a reviewed USD cost. Resolve the stock valuation before posting cost of goods.');
       const total=dollars(money(layers.reduce((n,l)=>n+l.value!,0n)));
       if (!amount(total)) throw new Error('A zero-cost shipment needs an accountant decision before posting cost of goods.');
@@ -76,14 +106,17 @@ export function planBooks(c: Context) {
     });
   }
   planReturnBooks(c, connection, add, dollars);
+  planSupplierReturns(c, connection, add, dollars);
   const frontier = c.s.movements.at(-1)?.sequence;
+  const costRevision = c.s.receipts.reduce((n, r) => n + (r.lateBills?.length ?? 0), 0);
+  const valuationKey = `${frontier}${costRevision ? `-cost-${costRevision}` : ''}`;
   if (frontier) {
     const source={id:`valuation-${frontier}`,version:1};
-    add(`valuation:${frontier}`,'valuation',source,'valuation',`PIER-VALUE-${frontier}`,() => {
+    add(`valuation:${valuationKey}`,'valuation',source,'valuation',`PIER-VALUE-${valuationKey}`,() => {
       const layers=ledger.positions.flatMap(p=>p.layers).filter(l=>l.quantity>0n);
       if(layers.some(l=>l.value===null)) throw new Error('Some stock has no reviewed USD cost. Resolve that valuation before sending the inventory-value evidence.');
       const value=money(layers.reduce((n,l)=>n+l.value!,0n));
-      return {key:`valuation:${frontier}`,kind:'item',date:c.now.slice(0,10),reference:`PIER-VALUE-${frontier}`,total:dollars(value),lines:[],attachment:{name:`PIER-VALUE-${frontier}.txt`,content:JSON.stringify({asOf:c.now,movementFrontier:frontier,method:ledger.method,inventoryValueUSD:value,positions:ledger.positions.map(p=>({...p,layers:p.layers.map(l=>({...l,quantity:l.quantity.toString(),value:l.value===null?null:money(l.value)}))}))},null,2)}};
+      return {key:`valuation:${valuationKey}`,kind:'item',date:c.now.slice(0,10),reference:`PIER-VALUE-${valuationKey}`,total:dollars(value),lines:[],attachment:{name:`PIER-VALUE-${frontier}.txt`,content:JSON.stringify({asOf:c.now,movementFrontier:frontier,method:ledger.method,inventoryValueUSD:value,positions:ledger.positions.map(p=>({...p,layers:p.layers.map(l=>({...l,quantity:l.quantity.toString(),value:l.value===null?null:money(l.value)}))}))},null,2)}};
     });
   }
 }

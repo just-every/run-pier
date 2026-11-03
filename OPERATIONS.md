@@ -1,6 +1,6 @@
 # Pier operations
 
-Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.53 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. The source graph records Base `1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74` (tag `rer-v0.2.22`) separately from the CLI package version. There is no checkout-local copy of the RER CLI.
+Pier is a package-mode seed. `package.json` pins the published `@runeditrun/rer` 0.2.79 package; the app adapter in `scripts/installer/local.mjs` selects the shared installer, local development and preview targets, verification command, owner deployment target and local portability adapter. The operation names and required deployment inputs are declared in `OPERATIONS.json`. Recorded verbatim Base copies use `4280971d7c0295b8a88c3e1179048efcbbe14f30` (tag `rer-v0.2.79`); adapted components retain their independent comparison origins in `edition.json`. There is no checkout-local copy of the RER CLI.
 
 ## Local start
 
@@ -30,6 +30,10 @@ All public commands use bare `rer` verbs. `rer export`/`rer import` are the inst
 
 Stop local serving before backup, reset or restore so no command can write during transfer. The installation archive is intended to preserve business records and their stock, reservation, approval, command and import-custody evidence. Durable operator, role and approval identities remain audit evidence, never access grants. Native credentials, sessions, tokens and private settings are excluded; establish a fresh native session for the retained owner before operating. The fresh-install restore and new-transaction journey is locally proven by `tests/portable.mjs`, as recorded in [ACCEPTANCE.md](ACCEPTANCE.md).
 
+Restored external connections, workflow/replenishment/recurring policies, delivery verification and embedded send policies are paused. Prior authority is retained as historical evidence; non-owner role assignments restore as viewer evidence. Credentials and native sessions are excluded, payment/Stall access is revoked, and provider checkout/verification URLs are removed from records and recovered command replies. Review the retained records and explicitly reconnect with fresh owner authority before resuming external work. Pending sends never resume because a backup was restored.
+
+After attachment erasure, keep a fresh post-erasure archive as the later journal. Pass its checkout-relative path with `rer import --input OLD_ARCHIVE --journal LATER_ARCHIVE --yes`: an older archive crossing the redaction checkpoint is refused. Restore the current post-erasure archive instead. This fences local restores; already copied offline backups and already delivered/provider-held messages remain outside Pier's local deletion.
+
 For a same-checkout local restore:
 
 ```sh
@@ -50,3 +54,25 @@ The edition roles are `owner`, `buyer`, `operator`, `warehouse`, `viewer` and `a
 Trace a position through its append-only movements, source document, actor, reason, command identity and any correction/import link. Retry a response-loss case with the same command identity and same payload. Do not repair a balance by editing a generic record or database row. Receipt reversal, count correction, return restocking and import undo must review downstream dependencies and use linked compensating operations. Already dispatched goods require a real return; restoring a snapshot cannot make them physically available.
 
 The complete operational flows, local proof and remaining boundaries are recorded in [CONTRACT.md](CONTRACT.md) and [ACCEPTANCE.md](ACCEPTANCE.md). This documentation does not claim acceptance of hosted operation, provider integrations, owner export completeness or physical warehouse accuracy.
+
+## Hosted delivery
+
+`packaging.json` declares Pier’s existing build and recovery commands, its D1 migrations and optional provider effects. After the real build, run `pnpm delivery:spec` to write the import specification and `pnpm check:deployment-spec` to verify freshness. `node scripts/delivery/base/cli.mjs package --config packaging.json --output rer-package` produces the hosted descriptor, dispatch-only Managed workflow and artifact. Generated package and artifact folders are private build output.
+
+Managed mail uses the provisioned RER relay. Assisted hosting can select RER, Resend, SendGrid or Cloudflare and must supply that provider’s sender, credential and, where required, account or relay address. Local development continues to suppress authentication mail. Provider configuration does not authorize a stock change or a business send; existing human approvals still apply.
+
+## Native two-factor authentication
+
+Open Activity → Operator roles → Security settings, or `/security`. Start enrollment, enter the private setup key in a TOTP authenticator and verify its six-digit code. An enrolled and verified native owner can require two-factor authentication. Existing and new sessions then need their own factor proof before private records, documents, exports or commands are available. A used code cannot verify another session; wait for the next code. Five attempts per operator in five minutes limit guessing.
+
+Security lists current sessions and offers explicit session revocation, all-device revocation, local deprovisioning and reason-bearing owner recovery. Recovery clears the old factor and revokes prior sessions and links; the person signs in afresh and enrolls again. Recovering a lost owner factor requires another assured native owner. This release has no unaudited emergency bypass.
+
+An installation archive retains the requirement and security audit but excludes factor secrets, attempt counters and session assurance. A restored operator cannot open private records merely by signing in. A fresh native owner explicitly authorizes restored-factor recovery on Security, then enrolls and verifies a new factor. That owner can subsequently recover staff. `INSTALLATION_KEY` encrypts factor material on the running installation; preserve it across ordinary restarts. SSO and separately scoped service credentials remain ADMIN-002 and ADMIN-003 gaps.
+
+An assured native owner can issue an expiring security grant on Security for one named human administrator and one named non-owner target. The administrator must verify their own factor, then can reset the target factor, revoke target sessions or deactivate the target. The grant confers no business permissions and cannot recover owners, administer the delegate, manage grants or change authentication policy. Owners can revoke grants immediately. Restored grants remain revoked. Prepare another assured native owner before requiring factors: losing every assured owner leaves no live recovery path.
+
+## Overdue operational cases
+
+The owner opens Activity → Settings → Case settings. There, choose current owners for assignment and escalation, set the response interval and enable the minute check. Overdue operational cases on Activity retains the resulting work. Checks create one retained case per overdue unconfirmed purchase order or late customer order. Assignment, due date, next action and unanswered escalation remain visible after restart; repeat checks create no duplicate cases or sends.
+
+Receiving only part of a purchase, confirming a supplier date or receiving a provider acknowledgment cannot close these cases. Complete actual receipt or shipment, settled obligations and current Pantry inventory reconciliation are required. A reversed payment, returned shipment, changed stock history or lost ledger authority reopens affected work. Owners may explicitly cancel a case with a retained reason; this does not cancel its source order. Existing exact message approvals, destination and content limits, quiet hours and current sender authority continue to govern notifications separately. Case settings confer no approval or sending authority.

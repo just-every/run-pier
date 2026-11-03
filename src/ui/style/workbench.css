@@ -212,7 +212,7 @@
   .pier-app .order-lines .line-sku { grid-area: sku; }
   .pier-app .order-lines .line-sku .barcode { width: 72px; }
   .pier-app .order-lines .line-name { grid-area: name; max-width: none; }
-  .pier-app .order-lines .line-bin { grid-area: bin; color: var(--body); }
+  .pier-app .order-lines .line-bin { grid-area: bin; color: var(--body); white-space: normal; overflow-wrap: anywhere; }
   .pier-app .order-lines .line-ordered { grid-area: ord; }
   .pier-app .order-lines .line-reserved { grid-area: res; }
   .pier-app .order-lines .line-dispatched { grid-area: disp; text-align: right; }

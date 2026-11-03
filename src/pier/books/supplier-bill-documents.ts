@@ -1,4 +1,5 @@
 import { decimal, fail, format, get, SCALE, text, type Row, type State } from '../model';
+import { charge } from './supplier-charges';
 
 /** Operator-transcribed evidence stays beside the original, never inferred from it. */
 export function billDocuments(p: any, po: Row) {
@@ -20,7 +21,11 @@ export function billDocuments(p: any, po: Row) {
       return { poLineId: line.poLineId, quantity: format(quantity), packSize: format(packSize), unit: text(line.unit, 'Document base unit'), baseQuantity };
     });
     text(source.original, 'Original document text');
-    documents[kind] = { reference: text(source.reference, 'Source document reference'), original: source.original, lines };
+    // An invoice states freight and tax (none shown is zero); a BOL often states no charges, which stays unknown.
+    const charges = kind === 'invoice'
+      ? { freight: charge(source.freight, 'invoice freight'), tax: charge(source.tax, 'invoice tax') }
+      : { freight: source.freight == null || source.freight === '' ? null : charge(source.freight, 'BOL freight') };
+    documents[kind] = { reference: text(source.reference, 'Source document reference'), original: source.original, ...charges, lines };
   }
   if (!documents.invoice) fail('SUPPLIER_DOCUMENT', 'Retain the invoice source alongside any BOL.');
   return documents;
@@ -40,6 +45,11 @@ export function documentMatch(s: State, bill: Row, po: Row) {
       const expectedPack = committed.terms?.packSize ?? item.packSize;
       if (sourceLine.packSize !== '1' && sourceLine.packSize !== expectedPack) add(`pack ${sourceLine.packSize} differs from committed conversion ${expectedPack}.`);
       if (sourceLine.baseQuantity !== line.quantity) add(`${sourceLine.quantity} × ${sourceLine.packSize} = ${sourceLine.baseQuantity} base units; invoice bills ${line.quantity}.`);
+    }
+    const label = `${kind === 'bol' ? 'BOL' : 'Invoice'} ${source.reference}`;
+    for (const charged of ['freight', 'tax'] as const) {
+      const stated = source[charged];
+      if (stated != null && stated !== format(decimal(bill[charged] ?? '0'))) differences.push({ kind: `${kind}Document`, message: `${label}: ${charged} ${stated} USD differs from the recorded invoice ${charged} ${format(decimal(bill[charged] ?? '0'))} USD.`, withinTolerance: false });
     }
     for (const sourceLine of source.lines) if (!bill.lines.some((l: any) => l.poLineId === sourceLine.poLineId)) differences.push({ kind: `${kind}Document`, poLineId: sourceLine.poLineId, message: `${source.reference}: source line is absent from this invoice.`, withinTolerance: false });
   }

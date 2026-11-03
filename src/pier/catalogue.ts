@@ -1,3 +1,6 @@
+import { typedFields } from './custom-fields';
+import { parsePermissions } from './permissions';
+import { parseVisibility } from './role-visibility';
 import {
   decimal,
   format,
@@ -18,20 +21,25 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
   if (type === "role.set") {
     requireRole(c, []);
     if (
-      !["buyer", "operator", "warehouse", "viewer", "agent", "owner"].includes(
+      !["buyer", "operator", "sales", "finance", "warehouse", "viewer", "agent", "owner"].includes(
         p.role,
       )
     )
       fail("ROLE", "Unknown role");
     if (p.operatorId === c.actor.id)
       fail("ROLE", "Use native owner management to change your own authority.");
+    if (p.role === "owner" && p.permissions !== undefined) fail("ROLE", "Owner authority cannot be restricted by a physical stock grant. Choose a staff role.");
+    const permissions = parsePermissions(p.permissions, c.s);
+    const visibility = parseVisibility(p.visibility, p.role);
     const old = c.s.roles.find((r) => r.id === p.operatorId);
     if (old) {
       old.role = p.role;
+      old.permissions = permissions;
+      old.visibility = visibility;
       old.version++;
       return old;
     }
-    return row(c, "roles", { id: text(p.operatorId), role: p.role });
+    return row(c, "roles", { id: text(p.operatorId), role: p.role, permissions, visibility });
   }
   if (
     !["item.save", "location.save", "party.save", "supplierItem.save"].includes(
@@ -51,8 +59,10 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
   const old = p.id ? get(c.s, collection, p.id) : undefined;
   if (old) fresh(old, p.version);
   let data: any;
+  if (p.customFields !== undefined) requireRole(c,[]);
   if (type === "item.save") {
     data = {
+      ...(p.customFields === undefined ? old?.customFields ? {customFields:old.customFields} : {} : {customFields:typedFields(c.s,"item",p.customFields)}),
       sku: text(p.sku, "SKU"),
       name: text(p.name, "Name"),
       barcode: p.barcode ? text(p.barcode) : null,
@@ -67,6 +77,7 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
     if (
       old &&
       (c.s.movements.some((m) => m.itemId === old.id) ||
+        c.s.kitDefinitions.some(k=>k.itemId===old.id || k.components.some((part:any)=>part.itemId===old.id)) ||
         c.s.supplierItems.some((terms) => terms.itemId === old.id) ||
         [...c.s.orders, ...c.s.purchaseOrders, ...c.s.counts].some((document) =>
           document.lines.some((line: any) => line.itemId === old.id),
@@ -85,6 +96,7 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       warehouse: text(p.warehouse),
       kind: p.kind,
       barcode: p.barcode ? text(p.barcode) : null,
+      zone: p.zone === undefined ? old?.zone ?? null : p.zone ? text(p.zone, "Picking zone") : null,
     };
     for (const code of [data.barcode, data.name].filter(Boolean)) {
       const owners = codeOwners(c.s, code, undefined, old?.id).filter(o => code === data.barcode || o.kind !== 'bin');
@@ -101,7 +113,8 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       fail("HISTORY", "Used location kind is immutable.");
   }
   if (type === "party.save") {
-    data = { name: text(p.name), kind: p.kind, email: p.email ? text(p.email, "Email") : old?.email ?? null };
+    data = {
+      ...(p.customFields === undefined ? old?.customFields ? {customFields:old.customFields} : {} : {customFields:typedFields(c.s,p.kind,p.customFields)}), name: text(p.name), kind: p.kind, email: p.email ? text(p.email, "Email") : old?.email ?? null };
     if (data.email && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(data.email)) fail("EMAIL", "Enter one valid email address.");
     if (!["supplier", "customer"].includes(p.kind))
       fail("PARTY", "Choose supplier or customer.");
@@ -119,8 +132,8 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       price: format(decimal(p.price)),
       minimum: format(decimal(p.minimum)),
       leadDays: Number(p.leadDays),
-      ...(p.reorderQuantity !== undefined ? { reorderQuantity: format(decimal(p.reorderQuantity)) } : {}),
-      ...(p.minimumValue !== undefined ? { minimumValue: format(decimal(p.minimumValue)) } : {}),
+      ...(p.reorderQuantity !== undefined ? { reorderQuantity: p.reorderQuantity === null || p.reorderQuantity === '' ? null : format(decimal(p.reorderQuantity)) } : {}),
+      ...(p.minimumValue !== undefined ? { minimumValue: p.minimumValue === null || p.minimumValue === '' ? null : format(decimal(p.minimumValue)) } : {}),
     };
     if (
       c.s.supplierItems.some(

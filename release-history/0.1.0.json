@@ -1,0 +1,4 @@
+{
+  "version": "0.1.0",
+  "publicReleaseNotes": "First public release of Pier: item and location records, append-only stock movements, hard reservations, purchasing, receiving, transfers, fulfilment, returns, counts, native CSV migration review and portable backup."
+}

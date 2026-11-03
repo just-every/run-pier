@@ -1,3 +1,4 @@
+import { transferSurplus } from './replenishment-transfers';
 import {
   decimal,
   format,
@@ -40,6 +41,7 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
     ![
       "transfer.send",
       "transfer.receive",
+      "transfer.promise",
       "count.capture",
       "count.record",
       "count.approve",
@@ -48,6 +50,13 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
   )
     return;
   requireRole(c, ["warehouse"]);
+  if (type === 'transfer.promise') {
+    const transfer = get(c.s, 'transfers', p.transferId); fresh(transfer, p.version);
+    if (transfer.status !== 'transit') fail('TRANSFER_STATE', 'Only a transfer in transit can have an arrival promise.');
+    const date = text(p.expectedDate, 'Arrival date');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) fail('DATE', 'Use a valid UTC calendar arrival date.');
+    transfer.expectedDate = date; transfer.promiseReason = text(p.reason); transfer.confirmedBy = c.actor.id; transfer.version++; return transfer;
+  }
   if (type === "transfer.send") {
     const q = decimal(p.quantity, true);
     const from = get(c.s, "locations", p.fromLocationId),
@@ -63,6 +72,13 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
         "TRANSFER",
         "Use different source/destination bins and a real transit location.",
       );
+    if (p.replenishment === true) {
+      if (p.stateVersion !== c.s.version) fail('STALE', 'Demand, stock or planning inputs changed. Compare transfers again.');
+      if (q > transferSurplus(c, p.itemId, from.warehouse).quantity) fail('TRANSFER_REVIEW', 'The transfer would consume protected source demand or safety stock.');
+      const date = text(p.expectedDate, 'Arrival date');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date || date < c.now.slice(0, 10)) fail('DATE', 'Review a valid transfer arrival today or later.');
+      decimal(p.transportCost);
+    }
     if (available(c.s, p.itemId, from.id) < q)
       fail("AVAILABLE", "Transfer exceeds unreserved sellable stock.");
     const t = row(c, "transfers", {
@@ -71,8 +87,11 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
       toLocationId: to.id,
       transitLocationId: transit.id,
       quantity: format(q),
+      received: "0",
       reason: text(p.reason),
       status: "transit",
+      ...(p.replenishment === true ? { expectedDate: p.expectedDate, transportCost: format(decimal(p.transportCost)),
+        planningVersion: p.stateVersion, reviewedBy: c.actor.id, reviewedAt: c.now } : {}),
     });
     move(c, {
       itemId: t.itemId,
@@ -96,11 +115,16 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
     const t = get(c.s, "transfers", p.transferId);
     if (t.status !== "transit")
       fail("TRANSFER_STATE", "Transfer already received.");
+    const remaining = decimal(t.quantity) - decimal(t.received ?? "0");
+    if (p.version !== undefined || p.quantity !== undefined) fresh(t, p.version);
+    const quantity = p.quantity === undefined ? remaining : decimal(p.quantity, true);
+    if (quantity > remaining)
+      fail("TRANSFER_QUANTITY", "Received quantity exceeds the stock still in transit.");
     move(c, {
       itemId: t.itemId,
       locationId: t.transitLocationId,
       status: "transit",
-      quantity: (-decimal(t.quantity)).toString(),
+      quantity: (-quantity).toString(),
       reason: "Destination receipt",
       documentId: t.id,
     });
@@ -108,11 +132,13 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
       itemId: t.itemId,
       locationId: t.toLocationId,
       status: "sellable",
-      quantity: decimal(t.quantity).toString(),
+      quantity: quantity.toString(),
       reason: "Destination receipt",
       documentId: t.id,
     });
-    t.status = "received";
+    t.received = format(decimal(t.received ?? "0") + quantity);
+    t.receipts = [...(t.receipts ?? []), { quantity: format(quantity), actorId: c.actor.id, at: c.now, commandId: c.commandId }];
+    t.status = quantity === remaining ? "received" : "transit";
     t.version++;
     return t;
   }

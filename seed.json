@@ -1,25 +1,19 @@
 {
   "id": "pier",
-  "name": "pier",
-  "version": "0.1.0",
-  "maturity": "technical-foundation-not-product",
-  "category": "status",
+  "name": "Pier",
+  "version": "0.1.1",
+  "maturity": "in-development",
+  "category": "inventory",
   "spine": {
-    "id": "foundation",
-    "record": "No domain record selected"
+    "id": "inventory",
+    "record": "Stock movement"
   },
-  "description": "TanStack Start and Hono Worker with real owner authentication, D1 and local development mail.",
-  "capabilities": [
-    {
-      "id": "http-dispatch",
-      "clauses": [
-        "HTTP-001"
-      ]
-    }
-  ],
+  "description": "Inventory and order management for wholesalers and distributors: track stock, reserve orders, purchase, receive, transfer, fulfil and review counts with an append-only movement history.",
+  "capabilities": [],
   "nonGoals": [
-    "Finished product functionality",
-    "Speculative domain data"
+    "Manufacturing work orders",
+    "Point of sale",
+    "Third-party warehouse client billing"
   ],
   "externals": [
     {
@@ -77,5 +71,10 @@
       "operator-auth",
       "owner-claim"
     ]
-  }
+  },
+  "replaces": [
+    "Cin7 Core",
+    "inFlow Inventory",
+    "Fishbowl Warehouse"
+  ]
 }

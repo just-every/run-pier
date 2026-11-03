@@ -18,12 +18,12 @@ export function stockPosition(s: State) {
     const q = get(p.itemId, location.warehouse);
     if (p.status === 'sellable') {
       q.onHand += decimal(p.quantity); q.reserved += decimal(p.reserved);
-      q.available += decimal(p.quantity) - decimal(p.reserved);
+      q.available += decimal(p.available);
     } else if (p.status === 'quarantine') q.quarantine += decimal(p.quantity);
     else if (p.status === 'transit') q.transit += decimal(p.quantity);
   }
   for (const po of s.purchaseOrders) {
-    if (po.status !== 'committed') continue;
+    if (po.status !== 'committed'||po.dropshipId) continue;
     for (const line of po.lines) {
       const remaining = decimal(line.quantity) - decimal(line.received);
       if (remaining <= 0n) continue;

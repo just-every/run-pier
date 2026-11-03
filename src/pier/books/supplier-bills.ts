@@ -1,5 +1,6 @@
 import { decimal, fail, format, fresh, get, id, requireRole, SCALE, text, type Context, type Row, type State } from '../model';
 import { amount, extended, money } from '../money';
+import { charge, chargeMatch, chargeMoney } from './supplier-charges';
 import { billDocuments, documentMatch } from './supplier-bill-documents';
 import type { BookDocument } from './adapters/types';
 
@@ -12,12 +13,12 @@ const within = (difference: bigint, basis: bigint, tolerance: string) => absolut
 const approved = (bill: Row) => bill.status === 'approved';
 const billReference = (bill: Row) => `PIER-SB-${bill.id.replaceAll('-', '').slice(0, 24)}`;
 const approvedBills = (s: State, poId: string) => s.supplierBills.filter(b => b.poId === poId && approved(b)).sort((a, b) => a.approval.sequence - b.approval.sequence);
-const legacyReceiptIds = (s: State) => new Set(s.bookJobs.filter(j => j.sourceKind === 'receipt' && j.kind === 'bill' && (j.attempted || j.remoteId) && j.status !== 'skipped').map(j => j.sourceId));
+const legacyReceiptIds = (s: State) => new Set(s.bookJobs.filter(j => j.sourceKind === 'receipt' && j.key === `bill:${j.sourceId}` && j.kind === 'bill' && (j.attempted || j.remoteId) && j.status !== 'skipped').map(j => j.sourceId));
 
 /** Allocations are recomputed in approval order: a later receipt first completes earlier bills. */
 function receiptPool(s: State, poId: string) {
   const legacy = legacyReceiptIds(s);
-  return s.receipts.filter(r => r.poId === poId && r.status === 'posted' && r.currency === 'USD' && !legacy.has(r.id)).flatMap(receipt =>
+  return s.receipts.filter(r => r.poId === poId && r.status === 'posted' && r.currency === 'USD' && !r.replacementFor && !legacy.has(r.id)).flatMap(receipt =>
     receipt.lines.map((line: any) => ({ receipt, line, remaining: decimal(line.quantity) })));
 }
 function take(pool: ReturnType<typeof receiptPool>, line: any): Allocation[] {
@@ -50,7 +51,7 @@ export function supplierBillMatch(s: State, bill: Row) {
     const legacy = legacyReceiptIds(s);
     const legacyBilled = s.receipts.filter(r => r.poId === po.id && legacy.has(r.id)).flatMap(r => r.lines).filter((l: any) => l.poLineId === line.poLineId).reduce((sum: bigint, l: any) => sum + decimal(l.quantity), 0n);
     const prior = legacyBilled + earlier.reduce((sum, b) => sum + b.lines.filter((l: any) => l.poLineId === line.poLineId).reduce((n: bigint, l: any) => n + decimal(l.quantity), 0n), 0n);
-    const received = s.receipts.filter(r => r.poId === po.id && r.status === 'posted').flatMap(r => r.lines).filter((l: any) => l.poLineId === line.poLineId).reduce((sum: bigint, l: any) => sum + decimal(l.quantity), 0n);
+    const received = s.receipts.filter(r => r.poId === po.id && r.status === 'posted' && !r.replacementFor).flatMap(r => r.lines).filter((l: any) => l.poLineId === line.poLineId).reduce((sum: bigint, l: any) => sum + decimal(l.quantity), 0n);
     const allocated = allocations.reduce((sum, a) => sum + decimal(a.quantity), 0n);
     const shortfall = billed - allocated, excess = positive(prior + billed - ordered);
     const priceDifference = decimal(line.unitPrice) - decimal(committed.price);
@@ -66,8 +67,9 @@ export function supplierBillMatch(s: State, bill: Row) {
     return { poLineId: line.poLineId, itemId: committed.itemId, orderedQuantity: committed.quantity, receivedQuantity: format(received), previouslyBilledQuantity: format(prior), billedQuantity: line.quantity, matchedReceiptQuantity: format(allocated), quantityDifference: format(shortfall), purchaseOrderExcess: format(excess), poUnitPrice: committed.price, unitPrice: line.unitPrice, priceDifference: format(priceDifference), receiptPrices, receiptAllocations: allocations, quantityWithinTolerance, priceWithinTolerance, differences };
   });
   const documentDifferences = documentMatch(s, bill, po);
+  const { charges, differences: chargeDifferences } = chargeMatch(bill, po, earlier);
   const receiptEvidence = JSON.stringify({ documents: bill.documents ?? null, poId: po.id, poVersion: po.version, receipts: s.receipts.filter(r => r.poId === po.id).map(r => ({ id: r.id, version: r.version, status: r.status })), legacyReceipts: [...legacyReceiptIds(s)].sort(), priorBills: earlier.map(b => ({ id: b.id, version: b.version })), lines: lines.map(l => ({ poLineId: l.poLineId, previouslyBilledQuantity: l.previouslyBilledQuantity, receiptAllocations: l.receiptAllocations })) });
-  return { withinTolerance: documentDifferences.length === 0 && po.status === 'committed' && lines.every(l => l.quantityWithinTolerance && l.priceWithinTolerance), received: lines.every(l => l.quantityDifference === '0'), receiptEvidence, lines, differences: [...documentDifferences, ...lines.flatMap(l => l.differences.map(d => ({ ...d, poLineId: l.poLineId, itemId: l.itemId })))] };
+  return { withinTolerance: documentDifferences.length === 0 && chargeDifferences.every(d => d.withinTolerance) && po.status === 'committed' && lines.every(l => l.quantityWithinTolerance && l.priceWithinTolerance), received: lines.every(l => l.quantityDifference === '0'), receiptEvidence, charges, lines, differences: [...documentDifferences, ...chargeDifferences, ...lines.flatMap(l => l.differences.map(d => ({ ...d, poLineId: l.poLineId, itemId: l.itemId })))] };
 }
 
 /** Read-only state projection; payment always comes from ledger readback. */
@@ -110,7 +112,8 @@ export function supplierBills(c: Context, type: string, p: any): Row | undefined
     const quantityTolerancePercent = format(decimal(p.quantityTolerancePercent)), priceTolerancePercent = format(decimal(p.priceTolerancePercent));
     if (decimal(quantityTolerancePercent) > 100n * SCALE || decimal(priceTolerancePercent) > 100n * SCALE) fail('SUPPLIER_BILL_TOLERANCE', 'Enter explicit tolerances from 0 to 100 percent.');
     const documents = billDocuments(p, po);
-    const fields = { documents, poId: po.id, supplierId: po.supplierId, reference, date, currency: 'USD', lines, quantityTolerancePercent, priceTolerancePercent, total: money(lines.reduce((n: bigint, l: any) => n + extended(l.quantity, l.unitPrice), 0n)), status: 'review', approval: null, holdReason: null, updatedAt: c.now };
+    const freight = charge(p.freight, 'supplier freight'), tax = charge(p.tax, 'supplier tax');
+    const fields = { documents, poId: po.id, supplierId: po.supplierId, reference, date, currency: 'USD', lines, freight, tax, quantityTolerancePercent, priceTolerancePercent, total: money(lines.reduce((n: bigint, l: any) => n + extended(l.quantity, l.unitPrice), 0n) + chargeMoney(freight) + chargeMoney(tax)), status: 'review', approval: null, holdReason: null, updatedAt: c.now };
     if (old) {
       if (old.documents && JSON.stringify(old.documents) !== JSON.stringify(documents)) {
         old.documentHistory ??= [];
@@ -144,8 +147,13 @@ export function planSupplierBills(c: Context, connection: Row, add: Add, dollars
   for (const bill of c.s.supplierBills.filter(approved)) {
     add(`supplierBill:${bill.id}`, 'bill', bill, 'supplierBill', billReference(bill), () => {
       if (!bill.approval) throw new Error('Review the supplier invoice approval evidence.');
-      const lines = bill.lines.map((line: any) => ({ itemId: line.itemId, description: `${bill.approval.items.find((i: Row) => i.id === line.itemId).sku} · invoice ${bill.reference} · ${line.quantity} at ${line.unitPrice} USD`, quantity: line.quantity, amount: dollars(money(extended(line.quantity, line.unitPrice))), account: connection.inventoryAccountId }));
-      return { key: `supplierBill:${bill.id}`, kind: 'bill', date: bill.date, reference: billReference(bill), party: { id: bill.supplierId, name: bill.approval.supplier.name, kind: 'supplier' }, lines, total: dollars(bill.total), attachment: { name: `${billReference(bill)}-approved-invoice.txt`, content: JSON.stringify({ documents: bill.documents ?? null, invoiceReference: bill.reference, invoiceDate: bill.date, currency: bill.currency, lines: bill.lines, total: bill.total, quantityTolerancePercent: bill.quantityTolerancePercent, priceTolerancePercent: bill.priceTolerancePercent, approval: bill.approval }, null, 2) } };
+      const lines: BookDocument['lines'] = bill.lines.map((line: any) => ({ itemId: line.itemId, description: `${bill.approval.items.find((i: Row) => i.id === line.itemId).sku} · invoice ${bill.reference} · ${line.quantity} at ${line.unitPrice} USD`, quantity: line.quantity, amount: dollars(money(extended(line.quantity, line.unitPrice))), account: connection.inventoryAccountId }));
+      for (const [field, account, name, what] of [['freight', connection.landedCostAccountId, 'Freight', 'Freight and duty'], ['tax', connection.purchaseTaxAccountId, 'Tax', 'Purchase tax']] as const) {
+        if (decimal(bill[field] ?? '0') === 0n) continue;
+        if (!account) throw new Error(`This invoice carries ${field}. Choose the ${what} account in Books settings so Pier can post it.`);
+        lines.push({ description: `${name} · invoice ${bill.reference}`, quantity: '1', amount: dollars(money(chargeMoney(bill[field]))), account });
+      }
+      return { key: `supplierBill:${bill.id}`, kind: 'bill', date: bill.date, reference: billReference(bill), party: { id: bill.supplierId, name: bill.approval.supplier.name, kind: 'supplier' }, lines, total: dollars(bill.total), attachment: { name: `${billReference(bill)}-approved-invoice.txt`, content: JSON.stringify({ documents: bill.documents ?? null, invoiceReference: bill.reference, invoiceDate: bill.date, currency: bill.currency, lines: bill.lines, freight: bill.freight ?? '0', tax: bill.tax ?? '0', total: bill.total, quantityTolerancePercent: bill.quantityTolerancePercent, priceTolerancePercent: bill.priceTolerancePercent, approval: bill.approval }, null, 2) } };
     });
   }
 }

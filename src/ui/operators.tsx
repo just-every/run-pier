@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { records, type PierState, type RunCommand } from './api'
-import { Empty, Field, Form, Select, Table, text } from './controls'
+import { Empty, Field, Form, Table, text } from './controls'
 import { words } from './display'
+import { CommercialVisibility, OperatorRoleForm, roleLabel } from './operator-grants'
 
 type Props = { state: PierState; run: RunCommand; busy: boolean; refresh: () => Promise<void> }
 
@@ -13,6 +14,7 @@ export function Operators({ state, run, busy, refresh }: Props) {
   const inFlight = useRef(false)
   const operators = records(state, 'operators')
   const canInvite = operators.some(operator => operator.id === state.actor.id && operator.role === 'owner' && operator.status === 'active')
+  const grantFor = (id: string) => records(state, 'roles').find(role => role.id === id)?.permissions
   const assignable = operators.filter(operator => operator.id !== state.actor.id && operator.role !== 'owner')
 
   async function reload() {
@@ -39,7 +41,7 @@ export function Operators({ state, run, busy, refresh }: Props) {
         const code = 'error' in body && typeof body.error === 'string' ? body.error : 'request_rejected'
         setError(code === 'invitation_conflict'
           ? 'Invitation conflicts with an existing operator. Reload operators to check their current status.'
-          : `Invitation was not accepted (${code}). Check the details and your current native owner session.`)
+          : 'Invitation was not accepted. Check the name and email, then sign in again as the owner and retry.')
         return
       }
       if (response.status !== 202 || !('status' in body) || body.status !== 'accepted') throw new Error('unconfirmed')
@@ -52,10 +54,12 @@ export function Operators({ state, run, busy, refresh }: Props) {
     } finally { inFlight.current = false; setPending(false) }
   }
 
-  return <section className="panel"><h2>Operator roles</h2>
-    <Table headings={['Operator', 'Status', 'Pier role']}>{operators.map(operator => <tr key={operator.id}>
+  return <section className="panel"><h2>Operator roles</h2><p><a href="/security">Security settings</a></p>
+    <Table headings={['Operator', 'Status', 'Pier role', 'Commercial visibility', 'Physical stock grant']}>{operators.map(operator => <tr key={operator.id}>
       <td>{operator.name || operator.email}<small>{operator.email}</small></td><td>{words(operator.status)}</td>
-      <td>{words(records(state, 'roles').find(role => role.id === operator.id)?.role || (operator.role === 'owner' ? 'owner' : 'viewer'))}</td>
+      <td>{roleLabel(records(state, 'roles').find(role => role.id === operator.id)?.role || (operator.role === 'owner' ? 'owner' : 'viewer'))}</td>
+      <td><CommercialVisibility role={records(state, 'roles').find(role => role.id === operator.id)} nativeOwner={operator.role === 'owner'} /></td>
+      <td>{grantFor(operator.id) ? <>{grantFor(operator.id).warehouses.join(', ') || 'No warehouses'}<small>{grantFor(operator.id).locationIds.length ? `Locations: ${grantFor(operator.id).locationIds.map((id: string) => records(state, 'locations').find(location => location.id === id)?.name || 'Removed location').join(', ')}` : 'All locations in these warehouses'}</small><small>{grantFor(operator.id).expiresAt ? `Expires ${grantFor(operator.id).expiresAt}` : 'No expiry'}</small></> : 'No physical stock restriction'}</td>
     </tr>)}</Table>
     {notice && <p className="notice" role="status">{notice}</p>}
     {error && <p className="error" role="alert">{error}</p>}
@@ -65,11 +69,6 @@ export function Operators({ state, run, busy, refresh }: Props) {
       <Field label="Operator name" name="displayName" maxLength={120} autoComplete="name" />
       <Field label="Operator email" name="email" type="email" autoComplete="email" />
     </Form> : <p className="muted">A native owner must invite new operators.</p>)}
-    {!needsReload && (assignable.length ? <Form title="Set an invited operator’s role" busy={busy || pending}
-      note="Pier roles control stock and document authority. Your own authority and native owners are managed through native owner management. The server checks current authority on every command."
-      onSubmit={data => run('role.set', { operatorId: text(data, 'operatorId'), role: text(data, 'role') })}>
-      <Select label="Operator" name="operatorId" rows={assignable} />
-      <label className="field"><span>Role</span><select aria-label="Role" name="role" defaultValue="viewer">{['viewer', 'buyer', 'operator', 'warehouse', 'agent', 'owner'].map(role => <option key={role} value={role}>{words(role)}</option>)}</select></label>
-    </Form> : <Empty>Invite an operator to assign a Pier role.</Empty>)}
+    {!needsReload && (assignable.length ? <OperatorRoleForm state={state} operators={assignable} run={run} busy={busy || pending} /> : <Empty>Invite an operator to assign a Pier role.</Empty>)}
   </section>
 }

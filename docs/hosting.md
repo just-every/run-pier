@@ -4,7 +4,7 @@ Pier runs on your own Cloudflare account: one Worker and one D1 database per env
 
 ## What you need
 
-- A Cloudflare account. Create an account API token at [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) with the account permissions **Workers Scripts: Edit** and **D1: Edit**, and copy your account ID from the Cloudflare dashboard.
+- `CLOUDFLARE_ACCOUNT_ID` selects the account that will own the Worker and its database. `CLOUDFLARE_API_TOKEN` permits the upload and database management. Create an account API token at [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) with the account permissions **Workers Scripts: Edit** and **D1: Edit**, and copy your account ID from the Cloudflare dashboard.
 - A mail provider for sign-in links and the daily dispatch summary: Resend, SendGrid or Cloudflare Email, with an API key and a sender address that provider has verified.
 - Your own email address, which becomes the hosted owner.
 
@@ -28,7 +28,7 @@ rer deploy --dry-run --env-file ~/pier-deploy.env
 rer deploy --environment production --env-file ~/pier-deploy.env
 ```
 
-The dry run builds Pier and checks the settings without touching Cloudflare. The deploy creates the Worker and its database, prints the address (for example `https://pier-production.your-subdomain.workers.dev`) and claims the owner with a one-time setup token. Open the address, choose **Sign in**, enter the `OWNER_EMAIL` address and follow the link in your inbox. Finish setup at `/setup`.
+With no Cloudflare account or API token supplied, the preflight lists both inputs and their purposes, then stops before a build or upload. Once they are supplied, the dry run builds Pier and checks the target settings without uploading. The deploy creates the Worker and its database, prints the address (for example `https://pier-production.your-subdomain.workers.dev`) and claims the owner with a one-time setup token. Open the address, choose **Sign in**, enter the `OWNER_EMAIL` address and follow the link in your inbox. Finish setup at `/setup`.
 
 ## Make the hosted owner your real address
 

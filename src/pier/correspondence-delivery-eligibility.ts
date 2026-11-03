@@ -16,6 +16,7 @@ export type Correspondence = Row & {
   lines?: { orderLineId: string; itemId: string; quantity: string; promiseDate: string }[];
   policyVersion?: number;
   sendPolicyVersion?: number;
+  purchaseApprovalVersion?: number;
   purchaseMessageId?: string;
 };
 
@@ -45,7 +46,7 @@ function quantity(value: unknown): bigint {
 /** Fail closed when a formerly approved message no longer describes live work. */
 export function correspondenceEligible(message: Correspondence, source: Row | null, now = new Date().toISOString()): boolean {
   const roles = message.kind === "customer-promise" ? ["owner", "operator", "buyer"] : ["owner", "buyer"];
-  if (!source || !message.approvedBy || !roles.includes(message.approvalRole)) return false;
+  if (message.restorePaused || !source || !message.approvedBy || !roles.includes(message.approvalRole)) return false;
   try {
     if (message.kind === 'slow-stock') return source.status === 'open' && source.notificationEnabled === true &&
       source.policyVersion === message.policyVersion && source.assigneeId === message.approvedBy && source.messageId === message.id;
@@ -64,8 +65,14 @@ export function correspondenceEligible(message: Correspondence, source: Row | nu
         });
     }
     if (!["purchase-order", "supplier-chase"].includes(message.kind) ||
-        source.status !== "committed" || typeof message.approvedMaterial !== "string" ||
+        source.pendingSupplierChange || source.status !== "committed" || typeof message.approvedMaterial !== "string" ||
         message.approvedMaterial !== poMaterial(source)) return false;
+    if (message.purchaseApprovalVersion !== source.purchaseApprovalVersion) return false;
+    if (message.purchaseApprovalVersion !== undefined) {
+      const route = source.approvalRoute;
+      if (!route || route.policyVersion !== message.purchaseApprovalVersion ||
+          (route.approverId !== message.approvedBy && !route.delegates.some((delegate: any) => delegate.actorId === message.approvedBy && delegate.expiresAt > now))) return false;
+    }
     if (message.sendPolicyVersion !== undefined &&
         (!source.sendPolicy?.enabled || source.sendPolicy.version !== message.sendPolicyVersion ||
          source.sendPolicy.approvedBy !== message.approvedBy || source.sendPolicy.recipient !== message.recipient ||

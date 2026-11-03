@@ -7,12 +7,12 @@ Pier runs on your own computer with one command and starts empty: no sample stoc
 One line, the same as [run-pier.com/run](https://run-pier.com/run). It installs `rer`, the Run Edit Run command, gets Pier, installs everything, makes you the owner and prints a link that opens Pier signed in:
 
 ```sh
-npx -y @runeditrun/rer dev just-every/run-pier
+curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-pier
 ```
 
-No Node? `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-pier` brings its own Node and does the same.
+Git is required; rer brings Node and pnpm. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-pier` does the same. Pier runs on macOS, Linux or Windows with WSL2.
 
-To start it again later, run `cd run-pier && rer dev`. Keep the printed link private: it carries this computer's development sign-in key. Pier runs on macOS, Linux or Windows with WSL2, with git.
+If the installer prints a line that puts `rer` on your PATH, run that line too. To start it again later, run the same line from the same folder, or `cd run-pier && rer dev`. Keep the printed link private: it carries this computer's development sign-in key.
 
 The first time you open it, Pier asks you to finish setup at `/setup`. Check the name and email shown, tick **I confirm this owner account is ready to use.** and choose **Finish setup**. Pier then opens at `/app`. The page at `/` is the installation's front door, with **Sign in** for everyone you invite.
 

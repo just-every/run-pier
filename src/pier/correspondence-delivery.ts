@@ -1,8 +1,9 @@
 import type { Bindings } from "../auth.server";
-import { authority as actorAuthority } from "./storage";
+import { authority as actorAuthority, load } from "./storage";
 import type { Actor, Row } from "./model";
 import { businessMail, businessMessage, emailUnavailable } from "./correspondence-delivery-provider";
 import { correspondenceEligible, type Correspondence } from "./correspondence-delivery-eligibility";
+import { beginProviderAttempt } from './provider-audit';
 export { poMaterial } from "./correspondence-delivery-eligibility";
 
 export type DeliveryPhase = "sending" | "sent" | "failed" | "uncertain" | "unavailable" | "revoked";
@@ -19,7 +20,7 @@ const metadata = `correspondence_id AS correspondenceId,phase,
 const authority = `EXISTS (
   SELECT 1 FROM oa_operators o
   LEFT JOIN pier_records role ON role.kind='roles' AND role.id=o.id
-  WHERE o.id=json_extract(c.data,'$.approvedBy') AND o.status='active'
+  WHERE o.id=json_extract(c.data,'$.approvedBy') AND o.status='active' AND (json_type(role.data,'$.permissions') IS NULL OR json_extract(role.data,'$.role')='owner')
   AND (json_extract(c.data,'$.approvalRole') IN ('owner','buyer') OR
     (json_extract(c.data,'$.kind')='customer-promise' AND json_extract(c.data,'$.approvalRole')='operator'))
   AND CASE WHEN role.data IS NOT NULL THEN json_extract(role.data,'$.role')
@@ -44,7 +45,7 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
     FROM pier_records c LEFT JOIN pier_mail_deliveries d ON d.correspondence_id=c.id
     LEFT JOIN pier_records source ON source.id=json_extract(c.data,'$.recordId')
       AND source.kind=CASE WHEN json_extract(c.data,'$.kind')='customer-promise' THEN 'orders' WHEN json_extract(c.data,'$.kind')='slow-stock' THEN 'slowStockExceptions' ELSE 'purchaseOrders' END
-    WHERE c.kind='correspondence' AND (? IS NULL OR c.id=?) AND json_extract(c.data,'$.dueAt')<=?
+    WHERE c.kind='correspondence' AND COALESCE(json_extract(c.data,'$.restorePaused'),0)=0 AND (? IS NULL OR c.id=?) AND json_extract(c.data,'$.dueAt')<=?
       AND (d.correspondence_id IS NULL OR (?=1 AND d.phase='unavailable'))
       AND (json_extract(c.data,'$.kind')!='supplier-chase' OR EXISTS(
         SELECT 1 FROM pier_mail_deliveries initial
@@ -60,7 +61,11 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
     let error: string | null = sender ? null : emailUnavailable;
     let mail: ReturnType<typeof businessMessage> | undefined;
     if (sender) {
-      try { mail = businessMessage(env, message); }
+      try {
+        const document = message.documentId ? (await load(db)).salesDocuments.find(document => document.id === message.documentId) : undefined;
+        if (message.documentId && !document?.pdf) throw new Error('Retained purchase document is unavailable.');
+        mail = businessMessage(env, message, message.documentAttachment === 'unavailable' ? undefined : document as { filename: string; pdf: string } | undefined);
+      }
       catch { phase = "failed"; error = "The approved email has invalid message fields."; }
     }
     // Claim and current human authority are one SQL admission. Only unavailable
@@ -86,6 +91,15 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
         candidate.id, candidate.data, now).first<CorrespondenceDelivery>();
     if (!claimed || claimed.phase !== "sending" || !sender || !mail) return claimed;
 
+    const sourceKind = message.kind === 'customer-promise' ? 'orders' : message.kind === 'slow-stock' ? 'slowStockExceptions' : 'purchaseOrders';
+    const finish = await beginProviderAttempt(db, {
+      actor: actor ?? { id: message.approvedBy, role: message.approvalRole, name: '', sessionId: '', operatorVersion: 0 },
+      commandId: message.id, connectorId: 'mail', operation: 'correspondence.send', direction: 'outbound', state: await load(db),
+      sources: [{ collection: 'correspondence', row: message }, { collection: sourceKind, row: source! }],
+      itemIds: (source?.lines ?? []).map((line: Row) => line.itemId).filter(Boolean), documentIds: [message.recordId], requestId: message.id,
+      approval: { actorId: message.approvedBy, documentId: message.id, version: message.version, policyVersion: message.policyVersion ?? message.sendPolicyVersion ?? null },
+    }, { sql: `EXISTS(SELECT 1 FROM pier_records c WHERE c.kind='correspondence' AND c.id=? AND c.data=? AND ${live})`,
+      params: [candidate.id, candidate.data, ...gate.params, eligible ? 1 : 0, candidate.sourceData] });
     let providerMessageId: string | null = null;
     try {
       const outcome = await sender.send(mail);
@@ -103,6 +117,7 @@ export async function deliverCorrespondence(env: Bindings, clock = new Date().to
       phase = "uncertain";
       error = "The email submission ended without a confirmed outcome. Review before approving another send.";
     }
+    await finish({ outcome: phase === 'sent' ? 'accepted' : phase === 'failed' ? 'refused' : 'uncertain', externalIds: [providerMessageId] });
     // Never copy thrown errors, provider response bodies, credentials or message
     // content into diagnostics. If this write fails, the durable claim survives.
     return db.prepare(`UPDATE pier_mail_deliveries SET phase=?,provider_message_id=?,error=?,at=?

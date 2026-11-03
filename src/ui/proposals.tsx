@@ -6,7 +6,7 @@ import { ProposalReview } from './proposal-review'
 
 export function Proposals({ state, run, busy }: { state: PierState; run: RunCommand; busy: boolean }) {
   const [kind, setKind] = useState('replenishment')
-  const proposals = records(state, 'proposals').filter(proposal => proposal.kind !== 'item-review')
+  const proposals = records(state, 'proposals').filter(proposal => ['replenishment', 'reallocation', 'count-drift', 'migration'].includes(proposal.kind))
   function plan(data: FormData) {
     if (kind === 'reallocation') return { fromOrderId: text(data, 'fromOrderId'), toOrderId: text(data, 'toOrderId'), itemId: text(data, 'itemId'), quantity: text(data, 'quantity') }
     if (kind === 'count-drift') { const count = records(state, 'counts').find(row => row.id === text(data, 'countId')); return { countId: count?.id, version: count?.version } }

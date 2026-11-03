@@ -3,7 +3,7 @@ import { records, type PierState, type RecordData, type RunCommand } from '../ap
 export type BooksProps = { state: PierState; run: RunCommand; busy: boolean }
 export type BookConnection = RecordData & {
   id: string; provider: 'pantry'; baseUrl: string; enabled: boolean
-  credentialPresent?: boolean; stripeBankAccountId?: string | null; lastSync?: string | null; problem?: string | null; writeOffAccountId?: string; landedCostAccountId?: string | null
+  credentialPresent?: boolean; stripeBankAccountId?: string | null; lastSync?: string | null; problem?: string | null; writeOffAccountId?: string; purchaseTaxAccountId?: string | null; landedCostAccountId?: string | null
 }
 export type BookJob = {
   id: string; kind: 'item' | 'invoice' | 'credit' | 'bill' | 'journal' | 'receipt' | 'valuation'

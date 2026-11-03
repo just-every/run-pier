@@ -3,32 +3,148 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
-  verify:
-    runs-on: ubuntu-latest
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      skip: ${{ steps.reuse.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          WF_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+          wf="${WF_REF%@*}"; wf="${wf##*/}"
+          # Evidence is only a push run of this workflow from this repository, never this run: a pull request
+          # tests its merge ref, a dispatch may run a subset, and a PR run of this workflow may itself be a skip.
+          # Prints "<status> <conclusion>" of the newest such run on SHA $1, or nothing (any API error: nothing).
+          newest_push() {
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$wf/runs?head_sha=$1&event=push&per_page=100" \
+              --jq "[.workflow_runs[] | select(.head_repository.full_name == \"$GITHUB_REPOSITORY\" and .id != $GITHUB_RUN_ID)] | max_by(.id) | select(. != null) | \"\(.status) \(.conclusion)\"" || true
+          }
+          green() { [ "$(newest_push "$1")" = "completed success" ]; }
+          skip=false
+          # C1: main push of a SHA whose newest push run of this workflow (a branch run) is green.
+          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ] && green "$GITHUB_SHA"; then skip=true; fi
+          # C3 (exact): same tree as the parent, and the parent's newest push run is green (e.g. an empty commit).
+          if [ "$skip" = false ] && [ "$EVENT" = push ] && parent=$(git rev-parse -q --verify HEAD~1) \
+             && [ "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse 'HEAD~1^{tree}')" ] && green "$parent"; then skip=true; fi
+          # C2: same-repository PR. The lander takes any green same-repo run on the exact SHA as evidence,
+          # pull_request runs included, so this run may pass without shards only when the push run on the
+          # PR head is green: wait for it (at most 25 minutes).
+          # No push run, any other result, or the wait running out: run in full.
+          if [ "$EVENT" = pull_request ] && [ "$SAME_REPO" = true ]; then
+            for _ in $(seq 1 50); do
+              state=$(newest_push "$PR_HEAD")
+              case "$state" in
+                'completed success') skip=true; break ;;
+                ''|completed\ *) break ;;
+                *) sleep 30 ;;
+              esac
+            done
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+  rer-verify:
+    needs: plan
+    if: needs.plan.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - name: Reclaim unused hosted runner toolchain space
         if: runner.environment == 'github-hosted' && runner.os == 'Linux'
         shell: bash
         run: |
+          set -euo pipefail
           # rer dev and preview require 15 GiB free. This disposable JavaScript job
           # does not use Android, .NET or Haskell; preserve Node, browsers and caches.
           df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
-          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
+          for toolchain in /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup; do
+            if df -Pk "$GITHUB_WORKSPACE" "$RUNNER_TEMP" | awk '
+              NR > 1 && $4 < 20 * 1024 * 1024 { insufficient = 1 }
+              END { exit insufficient }
+            '; then
+              break
+            fi
+            sudo rm -rf -- "$toolchain"
+          done
           df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
       - uses: actions/setup-node@v4
         with:
           node-version: '22.20.0'
       - run: corepack enable && corepack prepare pnpm@10.12.4 --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: node src/base/contract-docs.mjs check
+      - name: Install Chromium
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install chromium
+          # Hosted ubuntu-24.04 already carries Chromium's libraries. Use apt only when a real launch fails.
+          node scripts/ci/chromium-probe.mjs || {
+            timeout 420 pnpm exec playwright install-deps chromium
+            node scripts/ci/chromium-probe.mjs
+          }
       - run: pnpm exec rer check --profile first-party
       - run: pnpm exec rer verify --no-queue
+        env:
+          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-browser
+          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-browser/screenshots
       # The run site: homepage, /run and the docs from the repository's Markdown,
       # refused on any broken, instance-only or other-origin reference.
       - run: pnpm exec rer build --site --no-queue
+      - name: Verify connector recovery and capture desktop and phone screens
+        env:
+          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-sync-browser
+          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-sync-browser/screenshots
+        run: |
+          timeout 1200 node tests/browser/run.mjs stock.spec.ts --grep STOCK-001
+          timeout 1200 node tests/browser/run.mjs supplier-returns.spec.ts --grep BUY-003
+          timeout 1200 node tests/browser/run.mjs journey.spec.ts --grep 'purchase approval names spend authority'
+          timeout 1200 node tests/browser/run.mjs dispatch.spec.ts --grep WMS-003
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: connector-recovery-screens
+          path: |
+            ${{ runner.temp }}/pier-sync-browser
+            ${{ runner.temp }}/pier-browser
+          if-no-files-found: ignore
+          retention-days: 7
+
+  verify:
+    needs: [plan, rer-verify]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - name: Require the plan and every shard
+        env:
+          PLAN: ${{ needs.plan.result }}
+          SKIP: ${{ needs.plan.outputs.skip }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          test "$PLAN" = success
+          if [ "$SKIP" = true ]; then exit 0; fi
+          for result in $RESULTS; do test "$result" = success; done

@@ -12,10 +12,9 @@ export const needsAttention = (order: RecordData) => isOpen(order) && order.line
 
 /** The warehouses an order draws on: its own, else the bins its reservations and shipments name. */
 export function orderWarehouses(state: PierState, order: RecordData): string[] {
-  if (order.warehouse) return [order.warehouse]
   const locations = records(state, 'locations')
   const ids = [...records(state, 'reservations').filter(row => row.orderId === order.id).map(row => row.locationId), ...records(state, 'shipments').filter(row => row.orderId === order.id).flatMap(row => row.lines.flatMap((line: any) => (line.reservations || []).map((source: any) => source.locationId)))]
-  return [...new Set(ids.map(id => locations.find(row => row.id === id)?.warehouse).filter(Boolean))] as string[]
+  return [...new Set([order.warehouse,...ids.map(id => locations.find(row => row.id === id)?.warehouse)].filter(Boolean))] as string[]
 }
 export const warehouses = (state: PierState) => [...new Set(records(state, 'locations').filter(row => row.kind === 'bin' && row.warehouse !== 'Between warehouses').map(row => String(row.warehouse)))].sort()
 export const inWarehouse = (state: PierState, order: RecordData, warehouse: string) => !warehouse || orderWarehouses(state, order).includes(warehouse)
@@ -28,7 +27,7 @@ export function openingWarehouse(state: PierState) {
 }
 
 /** The wave lines that pick this order, in bin order. */
-export const pickLines = (state: PierState, order: RecordData) => records(state, 'waves').flatMap(wave => wave.lines.filter((line: any) => line.orderId === order.id).map((line: any) => ({ ...line, waveId: wave.id, carrierId: wave.carrierId })))
+export const pickLines = (state: PierState, order: RecordData) => records(state, 'waves').flatMap(wave => wave.lines.filter((line: any) => line.orderId === order.id && !['revised','rerouted'].includes(line.status)).map((line: any) => ({ ...line, waveId: wave.id, carrierId: wave.carrierId })))
 
 /** The order's first short line: what is short, against which stock and inbound purchase order. */
 export function shortage(state: PierState, order: RecordData) {

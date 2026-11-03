@@ -1,3 +1,4 @@
+import { policyFor, traceAvailable, unavailableTraceQuantity } from './trace-core';
 export class Problem extends Error {
   constructor(
     public code: string,
@@ -58,6 +59,34 @@ export type Row = {
   [key: string]: any;
 };
 export const collections = [
+  "customFieldDefinitions",
+  "purchaseApprovalPolicies",
+  "savedReports",
+  "reportSnapshots",
+  "workflowRules",
+  "workflowJobs",
+  "privacyHolds",
+  "privacyPolicies",
+  "privacyReceipts",
+  "businessTemplates",
+  "printMailEvents",
+  "invoices",
+  "invoiceCredits",
+  "paymentConnections",
+  "invoicePayLinks",
+  "invoicePaymentSessions",
+  "invoicePayments",
+  "evidenceDocuments",
+  "documentSettings",
+  "documentExtractions",
+  "documentInbox",
+  "customerCredits",
+  "recurringOrders",
+  "dropships",
+  "salesPolicies",
+  "salesDocuments",
+  "salesImports",
+  "routingRules",
   "items",
   "locations",
   "parties",
@@ -65,11 +94,17 @@ export const collections = [
   "orders",
   "purchaseOrders",
   "receipts",
+  "supplierReturns",
   "transfers",
   "shipments",
   "returns",
   "counts",
+  "stocktakes",
+  "salesReps",
+  "backorderPolicies",
+  "backorderReleases",
   "proposals",
+  "substituteMappings",
   "imports",
   "roles",
   "priceLists",
@@ -80,6 +115,8 @@ export const collections = [
   "packs",
   "dispatchDays",
   "replenishmentPolicies",
+  "replenishmentSettings",
+  "replenishmentExceptions",
   "correspondence",
   "channels",
   "channelListings",
@@ -97,8 +134,17 @@ export const collections = [
   "ediDocuments",
   "ediLabelEvents",
   "businessProfile",
+  "operationalExceptionPolicies",
+  "operationalExceptions",
   "slowStockPolicies",
   "slowStockExceptions",
+  "slottingPlans",
+  "kitDefinitions",
+  "kittingTasks",
+  "traceIdentities",
+  "traceEvents",
+  "traceReservations",
+  "traceQuarantines",
 ] as const;
 export type Collection = (typeof collections)[number];
 export type Movement = {
@@ -135,17 +181,26 @@ export type Actor = {
   role: string;
   sessionId: string;
   operatorVersion: number;
+  permissionVersion?: number;
+  permissions?: import("./permissions").Permissions;
+  visibility?: import("./role-visibility").Visibility;
 };
 export type Context = {
   s: State;
   actor: Actor;
   commandId: string;
   now: string;
-  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies"; id: string; version: number };
+  backgroundPolicy?: { collection: "replenishmentPolicies" | "orders" | "recurringOrders" | "channels" | "bookConnections" | "shippingSettings" | "purchaseOrders" | "slowStockPolicies" | "operationalExceptionPolicies" | "paymentConnections" | "workflowRules"; id: string; version: number };
+  substituteActors?: { id: string; version: number; status: string }[];
+  substituteAuthorities?: { actorId: string; operatorVersion: number; permissionVersion: number; role: string }[];
+  privacyStatements?: D1PreparedStatement[];
   channelSecrets?: { channelId: string; secret: string }[];
+  booksCredentialPresent?: boolean;
   automationActors?: Record<string, string>;
+  installationScope?: string;
   purchaseSendAuthority?: { poId: string; policyVersion: number; actorId: string; role: string };
   delegates?: { actorId: string; role: string; orderId: string; policyVersion: number }[];
+  audit?: ReturnType<typeof import("./audit").auditEvent>;
   approver?: {
     id: string;
     role: string;
@@ -164,7 +219,8 @@ export function fresh(row: Row, version: unknown) {
     });
 }
 export function requireRole(c: Context, roles: string[]) {
-  if (!roles.includes(c.actor.role) && c.actor.role !== "owner")
+  const role = c.actor.role === 'sales' ? 'operator' : c.actor.role;
+  if (!roles.includes(role) && !roles.includes(c.actor.role) && c.actor.role !== "owner")
     (() => {
       throw new Problem(
         "FORBIDDEN",
@@ -211,7 +267,9 @@ export function available(
   itemId: string,
   locationId: string,
 ): bigint {
-  return balance(s, itemId, locationId) - reserved(s, itemId, locationId) - held(s, itemId, locationId);
+  const free=balance(s, itemId, locationId) - reserved(s, itemId, locationId) - held(s, itemId, locationId);
+  const tracked=policyFor(s,itemId)?traceAvailable(s,itemId,locationId)-held(s,itemId,locationId):free;
+  return min(free,tracked>0n?tracked:0n);
 }
 export function move(
   c: Context,
@@ -276,6 +334,8 @@ export function positions(s: State) {
       reserved: format(r),
       held: format(status === "sellable" ? held(s, itemId, locationId) : 0n),
       available: format(status === "sellable" ? available(s, itemId, locationId) : 0n),
+      expiredOrBlocked: format(status === "sellable" ? unavailableTraceQuantity(s,itemId,locationId) : 0n),
+      traceUnavailable: format(status === "sellable" ? q-r-held(s,itemId,locationId)-available(s,itemId,locationId) : 0n),
     };
   });
 }

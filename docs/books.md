@@ -64,3 +64,15 @@ Direct QBO and Xero connections remain unavailable until the owner supplies auth
 **Download CSV** exports real source documents, mapped debit/credit lines and review reasons. It is an accountant handoff that must be mapped to the destination's import shape. **Download QuickBooks Desktop IIF** exports balanced invoice, bill and general-journal entries; it refuses unpriced or unvalued documents. It names `Inventory Asset`, `Cost of Goods Sold`, `Sales`, `Accounts Receivable` and `Accounts Payable`; review the account/customer/vendor lists and tax treatment in a backup QuickBooks company before importing. IIF is a Desktop format, not a QuickBooks Online import. Export is a separate manual posting workflow, never confirmation that the connected ledger posted; do not import the same documents twice.
 
 Technical transport and testing details live in [Books developer notes](books-developer.md).
+
+## Direct shipments and supplier returns
+
+These credit flows use the scoped posting surface documented by Pantry v0.2.6.
+
+A dropship credit stays retained and unposted until the owner chooses **Post customer credit to Pantry**. Pier posts the direct shipment invoice and its linked customer credit note, then reads back their amounts and identity. It makes no warehouse receipt, stock movement or cash refund.
+
+For supplier returns, give the Pantry credential both **Vendor credits read** and **Vendor credits write**, plus **Post approved sibling records**. Retain the supplier's credit evidence, select its **Matched supplier payable**, and choose **Post supplier credit to Pantry** as owner. Pier checks the payable's approved original receipt allocation, posts one native vendor credit and reads back its allocation and zero unapplied amount. An insufficient open balance waits for accountant review; no payment is fabricated. Lost responses recover by the same source identity; **Check Pantry** remains the explicit action for an unknown create.
+
+Dispatched supplier returns move their exact cost from Inventory to the mapped Cost of goods expense account as return clearing. Supplier credits reverse that clearing expense. Replacement receipts move the original unit cost and retained cumulative whole-cent freight and duty shares back from clearing to Inventory. They create no second payable and leave the original receipt and PO unchanged. Any remaining expense represents cost the supplier did not credit.
+
+Newer Pantry installations may flag the separate invoice and receipt-state attachments as possible duplicates. Pier retains the refusal and names it in Books. In Pantry **Documents**, review those exact files and choose **Keep both** only when they are distinct supporting evidence, then sync again. Pier never overrides Pantry's duplicate guard or decides that consent for the owner.

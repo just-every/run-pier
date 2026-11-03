@@ -12,7 +12,7 @@ export function pantryClient(config: BooksAdapterConfig) {
   const request=async(path:string,body?:unknown,idempotencyKey?:string) => {
     const response=await (config.fetch ?? fetch)(origin+'/api/pantry/integration/v1/'+path,{method:body===undefined?'GET':'POST',redirect:'manual',headers:{authorization:`Bearer ${config.credentials.integrationToken}`,origin,'content-type':'application/json',...(idempotencyKey?{'idempotency-key':idempotencyKey}:{})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(10000)});
     const value:any=await response.json().catch(()=>({}));
-    if(!response.ok) throw new PantryRefusal(typeof value.error==='string'?value.error:'Pantry refused this request. Check its business setup and permissions.',response.status);
+    if(!response.ok) throw new PantryRefusal(`Pantry refused this request (HTTP ${response.status}). Check its business setup and permissions.`,response.status);
     return value;
   };
   const post=async(path:string,body:unknown,doc:BookDocument,operation:string)=>{
@@ -20,7 +20,7 @@ export function pantryClient(config: BooksAdapterConfig) {
     // keeps the same identity after response loss, reconnect or restore.
     const key=`pier:${sha256(doc.key)}:${operation}`;
     try{return await request(path,body,key);}catch(error){
-      if(error instanceof PantryRefusal&&['contacts','invoices','bills','journals','documents'].includes(path))error.safeCreationRefusal=true;
+      if(error instanceof PantryRefusal&&['contacts','invoices','bills','journals','documents','vendor-credits'].includes(path))error.safeCreationRefusal=true;
       throw error;
     }
   };
@@ -33,7 +33,9 @@ export function pantryClient(config: BooksAdapterConfig) {
     if(!doc.attachment) return null;
     const rows=(await request('documents?name='+encodeURIComponent(doc.attachment.name))).documents;
     const found=matching(rows,r=>r.name===doc.attachment!.name);
-    if(found && (found.sha256!==sha256(doc.attachment.content) || (linkedId && found.linked_id!==linkedId))) throw new PantryRefusal('The evidence with this Pier reference differs in Pantry. Review the source and attached document.',409);
+    if(found && found.sha256!==sha256(doc.attachment.content)) throw new PantryRefusal('The evidence bytes with this Pier reference differ in Pantry. Review the retained source and attached document.',409);
+    if(found && linkedId && found.linked_id!==linkedId && found.duplicate_of && !found.duplicate_decision) throw new PantryRefusal('Pantry flagged this evidence as a possible duplicate. In Pantry Documents, review the original invoice and receipt-state evidence and choose Keep both if they are distinct, then sync again.',409);
+    if(found && linkedId && found.linked_id!==linkedId) throw new PantryRefusal('The evidence with this Pier reference is linked to a different Pantry bill. Review its document link before continuing.',409);
     return found;
   };
   const upload=async(doc:BookDocument,linkedId?:string) => {
@@ -61,5 +63,21 @@ export function pantryClient(config: BooksAdapterConfig) {
     }while(cursor);
     return rows;
   };
-  return {request,post,matching,attachment,upload,contact,payments};
+  const journals=async(canRead:()=>boolean)=>{
+    const rows:any[]=[],seen=new Set<string>();
+    let cursor:string|null=null;
+    do {
+      if(!canRead())throw new PantryRefusal('Pantry journal readback did not finish in this sync. Sync again before accepting current ledger evidence.',502);
+      const page=await request('journals?'+new URLSearchParams({limit:'100',...(cursor?{cursor}:{})}));
+      if(!Array.isArray(page.entries)||(page.nextCursor!==null&&typeof page.nextCursor!=='string'))throw new PantryRefusal('Pantry returned an incomplete journal page. Restore journal visibility before reconciling.',502);
+      rows.push(...page.entries);
+      cursor=page.nextCursor;
+      if(cursor){
+        if(seen.has(cursor))throw new PantryRefusal('Pantry repeated a journal cursor. Restore journal visibility before reconciling.',502);
+        seen.add(cursor);
+      }
+    }while(cursor);
+    return rows;
+  };
+  return {request,post,matching,attachment,upload,contact,payments,journals};
 }

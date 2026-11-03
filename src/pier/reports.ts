@@ -1,3 +1,6 @@
+import { returnCost } from './returns-cost';
+import { reservedKits } from './kits';
+import { forecast } from './replenishment';
 import { overdueDispatch } from "./floor/dispatch-board";
 import { decimal, fail, format, type State } from './model';
 import { stockInactivity } from './stock-inactivity';
@@ -36,7 +39,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
     return { itemId: p.itemId, locationId: p.locationId, status: p.status,
       quantity: format(layers.reduce((n, l) => n + l.quantity, 0n)), value: display(valueOf(layers)),
       unvaluedQuantity: format(layers.filter(l => l.value === null).reduce((n, l) => n + l.quantity, 0n)),
-      layers: layers.map(l => ({ ...l, quantity: format(l.quantity), value: display(l.value) })),
+      layers: layers.map(function displayLayer(l): any { return { ...l, quantity: format(l.quantity), value: display(l.value), ...(l.parts ? { parts: l.parts.map(displayLayer) } : {}) }; }),
     };
   });
   const allLayers = ledger.positions.flatMap(p => p.layers).filter(l => l.quantity > 0n);
@@ -48,8 +51,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
   for (const shipment of s.shipments.filter(sh => sh.createdAt <= end)) {
     const order = s.orders.find(o => o.id === shipment.orderId)!;
     for (const line of shipment.lines) {
-      const source = consumed.get(`${shipment.id}:${line.itemId}`) ?? [];
-      const layers = takeLayers(source, decimal(line.quantity));
+      const layers = (line.components ?? [{ itemId: line.itemId, quantity: line.quantity }]).flatMap((part: any) => takeLayers(consumed.get(`${shipment.id}:${part.itemId}`) ?? [], decimal(part.quantity)));
       costed(line.orderLineId, layers);
       if (shipment.createdAt.slice(0, 10) < from || shipment.createdAt.slice(0, 10) > to) continue;
       const orderLine = order.lines.find((l: any) => l.id === line.orderLineId);
@@ -68,17 +70,27 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
     const quantity = BigInt(reservation.quantity), held = layers.reduce((n, l) => n + l.quantity, 0n);
     costed(reservation.orderLineId, quantity > held ? [...takeLayers(layers, held), { quantity: quantity - held, value: null, sourceId: '', receivedAt: '' }] : takeLayers(layers, quantity));
   }
-  const orderCosts = Object.fromEntries([...lineCosts].map(([orderLineId, layers]) => [orderLineId, { quantity: format(layers.reduce((n, l) => n + l.quantity, 0n)), cost: display(valueOf(layers)) }]));
+  const orderCosts = Object.fromEntries([...lineCosts].map(([orderLineId, layers]) => { const line = s.orders.flatMap(o=>o.lines).find(l=>l.id===orderLineId); return [orderLineId, { quantity: format(line?.kit ? decimal(line.dispatched) + reservedKits(s,line) : layers.reduce((n,l)=>n+l.quantity,0n)), cost: display(valueOf(layers)) }]; }));
+  const kitMargins = [...new Set(s.kitDefinitions.map(k=>k.itemId))].map(itemId => {
+    const shipped = rows.filter(row=>row.itemId===itemId), gross = marginTotal(shipped);
+    const returned = s.returns.filter(r=>r.itemId===itemId && r.kit && r.createdAt.slice(0,10)>=from && r.createdAt.slice(0,10)<=to);
+    const credits = returned.map(r=>{ const sh=s.shipments.find(sh=>sh.id===r.shipmentId)!; const line=sh.lines.find((l:any)=>l.id===r.shipmentLineId); const order=s.orders.find(o=>o.id===sh.orderId)!;const price=order.lines.find((l:any)=>l.id===line.orderLineId)?.price;return {revenue:typeof price==='string'?extended(r.quantity,price):null,cost:returnCost(s,r,end)};});
+    const revenue=gross.revenue===null||credits.some(r=>r.revenue===null)?null:amount(gross.revenue)-credits.reduce((n,r)=>n+r.revenue!,0n);
+    const cost=gross.cost===null||credits.some(r=>r.cost===null)?null:amount(gross.cost)-credits.reduce((n,r)=>n+amount(r.cost!),0n);
+    return {key:itemId,quantity:format(decimal(gross.quantity)-returned.reduce((n,r)=>n+decimal(r.quantity),0n)),returned:format(returned.reduce((n,r)=>n+decimal(r.quantity),0n)),revenue:display(revenue),cost:display(cost),margin:display(revenue===null||cost===null?null:revenue-cost)};
+  });
   const inactivity = stockInactivity(s, valuationRows, end);
   const deadRows = inactivity.filter(row => row.inactiveDays >= days);
   const t = ledger.totals, expected = t.receipts + t.openings + t.returns + t.adjustments - t.cogs;
-  return { overdueOrders: overdueDispatch(s, asOf), currency: 'USD', asOf, from, to, timezone: 'UTC', method: ledger.method, methodHistory: ledger.history,
+  const lowStock = forecast({ s, now, commandId: '', actor: { id: '', name: '', role: 'viewer', sessionId: '', operatorVersion: 0 } }).filter(f => f.configured && f.low);
+  return { lowStock, overdueOrders: overdueDispatch(s, asOf), currency: 'USD', asOf, from, to, timezone: 'UTC', method: ledger.method, methodHistory: ledger.history,
     valuation: { rows: valuationRows, total: display(closing), unvaluedQuantity: format(allLayers.filter(l => l.value === null).reduce((n, l) => n + l.quantity, 0n)),
       reconciliation: { ...Object.fromEntries(Object.entries(t).map(([key, n]) => [key, ledger.incomplete.has(key as keyof typeof t) ? null : money(n)])), closing: display(closing), difference: closing === null || ledger.incomplete.size ? null : money(closing - expected) } },
     margin: { rows, bySku: group(rows, 'itemId'), byChannel: group(rows, 'channel'), byCustomer: group(rows, 'customerId'), ...marginTotal(rows),
       unpricedLines: rows.filter(r => r.revenue === null).length, unvaluedLines: rows.filter(r => r.cost === null).length },
     // Each order line's own cost: the layers its dispatches consumed and its reservations hold.
     orderCosts,
+    kitMargins,
     inactivity,
     deadStock: { days, rows: deadRows, total: deadRows.some(r => r.value === null) ? null : money(deadRows.reduce((n, r) => n + amount(r.value!), 0n)) },
   };

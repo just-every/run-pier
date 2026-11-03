@@ -3,6 +3,7 @@ import { seal } from '../channels/secrets';
 import { fail, fresh, get, requireRole, row, text, type Context, type Row } from '../model';
 import { checkItem, sourceDigest } from './evidence';
 import { reviewAction } from './actions';
+import { bulk } from './bulk';
 
 export const AI_SECRET_ID = 'pier-item-ai';
 export async function itemAgent(c: Context, type: string, p: any, env: Bindings): Promise<Row | undefined> {
@@ -29,6 +30,8 @@ export async function itemAgent(c: Context, type: string, p: any, env: Bindings)
     return row(c, 'aiSettings', { id: AI_SECRET_ID, ...data });
   }
   if (!type.startsWith('itemAgent.')) return;
+  const bulkResult = bulk(c, type, p);
+  if (bulkResult !== undefined) return bulkResult;
   if (['itemAgent.apply', 'itemAgent.reject', 'itemAgent.undo'].includes(type)) return reviewAction(c, type, p);
   requireRole(c, ['buyer', 'operator', 'warehouse', 'agent']);
   if (type === 'itemAgent.check') {

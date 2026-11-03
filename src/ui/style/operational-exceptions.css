@@ -1,0 +1,7 @@
+.pier-app .operational-cases dt,
+.pier-app .operational-cases small,
+.pier-app .operational-cases code,
+.pier-app .operational-cases .badge { font-size: 13px; }
+.pier-app .operational-cases .facts > div { border: 0; margin-left: 0; }
+.pier-app .operational-cases .evidence { border: 0; padding-left: 0; }
+.pier-app .operational-cases .panel { border: 1px solid var(--app-line); border-radius: var(--app-radius); padding: 16px; }

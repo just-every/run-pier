@@ -2,9 +2,12 @@
 // primary action, every page's links and files resolve inside the site, and no page links an instance-only route.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { spawnSync, execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { mkdtemp, chmod, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { freshCopy } from '../browser/runtime.mjs'
 
 const root = new URL('../..', import.meta.url).pathname
 const site = join(root, 'dist/site')
@@ -29,3 +32,35 @@ test('the run site builds, its primary action opens /run, and every link and fil
     }
   }
 })
+
+// Public CLI refusal: no build or upload may begin while hosting inputs are absent.
+test('hosted preflight refuses missing account inputs before building or contacting a provider', () => {
+  const env = { ...process.env };
+  delete env.CLOUDFLARE_ACCOUNT_ID; delete env.CLOUDFLARE_API_TOKEN;
+  const result = spawnSync(join(root, 'node_modules/.bin/rer'), ['deploy', '--dry-run'], { cwd: root, env, encoding: 'utf8' });
+  const output = result.stdout + result.stderr;
+  assert.equal(result.status, 3, output);
+  for (const name of JSON.parse(readFileSync(join(root, 'OPERATIONS.json'), 'utf8')).requiredEnvironment)
+    assert.ok(output.includes(name), 'preflight must name every declared hosting input');
+  assert.match(output, /rer deploy --dry-run --env-file/);
+  assert.doesNotMatch(output, /vite v|transforming|Uploading|https:\/\/api.cloudflare.com/);
+});
+
+test('setup explains a read-only checkout and its published recovery command completes the same installation', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'pier-recovery-'));
+  try {
+    await freshCopy(root, scratch);
+    const branding = join(scratch, 'src/branding.json');
+    await chmod(branding, 0o444);
+    const env = { ...process.env, CI: 'true', RER_SERVER_JOURNEY: '1', PATH: join(scratch, 'node_modules/.bin') + ':' + process.env.PATH };
+    delete env.RER_LOCAL_OPERATION; delete env.RER_ONBOARDING_PROCESS_OWNER;
+    const failed = spawnSync('rer', ['setup', '--owner-email', 'owner@example.test', '--non-interactive'], { cwd: scratch, env, encoding: 'utf8' });
+    assert.equal(failed.status, 1, failed.stdout + failed.stderr);
+    const output = failed.stdout + failed.stderr;
+    assert.doesNotMatch(output, /EACCES|EPERM|\n\s+at /);
+    const next = output.match(/Run (chmod u\+w src\/branding.json && rer setup --owner-email 'owner@example.test' --non-interactive)\./)?.[1];
+    assert.ok(next, 'a failed setup must give the executable recovery command');
+    const recovered = spawnSync('sh', ['-c', next], { cwd: scratch, env, encoding: 'utf8' });
+    assert.equal(recovered.status, 0, 'the printed recovery command must finish setup');
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});

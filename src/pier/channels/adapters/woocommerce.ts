@@ -70,7 +70,8 @@ export function createWooCommerceAdapter(config: ChannelConfig): Adapter {
           return { externalId: id(line.id), sku: string(line.sku, 'WooCommerce order SKU', true), quantity: String(quantity), price: decimal(price) }
         }).filter(line => line.quantity !== '0')
         if (!lines.length) continue
-        orders.push({ externalId: id(order.id), reference: string(order.number, 'WooCommerce order number'), customer, currency: string(order.currency), lines })
+        const address=order.shipping?object(order.shipping):null;
+        orders.push({ externalId: id(order.id),...(address?{shipTo:{address1:address.address_1==null?'':string(address.address_1,'WooCommerce shipping address',true),state:address.state==null?'':string(address.state,'WooCommerce shipping state',true),postalCode:address.postcode==null?'':string(address.postcode,'WooCommerce shipping ZIP',true),country:address.country==null?'':string(address.country,'WooCommerce shipping country',true)}}:{}), reference: string(order.number, 'WooCommerce order number'), customer, currency: string(order.currency), lines })
       }
       return orders
     },

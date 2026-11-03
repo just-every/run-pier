@@ -31,7 +31,7 @@ export function createShopifyAdapter(config: ChannelConfig): Adapter {
     async orders() {
       const rows = await connectionPages(async after => (await graphql(`query PierOrders($after: String) {
         orders(first: 50, after: $after, sortKey: ID, query: "status:open (fulfillment_status:unfulfilled OR fulfillment_status:partial) (financial_status:paid OR financial_status:authorized OR financial_status:partially_paid OR financial_status:partially_refunded)") {
-          nodes { id name closed cancelledAt displayFinancialStatus displayFulfillmentStatus currencyCode customer { displayName }
+          nodes { id name closed cancelledAt displayFinancialStatus displayFulfillmentStatus currencyCode customer { displayName } shippingAddress { address1 provinceCode zip countryCodeV2 } fulfillmentOrders(first: 100) { nodes { assignedLocation { location { id } } } pageInfo { hasNextPage endCursor } }
             lineItems(first: 100) { nodes { ${LINE_FIELDS} } ${PAGE_INFO} }
           } ${PAGE_INFO}
         }
@@ -63,30 +63,36 @@ export function createShopifyAdapter(config: ChannelConfig): Adapter {
         })
         unique(lines, line => line.externalId)
         if (!lines.length) continue
-        orders.push({ externalId, reference: string(order.name), currency, customer: order.customer === null ? '' : string(object(order.customer).displayName, 'Shopify customer', true), lines })
+        const address=order.shippingAddress?object(order.shippingAddress):null;
+        const fulfilment=order.fulfillmentOrders?object(order.fulfillmentOrders):null;
+        const assigned=fulfilment&&object(fulfilment.pageInfo).hasNextPage===false?[...new Set(array(fulfilment.nodes).map(node=>object(object(object(node).assignedLocation).location).id))]:[];
+        const channelLocation=assigned.length===1?string(assigned[0],'Shopify assigned location'):undefined;
+        orders.push({ externalId,...(address?{shipTo:{address1:address.address1 == null ? '' : string(address.address1,'Shopify shipping address',true),state:address.provinceCode == null ? '' : string(address.provinceCode,'Shopify shipping address',true),postalCode:address.zip == null ? '' : string(address.zip,'Shopify shipping address',true),country:address.countryCodeV2 == null ? '' : string(address.countryCodeV2,'Shopify shipping address',true)}}:{}),...(channelLocation?{channelLocation}:{}), reference: string(order.name), currency, customer: order.customer === null ? '' : string(object(order.customer).displayName, 'Shopify customer', true), lines })
       }
       unique(orders, order => order.externalId)
       return orders
     },
-    async stock(listing, quantity) {
-      if (!listing.inventoryItemId || listing.locationId !== locationId) throw new Error('Shopify listing needs its mapped inventory item and configured location')
+    async stock(listing, quantity, admission) {
+      const targetLocation = listing.locationId;
+      if (!listing.inventoryItemId || !targetLocation || !/^gid:\/\/shopify\/Location\/\d+$/.test(targetLocation)) throw new Error('Shopify listing needs an explicit inventory item and mapped location')
       const count = stockQuantity(quantity)
       const data = await graphql(`query PierInventory($id: ID!, $locationId: ID!) {
         inventoryItem(id: $id) { inventoryLevel(locationId: $locationId) { quantities(names: ["available"]) { name quantity } } }
-      }`, { id: listing.inventoryItemId, locationId })
+      }`, { id: listing.inventoryItemId, locationId: targetLocation })
       const level = object(object(data.inventoryItem, 'Shopify inventory item').inventoryLevel, 'Shopify inventory level')
       const available = array(level.quantities).map(entry => object(entry)).find(row => row.name === 'available')
       const current = available?.quantity
       if (typeof current !== 'number' || !Number.isSafeInteger(current)) throw new Error('Shopify did not return the current available quantity')
       if (current === count) return // The provider read itself confirms the desired quantity.
+      await admission?.beforeWrite();
       const result = await graphql(`mutation PierStock($input: InventorySetQuantitiesInput!, $idempotencyKey: String!) {
         inventorySetQuantities(input: $input) @idempotent(key: $idempotencyKey) {
           inventoryAdjustmentGroup { changes { name quantityAfterChange } }
           userErrors { code field message }
         }
       }`, {
-        input: { name: 'available', reason: 'correction', quantities: [{ inventoryItemId: listing.inventoryItemId, locationId, quantity: count, changeFromQuantity: current }] },
-        idempotencyKey: crypto.randomUUID(),
+        input: { name: 'available', reason: 'correction', quantities: [{ inventoryItemId: listing.inventoryItemId, locationId: targetLocation, quantity: count, changeFromQuantity: current }] },
+        idempotencyKey: admission?.idempotencyKey ?? crypto.randomUUID(),
       })
       const payload = object(result.inventorySetQuantities, 'Shopify stock result')
       if (array(payload.userErrors).length) throw new Error('Shopify rejected the stock update; reconcile before replay')

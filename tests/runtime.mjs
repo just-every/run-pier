@@ -14,7 +14,7 @@ await new Promise(resolve => socket.close(resolve))
 // The installed homepage reads the claim state from D1: run the emitted Worker
 // on its own migrated store, never the checkout's local data.
 const persist = await mkdtemp(join(tmpdir(), 'foundation-runtime-'))
-execFileSync(process.execPath, ['node_modules/wrangler/bin/wrangler.js', 'd1', 'migrations', 'apply', 'foundation', '--local', '--persist-to', persist, '--config', 'dist/server/wrangler.json'], { stdio: 'pipe', env: { ...process.env, CI: '1', WRANGLER_SEND_METRICS: 'false' } })
+execFileSync(process.execPath, ['node_modules/wrangler/bin/wrangler.js', 'd1', 'migrations', 'apply', 'inventory-pier', '--local', '--persist-to', persist, '--config', 'dist/server/wrangler.json'], { stdio: 'pipe', env: { ...process.env, CI: '1', WRANGLER_SEND_METRICS: 'false' } })
 const worker = spawn(process.execPath, ['node_modules/wrangler/bin/wrangler.js', 'dev', '--inspector-port', '0', '--local', '--persist-to', persist, '--ip', '127.0.0.1', '--config', 'dist/server/wrangler.json', '--port', String(port)], { stdio: ['ignore', 'pipe', 'pipe'] })
 let output = ''
 worker.stdout.on('data', chunk => { output += chunk })
@@ -45,4 +45,6 @@ try {
   worker.kill('SIGTERM')
   await new Promise(resolve => worker.exitCode !== null ? resolve() : worker.once('exit', resolve))
   await rm(persist, { recursive: true, force: true })
+  // wrangler dev keeps its scratch (.wrangler/tmp) beside the config it runs, which here is the emitted Worker; the artifact producer refuses that folder in dist/server, so leave the build output as rer build wrote it.
+  await rm('dist/server/.wrangler', { recursive: true, force: true })
 }

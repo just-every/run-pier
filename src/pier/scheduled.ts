@@ -1,3 +1,5 @@
+import { runWorkflowRules } from './workflow-schedule';
+import { runRecurringSchedule } from './recurring-schedule';
 import type { Bindings } from '../auth.server';
 import { syncBooks } from './books/sync';
 import { syncChannels } from './channels/sync';
@@ -15,6 +17,7 @@ export async function runReplenishmentSchedule(env: Bindings, scheduledTime = Da
   const context = { s, now, commandId: '', actor: { id: '', role: 'viewer', name: 'Scheduled planning', sessionId: '', operatorVersion: 0 } };
   const low = forecast(context);
   const pending = [
+    ...s.operationalExceptionPolicies.filter(p => p.enabled).map(p => ({ collection: 'operationalExceptionPolicies' as const, id: p.id, version: p.version, approvedBy: p.approvedBy })),
     ...s.slowStockPolicies.filter(p => p.enabled).map(p => ({ collection: 'slowStockPolicies' as const, id: p.id, version: p.version, approvedBy: p.approvedBy })),
     ...s.purchaseOrders.filter(po => po.sendPolicy?.enabled && !po.sendPolicy.messageId && po.sendPolicy.expiresAt > now).map(po => ({ collection: 'purchaseOrders' as const, id: po.id, version: po.sendPolicy.version, approvedBy: po.sendPolicy.approvedBy })),
     ...s.replenishmentPolicies.filter(p => p.autoDraft && low.some((r: any) => r.policyId === p.id && Number(r.remainingSuggestion ?? r.suggestedQuantity ?? r.suggested ?? 0) > 0)).map(p => ({ collection: 'replenishmentPolicies' as const, id: p.id, version: p.version, approvedBy: p.approvedBy })),
@@ -28,7 +31,10 @@ export async function runReplenishmentSchedule(env: Bindings, scheduledTime = Da
     if (!role || !['owner', 'buyer', ...(policy.collection === 'orders' ? ['operator'] : [])].includes(role)) continue;
     const operator = await env.DB.prepare('SELECT version,display_name FROM oa_operators WHERE id=?').bind(policy.approvedBy).first<any>();
     if (!operator) continue;
-    await execute(env, { id: policy.approvedBy, role, name: operator.display_name, sessionId: 'scheduled-policy', operatorVersion: operator.version }, `schedule-${policy.id}-${policy.version}-${slot}`, 'automation.tick', {}, () => now, policy);
+    const checkSlot = policy.collection === 'operationalExceptionPolicies' ? Math.floor(Date.parse(now) / 60000) : slot;
+    await execute(env, { id: policy.approvedBy, role, name: operator.display_name, sessionId: 'scheduled-policy', operatorVersion: operator.version }, `schedule-${policy.id}-${policy.version}-${checkSlot}`, 'automation.tick', {}, () => now, policy);
   }
+  await runRecurringSchedule(env,scheduledTime);
+  await runWorkflowRules(env,scheduledTime);
   return deliverCorrespondence(env, now);
 }

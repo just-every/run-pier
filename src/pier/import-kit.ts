@@ -1,3 +1,5 @@
+import { stockEvents } from './stock-feed';
+import { auditEvent } from './audit';
 import {
   planD1Import,
   createD1ImportJob,
@@ -38,9 +40,34 @@ function commandSQL(
   before: State,
   digest: string,
   result: Row,
+  undoReservationIds: string[] = [],
 ): D1Sql[] {
   const a = authority(c.actor);
+  // Undo restores retained before-images in SQL rather than in c.s. Build the
+  // audit projection from those same retained graph entries, without mutating
+  // the command state or exposing source originals.
+  let auditContext = c;
+  if (result.status === 'undone') {
+    const s = structuredClone(c.s);
+    for (const entry of result.created ?? []) {
+      const kind = entry.kind as (typeof collections)[number];
+      s[kind] = s[kind].filter(record => record.id !== entry.id);
+    }
+    for (const entry of result.beforeRecords ?? []) {
+      const kind = entry.kind as (typeof collections)[number];
+      s[kind] = [...s[kind].filter(record => record.id !== entry.data.id), entry.data];
+    }
+    s.movements = s.movements.filter(m => m.importId !== result.id);
+    const removed = new Set(undoReservationIds);
+    s.reservations = s.reservations.filter(r => !removed.has(r.id));
+    for (const r of result.beforeReservations ?? []) s.reservations = [...s.reservations.filter(x => x.id !== r.id), r];
+    s.imports = s.imports.map(batch => batch.id === result.id ? result : batch);
+    auditContext = { ...c, s };
+  }
+  const event = auditEvent(auditContext, before, result.status === 'undone' ? 'import.undo' : 'import.commit', { batchId: result.id }, result);
   return [
+    ...stockEvents(before, auditContext.s, c.now),
+    sql('INSERT INTO pier_audit(id,at,actor_id,command_id,event_type,outcome,data) VALUES(?,?,?,?,?,?,?)', event.id, event.at, event.actorId, event.commandId, event.type, event.outcome, JSON.stringify(event)),
     sql(
       `INSERT INTO pier_guard VALUES(?,CASE WHEN (${a.sql}) AND (SELECT version FROM pier_meta WHERE id=1)=? THEN 1 ELSE 0 END)`,
       crypto.randomUUID(),
@@ -67,6 +94,8 @@ export async function publishImport(
   undo = false,
 ) {
   const db = env.DB;
+  const undoGraph = undo ? await db.prepare('SELECT descriptor FROM pier_import_graphs WHERE id=?').bind(batch.id).first<any>() : null;
+  const undoReservationIds = undoGraph ? JSON.parse(undoGraph.descriptor).reservations : [];
   const g = importGraph(before, c.s);
   g.publication = {
     commandId: c.commandId,
@@ -176,6 +205,15 @@ export async function publishImport(
         value.records.find(
           (record) => record.kind === "imports" && record.data.id === batch.id,
         )?.data ?? fail("IMPORT_JOB", "Import publication is incomplete.");
+      // A resumed Base job publishes its retained graph, whose generated IDs
+      // can differ from the freshly recomputed command state after a rollback.
+      const published = structuredClone(before);
+      for (const entry of value.records) {
+        const kind = entry.kind as (typeof collections)[number];
+        published[kind] = [...published[kind].filter(r=>r.id!==entry.data.id),entry.data];
+      }
+      published.movements.push(...value.movements);
+      published.reservations = [...published.reservations.filter(r=>!value.removedReservationIds.includes(r.id)),...value.reservations];
       const out = writeGraph(value);
       const descriptor = {
         publication,
@@ -195,7 +233,7 @@ export async function publishImport(
       );
       out.push(
         ...commandSQL(
-          { ...c, now: publication.at },
+          { ...c, s: published, now: publication.at },
           before,
           digest,
           publishedBatch,
@@ -209,7 +247,7 @@ export async function publishImport(
         ...batch,
         status: "undone",
         version: batch.version + 1,
-      });
+      }, undoReservationIds);
       out.push(sql("INSERT INTO pier_guard VALUES(?,1)", "import-undo:" + key));
       const current = before.imports.find((b) => b.id === key)!;
       out.push(

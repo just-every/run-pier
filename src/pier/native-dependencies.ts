@@ -24,7 +24,7 @@ export function importRecordDependencies(state: State, batch: Row) {
   const catalogue = new Set(
     (batch.created ?? [])
       .filter((entry: any) =>
-        ["items", "locations", "parties"].includes(entry.kind),
+        ["items", "locations", "parties", "customFieldDefinitions"].includes(entry.kind),
       )
       .map((entry: any) => entry.id),
   );
@@ -52,6 +52,8 @@ export function importRecordDependencies(state: State, batch: Row) {
         if (kind === "bookJobs" && ["item", "valuation"].includes(record.kind)) return [];
         if (restored.has(`${kind}:${record.id}`)) return [];
         const ids = [...references(record)];
+        const ownerType=kind==='items'?'item':kind==='orders'?'order':kind==='parties'?record.kind:null;
+        for(const definition of state.customFieldDefinitions)if(catalogue.has(definition.id)&&definition.ownerType===ownerType&&Object.hasOwn(record.customFields??{},definition.key))ids.push(definition.id);
         return ids.length
           ? [{ kind, id: record.id, references: ids, record }]
           : [];

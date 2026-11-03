@@ -1,3 +1,4 @@
+import { assertPurchaseApproval, purchaseSpend } from './purchase-approval';
 import { decimal, fail, fresh, get, requireRole, type Context, type Row } from './model';
 import { email, expectedLandedCost, queuePurchase } from './purchasing-workflow';
 import { poMaterial } from './correspondence-delivery-eligibility';
@@ -10,6 +11,8 @@ function inputs(c: Context, po: Row) {
     supplier: c.s.parties.find(p => p.id === po.supplierId),
     terms: c.s.supplierItems.filter(t => t.supplierId === po.supplierId && items.has(t.itemId)),
     policies: c.s.replenishmentPolicies.filter(p => items.has(p.itemId)),
+    planningScope: c.s.replenishmentSettings,
+    workflowRule: po.workflow ? c.s.workflowRules.find(rule => rule.id === po.workflow.ruleId) ?? null : null,
     demand: c.s.orders.filter(o => o.lines.some((l: any) => items.has(l.itemId))).map(o => ({ id: o.id, version: o.version })) }));
 }
 
@@ -18,7 +21,7 @@ export function invalidatePurchaseSends(c: Context) {
     const policy = po.sendPolicy;
     if (policy?.enabled && policy.inputs !== inputs(c, po)) {
       policy.enabled = false;
-      policy.stoppedReason = 'Purchase, demand, supplier terms, planning policy or business destination changed. Review a new authority.';
+      policy.stoppedReason = 'Purchase, demand, supplier terms, planning scope, workflow budget, planning policy or business destination changed. Review a new authority.';
       po.version++;
     }
   }
@@ -38,9 +41,10 @@ export function purchaseSend(c: Context, type: string, p: any): Row | undefined 
     return po;
   }
   if (type === 'po.authorizeSend') {
+    assertPurchaseApproval(c, po, c.actor.id);
     if (p.confirm !== true) fail('APPROVAL', 'Approve this exact purchase, recipient, spend limit and expiry.');
     const recipient = email(p.recipient), maximum = decimal(p.maxSpend);
-    if (amount(expectedLandedCost(po).total) > maximum * 1000000n) fail('SPEND_LIMIT', 'The landed purchase total exceeds this send limit.');
+    if (amount(purchaseSpend(po)) > maximum * 1000000n) fail('SPEND_LIMIT', 'The landed purchase total exceeds this send limit.');
     const parsed = typeof p.expiresAt === 'string' ? Date.parse(p.expiresAt) : NaN;
     const expiresAt = Number.isFinite(parsed) ? new Date(parsed).toISOString() : '';
     if (!expiresAt || expiresAt <= c.now) fail('POLICY', 'Choose a future expiry for this one-purchase authority.');
@@ -57,10 +61,15 @@ export function purchaseSend(c: Context, type: string, p: any): Row | undefined 
   const policy = po.sendPolicy, role = policy && c.automationActors?.[policy.approvedBy];
   if (!policy?.enabled || policy.messageId || policy.expiresAt <= c.now || policy.inputs !== inputs(c, po) || policy.approvedMaterial !== poMaterial(po) ||
       !role || !['owner', 'buyer'].includes(role)) fail('SEND_AUTHORITY', 'This send authority expired, changed or was revoked. Ask a buyer to review it again.');
-  if (amount(expectedLandedCost(po).total) > decimal(policy.maxSpend) * 1000000n) fail('SPEND_LIMIT', 'This purchase exceeds the approved landed spend.');
+  if (amount(purchaseSpend(po)) > decimal(policy.maxSpend) * 1000000n) fail('SPEND_LIMIT', 'This purchase exceeds the approved landed spend.');
   c.purchaseSendAuthority = { poId: po.id, policyVersion: policy.version, actorId: policy.approvedBy, role };
   const result = queuePurchase(c, po, { recipient: policy.recipient, chaseEveryDays: policy.everyDays, maxChases: policy.maxChases },
     { approvedBy: policy.approvedBy, approvalRole: role, sendPolicyVersion: policy.version, requestedBy: c.actor.id, executor: c.backgroundPolicy ? 'Scheduled inventory agent' : c.actor.name });
+  result.policyDecision = { classes: ['money', 'external'], outcome: 'approved',
+    facts: { expectedLandedCost: purchaseSpend(po), currency: 'USD', recipient: policy.recipient,
+      terms: JSON.parse(poMaterial(po)), maxSpend: policy.maxSpend },
+    policy: { kind: 'exact-human-send', version: policy.version, purchaseApprovalVersion: po.approvalRoute?.policyVersion ?? null,
+      approvedBy: policy.approvedBy, executorId: c.actor.id, inputs: policy.inputs, at: c.now } };
   policy.messageId = result.id;
   policy.executedAt = c.now;
   po.version++;

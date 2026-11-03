@@ -1,13 +1,17 @@
+import { authenticatorCode } from './api/strong-auth-fixture.mjs';
 // Full public-command portability proof. Runs sequential fresh installations;
 // every child and directory is owned by this script and closed in finally.
 import assert from "node:assert/strict";
 import { admittedServer } from "./server-admission.mjs";
 import { spawn } from "node:child_process";
-import { mkdtemp, readdir, cp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, cp, rm, readFile, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { tmpdir } from "node:os";
 import { createServer } from "node:net";
-import { randomUUID } from "node:crypto";
+import { createServer as createHttpServer } from "node:http";
+import { inactiveRecord, inactiveValue } from "../scripts/installer/archive-policy.mjs";
+import { documentOriginal } from "./api/document-original.mjs";
+import { createHash, randomUUID } from "node:crypto";
 const workspace = resolve("."),
   parent = await mkdtemp(join(tmpdir(), "pier-portable-")),
   children = new Set();
@@ -152,6 +156,39 @@ async function start(root, p) {
     throw error;
   }
 }
+async function verifyNative(runtime, secret) {
+  const state=await(await runtime.request('/auth/strong-auth/status')).json();
+  if(state.restorePaused){
+    assert.equal(state.enrolled,false,'archive restores no factor secret');
+    assert.equal(state.verified,false,'archive restores no session assurance');
+    assert.equal((await runtime.request('/api/pier/export')).status,403,'required assurance survives restore');
+    assert.equal((await runtime.request('/auth/strong-auth/enroll','POST',{})).status,403,'restored enrollment refuses until explicit native owner recovery');
+    const session=await(await runtime.request('/auth/session')).json();
+    assert.equal((await runtime.request('/auth/strong-auth/recover','POST',{operatorId:session.operator.id,reason:'Fresh native owner restored installation'})).status,200);
+    assert.equal((await runtime.request('/api/pier/state')).status,403,'restored recovery grants no private access before fresh verification');
+    secret=undefined;
+  }
+  if(!secret)secret=(await(await runtime.request('/auth/strong-auth/enroll','POST',{})).json()).secret;
+  let response=await runtime.request('/auth/strong-auth/verify','POST',{code:authenticatorCode(secret)});
+  if(response.status===409){await new Promise(resolve=>setTimeout(resolve,30010-Date.now()%30000));response=await runtime.request('/auth/strong-auth/verify','POST',{code:authenticatorCode(secret)});}
+  assert.equal(response.status,200,await response.clone().text());
+  return secret;
+}
+// The only trade network edge records connection probes and any forbidden send.
+const tradeRequests = [];
+const tradeEdge = createHttpServer((request, response) => {
+  tradeRequests.push([request.method, request.url]);
+  response.writeHead(503).end();
+});
+await new Promise(resolve => tradeEdge.listen(0, '127.0.0.1', resolve));
+const tradeOrigin = `http://127.0.0.1:${tradeEdge.address().port}`;
+const settleTrade = async runtime => {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (!(await runtime.cmd('channel.sync', {})).busy) return;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  assert.fail('Trade connection probe did not finish');
+};
 let running;
 try {
   const source = await copy("source"),
@@ -207,6 +244,7 @@ try {
   });
   const order = await running.cmd("order.create", {
     customerId: customer.id,
+    warehouse: "Main",
     promiseDate: "2026-11-01",
     lines: [{ itemId: item.id, quantity: "0.2" }],
   });
@@ -238,6 +276,13 @@ try {
       },
     ],
   };
+  const csv = cells => cells.map(row => row.map(value => '"' + String(value).replaceAll('"','""') + '"').join(',')).join('\n') + '\n';
+  importInput.files[0].csv=csv([['key','sku','name','barcode','unit','packSize','metadata'],['i','RESTORE-IMPORT','Restore import','','each','1',JSON.stringify({customFields:{private_value:'synthetic-pier-private-item'}})]]);
+  importInput.files.push(
+    {kind:'customFieldDefinitions',name:'fields.csv',csv:csv([['key','ownerType','fieldKey','label','type','options'],...['item','customer','supplier','order'].map(kind=>[kind,kind,'private_value','Private value','text','[]'])])},
+    {kind:'parties',name:'parties.csv',csv:csv([['key','name','kind','metadata'],['typed-customer','Typed customer','customer',JSON.stringify({customFields:{private_value:'synthetic-pier-private-customer'}})],['typed-supplier','Typed supplier','supplier',JSON.stringify({customFields:{private_value:'synthetic-pier-private-supplier'}})]])},
+    {kind:'orders',name:'orders.csv',csv:csv([['key','orderKey','customerKey','itemKey','quantity','unit','promiseDate','metadata'],['typed-line','typed-order','typed-customer','i','0.1','each','2026-11-01',JSON.stringify({customFields:{private_value:'synthetic-pier-private-order'}})]])}
+  );
   let imported = await running.cmd("import.stage", importInput);
   for (const stage of ["mapped", "reconciled", "shadow", "frozen"])
     imported = await running.cmd("import.review", {
@@ -272,7 +317,76 @@ try {
     batchId: revision.id,
     version: revision.version,
   });
-  const before = await (await running.request("/api/pier/export")).json();
+  await running.cmd('supplierItem.save', { supplierId: supplier.id, itemId: item.id, code: 'synthetic-pier-1', packSize: '0.5', minimum: '0.5', price: '0.1', leadDays: 3 });
+  await running.cmd('replenishment.save', { version: 0, itemId: item.id, warehouse: 'Main', supplierId: supplier.id, method: 'fixed', safetyStock: '0', reorderPoint: '1', reorderQuantity: '1', autoDraft: true });
+  const currentPO = (await (await running.request('/api/pier/export')).json()).purchaseOrders.find(r => r.id === po.id);
+  await running.cmd('po.authorizeSend', { poId: po.id, version: currentPO.version, recipient: 'supplier@example.test', maxSpend: '3', expiresAt: new Date(Date.now() + 86400000).toISOString(), maxChases: 0, confirm: true });
+  let workflow = await running.cmd('workflow.save', { name: 'Portable inspection', kind: 'inventory-check', warehouses: ['Main'], supplierIds: [], perRunBudget: '0', dailyBudget: '0', cadenceMinutes: 15, automaticApproval: false });
+  const workflowPreview = await running.cmd('workflow.preview', { ruleId: workflow.id, version: workflow.version });
+  workflow = await running.cmd('workflow.enable', { ruleId: workflow.id, version: workflow.version, previewHash: workflowPreview.previewHash });
+  await running.cmd('workflow.enqueue', { ruleId: workflow.id });
+  const savedReport = await running.cmd('report.save', { name: 'Portable valuation', parameters: { warehouse: 'Main' } });
+  await running.cmd('report.run', { reportId: savedReport.id, version: savedReport.version });
+  await running.cmd('print.delivery.configure', { version: 0, provider: 'resend', verificationKey: 'synthetic-pier-7', consent: true });
+  const original = documentOriginal([['synthetic-pier-1'], ['Private portable source original']]);
+  await running.cmd('document.upload', { name: 'source.pdf', mimeType: 'application/pdf', base64: original.toString('base64') });
+  await running.cmd('document.configure', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-2', consent: true });
+  await running.cmd('ai.save', { version: 0, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-3', consent: true });
+  await running.cmd('channel.save', { name: 'Portable channel', provider: 'woocommerce', baseUrl: 'https://synthetic-pier.example', warehouse: 'Main', enabled: false, credentials: { consumerKey: 'synthetic-pier-4', consumerSecret: 'synthetic-pier-5' } });
+  const tradeKeys = ['synthetic-pier-12-portable-buyer-credential', 'synthetic-pier-13-portable-buyer-credential'];
+  const tradeHash = key => createHash('sha256').update('pier-trade-buyer\0' + key).digest('hex');
+  let tradeChannel = await running.cmd('channel.save', { name: 'Portable trade', provider: 'stall', baseUrl: tradeOrigin, warehouse: 'Main', enabled: false, credentials: { accessToken: 'synthetic-pier-18' } });
+  const tradeGrant = (buyerId, key) => ({ channelId: tradeChannel.id, version: tradeChannel.version, buyerId, customerId: customer.id, itemIds: [item.id], keyHash: tradeHash(key), shipTo: { country: 'US', postalCode: '94104' } });
+  for (const [index, buyerId] of ['suppressed', 'purchased'].entries()) tradeChannel = await running.cmd('trade.grant', { ...tradeGrant(buyerId, tradeKeys[index]), followupConsent: { recipient: 'buyer@example.test', purpose: 'One abandoned wholesale cart reminder', source: 'synthetic-pier-14', at: '2026-10-26T00:00:00Z' } });
+  tradeChannel = await running.cmd('channel.save', { id: tradeChannel.id, version: tradeChannel.version, name: 'Portable trade', provider: 'stall', baseUrl: tradeOrigin, warehouse: 'Main', enabled: true, credentials: { accessToken: 'synthetic-pier-18' } });
+  const tradeEvent = async (key, eventId, cartId, event) => {
+    const response = await fetch(`http://127.0.0.1:${p}/api/pier/trade/cart-events`, { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ eventId, cartId, event }) });
+    assert.equal(response.status, 200, await response.clone().text());
+    return response.json();
+  };
+  assert.equal((await tradeEvent(tradeKeys[0], 'unsubscribed', 'retained-cart', 'unsubscribed')).cart.status, 'suppressed');
+  assert.equal((await tradeEvent(tradeKeys[1], 'purchased', 'retained-cart', 'purchased')).cart.status, 'purchased');
+  // Capture a consented buyer before a later unsubscribe. The receiving empty
+  // installation has no later journal from which to discover that suppression.
+  await running.cmd('priceList.save', { customerId: customer.id, itemId: item.id, price: '2.5', minimumQuantity: '0' });
+  const rollbackKey = 'synthetic-pier-86-before-archive-buyer-credential';
+  const rollbackConsent = { recipient: ['synthetic-pier-86', 'example.test'].join('@'), purpose: 'One abandoned wholesale cart reminder', source: 'synthetic-pier-86', at: '2026-10-26T00:00:00Z' };
+  tradeChannel = (await (await running.request('/api/pier/export')).json()).channels.find(row => row.id === tradeChannel.id);
+  tradeChannel = await running.cmd('trade.grant', { ...tradeGrant('rollback', rollbackKey), followupConsent: rollbackConsent });
+  assert.equal((await tradeEvent(rollbackKey, 'rollback-abandoned', 'rollback-cart', 'abandoned')).cart.status, 'pending-owner-review');
+  const rollbackBefore = await (await running.request('/api/pier/export')).json();
+  const rollbackSource = rollbackBefore.channels.find(row => row.id === tradeChannel.id).tradeBuyers.find(buyer => buyer.buyerId === 'rollback');
+  assert.equal(rollbackSource.suppressed, false);
+  assert.equal(rollbackSource.followupRestoreFence, null);
+  await running.close(); running = null;
+  const rollbackArchive = join(parent, 'before-unsubscribe.rer');
+  await command(source, ['export', '--output', rollbackArchive]);
+  running = await start(source, p);
+  assert.equal((await tradeEvent(rollbackKey, 'rollback-unsubscribed', 'rollback-cart', 'unsubscribed')).cart.status, 'suppressed');
+  const laterSuppression = (await (await running.request('/api/pier/export')).json()).channels.find(row => row.id === tradeChannel.id).tradeBuyers.find(buyer => buyer.buyerId === 'rollback');
+  assert.equal(laterSuppression.suppressed, true, 'source records the actual later unsubscribe');
+  assert.equal(laterSuppression.carts[0].lastEvent, 'unsubscribed');
+  const typedState=await(await running.request('/api/pier/state')).json();
+  await running.cmd('business.save',{name:'Synthetic portable business',address:'1 Synthetic Pier Road',shipTo:{}});
+  const typedPurchase=await running.cmd('po.draft',{supplierId:typedState.parties.find(p=>p.customFields?.private_value==='synthetic-pier-private-supplier').id,promiseDate:'2026-11-01',reason:'Typed PDF custody',lines:[{itemId:typedState.items.find(i=>i.sku==='RESTORE-IMPORT').id,quantity:'1',price:'1'}]});
+  const typedDocument=await running.cmd('print.generate',{kind:'purchase-order',sourceId:typedPurchase.id});
+  assert.equal((await (await running.request('/api/pier/export')).json()).customFieldDefinitions.length,4);
+  assert.equal(typedDocument.typedFieldCustody,true);
+
+  const nativeSecret=await verifyNative(running);
+  assert.equal((await running.request('/auth/strong-auth/require','POST',{})).status,200);
+  const nativePersona=async name=>{
+    const entered=await running.request('/auth/dev/enter?as='+name);assert.equal(entered.status,303);
+    const cookies=new Map(running.sessionCookie().split(';').map(part=>{const value=part.trim(),index=value.indexOf('=');return [value.slice(0,index),value.slice(index+1)];}));
+    for(const value of entered.headers.getSetCookie()){const part=value.split(';')[0],index=part.indexOf('=');cookies.set(part.slice(0,index),part.slice(index+1));}
+    const cookie=[...cookies].map(([key,value])=>key+'='+value).join('; ');
+    const session=await(await running.request('/auth/session','GET',undefined,cookie)).json();return {cookie,session};
+  };
+  const securityAdmin=await nativePersona('admin'), securityTarget=await nativePersona('member');
+  const securityGrant=await running.request('/auth/strong-auth/grant','POST',{delegateId:securityAdmin.session.operator.id,operatorId:securityTarget.session.operator.id,minutes:1440});
+  assert.equal(securityGrant.status,200,await securityGrant.clone().text());
+  assert.equal((await securityGrant.json()).grants.length,1,'source has a live human security grant');
+  const before=await(await running.request('/api/pier/export')).json();
   const oldSession = running.sessionCookie();
   assert.ok(before.importJournal.jobs.length > 0);
   assert.ok(
@@ -285,6 +399,14 @@ try {
   running = null;
   const archive = join(parent, "installation.rer");
   await command(source, ["export", "--output", archive]);
+  const corrupt = join(parent, 'corrupt.rer');
+  const archiveBytes = await readFile(archive);
+  for (const secret of ['synthetic-pier-2','synthetic-pier-3','synthetic-pier-4','synthetic-pier-5','synthetic-pier-7', ...oldSession.split(';').map(part=>part.trim().slice(part.indexOf('=')+1))])
+    assert.ok(!archiveBytes.includes(Buffer.from(secret)), 'installation archive excludes active credential/session material');
+  const corruptBytes = Buffer.from(archiveBytes); corruptBytes[Math.floor(corruptBytes.length / 2)] ^= 1;
+  await writeFile(corrupt, corruptBytes);
+  const refused = child(destination, ['import', '--input', corrupt, '--yes']);
+  assert.notEqual(await refused.done, 0, 'corrupt archive is refused before the valid restore');
   await command(destination, [
     "import",
     "--input",
@@ -301,6 +423,13 @@ try {
     "--non-interactive",
   ]);
   running = await start(destination, p2);
+  const restoredSecurity=await(await running.request('/auth/strong-auth/status')).json();
+  assert.equal(restoredSecurity.required,true,'restore preserves required two-factor enforcement');
+  assert.equal(restoredSecurity.restorePaused,true,'restore must pause enrollment before any recovery branch');
+  assert.equal(restoredSecurity.enrolled,false,'restore excludes enrolled factors');
+  assert.equal(restoredSecurity.verified,false,'restore excludes session proofs');
+  await verifyNative(running);
+  assert.deepEqual((await(await running.request('/auth/strong-auth/status')).json()).grants,[],'archive restore retains no live security grant authority');
   assert.equal(
     (await running.request("/api/pier/state", "GET", undefined, oldSession))
       .status,
@@ -315,27 +444,56 @@ try {
   );
   assert.deepEqual(
     after.commands,
-    before.commands,
-    "durable command outcomes survived restore",
+    before.commands.map(command => ({ ...command, result: inactiveValue(command.result) })),
+    "durable command outcomes survived restore without active provider links",
   );
-  for (const field of [
-    "items",
-    "locations",
-    "parties",
-    "orders",
-    "purchaseOrders",
-    "receipts",
-    "movements",
-    "reservations",
-    "imports",
-    "proposals",
-    "roles",
-  ])
+  // Every current and future business collection is compared, including source
+  // bytes and valuation/approval histories; only declared authority is paused.
+  for (const [field, rows] of Object.entries(before)) {
+    if (!Array.isArray(rows) || field === 'commands') continue;
     assert.deepEqual(
       [...after[field]].sort((a, b) => a.id.localeCompare(b.id)),
-      [...before[field]].sort((a, b) => a.id.localeCompare(b.id)),
-      field + " restored exactly",
+      rows.map(r => inactiveRecord(field, r)).sort((a, b) => a.id.localeCompare(b.id)),
+      field + ' restored with only declared inactive-authority changes',
     );
+  }
+  let restoredTrade = after.channels.find(channel => channel.id === tradeChannel.id);
+  assert.equal(restoredTrade.enabled, false);
+  assert.deepEqual(restoredTrade.tradeBuyers.map(buyer => [buyer.buyerId, buyer.enabled, buyer.keyHash, buyer.followupConsent, buyer.suppressed]), [['suppressed', false, null, null, true], ['purchased', false, null, null, false], ['rollback', false, null, null, true]]);
+  assert.ok(restoredTrade.tradeBuyers[1].carts[0].purchasedAt);
+  assert.ok(restoredTrade.tradeBuyers.every(buyer => buyer.followupRestoreFence === 'post-archive-suppression-unknown'));
+  assert.ok(restoredTrade.tradeBuyers.every(buyer => buyer.followupConsent === null));
+  const restoredCatalog = key => fetch(`http://127.0.0.1:${p2}/api/pier/trade/catalog`, { headers: { authorization: `Bearer ${key}` } });
+  for (const key of tradeKeys) assert.equal((await restoredCatalog(key)).status, 403);
+  restoredTrade = await running.cmd('channel.save', { id: restoredTrade.id, version: restoredTrade.version, name: 'Portable trade', provider: 'stall', baseUrl: tradeOrigin, warehouse: 'Main', enabled: true, credentials: { accessToken: 'synthetic-pier-18' } });
+  for (const key of tradeKeys) assert.equal((await restoredCatalog(key)).status, 403, 're-enablement cannot restore buyer credentials');
+  const freshKeys = ['synthetic-pier-15-restored-buyer-credential', 'synthetic-pier-16-restored-buyer-credential'];
+  for (const [index, buyerId] of ['suppressed', 'purchased'].entries()) {
+    restoredTrade = await running.cmd('trade.grant', { ...tradeGrant(buyerId, freshKeys[index]), version: restoredTrade.version });
+    const catalog = await restoredCatalog(freshKeys[index]);
+    assert.equal(catalog.status, 200);
+    assert.equal((await catalog.json()).followupSuppressed, index === 0);
+    for (const cartId of ['retained-cart', 'new-cart']) {
+      const response = await fetch(`http://127.0.0.1:${p2}/api/pier/trade/cart-events`, { method: 'POST', headers: { authorization: `Bearer ${freshKeys[index]}`, 'content-type': 'application/json' }, body: JSON.stringify({ eventId: cartId, cartId, event: 'abandoned' }) });
+      assert.equal(response.status, 200, await response.clone().text());
+      assert.deepEqual(await response.json(), { ok: true, cart: { cartId, status: index === 0 ? 'suppressed' : cartId === 'retained-cart' ? 'purchased' : 'restore-safety' }, reminderSent: false });
+    }
+  }
+  assert.equal(after.evidenceDocuments[0].original, original.toString('base64'));
+  assert.equal(after.salesDocuments.find(d=>d.id===typedDocument.id).pdf,typedDocument.pdf);
+  const typedPlan=await(await running.request('/api/pier/privacy?kind=customer&subjectId='+customer.id)).json();
+  assert.match(typedPlan.refusal,/Erasure refused: subject attribution/);
+  const typedRefusal=await running.request('/api/pier/commands','POST',{commandId:randomUUID(),type:'privacy.eraseSubject',payload:{kind:'customer',subjectId:customer.id,planHash:typedPlan.planHash,confirm:true}});
+  assert.equal((await typedRefusal.json()).error.message,typedPlan.refusal);
+  const restoredAudit=await(await running.request('/api/pier/audit')).json();
+  assert.ok(restoredAudit.some(e=>e.type==='privacy.eraseSubject'&&e.outcome==='refused'));
+  assert.ok(!JSON.stringify(restoredAudit).includes('synthetic-pier-private-'));
+
+  for (const field of ['documentSettings', 'aiSettings', 'channels', 'replenishmentPolicies', 'workflowRules'])
+    assert.ok(after[field].every(r => r.enabled !== true && r.autoDraft !== true && r.restorePaused), field + ' paused');
+  assert.equal((await running.request('/api/pier/documents/' + after.evidenceDocuments[0].id + '/original')).status, 200);
+  await running.cmd('document.configure', { version: after.documentSettings[0].version, model: 'synthetic-pier-model', apiKey: 'synthetic-pier-6', consent: true });
+  assert.equal((await (await running.request('/api/pier/export')).json()).documentSettings[0].enabled, true, 'fresh owner explicitly reconnects');
   let repeated = await running.cmd("import.stage", importInput);
   assert.deepEqual(repeated.errors, []);
   for (const stage of ["mapped", "reconciled", "shadow", "frozen"])
@@ -387,6 +545,198 @@ try {
     "--output",
     join(parent, "restored.rer"),
   ]);
+  // Exercise rollback through the ordinary archive door, then export and restore
+  // the already fenced installation again. No later suppression journal is used.
+  const rollbackRoot = await copy('rollback-destination'), rollbackPort = await port();
+  const rollbackOwner = ['owner', 'example.test'].join('@');
+  await command(rollbackRoot, ['import', '--input', rollbackArchive, '--yes']);
+  await command(rollbackRoot, ['setup', '--owner-email', rollbackOwner, '--non-interactive', '--port', String(rollbackPort)]);
+  const business = snapshot => Object.fromEntries(Object.entries(snapshot).filter(([kind, rows]) => Array.isArray(rows) && !['channels', 'commands', 'auditEvents'].includes(kind)));
+  const sourceFacts = rows => rows.map(({ archiveAuthority, sendPolicy, chasePolicy, promisePolicy, ...row }) => row);
+  const rollbackState = async () => (await running.request('/api/pier/export')).json();
+  const rollbackEvent = async (key, eventId, cartId, event = 'abandoned', expected = 200) => {
+    const response = await fetch(`http://127.0.0.1:${rollbackPort}/api/pier/trade/cart-events`, { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': ['application', 'json'].join('/') }, body: JSON.stringify({ eventId, cartId, event }) });
+    assert.equal(response.status, expected, await response.clone().text());
+    const result = await response.json();
+    if (expected === 200) assert.deepEqual(result, { ok: true, cart: { cartId, status: 'restore-safety' }, reminderSent: false });
+  };
+  const rollbackCatalog = key => fetch(`http://127.0.0.1:${rollbackPort}/api/pier/trade/catalog`, { headers: { authorization: `Bearer ${key}` } });
+  const fencedBuyer = snapshot => snapshot.channels.find(row => row.id === tradeChannel.id).tradeBuyers.find(buyer => buyer.buyerId === 'rollback');
+  const fenceFacts = buyer => {
+    assert.equal(buyer.followupRestoreFence, 'post-archive-suppression-unknown');
+    assert.equal(buyer.suppressed, false, 'restore uncertainty must not invent an unsubscribe');
+    assert.ok(buyer.carts.every(cart => cart.lastEvent !== 'unsubscribed'));
+    assert.ok(buyer.carts.every(cart => !['pending-owner-review', 'no-consent'].includes(cart.status)));
+  };
+  let restoredKey;
+  for (const round of [1, 2]) {
+    running = await start(rollbackRoot, rollbackPort);
+    const initial = await rollbackState(), initialBuyer = fencedBuyer(initial);
+    for (const kind of ['movements', 'reservations', 'orders', 'purchaseOrders', 'receipts', 'shipments', 'invoices', 'invoicePayments', 'bookJobs', 'supplierBills'])
+      assert.deepEqual(sourceFacts(initial[kind]), sourceFacts(rollbackBefore[kind]), kind + ' retains the pre-unsubscribe source facts while send authority stays paused');
+    fenceFacts(initialBuyer);
+    assert.equal(initialBuyer.enabled, false);
+    assert.equal(initialBuyer.keyHash, null);
+    assert.equal(initialBuyer.followupConsent, null);
+    for (const buyerId of ['suppressed', 'purchased']) {
+      const fact = initial.channels.find(row => row.id === tradeChannel.id).tradeBuyers.find(buyer => buyer.buyerId === buyerId);
+      const authentic = rollbackBefore.channels.find(row => row.id === tradeChannel.id).tradeBuyers.find(buyer => buyer.buyerId === buyerId);
+      assert.equal(fact.suppressed, authentic.suppressed);
+      assert.equal(fact.carts[0].lastEvent, authentic.carts[0].lastEvent);
+      assert.equal(fact.carts[0].purchasedAt, authentic.carts[0].purchasedAt);
+    }
+    assert.equal(initialBuyer.carts.find(cart => cart.cartId === 'rollback-cart').lastEvent, 'abandoned');
+    const priorKey = restoredKey;
+    restoredKey = `synthetic-pier-86-fresh-owner-buyer-credential-${round}`;
+    for (const key of [rollbackKey, priorKey].filter(Boolean)) {
+      assert.equal((await rollbackCatalog(key)).status, 403);
+      await rollbackEvent(key, 'rollback-abandoned', 'rollback-cart', 'abandoned', 403);
+      await rollbackEvent(key, `denied-later-${round}`, `denied-later-${round}`, 'abandoned', 403);
+    }
+    let channel = initial.channels.find(row => row.id === tradeChannel.id);
+    const connect = async enabled => {
+      channel = await running.cmd('channel.save', { id: channel.id, version: channel.version, name: 'Portable trade', provider: 'stall', baseUrl: tradeOrigin, warehouse: 'Main', enabled, credentials: { accessToken: 'synthetic-pier-86' } });
+      await settleTrade(running);
+    };
+    await connect(true);
+    assert.equal((await rollbackCatalog(rollbackKey)).status, 403, 'reconnect does not revive the source credential');
+    const renewedConsent = { ...rollbackConsent, source: 'synthetic-pier-87-fresh-owner-consent', at: new Date(Date.now() - 1000).toISOString() };
+    const grant = async key => {
+      channel = await running.cmd('trade.grant', { ...tradeGrant('rollback', key), version: channel.version, followupConsent: renewedConsent, suppressed: false, followupRestoreFence: null });
+    };
+    await grant(restoredKey);
+    assert.deepEqual(fencedBuyer(await rollbackState()).followupConsent, { ...renewedConsent, approvedBy: channel.approvedBy }, 'fresh consent is actually recorded but cannot remove the independent restore fence');
+    const probes = tradeRequests.length;
+    const catalog = await rollbackCatalog(restoredKey);
+    assert.equal(catalog.status, 200, 'fresh owner authorization still serves the approved catalog');
+    const view = await catalog.json();
+    assert.deepEqual(view.items.map(row => [row.id, row.prices]), [[item.id, [{ minimumQuantity: '0', price: '2.5', currency: 'USD' }]]]);
+    assert.equal(view.followupSuppressed, false, 'catalog does not misreport an unsubscribe');
+    await rollbackEvent(restoredKey, 'rollback-abandoned', 'rollback-cart');
+    await rollbackEvent(restoredKey, `later-${round}`, `later-cart-${round}`);
+    await rollbackEvent(restoredKey, `delayed-${round}`, 'rollback-cart');
+    await rollbackEvent(restoredKey, `later-${round}`, `later-cart-${round}`);
+    const rotated = `synthetic-pier-86-rotated-buyer-credential-${round}`;
+    await grant(rotated);
+    await rollbackEvent(restoredKey, `rotated-old-${round}`, 'rollback-cart', 'abandoned', 403);
+    await rollbackEvent(rotated, `rotated-${round}`, `later-cart-${round}`);
+    await running.cmd('trade.revoke', { channelId: channel.id, version: channel.version, buyerId: 'rollback' });
+    channel = (await rollbackState()).channels.find(row => row.id === channel.id);
+    await rollbackEvent(rotated, `revoked-${round}`, 'rollback-cart', 'abandoned', 403);
+    await grant(rotated);
+    assert.equal(tradeRequests.length, probes, 'fresh consent, rotation, re-grant and delayed or replayed carts make zero outbound requests');
+    await connect(false);
+    await rollbackEvent(rotated, `disabled-${round}`, 'rollback-cart', 'abandoned', 403);
+    await connect(true);
+    const reconnectedProbes = tradeRequests.length;
+    await rollbackEvent(rollbackKey, `old-after-reconnect-${round}`, 'rollback-cart', 'abandoned', 403);
+    await rollbackEvent(rotated, `reenabled-${round}`, 'rollback-cart');
+    fenceFacts(fencedBuyer(await rollbackState()));
+    await running.close(); running = null;
+    running = await start(rollbackRoot, rollbackPort);
+    await rollbackEvent(rotated, `restart-${round}`, `restart-cart-${round}`);
+    const final = await rollbackState();
+    fenceFacts(fencedBuyer(final));
+    assert.deepEqual(business(final), business(initial), 'rollback cart intake changes no stock, reservations, orders or financial records');
+    assert.equal(tradeRequests.length, reconnectedProbes, 're-enablement, restart and cart intake make zero outbound requests beyond explicit connector probes');
+    restoredKey = rotated;
+    await running.close(); running = null;
+    if (round === 1) {
+      const repeatedArchive = join(parent, 'rollback-fenced.rer');
+      await command(rollbackRoot, ['export', '--output', repeatedArchive]);
+      await command(rollbackRoot, ['reset', '--yes']);
+      await command(rollbackRoot, ['import', '--input', repeatedArchive, '--yes']);
+      await command(rollbackRoot, ['setup', '--owner-email', rollbackOwner, '--non-interactive', '--port', String(rollbackPort)]);
+    }
+  }
+  console.log('Pre-unsubscribe archive rollback and repeated restore retain the distinct safety fence, authentic source facts and catalog access; cart intake made zero outbound requests.');
+  // A later journal is a real public archive made after explicit erasure.
+  // Its checkpoint refuses the older source archive before any private row
+  // returns. A current archive restores normally with the source absent.
+  running = await start(source, p);
+  await verifyNative(running,nativeSecret);
+  const erasurePlan = await (await running.request('/api/pier/privacy?kind=attachment&subjectId=' + before.evidenceDocuments[0].id)).json();
+  await running.cmd('privacy.eraseAttachment', { documentId: before.evidenceDocuments[0].id, planHash: erasurePlan.planHash, confirm: true });
+  await running.close(); running = null;
+  const later = join(parent, 'later-journal.rer');
+  await command(source, ['export', '--output', later]);
+  const fenced = await copy('fenced-destination');
+  await cp(later, join(fenced, 'later-journal.rer'));
+  const older = child(fenced, ['import', '--input', archive, '--journal', 'later-journal.rer', '--yes']);
+  assert.notEqual(await older.done, 0, 'later erasure checkpoint refuses the older archive');
+  assert.match(clean(older.output()), /erasure_epoch/, 'refusal identifies the later-journal fence');
+  await command(fenced, ['import', '--input', later, '--yes']);
+  const p3 = await port();
+  await command(fenced, ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(p3)]);
+  running = await start(fenced, p3);
+  await verifyNative(running);
+  const fencedExport = await (await running.request('/api/pier/export')).json();
+  assert.equal(fencedExport.evidenceDocuments.length, 0);
+  assert.ok(!JSON.stringify(fencedExport).includes(original.toString('base64')));
+  assert.deepEqual(fencedExport.movements, before.movements);
+  assert.ok(fencedExport.workflowRules.every(rule => !rule.enabled));
+  assert.equal((await running.request('/api/pier/documents/' + before.evidenceDocuments[0].id + '/original')).status, 404);
+  await running.close(); running = null;
+  // A separate fresh installation proves retained custody with no live definitions.
+  const undoRoot=await copy('typed-undo'), undoPort=await port();
+  await command(undoRoot,['setup','--owner-email','owner@example.test','--non-interactive','--port',String(undoPort)]);
+  running=await start(undoRoot,undoPort);
+  let undoBatch=await running.cmd('import.stage',{...importInput,namespace:'typed-undo'});
+  assert.deepEqual(undoBatch.errors,[]);
+  for(const stage of ['mapped','reconciled','shadow','frozen']) undoBatch=await running.cmd('import.review',{batchId:undoBatch.id,version:undoBatch.version,stage,reason:'Review independent typed custody'});
+  undoBatch=await running.cmd('import.commit',{batchId:undoBatch.id,version:undoBatch.version});
+  await running.cmd('import.undo',{batchId:undoBatch.id,version:undoBatch.version,reason:'Remove all eligible imported live definitions'});
+  const unrelated=await running.cmd('party.save',{kind:'customer',name:'Unrelated custody subject'});
+  const refusalProof=async(restored=false)=>{
+    const current=await(await running.request('/api/pier/export')).json();
+    assert.equal(current.customFieldDefinitions.length,0);
+    assert.ok(current.imports.some(batch=>batch.status==='undone'&&batch.source.records.some(r=>r.kind==='customFieldDefinitions')));
+    const plan=await(await running.request('/api/pier/privacy?kind=customer&subjectId='+unrelated.id)).json();
+    assert.match(plan.refusal,/Erasure refused: subject attribution/);
+    const result=await running.request('/api/pier/commands','POST',{commandId:randomUUID(),type:'privacy.eraseSubject',payload:{kind:'customer',subjectId:unrelated.id,planHash:plan.planHash,confirm:true}});
+    assert.equal((await result.json()).error.message,plan.refusal);
+    const final=await(await running.request('/api/pier/export')).json();
+    assert.deepEqual(final.imports,current.imports);
+    assert.ok(final.auditEvents.some(event=>event.type==='privacy.eraseSubject'&&event.outcome==='refused'&&event.custody?.classes.includes('imports')));
+    let member=await running.request('/auth/dev/enter?as=member');
+    if(restored){
+      assert.equal(member.status,403,'restore does not reactivate the prior staff identity');
+      const state=await(await running.request('/api/pier/state')).json();
+      assert.equal(state.actor.role,'owner');
+      const inactive=state.operators.filter(operator=>operator.role!=='owner'&&operator.status==='inactive');
+      assert.equal(inactive.length,1);
+      await verifyNative(running);
+      const reactivated=await running.request('/auth/operator/status','POST',{operatorId:inactive[0].id,status:'active'});
+      assert.equal(reactivated.status,200,'fresh owner explicitly reactivates this staff identity');
+      member=await running.request('/auth/dev/enter?as=member');
+    }
+    assert.equal(member.status,303);
+    const memberCookies=new Map(running.sessionCookie().split(';').map(part=>{const value=part.trim(),index=value.indexOf('=');return [value.slice(0,index),value.slice(index+1)];}));
+    for(const header of member.headers.getSetCookie()){const value=header.split(';')[0],index=value.indexOf('=');memberCookies.set(value.slice(0,index),value.slice(index+1));}
+    const memberCookie=[...memberCookies].map(([name,value])=>name+'='+value).join('; ');
+    const privateState=await(await running.request('/api/pier/state','GET',undefined,memberCookie)).json();
+    assert.equal(privateState.actor.role,'viewer');
+    assert.equal(privateState.imports,undefined);
+    assert.equal((await running.request('/api/pier/native-export','GET',undefined,memberCookie)).status,403);
+    assert.ok(!JSON.stringify(final.auditEvents).includes('synthetic-pier-private-'));
+    return final;
+  };
+  await refusalProof();
+  await running.close();running=null;
+  running=await start(undoRoot,undoPort);
+  const undoBefore=await refusalProof(), undoSession=running.sessionCookie();
+  await running.close();running=null;
+  const undoArchive=join(parent,'typed-undo.rer');
+  await command(undoRoot,['export','--output',undoArchive]);
+  await command(undoRoot,['reset','--yes']);
+  await command(undoRoot,['import','--input',undoArchive,'--yes']);
+  await command(undoRoot,['setup','--owner-email','owner@example.test','--non-interactive','--port',String(undoPort)]);
+  running=await start(undoRoot,undoPort);
+  assert.equal((await running.request('/api/pier/state','GET',undefined,undoSession)).status,401);
+  const undoAfter=await refusalProof(true);
+  assert.deepEqual(undoAfter.imports,undoBefore.imports);
+  assert.deepEqual(undoAfter.importJournal,undoBefore.importJournal);
+  await running.close();running=null;
   console.log(
     "Fresh rer export/import retained business identity and exact history; a new native session continued receipt to 0.3.",
   );
@@ -398,5 +748,6 @@ try {
       proc.exitCode !== null ? r() : proc.once("close", r),
     );
   }
+  await new Promise(resolve => tradeEdge.close(resolve));
   await rm(parent, { recursive: true, force: true });
 }

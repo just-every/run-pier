@@ -2,7 +2,7 @@ import type { Bindings } from '../../auth.server';
 import { operatorMail } from '../../mail.server.mjs';
 import type { Row } from '../model';
 export async function trackingMail(env: Bindings, job: Row) {
-  if (env.RER_OWNER_CLAIM_ISSUER) return { status: 'not available', detail: 'Email is not available yet on RER Managed.' };
+  if (env.RER_OWNER_CLAIM_ISSUER && env.MAIL_PROVIDER !== 'rer') return { status: 'not available', detail: 'Email is not available yet on RER Managed.' };
   if (env.RER_DEMO === '1') return { status: 'not sent', detail: 'This local installation does not send email.' };
   // Business mail uses the explicitly configured production provider, also on a local owner install.
   const sender = operatorMail({ ...env, AUTH_LOCAL: 'false' });

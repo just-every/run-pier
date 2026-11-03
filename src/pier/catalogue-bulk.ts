@@ -2,7 +2,7 @@ import { catalogue } from './catalogue';
 import { parseCSV } from './import-csv';
 import { fail, Problem, requireRole, type Context, type Row } from './model';
 
-const columns = ['sku', 'name', 'unit', 'packSize', 'barcode', 'caseBarcode', 'variantFamily', 'category', 'imageUrl', 'weight', 'length', 'width', 'height', 'dimensionUnit', 'barcodes', 'references', 'archived'];
+const columns = ['sku', 'name', 'unit', 'packSize', 'barcode', 'caseBarcode', 'variantFamily', 'category', 'imageUrl', 'weight', 'length', 'width', 'height', 'dimensionUnit', 'barcodes', 'references', 'archived', 'customFields'];
 function inputs(csv: unknown) {
   if (typeof csv !== 'string' || new TextEncoder().encode(csv).length > 1024 * 1024) fail('CATALOGUE_SIZE', 'Upload a CSV of at most 1 MiB.');
   const [header, ...rows] = parseCSV(csv as string);
@@ -34,8 +34,8 @@ export function previewCatalogue(c: Context, csv: unknown) {
       seen.add(skuKey);
       const old = trial.s.items.find(i => i.sku === p.sku.trim());
       if (old) Object.assign(p, { id: old.id, version: old.version });
-      for (const field of ['barcodes', 'references']) if (field in p) {
-        try { p[field] = JSON.parse(p[field] || '[]'); } catch { fail('CATALOGUE_CSV', `${field} must be a JSON array in a quoted CSV cell.`); }
+      for (const field of ['barcodes', 'references', 'customFields']) if (field in p) {
+        try { p[field] = JSON.parse(p[field] || (field === 'customFields' ? '{}' : '[]')); } catch { fail('CATALOGUE_CSV', `${field} must be a JSON array in a quoted CSV cell.`); }
       }
       if (['length', 'width', 'height', 'dimensionUnit'].some(k => k in p)) {
         p.dimensions = !p.length && !p.width && !p.height ? null : { length: p.length, width: p.width, height: p.height, unit: p.dimensionUnit };

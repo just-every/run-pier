@@ -9,3 +9,6 @@ import './workbench.css'
 import './stock.css'
 import './floor.css'
 import './channels.css'
+import './replenishment.css'
+
+import './tax.css'

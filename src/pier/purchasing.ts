@@ -1,3 +1,4 @@
+import { assertPurchaseApproval } from './purchase-approval';
 import { receiptConfirmation } from './supplier-performance';
 import {
   decimal,
@@ -16,6 +17,8 @@ import {
   type Row,
 } from "./model";
 import { warehouse } from "./warehouse";
+import { currencyCode, inUsd } from './import-currency';
+import { money, extended } from './money';
 import { landReceipt } from "./landed-cost";
 function lines(c: Context, p: any) {
   if (!Array.isArray(p.lines) || !p.lines.length)
@@ -84,11 +87,16 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       destinationWarehouse: p.destinationWarehouse ? text(p.destinationWarehouse) : null,
       freight: format(decimal(p.freight ?? "0")),
       duty: format(decimal(p.duty ?? "0")),
+      tax: format(decimal(p.tax ?? "0")),
       reason: text(p.reason),
       lines: lines(c, p),
       status: "draft",
       approval: null,
+      approvalEscalation: null,
     };
+    const minimumValue = d.lines.reduce((highest: bigint, line: any) => { const value = decimal(line.terms?.minimumValue ?? '0'); return value > highest ? value : highest; }, 0n);
+    const goodsValue = d.lines.reduce((sum: bigint, line: any) => sum + decimal(line.quantity) * decimal(line.price), 0n);
+    Object.assign(d, { minimumOrderValue: format(minimumValue), minimumOrderValueUnmet: goodsValue < minimumValue * 1000000n });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d.promiseDate) || Number.isNaN(Date.parse(d.promiseDate))) fail("DATE", "Use a valid promise date.");
     if (d.destinationWarehouse && !c.s.locations.some(l => l.kind === "bin" && l.warehouse === d.destinationWarehouse)) fail("WAREHOUSE", "Choose a receiving warehouse.");
     if (type === "po.draft")
@@ -98,6 +106,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       });
     const po = get(c.s, "purchaseOrders", p.poId);
     fresh(po, p.version);
+    if(po.dropshipId)fail('DROPSHIP','Cancel and recreate the linked dropship to revise its exact demand and cost.');
     if (po.status === "committed")
       fail(
         "COMMITTED",
@@ -112,6 +121,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
     if (po.status !== "draft")
       fail("PO_STATE", "Only a draft can be committed.");
     approveTerms(c, po);
+    assertPurchaseApproval(c, po, type === "po.commit" ? po.approval?.actorId : c.actor.id);
     if (type === "po.approve") {
       po.approval = { actorId: c.actor.id, version: po.version, at: c.now };
       return po;
@@ -126,8 +136,12 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
     return po;
   }
   if (type === "receipt.create") {
-    if (p.currency !== undefined && p.currency !== 'USD') fail('CURRENCY', 'Receipts require reviewed USD costs. Foreign-currency conversion is not available yet.');
+    const sourceCurrency = currencyCode(p.currency ?? 'USD', 'Receipt');
+    if (sourceCurrency !== 'USD' && !p.usdRate) fail('CURRENCY', 'Review and enter the receipt USD conversion rate before receiving foreign-currency goods.');
+    const rate = sourceCurrency === 'USD' ? 1000000n : decimal(p.usdRate, true);
+    if (!rate) fail('CONVERSION_RATE', 'The receipt USD conversion rate must be positive.');
     const po = get(c.s, "purchaseOrders", p.poId);
+    if(po.dropshipId)fail('DROPSHIP','Direct-to-customer goods are confirmed on the dropship and cannot be received into Pier.');
     if (po.status !== "committed")
       fail("PO_STATE", "Receipts require a committed purchase order.");
     if (!Array.isArray(p.lines) || !p.lines.length)
@@ -136,6 +150,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       poId: po.id,
       supplierReference: text(p.supplierReference),
       supplierConfirmation: receiptConfirmation(po),
+      sourceCurrency, usdRate: format(rate), rateRecordedBy: c.actor.id, rateRecordedAt: c.now,
       lines: [],
       status: "posted",
     });
@@ -143,7 +158,8 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       const l = po.lines.find((l: any) => l.id === x.poLineId);
       if (!l) fail("LINE", "Receipt line must belong to this PO.");
       const q = decimal(x.quantity, true),
-        cost = decimal(x.cost);
+        sourceCost = format(decimal(x.cost)),
+        cost = decimal(inUsd(sourceCost, rate));
       if (q + decimal(l.received) > decimal(l.quantity))
         fail("RECEIPT_LIMIT", "Receipt exceeds expected quantity.");
       if (get(c.s, "locations", x.locationId).kind !== "bin")
@@ -163,12 +179,15 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         locationId: x.locationId,
         quantity: format(q),
         cost: format(cost),
+        source: { cost: sourceCost, currency: sourceCurrency, usdRate: format(rate), total: money(extended(format(q), sourceCost)) },
+        weight: item(c.s, l.itemId).weight ?? null,
         costTotal:
           ((q * cost) / 1000000000000n).toString() +
           "." +
           ((q * cost) % 1000000000000n).toString().padStart(12, "0"),
         costTotalScale: 12,
         movementId: m.id,
+        ...(x.trace ? { trace: structuredClone(x.trace) } : {}),
       });
       l.received = format(decimal(l.received) + q);
     }
@@ -203,6 +222,9 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
   }
   if (receipt.status !== "posted")
     fail("REVERSED", "Receipt is already reversed.");
+  if (receipt.lateBills?.length) fail('DEPENDENCY', 'This receipt has approved late bills. Review their accounting and use a physical-count correction instead of reversing its history.');
+  if (receipt.replacementFor || c.s.supplierReturns.some(r => r.receiptId === receipt.id))
+    fail("DEPENDENCY", "Receipt has supplier-return history. Use a physical-count correction; do not reverse return or replacement history.");
   const dependencies = c.s.movements.filter(
     (m) =>
       receipt.lines.some(

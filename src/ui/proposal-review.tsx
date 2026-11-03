@@ -63,8 +63,11 @@ function consequence(state: PierState, proposal: RecordData): ReactNode {
     const counted = find(state, 'counts', plan.countId)
     return counted ? `Approve the count at ${find(state, 'locations', counted.locationId)?.name ?? 'a removed bin'} captured ${when(counted.createdAt)}, posting its drift to stock.` : 'The count it names has been removed.'
   }
-  const batch = find(state, 'imports', plan.batchId)
-  return `Review import ${batch?.namespace ?? 'that was removed'} with mapping ${plan.mappingRevision}. ${plan.reconciliation ?? ''} ${plan.duplicateResolution ?? ''}`.trim()
+  if (proposal.kind === 'migration') {
+    const batch = find(state, 'imports', plan.batchId)
+    return `Review import ${batch?.namespace ?? 'that was removed'} with mapping ${plan.mappingRevision}. ${plan.reconciliation ?? ''} ${plan.duplicateResolution ?? ''}`.trim()
+  }
+  return null
 }
 
 /** The stock position and promises the proposal was prepared against. */

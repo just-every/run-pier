@@ -10,6 +10,8 @@ import { commandAdapter as createCommandAdapter } from "@runeditrun/rer/adapter"
 import { ownerDeploy } from "@runeditrun/rer/deploy";
 import { localPortability } from "@runeditrun/rer/portability";
 import * as model from "./ui/seed.mjs";
+import { commandFailure } from "@runeditrun/rer/internal/onboarding/failures.mjs";
+import { hostedPreflight } from "./hosted-preflight.mjs";
 
 export { selectLocalState };
 const lifecycle = operatorInstaller({
@@ -20,14 +22,20 @@ const lifecycle = operatorInstaller({
     if (input.APP_NAME === undefined && input.PRIMARY_COLOR === undefined)
       return;
     await store.step("Saving application branding");
-    await writeFile(
-      join(root, "src/branding.json"),
-      JSON.stringify(
-        { name: input.APP_NAME, primaryColor: input.PRIMARY_COLOR },
-        null,
-        2,
-      ) + "\n",
-    );
+    try {
+      await writeFile(
+        join(root, "src/branding.json"),
+        JSON.stringify({ name: input.APP_NAME, primaryColor: input.PRIMARY_COLOR }, null, 2) + "\n",
+      );
+    } catch (error) {
+      const owner = String(input.OWNER_EMAIL).replaceAll("'", "'\\''");
+      const retry = `rer setup --owner-email '${owner}' --non-interactive`;
+      if (["EACCES", "EPERM", "EROFS"].includes(error.code))
+        throw commandFailure(`Pier cannot save its appearance because the checkout is read-only. Run chmod u+w src/branding.json && ${retry}.`);
+      if (error.code === "ENOSPC")
+        throw commandFailure(`Pier cannot save its appearance because the disk is full. Free space on this disk, then run ${retry}.`);
+      throw error;
+    }
   },
 });
 export const adapter = lifecycle;
@@ -36,39 +44,10 @@ export const commandAdapter = createCommandAdapter(lifecycle, {
   dev: developmentTarget,
   preview: previewTarget,
   verify: ["pnpm", ["run", "verify:app"]],
-  deploy: ownerDeploy("deploy.json", lifecycle),
+  deploy: hostedPreflight(ownerDeploy("deploy.json", lifecycle)),
   portability: localPortability({
     database: "inventory-pier",
-    policy: {
-      includeTables: [
-        "oa_operators",
-        "oa_bootstrap",
-        "oa_invitation_cancellations",
-        "oa_auth_settings",
-        "oa_auth_audit",
-        "oa_domain_rules",
-        "oa_logout_events",
-      ],
-      excludeTables: [
-        "rer_dependency_keys",
-        "rer_dependency_pending",
-        "rer_dependency_codes",
-        "pier_guard",
-        "pier_channel_secrets",
-        "pier_channel_locks",
-        "pier_book_locks",
-      ],
-      product: "inventory-pier",
-      replaceableTables: ["pier_meta"],
-      requiredConfiguration: [
-        "OWNER_EMAIL",
-        "SESSION_SECRET",
-        "SETUP_TOKEN",
-        "AUTH_ORIGIN",
-        "MAIL_PROVIDER",
-        "MAIL_FROM",
-      ],
-    },
+    policyModule: "scripts/installer/archive-policy.mjs",
     transient: ["local runtime caches and logs"],
   }),
   setup: { manifestFile: "rer-setup.json" },

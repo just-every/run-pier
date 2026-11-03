@@ -60,3 +60,9 @@ connections.
 ## Current limits
 
 EasyPost live labels, carrier charges and physical printers still need acceptance with your own account and equipment. ShipStation, label void/refund and freight/LTL remain unavailable. [Shipping developer notes](shipping-developer.md) list transport and test details.
+
+The owner can pause EasyPost from Channels → Integration health → EasyPost
+shipping → Pause shipping. Pier clears its saved carrier credentials and stops
+future carrier requests and webhook processing; retained jobs and uncertain
+purchases remain visible. Reconnect with fresh credentials before reconciling an
+existing purchase. Pausing does not void a carrier label or repeat a purchase.

@@ -1,14 +1,20 @@
+import { assuranceSql } from '../strong-auth/assurance';
+import { stockEvents } from './stock-feed';
+import { auditStatement } from './audit';
 import {
   collections,
   fail,
+  Problem,
   type State,
   type Actor,
   type Context,
 } from "./model";
 import type { Bindings } from "../auth.server";
 export const authority = (a: Actor) => ({
-  sql: `EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>?) AND (CASE WHEN EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=?) THEN (SELECT json_extract(data,'$.role') FROM pier_records WHERE kind='roles' AND id=?) ELSE (SELECT CASE WHEN role='owner' THEN 'owner' ELSE 'viewer' END FROM oa_operators WHERE id=?) END)=?`,
+  sql: `${assuranceSql()} AND EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>?) AND (CASE WHEN EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=?) THEN (SELECT json_extract(data,'$.role') FROM pier_records WHERE kind='roles' AND id=?) ELSE (SELECT CASE WHEN role='owner' THEN 'owner' ELSE 'viewer' END FROM oa_operators WHERE id=?) END)=? AND COALESCE((SELECT version FROM pier_records WHERE kind='roles' AND id=?),0)=? AND NOT EXISTS(SELECT 1 FROM pier_records WHERE kind='roles' AND id=? AND json_extract(data,'$.role')!='owner' AND json_extract(data,'$.permissions.expiresAt')<=strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
   params: [
+    a.sessionId,
+    a.id,
     a.sessionId,
     a.id,
     a.operatorVersion,
@@ -17,19 +23,26 @@ export const authority = (a: Actor) => ({
     a.id,
     a.id,
     a.role,
+    a.id,
+    a.permissionVersion ?? 0,
+    a.id,
   ],
 });
 const effectiveRole = `CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`;
+const delegationScope = `(json_type(r.data,'$.permissions') IS NULL OR ${effectiveRole}='owner') AND NOT (${effectiveRole}='buyer' AND COALESCE(json_extract(r.data,'$.visibility.costs'),1)=0) AND NOT (${effectiveRole} IN ('operator','sales') AND COALESCE(json_extract(r.data,'$.visibility.prices'),1)=0)`;
+export function currentOwnerAuthority(operatorId: string) {
+  return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}='owner')`, params: [operatorId] };
+}
 export async function activeAutomationActors(db: D1Database): Promise<Record<string, string>> {
-  const rows = await db.prepare(`SELECT o.id,${effectiveRole} AS role FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.status='active'`).all<any>();
+  const rows = await db.prepare(`SELECT o.id,CASE WHEN ${delegationScope} THEN ${effectiveRole} ELSE 'viewer' END AS role FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.status='active'`).all<any>();
   return Object.fromEntries(rows.results.map(r => [r.id, r.role]));
 }
-function policyAuthority(c: Context) {
+export function policyAuthority(c: Pick<Context, "actor" | "backgroundPolicy">) {
   const p = c.backgroundPolicy!;
   const path = p.collection === 'purchaseOrders' ? '$.sendPolicy.version' : p.collection === 'orders' ? '$.promisePolicy.version' : '$.version';
   const approver = p.collection === 'purchaseOrders' ? '$.sendPolicy.approvedBy' : p.collection === 'orders' ? '$.promisePolicy.approvedBy' : '$.approvedBy';
-  const enabled = p.collection === 'purchaseOrders' ? '$.sendPolicy.enabled' : p.collection === 'orders' ? '$.promisePolicy.enabled' : ['channels','bookConnections','shippingSettings','slowStockPolicies'].includes(p.collection) ? '$.enabled' : '$.autoDraft';
-  return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer','operator')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind=? AND id=? AND json_extract(data,?)=? AND json_extract(data,?)=? AND json_extract(data,?)=1)`,
+  const enabled = p.collection === 'purchaseOrders' ? '$.sendPolicy.enabled' : p.collection === 'orders' ? '$.promisePolicy.enabled' : ['channels','bookConnections','shippingSettings','operationalExceptionPolicies','slowStockPolicies','recurringOrders','paymentConnections','workflowRules'].includes(p.collection) ? '$.enabled' : '$.autoDraft';
+  return { sql: `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer','operator')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind=? AND id=? AND json_extract(data,?)=? AND json_extract(data,?)=? AND json_extract(data,?)=1)`,
     params: [c.actor.id, c.actor.role, p.collection, p.id, path, p.version, approver, c.actor.id, enabled] };
 }
 export async function load(db: D1Database): Promise<State> {
@@ -80,18 +93,24 @@ export async function saved(
   commandId: string,
   digest: string,
   actor: Actor,
+  backgroundPolicy?: Context["backgroundPolicy"],
 ) {
+  const gate = backgroundPolicy ? policyAuthority({actor,backgroundPolicy}) : authority(actor);
   const r = await db
-    .prepare("SELECT * FROM pier_commands WHERE id=?")
-    .bind(commandId)
+    .prepare(`SELECT *,(${gate.sql}) AS admitted FROM pier_commands WHERE id=?`)
+    .bind(...gate.params,commandId)
     .first<any>();
   if (!r) return null;
+  if (!r.admitted) throw new Problem('AUTH','Current authority is required to recover this result.',null,401);
   if (r.digest !== digest || r.actor_id !== actor.id)
     fail(
       "IDEMPOTENCY",
       "This command identity was already used with different content or actor.",
     );
-  return JSON.parse(r.result);
+  const { admission, ...response } = JSON.parse(r.result);
+  if (actor.role !== 'owner' && (!admission || admission.role !== actor.role || admission.permissionVersion !== (actor.permissionVersion ?? 0)))
+    throw new Problem('FORBIDDEN', 'Your authority changed after this result was recorded. Ask an owner to reconcile the original command.', null, 403);
+  return response;
 }
 export async function commit(
   env: Bindings,
@@ -115,21 +134,32 @@ export async function commit(
     ...a.params,
     before.version,
   ]);
+  if (c.s.operationalExceptions.some(record => record.status === 'closed' && before.operationalExceptions.find(old => old.id === record.id)?.status !== 'closed')) {
+    const connection = c.s.bookConnections.find(connection => connection.enabled && !connection.problem) ?? fail('EXCEPTION_EVIDENCE', 'Current Pantry authority is required.');
+    const policy = c.s.operationalExceptionPolicies.find(policy => policy.enabled) ?? fail('EXCEPTION_EVIDENCE', 'Current case policy authority is required.');
+    for (const approvedBy of new Set([connection.approvedBy, policy.approvedBy])) {
+      guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}='owner')`, [approvedBy]);
+    }
+  }
   if (c.approver) {
     guard(
-      `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END=?)`,
+      `EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND CASE WHEN r.data IS NOT NULL THEN json_extract(r.data,'$.role') WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END=?)`,
       [c.approver.id, c.approver.role],
     );
   }
   if (c.purchaseSendAuthority) {
     const d = c.purchaseSendAuthority;
-    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='purchaseOrders' AND id=? AND json_extract(data,'$.sendPolicy.version')=? AND json_extract(data,'$.sendPolicy.enabled')=1 AND json_extract(data,'$.sendPolicy.approvedBy')=?)`, [d.actorId, d.role, d.poId, d.policyVersion, d.actorId]);
+    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}=? AND ${effectiveRole} IN ('owner','buyer')) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='purchaseOrders' AND id=? AND json_extract(data,'$.sendPolicy.version')=? AND json_extract(data,'$.sendPolicy.enabled')=1 AND json_extract(data,'$.sendPolicy.approvedBy')=?)`, [d.actorId, d.role, d.poId, d.policyVersion, d.actorId]);
   }
   for (const d of c.delegates ?? []) {
     const oldPolicy = before.orders.find(o => o.id === d.orderId)?.promisePolicy;
     // A policy explicitly saved in this command is covered by the session guard.
     if (oldPolicy?.version !== d.policyVersion && d.actorId === c.actor.id) continue;
-    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${effectiveRole}=?) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='orders' AND id=? AND json_extract(data,'$.promisePolicy.version')=? AND json_extract(data,'$.promisePolicy.enabled')=1 AND json_extract(data,'$.promisePolicy.approvedBy')=?)`, [d.actorId,d.role,d.orderId,d.policyVersion,d.actorId]);
+    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}=?) AND EXISTS(SELECT 1 FROM pier_records WHERE kind='orders' AND id=? AND json_extract(data,'$.promisePolicy.version')=? AND json_extract(data,'$.promisePolicy.enabled')=1 AND json_extract(data,'$.promisePolicy.approvedBy')=?)`, [d.actorId,d.role,d.orderId,d.policyVersion,d.actorId]);
+  }
+  for (const proof of c.substituteAuthorities ?? []) {
+    guard(`EXISTS(SELECT 1 FROM oa_operators o LEFT JOIN pier_records r ON r.kind='roles' AND r.id=o.id WHERE o.id=? AND o.version=? AND o.status='active' AND ${delegationScope} AND ${effectiveRole}=? AND COALESCE(r.version,0)=?)`,
+      [proof.actorId, proof.operatorVersion, proof.role, proof.permissionVersion]);
   }
   for (const secret of c.channelSecrets ?? []) statements.push(db.prepare("INSERT INTO pier_channel_secrets(channel_id,secret) VALUES(?,?) ON CONFLICT(channel_id) DO UPDATE SET secret=excluded.secret").bind(secret.channelId, secret.secret));
   for (const kind of collections) {
@@ -197,6 +227,7 @@ export async function commit(
           m.createdAt,
         ),
     );
+  statements.push(...stockEvents(before, c.s, c.now).map(q => db.prepare(q.sql).bind(...q.params)));
   // Assertion is a CHECK inside this same atomic D1 batch: zero admitted rows cannot leak dependent writes.
   statements.push(
     db
@@ -206,11 +237,13 @@ export async function commit(
       .bind(before.version),
   );
   guard("changes()=1", []);
+  statements.push(...c.privacyStatements ?? []);
+  if (c.audit) statements.push(auditStatement(db, c.audit));
   const response = { ok: true, result, version: before.version + 1 };
   statements.push(
     db
       .prepare("INSERT INTO pier_commands VALUES(?,?,?,?,?)")
-      .bind(c.commandId, c.actor.id, digest, JSON.stringify(response), c.now),
+      .bind(c.commandId, c.actor.id, digest, JSON.stringify({ ...response, admission: { role: c.actor.role, permissionVersion: c.actor.permissionVersion ?? 0 } }), c.now),
   );
   statements.push(db.prepare("DELETE FROM pier_guard"));
   await db.batch(statements);

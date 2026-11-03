@@ -12,6 +12,9 @@ import {
   move,
   positions,
   movementFrontier,
+  Problem,
+  type Actor,
+  type State,
   type Context,
   type Row,
 } from "./model";
@@ -27,6 +30,7 @@ import { checkImportCapacity, checkImportRecord } from "./native-capacity";
 import { sha256, canonicalJson, type SourceBundle } from "./import-kit";
 import { conversionRates, currencyCode } from "./import-currency";
 export const headers: Record<string, string[]> = {
+  customFieldDefinitions: ["key", "ownerType", "fieldKey", "label", "type", "options"],
   items: ["key", "sku", "name", "barcode", "unit", "packSize"],
   locations: ["key", "name", "warehouse", "kind"],
   parties: ["key", "name", "kind"],
@@ -83,7 +87,7 @@ export function sourceFor(p: any): SourceBundle {
       name = text(file.name),
       rows = parseCSV(file.csv);
     const header = rows.shift()?.join(","),
-      expected = priced.includes(file.kind) && header === [...base, "currency"].join(",") ? [...base, "currency"] : base;
+      expected = [base, ...(priced.includes(file.kind) ? [[...base,"currency"]] : []), ...(["items","parties","orders"].includes(file.kind) ? [[...base,"metadata"]] : [])].find(columns=>header===columns.join(",")) ?? base;
     if (header !== expected.join(","))
       fail("CSV_HEADERS", "Use the exact native CSV headers.", {
         kind: file.kind,
@@ -368,4 +372,22 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
     return b;
   }
   fail("COMMAND", "Unknown import command.");
+}
+
+/** Retained native bytes stay behind the current authenticated owner door. */
+export function importOriginal(path: string, actor: Actor, state: State): Response | null {
+  const match = /^\/api\/pier\/imports\/([^/]+)\/originals\/([a-f0-9]{64})$/.exec(path);
+  if (!match) return null;
+  if (actor.role !== 'owner') throw new Problem('FORBIDDEN', 'Only the current owner can download retained native originals.', null, 403);
+  const batch = get(state, 'imports', decodeURIComponent(match[1]));
+  const artifact = batch.source?.artifacts?.find((entry: any) => entry.sha256 === match[2]);
+  if (!artifact || artifact.original?.status !== 'available') fail('NOT_FOUND', 'Retained original not found.');
+  return new Response(Uint8Array.from(atob(artifact.original.base64), char => char.charCodeAt(0)), {
+    headers: {
+      'content-type': 'text/csv; charset=utf-8',
+      'content-disposition': `attachment; filename="pier-original.csv"; filename*=UTF-8''${encodeURIComponent(artifact.name)}`,
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+    },
+  });
 }

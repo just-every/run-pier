@@ -15,6 +15,7 @@
 .pier-app .table-wrap code { font-family: var(--font-mono); font-size: 12.5px; }
 
 @media (max-width: 599px) {
+  .pier-app .table-wrap .nowrap { white-space: normal; overflow-wrap: anywhere; }
   .pier-app .table-wrap { overflow: visible; border: 0; background: none; }
   .pier-app .table-wrap table, .pier-app .table-wrap tbody { display: block; min-width: 0; }
   .pier-app .table-wrap thead { display: none; }
@@ -26,3 +27,6 @@
   .pier-app .table-wrap td.action { display: flex; width: auto; justify-content: flex-end; }
   .pier-app .table-wrap tr.selected td, .pier-app .table-wrap tbody tr:hover td { background: none; }
 }
+
+.pier-app :is(.correspondence, .business-documents) :is(small, th, code) { font-size: 13px; }
+.pier-app :is(.correspondence, .business-documents) td[data-label]::before { font-size: 13px; }

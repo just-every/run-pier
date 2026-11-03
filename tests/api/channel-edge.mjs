@@ -60,3 +60,41 @@ export function channelEdge() {
     },
   };
 }
+
+/** Shopify 2026-10 protocol fixture, solely at the outgoing network edge. */
+export function locationEdge(sku = 'BOLT') {
+  const page = nodes => ({ nodes, pageInfo: { hasNextPage: false, endCursor: null } });
+  const inventory = new Map(), accepted = new Map(), writes = [], mutations = [], orders = [];
+  const reject = new Set(), lose = new Set();
+  const edge = { inventory, writes, mutations, orders, reject, lose, afterRead: null,
+    async outbound(request) {
+      const { query, variables } = await request.json();
+      const reply = data => Response.json({ data }, { headers: { 'X-Shopify-API-Version': '2026-10' } });
+      if (query.includes('query PierListings')) return reply({ productVariants: page([{ id: 'gid://shopify/ProductVariant/1', sku, title: 'Default', product: { title: 'Synthetic Pier stock' }, inventoryItem: { id: 'gid://shopify/InventoryItem/1' } }]) });
+      if (query.includes('query PierOrders')) return reply({ orders: page(orders) });
+      if (query.includes('query PierInventory')) {
+        const quantity = inventory.get(variables.locationId) ?? 0;
+        const callback = edge.afterRead; edge.afterRead = null;
+        if (callback) await callback(variables.locationId);
+        return reply({ inventoryItem: { inventoryLevel: { quantities: [{ name: 'available', quantity }] } } });
+      }
+      if (query.includes('mutation PierStock')) {
+        const row = variables.input.quantities[0], key = variables.idempotencyKey;
+        mutations.push({ ...row, key });
+        assert.equal(variables.input.name, 'available');
+        assert.equal(variables.input.reason, 'correction');
+        if (reject.has(row.locationId)) return reply({ inventorySetQuantities: { inventoryAdjustmentGroup: null, userErrors: [{ code: 'INVALID', field: ['input'], message: 'Synthetic location refusal' }] } });
+        if (!accepted.has(key)) {
+          assert.equal(row.changeFromQuantity, inventory.get(row.locationId) ?? 0);
+          inventory.set(row.locationId, row.quantity);
+          writes.push({ ...row, key });
+          accepted.set(key, { inventorySetQuantities: { inventoryAdjustmentGroup: { changes: [{ name: 'available', quantityAfterChange: row.quantity }] }, userErrors: [] } });
+        }
+        if (lose.delete(row.locationId)) throw new Error('Synthetic accepted response loss');
+        return reply(accepted.get(key));
+      }
+      throw new Error('Unexpected synthetic Pier Shopify protocol request');
+    },
+  };
+  return edge;
+}

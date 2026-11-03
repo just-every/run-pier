@@ -1,3 +1,4 @@
+import { IntegrationHealth } from './health'
 import { useState } from 'react'
 import { ConnectionForm } from './connection-form'
 import { ConnectionCards, ConnectionSetup } from './connections'
@@ -20,6 +21,7 @@ export function Channels(props: ChannelProps) {
   return <div className="channels-page"><div className="page-title"><div><h1>Channels</h1><p className="channel-subtitle">Connect stores, sync inventory, keep listings in step</p></div>{owner && <div className="actions"><button disabled={busy || !connections(state).some(row => row.enabled)} onClick={() => void run('channel.sync', {})}>{busy ? 'Working…' : 'Sync now'}</button><button className="primary" disabled={busy} onClick={() => actions.connect('stall')}>Connect a store</button></div>}</div>
     {!owner && <p className="channel-read-only">Your role can review channels. The owner manages connections, sync, SKU matches and transfer holds.</p>}
     {owner && editor && <ConnectionForm key={`${editor.id ?? 'new'}-${editor.provider}-${connection?.version ?? 'new'}`} {...props} connection={connection} initialProvider={editor.provider} close={() => setEditor(null)} />}
+    {owner && <IntegrationHealth revision={state.version} run={run} busy={busy} />}
     <ConnectionCards {...props} {...actions} />
     <Listings {...props} search={search} setSearch={setSearch} />
     <div className="channel-bottom"><UnmatchedListings {...props} /><div className="channel-side"><TransferHolds {...props} /><ConnectionSetup {...props} {...actions} /></div></div>

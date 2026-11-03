@@ -1,4 +1,15 @@
 {
-  "version": "0.1.0",
-  "publicReleaseNotes": "First public release of Pier: item and location records, append-only stock movements, hard reservations, purchasing, receiving, transfers, fulfilment, returns, counts, native CSV migration review and portable backup."
+  "version": "0.1.1",
+  "previousVersion": "0.1.0",
+  "publicReleaseNotes": "Prepare Pier for hosted installation with a deployment descriptor, digest-bound setup, managed mail relay and verified source provenance. Existing stock and order workflows remain available.",
+  "migrations": [
+    "migrations/core/0015_owner_signin.sql",
+    "migrations/core/0016_pier_correspondence.sql",
+    "migrations/core/0017_pier_channels.sql",
+    "migrations/core/0018_pier_books.sql",
+    "migrations/core/0019_pier_audit.sql",
+    "migrations/core/0020_dependency_keys_sealed.sql"
+  ],
+  "breaking": false,
+  "agentUpdateInstructions": "Install the pinned dependencies and use the declared setup, build and verification commands. Keep existing migration names and bytes unchanged."
 }

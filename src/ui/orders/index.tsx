@@ -1,3 +1,8 @@
+import { Customers } from '../customers'
+import { BackorderRelease } from '../backorder-release'
+import { WarehouseRouting } from './routing'
+import { ScheduledSales } from './schedules'
+import { SalesIntake } from './commercial'
 import { useEffect, useState } from 'react'
 import { records, type PierState, type RunCommand } from '../api'
 import { Field, Form, Lines, Select, text } from '../controls'
@@ -14,6 +19,7 @@ import { Pricing, Quarantine, Shipments } from './records'
 // fulfilment, entry and the sales records.
 
 export function Sales({ state, run, busy, documentId = '', warehouse = '', orderWarehouse = '' }: { state: PierState; run: RunCommand; busy: boolean; documentId?: string; warehouse?: string; orderWarehouse?: string }) {
+  const [documentType,setDocumentType]=useState('order'),[quoteUnit,setQuoteUnit]=useState('')
   const [selected, setSelected] = useState(documentId), [filter, setFilter] = useState<QueueFilter>({ chip: 'open', channel: '', carrier: '', sort: 'promise' }), [prefill, setPrefill] = useState(false)
   const [lines, setLines] = useState<{ itemId: string; quantity: string; price?: string }[]>([])
   const orders = records(state, 'orders'), items = records(state, 'items').filter(item => !item.archived), parties = records(state, 'parties'), locations = records(state, 'locations').filter(location => location.kind === 'bin')
@@ -38,8 +44,13 @@ export function Sales({ state, run, busy, documentId = '', warehouse = '', order
         {order && <Fulfil state={state} order={order} run={run} busy={busy} prefill={prefill} />}
       </div>
     </div>
-    <div id="new-order"><Form title="New sales order" submit="Create and reserve available stock" busy={busy} note="Available stock reserves atomically. Unmet demand becomes backorder." onSubmit={data => run('order.create', { customerId: text(data, 'customerId'), promiseDate: text(data, 'promiseDate'), channel: text(data, 'channel'), warehouse: text(data, 'warehouse'), lines: lines.map(({ price, ...line }) => ({ ...line, ...(price?.trim() ? { price } : {}) })) })}><Select label="Customer" name="customerId" rows={parties.filter(party => party.kind === 'customer')} /><Field label="Promise date" name="promiseDate" type="date" required={false} /><Select label="Order warehouse" name="warehouse" rows={[...new Set(locations.map(l => l.warehouse))].map(w => ({ id: w, version: 1, label: w }))} required={false} defaultValue={orderWarehouse || undefined} /><Field label="Channel" name="channel" defaultValue="manual" /><Lines items={items} price optionalPrice onChange={setLines} /></Form></div>
+    <div id="new-order"><Form title="New sales order" submit="Create and reserve available stock" busy={busy} note="Available stock reserves atomically. Unmet demand becomes backorder." onSubmit={data => run(text(data,'documentType') === 'quote' ? 'quote.create' : 'order.create', { customerId: text(data, 'customerId'), promiseDate: text(data, 'promiseDate'), channel: text(data, 'channel'), warehouse: text(data, 'warehouse'), shipTo:{state:text(data,'state').toUpperCase(),country:text(data,'country').toUpperCase()||'US',postalCode:text(data,'postalCode'),address1:text(data,'address1')},...(documentType==='quote'?{validUntil:text(data,'validUntil'),discountPercent:text(data,'discountPercent'),freight:text(data,'freight'),handling:text(data,'handling')} : {}),lines: lines.map(({ price, ...line }) => ({ ...line, ...(price?.trim() ? { price } : {}),...(documentType==='quote'?{unit:text(data,'quoteUnit')||undefined}:{}) })) })}><label className="field"><span>Document type</span><select name="documentType" aria-label="Document type" value={documentType} onChange={e=>setDocumentType(e.target.value)}><option value="order">Sales order</option><option value="quote">Versioned quote</option></select></label><Select label="Customer" name="customerId" rows={parties.filter(party => party.kind === 'customer')} /><Field label="Promise date" name="promiseDate" type="date" required={false} /><Select label="Order warehouse" name="warehouse" rows={[...new Set(locations.map(l => l.warehouse))].map(w => ({ id: w, version: 1, label: w }))} required={false} defaultValue={orderWarehouse || undefined} /><Field label="Channel" name="channel" defaultValue="manual" /><Field label={documentType==='quote'?'Quote destination state':'Ship-to state'} name="state" required={documentType==='quote'}/><Field label={documentType==='quote'?'Quote destination ZIP':'Ship-to ZIP'} name="postalCode" required={false}/><Field label="Ship-to country" name="country" defaultValue="US"/><Field label="Ship-to address" name="address1" required={false}/>{documentType==='quote'&&<><Field label="Quote valid through" name="validUntil" type="date" defaultValue={new Date(Date.now()+30*86400000).toISOString().slice(0,10)}/><Field label="Quote discount percent" name="discountPercent" defaultValue="0"/><Field label="Quote freight" name="freight" required={false}/><Field label="Quote handling" name="handling" required={false}/><label className="field"><span>Quote quantity unit</span><select name="quoteUnit" aria-label="Quote quantity unit" value={quoteUnit} onChange={e=>setQuoteUnit(e.target.value)}><option value="">Item base units</option><option value="case">Cases</option></select></label></>}<Lines items={items} price optionalPrice quantityLabel={documentType==='quote'&&quoteUnit==='case'?'Quantity (cases)':'Quantity (base units)'} onChange={setLines} /></Form></div>
     <div className="split sales-records"><Shipments state={state} run={run} busy={busy} orderId={selected} /><Quarantine state={state} run={run} busy={busy} /></div>
+    <BackorderRelease state={state} run={run} busy={busy} />
+    <section className="panel" aria-label="Routing settings"><h2>Settings</h2><WarehouseRouting state={state} run={run} busy={busy} /></section>
+    <ScheduledSales state={state} run={run} busy={busy} />
+    <SalesIntake state={state} run={run} busy={busy} />
+    <Customers state={state} run={run} busy={busy} />
     <Pricing state={state} run={run} busy={busy} />
   </>
 }
