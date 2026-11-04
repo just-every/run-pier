@@ -8,10 +8,10 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 29 | 58 | 4 | 91 |
+| Core | 30 | 57 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 29 | 58 | 11 | 98 |
+| Full target | 30 | 57 | 11 | 98 |
 
 Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
@@ -241,7 +241,7 @@ Core · target · **done** · From CAT-001 · Cites BASE-DATA-003 · Rules D-1
 
 #### KIT-001 — Kits and bundles from stocked components
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** Owners define a kit SKU from stocked component SKUs with exact per-kit quantities and units, as Cin7 Core assembly kits and inFlow bundles do. A kit has its own price, barcode, documents and channel mapping but no independent physical stock unless pre-assembled. Selling a kit on a quote, sales order or channel order reserves every component atomically at one warehouse; a shortage of any component backorders or blocks the whole kit under the configured policy and never reserves a partial set. Published kit availability is the lowest whole-kit count buildable from each component’s sellable availability net of reservations and channel buffers, recalculated whenever a component moves. Pick lists and packing slips show the kit line with its component picks and bins; dispatch consumes each component reservation once; COGS is the sum of the component cost layers actually consumed, and margin is reported per kit. Owners may pre-assemble kits through a reviewed kitting task that consumes components and receives the kit SKU at a rolled-up cost, and disassemble them the same way. Kit returns are inspected per component. Kit definitions are versioned and an order keeps the version it reserved. Kitting changes no material, so it is inventory work in Pier, not Larder manufacturing.
 
@@ -251,8 +251,8 @@ Core · target · **partial**
 3. Drain one component: kit availability drops to zero and a further kit order backorders as a whole kit.
 4. Pre-assemble five display kits, ship two, return one and inspect its components: rolled-up kit cost, component stock and kit margin reconcile, and no component is reserved twice.
 
-**Evidence.** `tests/api/floor.test.mjs` — “KIT-001: concurrent channel kits, whole shortages, versioned picks, assembly, returns and exact cost” proves definition versions, concurrent sales/channel reservations, published availability/buffers, complete picks/dispatch, shortage backorder/block, quotes/documents, five-kit assembly, two-kit shipment, inspected return/disassembly, per-kit cost/margin and export; “KIT-001: splitting and disassembling cent-valued kits conserves every cost layer” proves split-cost conservation. `tests/browser/stock.spec.ts` — “KIT-001: define, assemble, pick, pack, print and inspect kits at 1440 and 390” covers the public screens. `src/pier/kits.ts`; [Kits](docs/kits.md)
-**Gap.** Unasserted in the cited evidence: no component reserved twice across pre-assembly and shipment (the cited check that every position's availability is at least zero still passes with a duplicate reservation, because the fixture holds 30 of each component), and component stock reconciling after assembly, shipment and return (no assertion reads component positions after them; only the valuation-to-ledger difference is read). Asserted: the two-component and three-component kit definitions, concurrent sales-order and channel reservations of exact component sums, published availability at the lowest buildable count, the pick list's component lines, COGS, the drain to zero and whole-kit backorder, the five-kit assembly and two-kit shipment, per-component return inspection, and rolled-up kit cost and margin.
+**Evidence.** `tests/api/floor.test.mjs` — “KIT-001: concurrent channel kits, whole shortages, versioned picks, assembly, returns and exact cost”: point 1 defines both stocked-component kits; point 2 admits concurrent manual and network-edge channel orders and reconciles reservations, publication, picks and COGS; point 3 drains a component and proves whole-kit shortage; point 4 independently sums exported component and kit movements and reservations before and after five-kit assembly, two-kit reservation and dispatch, one inspected return, restock and disassembly, including exact source links, USD costs and margin, protected channel allocations, scarce-component KIT_STOCK refusal with unchanged business records and successful results, replay and restart. “KIT-001: splitting and disassembling cent-valued kits conserves every cost layer” proves split-cost conservation. `tests/browser/stock.spec.ts` — “KIT-001: define, assemble, pick, pack, print and inspect kits at 1440 and 390” operates the public screens, checks independently expected component and kit balances, completes return and disassembly, and inspects net margin; Verify runs this journey through `package.json`. `src/pier/kits.ts`; [Kits](docs/kits.md)
+**Gap.** None.
 
 #### TRACE-001 — Serial, lot and expiry traceability
 
