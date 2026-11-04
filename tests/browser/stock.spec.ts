@@ -218,7 +218,7 @@ test('TRACE-001: receive dated lots and serials, transfer, split ship, trace, qu
   if(shots)await mkdir(shots,{recursive:true})
   const state=async()=> (await context.request.get(`${origin}/api/pier/state`)).json()
   const action=async(type:string,click:()=>Promise<unknown>,error?:string)=>{const reply=page.waitForResponse(response=>response.url().endsWith('/api/pier/commands')&&response.request().postDataJSON()?.type===type);await click();const body=await(await reply).json();if(error)expect(body.error?.code,JSON.stringify(body)).toBe(error);else expect(body.ok,JSON.stringify(body)).toBe(true);await expect(page.getByRole('button',{name:'Saving…',exact:true})).toHaveCount(0);return body.result}
-  for(const width of [1440]){
+  for(const width of [1440,390]){
     const farLot=`synthetic-pier-${width+400}`,nearLot=`synthetic-pier-${width+401}`,serial=`synthetic-pier-${width+402}`
     await page.setViewportSize({width,height:1000})
     const shot=async(name:string)=>{
@@ -234,11 +234,12 @@ test('TRACE-001: receive dated lots and serials, transfer, split ship, trace, qu
     const settings=page.getByRole('region',{name:'Stock tracking settings',exact:true})
     await expect(settings.getByLabel('Tracking item',{exact:true})).toHaveValue(b.lot.id)
     const policy=settings.getByRole('heading',{name:'Review tracking policy',exact:true}).locator('..')
+    const beforePolicy=(await state()).items.find((item:any)=>item.id===b.lot.id).tracePolicy
     await policy.getByLabel('Allocation policy',{exact:true}).selectOption('fifo')
     await policy.getByLabel('Tracking policy reason',{exact:true}).fill('Owner reviewed original receipt order')
     const fifo=await action('trace.configure',()=>policy.getByRole('button',{name:'Save tracking policy',exact:true}).click())
     expect(fifo.tracePolicy.allocation).toBe('fifo')
-    expect(fifo.tracePolicy.version).toBe(b.lot.tracePolicy.version+1)
+    expect(fifo.tracePolicy.version).toBe(beforePolicy.version+1)
     await expect(settings.getByRole('region',{name:'Approved tracking policy',exact:true})).toContainText('Owner reviewed original receipt order')
     await policy.getByLabel('Allocation policy',{exact:true}).selectOption('fefo')
     await policy.getByLabel('Tracking policy reason',{exact:true}).fill(`Owner reviewed FEFO at ${width}`)

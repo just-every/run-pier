@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a3591e7d1e2fa46689afe64a7cccd6d34083e95975bc20a92557f3d87bbf3c29",
+      "sha256": "c4111e73970e84046220c8e6300037330fdf139d3888f6c0f630a6687919095b",
       "executable": false
     },
     "DEMO.md": {
@@ -5039,7 +5039,7 @@
       "executable": false
     },
     "tests/browser/stock.spec.ts": {
-      "sha256": "6b5b1e69ce6e4ae9085c50fb9df19c02c758a381bf1207e43e007d8cd793d638",
+      "sha256": "4a5de3d8821ad60dcb1e5b97b96a7cb6c3387ba6b3053641ba6e0ae11a6d1d99",
       "executable": false
     },
     "tests/browser/supplier-bills.spec.ts": {
