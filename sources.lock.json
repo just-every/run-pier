@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "3409882b28501b3f85e4519c17eef50e8f1adbba2938ae4f211a844a225b8706",
+      "sha256": "a3591e7d1e2fa46689afe64a7cccd6d34083e95975bc20a92557f3d87bbf3c29",
       "executable": false
     },
     "DEMO.md": {
@@ -515,7 +515,7 @@
       "executable": false
     },
     "docs/traceability.md": {
-      "sha256": "a7022dd7cfa0dfc3543643c692a686ae9dbf2507b8b36fb962ec9131f810f842",
+      "sha256": "265c086f88b5a4fa12adf6da14237ae83eb952683daa4405b4f1a3bb7b620e24",
       "executable": false
     },
     "docs/trade-api.md": {
@@ -4731,7 +4731,7 @@
       "executable": false
     },
     "src/ui/trace.tsx": {
-      "sha256": "d3dd0255a71d65a61d9fecd2323f6572f40fc4bc091c56f58a8758ce02d5ef40",
+      "sha256": "f2fd9ffb0a5cc270554aa1f1fbb395771e981db7840fd0b795f76f0e3ef0a825",
       "executable": false
     },
     "src/ui/warehouse-slotting.tsx": {

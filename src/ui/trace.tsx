@@ -11,7 +11,7 @@ export function TraceFields({value,onChange}:{value:TraceInput;onChange:(next:Tr
 }
 function TracePolicyApproval({item,state}:{item:RecordData;state:PierState}) {
   const policy=item.tracePolicy
-  return policy&&<section aria-label="Approved tracking policy"><p>{policy.allocation.toUpperCase()} · Policy version {policy.version} · Approved by {person(state,policy.approvedBy)} · {when(policy.approvedAt)}</p><p>Approval reason: {policy.reason}</p></section>
+  return policy&&<section aria-label="Approved tracking policy"><p>{policy.allocation.toUpperCase()} · Policy version {policy.version} · Approved by {person(state,policy.approvedBy)} · {when(policy.approvedAt)}</p><p>Approval reason: {policy.reason}</p><p>{policy.allocation==='fifo' ? "Allocation keeps each identity’s first receipt and original arrival order across bins." : "Allocation uses earliest expiry across bins, then original receipt order. Stock without an expiry follows dated stock."}</p></section>
 }
 export function TraceSettings({state,run,busy,itemId}:{state:PierState;run:RunCommand;busy:boolean;itemId:string}) {
   const [selected,setSelected]=useState(itemId)
