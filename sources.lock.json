@@ -675,7 +675,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "bd21bf10fe4a0033903add1d95742607f1357430d74c8236477f68c953dff1eb",
+      "sha256": "4347da3cc70cd8d6246db28b3af0210a6c867bb5f9057ae29b28e45268c34a2d",
       "executable": false
     },
     "packaging.json": {
@@ -4803,7 +4803,7 @@
       "executable": false
     },
     "tests/api/floor.test.mjs": {
-      "sha256": "ba7b0e7bbf29904453aee5a229bcadc311fed7c77ccb2ef751fd551064dcb1f5",
+      "sha256": "0305714f7f50330dde6192cf413465ec09e609038ed703e42133a29c108ce55f",
       "executable": false
     },
     "tests/api/flows.test.mjs": {
@@ -4823,7 +4823,7 @@
       "executable": false
     },
     "tests/api/kits-fixture.mjs": {
-      "sha256": "6f554522e3943bef013932b3ab52327ece6e22a89f7e459ffece63811b322f9c",
+      "sha256": "2ea1a36b181cfe1a0e07b62e4d1ece77eb356c8808e20cbe193d7c5add95653b",
       "executable": false
     },
     "tests/api/managed-mail-fixture.mjs": {
@@ -5039,7 +5039,7 @@
       "executable": false
     },
     "tests/browser/stock.spec.ts": {
-      "sha256": "d05b1c2242ff3660cb6d45f71735be92e1af0f913c05d24df73ae1df4891c457",
+      "sha256": "fd9d1051d280180d3eccea4453c4e7b3093517f123f7a60a8c3fd0f864275529",
       "executable": false
     },
     "tests/browser/supplier-bills.spec.ts": {
