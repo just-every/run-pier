@@ -2,18 +2,33 @@ import { fromMillionths } from './quantity'
 import { useEffect, useState } from 'react'
 import { label, records, type PierState, type RecordData, type RunCommand } from './api'
 import { Field, Form, Select, Table, text } from './controls'
+import { person, when } from './display'
 
 export type TraceInput = {lot:string;serial:string;expiry:string}
 export const emptyTrace = ():TraceInput=>({lot:'',serial:'',expiry:''})
 export function TraceFields({value,onChange}:{value:TraceInput;onChange:(next:TraceInput)=>void}) {
   return <details><summary>Enter lot, serial and expiry by hand</summary><div className="form-grid"><Field label="Supplier lot" value={value.lot} onChange={lot=>onChange({...value,lot})} required={false}/><Field label="Unit serial" value={value.serial} onChange={serial=>onChange({...value,serial})} required={false}/><Field label="Expiry date" value={value.expiry} onChange={expiry=>onChange({...value,expiry})} type="date" required={false}/></div><p>GS1 scans supply their own identity fields. Enter the identity on the physical goods when scanning a plain item code.</p></details>
 }
+function TracePolicyApproval({item,state}:{item:RecordData;state:PierState}) {
+  const policy=item.tracePolicy
+  return policy&&<section aria-label="Approved tracking policy"><p>{policy.allocation.toUpperCase()} · Policy version {policy.version} · Approved by {person(state,policy.approvedBy)} · {when(policy.approvedAt)}</p><p>Approval reason: {policy.reason}</p></section>
+}
+export function TraceSettings({state,run,busy,itemId}:{state:PierState;run:RunCommand;busy:boolean;itemId:string}) {
+  const [selected,setSelected]=useState(itemId)
+  useEffect(()=>setSelected(itemId),[itemId])
+  const items=records(state,'items').filter(item=>!item.archived),item=items.find(item=>item.id===selected),policy=item?.tracePolicy
+  if(state.actor.role!=='owner')return null
+  return <section className="panel" aria-label="Stock tracking settings"><h2>Stock tracking</h2><Select label="Tracking item" rows={items.map(item=>({...item,label:`${item.sku} · ${item.name}`}))} value={selected} onChange={setSelected}/>
+    {item&&<><TracePolicyApproval item={item} state={state}/><Form key={`${item.id}-${item.version}`} title={policy?'Review tracking policy':'Configure tracking before receiving'} busy={busy} submit="Save tracking policy" onSubmit={data=>run('trace.configure',{itemId:item.id,version:item.version,mode:text(data,'mode'),allocation:text(data,'allocation'),expiryRequired:text(data,'expiryRequired')==='yes',reason:text(data,'reason')})}><label className="field"><span>Tracking mode</span><select name="mode" aria-label="Tracking mode" defaultValue={policy?.mode??'lot'}><option value="lot">Lot</option><option value="serial">Unique serial per unit</option></select></label><label className="field"><span>Allocation policy</span><select name="allocation" aria-label="Allocation policy" defaultValue={policy?.allocation??'fefo'}><option value="fifo">FIFO · receipt order</option><option value="fefo">FEFO · earliest expiry first</option></select></label><label className="field"><span>Require expiry</span><select name="expiryRequired" aria-label="Require expiry" defaultValue={policy?.expiryRequired?'yes':'no'}><option value="yes">Yes</option><option value="no">No</option></select></label><Field label="Tracking policy reason" name="reason"/></Form></>}
+  </section>
+}
 export function TracePanel({item,state,run,busy}:{item:RecordData;state:PierState;run:RunCommand;busy:boolean}) {
   const identities=records(state,'traceIdentities').filter(i=>i.itemId===item.id),[selected,setSelected]=useState(''),[report,setReport]=useState<any>(null),[problem,setProblem]=useState('')
   useEffect(()=>{let live=true;if(!selected){setReport(null);return;}setProblem('');void fetch(`/api/pier/trace?identityId=${encodeURIComponent(selected)}`).then(async response=>{const body:any=await response.json();if(!response.ok)throw new Error(body.error?.message||'Trace could not load.');if(live)setReport(body)}).catch(error=>{if(live)setProblem(error.message)});return()=>{live=false}},[selected,state.version])
   const policy=item.tracePolicy,bins=records(state,'locations'),picked=identities.find(i=>i.id===selected)
   return <details className="panel" open={!!policy}><summary>Lot and serial traceability · {item.sku}</summary>
-    {state.actor.role==='owner'&&<Form key={`${item.id}-${item.version}`} title={policy?'Review tracking policy':'Configure tracking before receiving'} busy={busy} submit="Save tracking policy" onSubmit={data=>run('trace.configure',{itemId:item.id,version:item.version,mode:text(data,'mode'),allocation:text(data,'allocation'),expiryRequired:text(data,'expiryRequired')==='yes',reason:text(data,'reason')})}><label className="field"><span>Tracking mode</span><select name="mode" aria-label="Tracking mode" defaultValue={policy?.mode??'lot'}><option value="lot">Lot</option><option value="serial">Unique serial per unit</option></select></label><label className="field"><span>Allocation policy</span><select name="allocation" aria-label="Allocation policy" defaultValue={policy?.allocation??'fefo'}><option value="fifo">FIFO · receipt order</option><option value="fefo">FEFO · earliest expiry first</option></select></label><label className="field"><span>Require expiry</span><select name="expiryRequired" aria-label="Require expiry" defaultValue={policy?.expiryRequired?'yes':'no'}><option value="yes">Yes</option><option value="no">No</option></select></label><Field label="Tracking policy reason" name="reason"/></Form>}
+    {state.actor.role==='owner'&&<p><a href={`#settings/${item.id}`}>Review tracking in Settings</a></p>}
+    <TracePolicyApproval item={item} state={state}/>
     {policy&&<p>{policy.mode==='serial'?'Serialized units':'Lot stock'} · {policy.allocation.toUpperCase()} · expiry {policy.expiryRequired?'required':'optional'}. An expiry date remains valid through that UTC calendar day. This is ordinary inventory traceability; it does not certify regulated release or recall compliance.</p>}
     <Table headings={['Lot / serial','Expiry','Bin / status','Quantity','']}>
       {records(state,'tracePositions').filter(p=>p.itemId===item.id&&p.quantity!=='0').map(position=><tr key={position.id}><td>{position.lot||'No lot'}{position.serial&&<small>{position.serial}</small>}<small>{position.blocked?'Quarantined lot':position.expired?'Expired':'Identity retained'}</small></td><td>{position.expiry||'Not specified'}</td><td>{label(bins,position.locationId)} · {position.status}</td><td>{position.quantity} {item.unit}</td><td><button onClick={()=>setSelected(position.identityId)}>Trace sources and customers</button></td></tr>)}

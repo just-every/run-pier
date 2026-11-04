@@ -675,7 +675,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "bd21bf10fe4a0033903add1d95742607f1357430d74c8236477f68c953dff1eb",
+      "sha256": "2770ca9da4dadcea9877709636f8041f6f235bbc0696a6824f5efb58d5ed9178",
       "executable": false
     },
     "packaging.json": {
@@ -3879,7 +3879,7 @@
       "executable": false
     },
     "src/pier/trace.ts": {
-      "sha256": "926837c0af02780bfe5ad4eb3eebbcb8ce230480c76646d2fd488a593dd39984",
+      "sha256": "b19cf8bb9e1f87debf70db16be25f98049f94b09d458c5ae73cc07f57eed50f9",
       "executable": false
     },
     "src/pier/trade.ts": {
@@ -4139,7 +4139,7 @@
       "executable": false
     },
     "src/ui/app.tsx": {
-      "sha256": "3a69c3e31570885e3ce1cbfa9121b469577ce1e99f5afb53390a01d9700f1b86",
+      "sha256": "07c1a2eef5cff4102c640bb10eda4d629701aea2457ea84a60decc2dc982880a",
       "executable": false
     },
     "src/ui/backorder-promises.tsx": {
@@ -4731,7 +4731,7 @@
       "executable": false
     },
     "src/ui/trace.tsx": {
-      "sha256": "478eaa6ca13e50dc412be3211fd3f6a06e74ffa4ee3f2f9c7b1c32e9bd442836",
+      "sha256": "d3dd0255a71d65a61d9fecd2323f6572f40fc4bc091c56f58a8758ce02d5ef40",
       "executable": false
     },
     "src/ui/warehouse-slotting.tsx": {
@@ -4803,7 +4803,7 @@
       "executable": false
     },
     "tests/api/floor.test.mjs": {
-      "sha256": "ba7b0e7bbf29904453aee5a229bcadc311fed7c77ccb2ef751fd551064dcb1f5",
+      "sha256": "0d873bda1c0da4eb455cf8510612cfe1c4e4e055197e2dcc991aa16f370d1dd6",
       "executable": false
     },
     "tests/api/flows.test.mjs": {
@@ -4951,7 +4951,7 @@
       "executable": false
     },
     "tests/api/trace-fixture.mjs": {
-      "sha256": "81131a64e751ee06b702bde260a9744854dc99a101a6cf6d85f7b12e289ac5c4",
+      "sha256": "ad587d0746b32cb066c3c0eadfbe162c5684be29f08fd60e1a26650504485fa2",
       "executable": false
     },
     "tests/api/warehouse-waves.test.mjs": {
@@ -5039,7 +5039,7 @@
       "executable": false
     },
     "tests/browser/stock.spec.ts": {
-      "sha256": "d05b1c2242ff3660cb6d45f71735be92e1af0f913c05d24df73ae1df4891c457",
+      "sha256": "6b5b1e69ce6e4ae9085c50fb9df19c02c758a381bf1207e43e007d8cd793d638",
       "executable": false
     },
     "tests/browser/supplier-bills.spec.ts": {
