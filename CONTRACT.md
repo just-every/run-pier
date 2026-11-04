@@ -1418,7 +1418,7 @@ Judged from the code and tests on the landing candidate (29 October 2026). PIER-
 
 Judged from the code and tests at commit `f2832326ec054447a2b102992d15ae740e763781` (28 October 2026). PIER-002, PIER-003, PIER-006, PIER-010, PIER-011, WMS-003 and BUY-007 proof is re-run on the exact landing candidate, whose full commit identity is reported with its Verify evidence; other status judgments are preserved. STOCK-001 is judged from the exact landing candidate for this round identified by the full commit identity and Verify receipt in the handoff; its named journeys are re-run there.
 
-Judged from the exact sx-pier-f80ct1 landing candidate (4 November 2026), identified by its full commit SHA and Verify receipt in the handoff. TRACE-001 closes its five native proof gaps; physical device and printer acceptance stays in field proof row R-1 and regulated qualification is not claimed. Earlier clause judgments and holds are preserved.
+Judged from the code and tests at commit 527eb3f5fca9150eae09c5d73e90382f09e05b7f (4 November 2026), the exact sx-pier-f80ct1 candidate reviewed by ct-judge-pier-trace-001-r1-20261104-1315. TRACE-001 closes its five native proof gaps, and its browser journey performs the traced lifecycle at 1440 and 390; physical device and printer acceptance stays in field proof row R-1 and regulated qualification is not claimed. Earlier clause judgments and holds are preserved.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |

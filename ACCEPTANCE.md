@@ -8,10 +8,10 @@ The primary journey: an owner moves stock, parties and open orders in from the i
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 28 | 59 | 4 | 91 |
+| Core | 29 | 58 | 4 | 91 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 28 | 59 | 11 | 98 |
+| Full target | 29 | 58 | 11 | 98 |
 
 Judged from the code and tests at commit `16621913112a7ac4888f34324a047f41a554679a` (29 October 2026). CAT-003 is revalidated on the exact final sx-pier-c-f26 candidate, whose full SHA accompanies its recorded Verify and handoff. Earlier status judgments are preserved. Field proof register: 8 rows; 0 passed, 0 failed, 8 not run.
 
@@ -256,7 +256,7 @@ Core · target · **partial**
 
 #### TRACE-001 — Serial, lot and expiry traceability
 
-Core · target · **partial**
+Core · target · **done**
 
 **Requirement.** Receiving, bin moves, allocations, picking, dispatch and returns retain serial/lot identity and expiry. Lot, serial and expiry can be entered by hand or filled from a scanned GS1 barcode (SCAN-002). Operators can quarantine a lot, choose FIFO/FEFO within approved policy and trace suppliers to affected customers and back. Duplicate serials, expired picks and wrong-lot scans are blocked or require an authorized recorded exception. Ordinary traceability does not certify regulated release or recall compliance. KIT-001 and WMS-002 use those same identities for their existing kitting and movement tasks; later SCAN-001/002 device and label work and COUNT-001 tracked counts inherit the identity history when they ship.
 
@@ -268,8 +268,8 @@ Core · target · **partial**
 5. Serial identities and allocated trace codes share the stock-code namespace; supplier lot references are exact per-SKU metadata.
 6. Quarantine follows retained component parents into assembled kits.
 
-**Evidence.** `tests/api/floor.test.mjs` — “TRACE-001: dated lots and serials survive receiving, transfer, exact picks, split dispatch, quarantine and return tracing” proves GS1/hand intake, serial uniqueness, FEFO across bins, transfers, wrong-lot pick/pack refusal, split dispatch, quarantine, serial return and exact receipt/supplier/customer tracing; “TRACE-001: an already-reserved lot becomes unavailable for pick and dispatch after its expiry day” proves expiry refusal and stock totals without changing history; “TRACE-001: assembled and virtual kit returns retain component lineage and a component lot hold blocks its kits” proves kit identity/cost inheritance. `tests/browser/stock.spec.ts` — “TRACE-001: receive dated lots and serials, transfer, split ship, trace, quarantine and return at 1440 and 390” proves receiving, transfers, split dispatch, wrong-lot refusal, trace sources/customers, quarantine and serial return at both widths. `src/pier/trace.ts`; [Traceability](docs/traceability.md)
-**Gap.** Unasserted: owner approval of the FIFO or FEFO policy, FIFO ordering by first receipt and arrival order, FEFO placing undated identities last, the shared serial and trace-code namespace and exact per-SKU supplier lot references. Asserted: dated lot and serial intake, transfer, split dispatch, quarantine, serial return, exact tracing, duplicate-serial and expired or blocked refusals, FEFO choosing the earlier-expiring lot and kit quarantine inheritance.
+**Evidence.** `tests/api/floor.test.mjs` — “TRACE-001: dated lots and serials survive receiving, transfer, exact picks, split dispatch, quarantine and return tracing” proves hand and GS1 intake, transfers, split dispatch, exact supplier and customer tracing, serial return, blocked stock and wrong-lot refusals; owner-only FIFO and FEFO approval with retained actor, reason and policy versions through restart; FIFO first receipt and interleaved-bin arrival order with a repeated old lot; FEFO dated and undated ordering with FIFO ties; shared serial and trace-code collision refusals with unchanged complete business exports and successful command results; exact case-distinct and per-SKU supplier lot identities through restart and export, with zero outbound requests. “TRACE-001: an already-reserved lot becomes unavailable for pick and dispatch after its expiry day” proves the inclusive UTC expiry day and refusal afterward without changed history. “TRACE-001: assembled and virtual kit returns retain component lineage and a component lot hold blocks its kits” proves retained component parents and inherited quarantine. `tests/browser/stock.spec.ts` — “TRACE-001: receive dated lots and serials, transfer, split ship, trace, quarantine and return at 1440 and 390” operates FIFO and FEFO in Settings, rereads retained owner approval and visible allocated identities, and performs receiving, transfers, exact picking, split dispatch, trace, quarantine and serial return at 1440 and 390, with captures at both widths. `src/pier/trace.ts`; [Traceability](docs/traceability.md)
+**Gap.** None.
 
 ### Warehouse floor, barcodes and counts
 
