@@ -328,7 +328,9 @@ test('KIT-001: concurrent channel kits, whole shortages, versioned picks, assemb
     const position=report.valuation.rows.find(row=>row.itemId===part.id&&row.locationId===b.bin.id&&row.status==='sellable');
     const quantity=[22,24,26][n];
     assert.deepEqual([position.quantity,Number(position.value)],[String(quantity),quantity*(n+1)]);
-    assert.equal(position.layers.filter(layer=>layer.quantity==='1').reduce((sum,layer)=>sum+Number(layer.value),0),n+1,'Disassembly recovers the actual component cost');
+    const recovered=position.layers.filter(layer=>layer.quantity==='1');
+    assert.equal(recovered.reduce((sum,layer)=>sum+Number(layer.value),0),n+1,'Disassembly recovers the actual component cost');
+    assert.deepEqual(recovered.map(layer=>layer.sourceId),[initial.receipts[0].lines.find(line=>line.itemId===part.id).movementId],'Recovered components keep their original receipt source');
   }
   const displayMargin=report.margin.bySku.find(row=>row.key===b.display.id);
   assert.deepEqual([Number(displayMargin.revenue),Number(displayMargin.cost),Number(displayMargin.margin)],[24,12,12]);
