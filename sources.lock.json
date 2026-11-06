@@ -4783,7 +4783,7 @@
       "executable": false
     },
     "tests/api/costing.test.mjs": {
-      "sha256": "ad30447ad3569d881fda4c64f5b67d3dcadbbf9dfc88ae73b51293a5f0dbfec2",
+      "sha256": "56cc49d6e8effff005cb896b058a26ef51295db7f75f2644e5111ce651bbac21",
       "executable": false
     },
     "tests/api/dependency-custody.test.mjs": {

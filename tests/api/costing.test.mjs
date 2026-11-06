@@ -384,10 +384,15 @@ test('native shipment and prepay invoices retain terms, charge tax, credits and 
   converted=await h.command('quote.accept',{orderId:converted.id,version:converted.version});
   const currencyRevision={...usdInput,currency:'CAD',orderId:converted.id,version:converted.version,reason:'Owner changes the quote currency to CAD'};
   await refused('quote.revise',currencyRevision,'DECIMAL');
+  for(const usdRate of [null,'','0','-1','bad','0.0000001'])
+    await refused('quote.revise',{...currencyRevision,usdRate},'DECIMAL');
   converted=await h.command('quote.revise',{...currencyRevision,usdRate:'0.75'});
   assert.deepEqual([converted.currency,converted.usdRate,converted.usdTotal,converted.rateReview.usdRate],['CAD','0.75','9.260000000000','0.75']);
+  assert.equal(converted.rateReview.actorId,(await h.state()).actor.id);
   assert.equal(converted.quoteApproval,null);assert.equal(converted.acceptedAt,null);
   assert.deepEqual([converted.quoteHistory.at(-1).currency,converted.quoteHistory.at(-1).usdRate],['USD','1']);
+  converted=await h.command('quote.revise',{...currencyRevision,version:converted.version,reason:'Retain the reviewed rate for unchanged CAD pricing'});
+  assert.deepEqual([converted.currency,converted.usdRate,converted.usdTotal,converted.quoteHistory.at(-1).usdRate],['CAD','0.75','9.260000000000','0.75']);
   for(const usdRate of [undefined,'0','-1','bad','0.0000001'])await refused('quote.create',{...cadInput,usdRate},'DECIMAL');
   await refused('quote.create',{...cadInput,currency:'EUR'},'CURRENCY');
   await refused('quote.create',{...cadInput,lines:[{...cadInput.lines[0],currency:'USD'}]},'CURRENCY');
