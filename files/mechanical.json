@@ -1,0 +1,47 @@
+{
+  "head": "5a95af2c0899ca5af1342275b69b7337bad2c903",
+  "checks": [
+    {
+      "command": "node src/base/contract-docs.mjs write",
+      "exit": 0,
+      "log": "mechanical-1.log",
+      "sha256": "14cee29b7bd19487e15f4013d4fb85016e022ef21d230676971a6490c88436d2"
+    },
+    {
+      "command": "node src/base/contract-docs.mjs check",
+      "exit": 0,
+      "log": "mechanical-2.log",
+      "sha256": "c21aae40192141751d6d5c7a3a1d0eb701a6852f305d592d77b4dcab9c2536ab"
+    },
+    {
+      "command": "git checkout origin/main -- ACCEPTANCE.md docs/CLAIMS.md",
+      "exit": 0,
+      "log": "mechanical-3.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "node scripts/edition-authoring/cli.mjs lock",
+      "exit": 0,
+      "log": "mechanical-4.log",
+      "sha256": "17dd7aecd0fabc599f0a88db39e3b8c3296bad89de866982aa4209e8c289fd86"
+    },
+    {
+      "command": "node scripts/edition-authoring/cli.mjs check",
+      "exit": 0,
+      "log": "mechanical-5.log",
+      "sha256": "6f01eff4c931f29961a943243c0a87054bc9c9f3128fde6388682fd1a5031a3f"
+    }
+  ],
+  "migration_ledger": "not applicable; no migration changed",
+  "typecheck": {
+    "command": "pnpm run typecheck",
+    "exit": 0,
+    "node": "22.20.0",
+    "log": "typecheck.log"
+  },
+  "first_party": {
+    "command": "pnpm exec rer check --profile first-party",
+    "exit": 0,
+    "log": "first-party.log"
+  }
+}

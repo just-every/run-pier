@@ -1,0 +1,29 @@
+{
+  "head": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+  "run": 42228367126,
+  "job": 127949866256,
+  "command": "test \"$PLAN\" = success\nif [ \"$SKIP\" = true ]; then exit 0; fi\nfor result in $RESULTS; do test \"$result\" = success; done\n",
+  "test": "Require the plan and every shard",
+  "exit": 1,
+  "failure": "test cancelled = success exits 1 because rer-verify was cancelled",
+  "classification": "cancelled prerequisite; no product assertion failed",
+  "failed_job_log_reads": [
+    {
+      "job": 127949866256,
+      "command": "gh run view 42228367126 --repo just-every/run-pier --job 127949866256 --log-failed",
+      "exit": 0,
+      "bytes": 0
+    },
+    {
+      "job": 127927604863,
+      "command": "gh run view 42228367126 --repo just-every/run-pier --job 127927604863 --log-failed",
+      "exit": 0,
+      "bytes": 0
+    }
+  ],
+  "full_cancelled_log_read": {
+    "command": "gh run view 42228367126 --repo just-every/run-pier --job 127927604863 --log",
+    "exit": 0,
+    "bytes": 0
+  }
+}

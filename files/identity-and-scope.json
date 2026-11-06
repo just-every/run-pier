@@ -1,0 +1,45 @@
+{
+  "head": "5a95af2c0899ca5af1342275b69b7337bad2c903",
+  "main": "5d7ffdd81f3b3c86da7252525a93dccaa5e7572f",
+  "published_ancestor": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+  "preserved": true,
+  "commits": [
+    {
+      "head": "5a95af2c0899ca5af1342275b69b7337bad2c903",
+      "author": "Run Edit Run fleet",
+      "committer": "Run Edit Run fleet",
+      "trailers": "none"
+    },
+    {
+      "head": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+      "author": "Run Edit Run fleet",
+      "committer": "Run Edit Run fleet",
+      "trailers": "none"
+    },
+    {
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "author": "Run Edit Run fleet",
+      "committer": "Run Edit Run fleet",
+      "trailers": "none"
+    },
+    {
+      "head": "1c63b4a60176c145d448194b9678a5ce335a7a22",
+      "author": "Run Edit Run fleet",
+      "committer": "Run Edit Run fleet",
+      "trailers": "none"
+    },
+    {
+      "head": "19f57f02e418fd9fd22c8bcddf654192b770a5da",
+      "author": "Run Edit Run fleet",
+      "committer": "Run Edit Run fleet",
+      "trailers": "none"
+    }
+  ],
+  "contract_diff": "empty",
+  "generated_files_committed": false,
+  "changed_assertions": "extended only",
+  "added_test_registrations": 0,
+  "email_shapes_in_additions": 0,
+  "bare_repository_shapes_in_additions": 0,
+  "working_tree": "clean"
+}

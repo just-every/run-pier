@@ -1,0 +1,81 @@
+{
+  "repository": "just-every/run-pier",
+  "branch": "cloud/sx-pier-f81fix1-pc1",
+  "head": "5a95af2c0899ca5af1342275b69b7337bad2c903",
+  "node": "22.20.0",
+  "findings": {
+    "A": "local PASS"
+  },
+  "checks": {
+    "focused_money_journey": {
+      "exit": 0,
+      "tests": 1,
+      "log": "costing-candidate.log"
+    },
+    "typecheck": {
+      "exit": 0,
+      "log": "typecheck.log"
+    },
+    "first_party": {
+      "exit": 0,
+      "log": "first-party.log"
+    },
+    "mechanical": {
+      "exit": 0,
+      "receipt": "mechanical.json"
+    },
+    "independent_http_probe": {
+      "exit": 0,
+      "log": "probe.log",
+      "unsafe_status": 409,
+      "unsafe_code": "DECIMAL",
+      "unchanged_business_state": true
+    }
+  },
+  "contract": {
+    "before": {
+      "done": 30,
+      "partial": 57,
+      "missing": 11
+    },
+    "after": {
+      "done": 30,
+      "partial": 57,
+      "missing": 11
+    },
+    "status": "PARTIAL",
+    "status_gap_evidence_changes": false
+  },
+  "push": {
+    "exit": 0,
+    "log": "push.log"
+  },
+  "verify": {
+    "conclusion": null,
+    "head_sha": "5a95af2c0899ca5af1342275b69b7337bad2c903",
+    "html_url": "https://github.com/just-every/run-pier/actions/runs/42273553863",
+    "status": "in_progress",
+    "run_id": 42273553863,
+    "poll": 3,
+    "observed_at": "2026-11-06T19:00:35Z"
+  },
+  "publication_scan": {
+    "commit": "5a95af2c0899ca5af1342275b69b7337bad2c903",
+    "complete": null,
+    "historyScanned": null,
+    "findings": null,
+    "custodian": "guarded Mac lander"
+  },
+  "run_site": {
+    "run_id": null,
+    "status": "not run on cloud branch"
+  },
+  "pr": null,
+  "github_calls_used": 8,
+  "github_calls_reserved_for_failure_diagnosis": 2,
+  "terminal_status": "PUSHED",
+  "ready": false,
+  "remaining_call_budget": 2,
+  "ci_blocker": "none known; Verify still running at final budgeted observation",
+  "product_push_verified": true
+}
