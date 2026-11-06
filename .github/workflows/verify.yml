@@ -67,7 +67,7 @@ jobs:
         id: workloads
         shell: python
         run: |
-          import json, os, re, shlex
+          import json, os, shlex
           from pathlib import Path
 
           commands = [shlex.split(c) for c in json.loads(Path('package.json').read_text())['scripts']['verify:app'].split(' && ')]
@@ -86,24 +86,14 @@ jobs:
               ['node', 'tests/browser/run.mjs', 'stock.spec.ts', '--grep', 'STOCK-001'],
               ['node', 'tests/browser/run.mjs', 'supplier-returns.spec.ts', '--grep', 'BUY-003'],
               ['node', 'tests/browser/run.mjs', 'dispatch.spec.ts', '--grep', 'WMS-003']]
-          patterns = [[], [], []]
+          browser_groups = [[], [], []]
           for index, command in enumerate(browser):
               if command[:2] != ['node', 'tests/browser/run.mjs']:
                   raise ValueError(f'Unmapped verification command: {command}')
-              args = command[2:]
-              file = args.pop(0) if args and not args[0].startswith('--') else None
-              if file and not re.fullmatch(r'[\w-]+\.spec\.ts', file):
-                  raise ValueError(f'Unsupported browser file selection: {file}')
-              if args and (len(args) != 2 or args[0] != '--grep'):
-                  raise ValueError(f'Unsupported browser arguments: {args}')
-              # Playwright matches grep against the full title, including file.
-              # Union selections share one real setup/dev runtime per shard.
-              pattern = f'(?:{args[1]})' if args else ''
-              if file:
-                  pattern = re.escape(file) + ' ' + '.*' + pattern
-              if not pattern:
-                  raise ValueError('Refuse an unbounded browser selection')
-              patterns[index % 3].append(pattern)
+              # Keep each original public setup/dev boundary: routing, security
+              # policies and retained records are installation state. Sharing a
+              # runtime across selections would contaminate later assertions.
+              browser_groups[index % 3].append(command)
           matrix = []
           groups, sizes = [[], [], [], []], [0, 0, 0, 0]
           for file in sorted(Path('tests/api').glob('*.test.mjs'), key=lambda p: (-p.stat().st_size, str(p))):
@@ -113,10 +103,10 @@ jobs:
           if any(not group for group in groups):
               raise ValueError('Every API shard must execute files')
           for index, files in enumerate(groups):
-              matrix.append(dict(name=f'api-{index + 1}', kind='api', files=files, grep=''))
-          for index, group in enumerate(patterns):
-              matrix.append(dict(name=f'browser-{index + 1}', kind='browser', files=[], grep='|'.join(f'(?:{p})' for p in group)))
-          matrix.append(dict(name='portability', kind='portability', files=[], grep=''))
+              matrix.append(dict(name=f'api-{index + 1}', kind='api', files=files, commands=[]))
+          for index, group in enumerate(browser_groups):
+              matrix.append(dict(name=f'browser-{index + 1}', kind='browser', files=[], commands=group))
+          matrix.append(dict(name='portability', kind='portability', files=[], commands=[]))
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('matrix=' + json.dumps(dict(include=matrix), separators=(',', ':')) + '\n')
 
@@ -128,6 +118,7 @@ jobs:
     env:
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
+      X_LOCAL_EXPLORER: 'false'
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -173,7 +164,10 @@ jobs:
       - run: node tests/email-link.mjs
       - name: Verify the emitted production Worker and hydration
         run: |
-          node --input-type=module <<'JS'
+          # Miniflare's synchronous RPC worker inherits execArgv. An
+          # --input-type=module stdin entry deadlocks that file-backed worker.
+          mkdir -p .cache/ci
+          cat > .cache/ci/verify-production.mjs <<'JS'
           import { resolveProject } from '@runeditrun/rer/internal/cli/project.mjs';
           import { checkHostedOutput } from '@runeditrun/rer/internal/cli/hosted-output.mjs';
           import { checkHydration } from '@runeditrun/rer/internal/cli/hydration/check.mjs';
@@ -187,6 +181,7 @@ jobs:
             report: lines => lines.forEach(line => console.log(line)),
           });
           JS
+          node .cache/ci/verify-production.mjs
       # The run site: homepage, /run and the docs from the repository's Markdown,
       # refused on any broken, instance-only or other-origin reference.
       - run: pnpm exec rer build --site --no-queue
@@ -204,6 +199,7 @@ jobs:
     env:
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
+      X_LOCAL_EXPLORER: 'false'
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -246,24 +242,23 @@ jobs:
           PIER_SCREENSHOTS: ${{ runner.temp }}/pier-browser/screenshots
           KIND: ${{ matrix.kind }}
           FILES: ${{ toJSON(matrix.files) }}
-          GREP: ${{ matrix.grep }}
+          COMMANDS: ${{ toJSON(matrix.commands) }}
         run: |
           node --input-type=module <<'JS'
           import { spawnSync } from 'node:child_process';
-          const { KIND, FILES, GREP } = process.env;
-          const args = KIND === 'api'
-            ? ['--test', '--test-concurrency=1', ...JSON.parse(FILES)]
+          const { KIND, FILES, COMMANDS } = process.env;
+          const commands = KIND === 'api'
+            ? [[process.execPath, '--test', '--test-concurrency=1', ...JSON.parse(FILES)]]
             : KIND === 'browser'
-              ? ['tests/browser/run.mjs', '--grep', GREP]
-              : KIND === 'portability' ? ['tests/portable.mjs'] : null;
-          if (!args) throw new Error('Unknown verification shard');
-          // Preserve the connector step's 1200-second command cap.
-          const result = KIND === 'browser'
-            ? spawnSync('timeout', ['1200', process.execPath, ...args], { stdio: 'inherit' })
-            : spawnSync(process.execPath, args, { stdio: 'inherit' });
-          if (result.error) throw result.error;
-          if (result.signal) throw new Error(`Verification terminated by ${result.signal}`);
-          process.exitCode = result.status;
+              ? JSON.parse(COMMANDS).map(([, ...args]) => ['timeout', '1200', process.execPath, ...args])
+              : KIND === 'portability' ? [[process.execPath, 'tests/portable.mjs']] : null;
+          if (!commands?.length) throw new Error('Unknown or empty verification shard');
+          for (const [executable, ...args] of commands) {
+            const result = spawnSync(executable, args, { stdio: 'inherit' });
+            if (result.error) throw result.error;
+            if (result.signal) throw new Error(`Verification terminated by ${result.signal}`);
+            if (result.status !== 0) { process.exitCode = result.status; break; }
+          }
           JS
       - uses: actions/upload-artifact@v4
         if: always() && matrix.kind == 'browser'
