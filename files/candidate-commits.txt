@@ -1,0 +1,7 @@
+commit 7b86541d9be978a633a4f3903a8c55389263bf8f
+Author:     Run Edit Run fleet <fleet@runeditrun.com>
+AuthorDate: Fri Nov 6 17:41:39 2026 +0000
+Commit:     Run Edit Run fleet <fleet@runeditrun.com>
+CommitDate: Fri Nov 6 17:41:39 2026 +0000
+
+    Split Pier Verify critical path across eight existing assertion shards

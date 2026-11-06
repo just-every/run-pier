@@ -1,0 +1,14 @@
+{
+  "repository": "just-every/run-pier",
+  "branch": "cloud/sx-pier-ci-land-1",
+  "head_sha": "7b86541d9be978a633a4f3903a8c55389263bf8f",
+  "run_id": 42263968880,
+  "status": "completed",
+  "conclusion": "success",
+  "html_url": "https://github.com/just-every/run-pier/actions/runs/42263968880",
+  "inspection_calls": 3,
+  "dispatches": 0,
+  "reruns": 0,
+  "observed_at": "2026-11-06T18:01:59.379331+00:00",
+  "ready": true
+}

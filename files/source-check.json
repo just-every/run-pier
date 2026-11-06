@@ -1,0 +1,6 @@
+{
+  "result": "pass",
+  "command": "node scripts/edition-authoring/cli.mjs check",
+  "files": 1275,
+  "workflow_sha256": "27c1c22778facc0dc525e1a5eabfcfa669a0bd4b6ed41d4c065cfd3db855859e"
+}

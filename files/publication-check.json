@@ -1,0 +1,8 @@
+{
+  "result": "pass",
+  "regular_files_checked": 15,
+  "secret_value_scan": "No decrypted bundle value found; no values or environment dumps emitted.",
+  "product_checkout": "clean",
+  "identity": "Fleet author and committer; no co-author trailers",
+  "scope": "Only workflow and source lock differ from main; contract and acceptance views unchanged"
+}

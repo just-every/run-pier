@@ -1,0 +1,106 @@
+{
+  "files": [
+    {
+      "blob": "c5b05543a6732ff7fa2a0d495689cd4b5cbeb84e",
+      "bytes": 1404,
+      "path": "PLAN.md",
+      "sha256": "798aeb8715d614c7d2ab32289812e65b1fc485cbb5732961eccd9011f275cde1"
+    },
+    {
+      "blob": "ff0a69bd74be6a2fe68f975bbd8a4f0d5e95304d",
+      "bytes": 4420,
+      "path": "REPORT.md",
+      "sha256": "516893d944226fd9bef833ae301e26dc500fa048858d78df6b43e3e687f31925"
+    },
+    {
+      "blob": "ce35f5f00e0f39315b5984dfb2aa0ebcd69f69a9",
+      "bytes": 148,
+      "path": "actionlint.txt",
+      "sha256": "10ce18a8e743716f448dde3f2f4ce69e6a991b8dc9b67da7fb5b56445640ec46"
+    },
+    {
+      "blob": "65a53c19ebe1a35f490b9f763a971c1620b22880",
+      "bytes": 4261,
+      "path": "audit-workloads.py",
+      "sha256": "a4a309e5202d865131a586aa99a8c70d0e2025fe666f78f0713020132aa32f12"
+    },
+    {
+      "blob": "397cadf889597fd1270f9efd92a50f4cc1159d31",
+      "bytes": 316,
+      "path": "candidate-commits.txt",
+      "sha256": "d341c7c7b12475cac7cf98d19946933f04debfa1d707c333a703ac56ef07c1ff"
+    },
+    {
+      "blob": "3016f06a918b9f01d24f9c23365086176a7a10e6",
+      "bytes": 47,
+      "path": "changed-files.txt",
+      "sha256": "f24177e95fd70946d7a6c980d46a24d1782c6ea994dcaf629fd3234e17fabc8c"
+    },
+    {
+      "blob": "113e40491a455668cdd9587584c1aba2845c8842",
+      "bytes": 1230,
+      "path": "ci-observations.json",
+      "sha256": "4ec10541ddb0521adfb55c040189a2c1f412b99d10213bb2cc90b3f3db811aee"
+    },
+    {
+      "blob": "91fc29bf56b17a65288b643e84937763067d31dc",
+      "bytes": 426,
+      "path": "ci-receipt.json",
+      "sha256": "acac2e36ccad36f8999ca2bf9ad401904456d407b44308087cfd506a26dc58e1"
+    },
+    {
+      "blob": "ae869b2fafd3acf46a2dc6ce35ec869497ae9cfb",
+      "bytes": 32,
+      "path": "contract-check.txt",
+      "sha256": "c21aae40192141751d6d5c7a3a1d0eb701a6852f305d592d77b4dcab9c2536ab"
+    },
+    {
+      "blob": "55bfeff023c4ae17dc59e12f86f446b1960e6b53",
+      "bytes": 85,
+      "path": "identity-check.txt",
+      "sha256": "148bad84b5b174568017df50d58e073566703d43c6c9fe7fa6f1af04420adf55"
+    },
+    {
+      "blob": "da2ed49868c9679e0947a5a0a127820b16d09dcf",
+      "bytes": 1165,
+      "path": "local-receipt.json",
+      "sha256": "8e997999c7531f92f8a6d3d43b0aeb699d50008caaaa02e09aeb166f2caf10a8"
+    },
+    {
+      "blob": "5ccd5b2a23471f22f1fb7af128acc6bdddfefdc6",
+      "bytes": 904,
+      "path": "product-push.txt",
+      "sha256": "16e819755efbd49051af1f584c7387a4d9f7c969fb2bfb875b5aba76cdf8aac3"
+    },
+    {
+      "blob": "4ed039bc29c18f8c5bb9ed440d6dac65568e5aed",
+      "bytes": 10946,
+      "path": "product.patch",
+      "sha256": "d077f295a367dcbd4204b6f484a2084fd4d548a92d72655840619094f204ad6a"
+    },
+    {
+      "blob": "2a06da04118408b1575f434eaf5cbfacb928f881",
+      "bytes": 353,
+      "path": "publication-check.json",
+      "sha256": "060bd2292466526a5f1c14ad1f97389f7636143d1b4206bf08fdb7909bfa374a"
+    },
+    {
+      "blob": "87ca61c9c1062718b226fb02479e4b9b512e181a",
+      "bytes": 190,
+      "path": "source-check.json",
+      "sha256": "94fdb49b7a163c84aae2c2f7c8ef24e8fab24a83863cfe167d3b885c50bc489f"
+    },
+    {
+      "blob": "6ceed33515e1d81512bfd76ebbe97b16a15131aa",
+      "bytes": 5562,
+      "path": "workload-audit.json",
+      "sha256": "8e2c3b8516708f98351c860c4006fb5cbdb438e1b0afb1f4cb1fd8efc3b42b6c"
+    }
+  ],
+  "product_branch": "cloud/sx-pier-ci-land-1",
+  "product_head": "7b86541d9be978a633a4f3903a8c55389263bf8f",
+  "ref": "refs/heads/evidence/sx-pier-ci-land-1",
+  "repository": "just-every/run-pier",
+  "schema": 1,
+  "tag": "sx-pier-ci-land-1"
+}

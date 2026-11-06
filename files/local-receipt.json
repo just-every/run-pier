@@ -1,0 +1,31 @@
+{
+  "repository": "just-every/run-pier",
+  "branch": "cloud/sx-pier-ci-land-1",
+  "head": "7b86541d9be978a633a4f3903a8c55389263bf8f",
+  "base": "5d7ffdd81f3b3c86da7252525a93dccaa5e7572f",
+  "source": "4835f6daef6512ad0c3ddb6a87e7e24d06f5cdad",
+  "source_commits": [
+    "274d44c3fe994507dad29a6d9d78dd12c2cd7549",
+    "4835f6daef6512ad0c3ddb6a87e7e24d06f5cdad"
+  ],
+  "product_pushes": 1,
+  "checks": {
+    "actionlint_1.7.7": "passed; shellcheck integration disabled because shellcheck is unavailable",
+    "contract_docs_check": "passed",
+    "source_lock_regenerated_last": "passed",
+    "source_lock_check": "passed",
+    "git_diff_check": "passed",
+    "workflow_matches_source_exactly": "passed",
+    "candidate_identity_and_trailers": "passed; fleet author and committer; no trailers",
+    "workload_audit": "passed"
+  },
+  "changed_files": [
+    ".github/workflows/verify.yml",
+    "sources.lock.json"
+  ],
+  "workflow_sha256": "27c1c22778facc0dc525e1a5eabfcfa669a0bd4b6ed41d4c065cfd3db855859e",
+  "scope": "Workflow and generated source lock only. No product/test/contract/migration changes.",
+  "clauses_changed": [],
+  "blockers": [],
+  "pr_url": null
+}
