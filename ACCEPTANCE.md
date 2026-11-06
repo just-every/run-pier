@@ -85,8 +85,8 @@ Core · published · **partial** · Cites BASE-AGENT-008
 1. Journey 5: prepare a PO as an agent, attempt approval with the agent's own credential, obtain the buyer's approval, change a material term and attempt commit.
 2. Only a freshly approved version commits and it changes expected supply rather than on-hand stock.
 
-**Evidence.** `src/pier/purchasing.ts`; `src/pier/proposals.ts`; `tests/api/flows.test.mjs` (05)
-**Gap.** Unasserted in the cited evidence: preparing the PO as an agent, the refused approval attempted with the agent's credential, a commit of the freshly approved version and its effect on expected rather than on-hand stock. Asserted: the buyer's approval and refusal of the stale and the unapproved revised version. `tests/api/security-import.test.mjs` ('roles, agent preparation, revoked session, stale human approval and direct HTTP denial') holds agent refusals outside this clause's evidence.
+**Evidence.** `tests/api/flows.test.mjs` — “05 exact purchase approval and agent preparation leave expected separate” uses distinct authenticated agent and buyer sessions: the agent drafts and revises a PO with its preparation identity retained in the public command export; agent approval and commitment refuse; the buyer approves, material revision invalidates approval, stale and unapproved commitments refuse without changing the complete business graph or successful results, and fresh exact-version buyer approval commits once. Public PO exports independently reconcile the three added expected units while positions, movements and reservations stay unchanged; replay returns the same result without another effect. The evidence-backed proposal also retains its agent preparation and buyer approval without itself committing supply.
+**Gap.** ADMIN-002 provider-bound identity acceptance and separately scoped, rotated and revocable service and agent credentials remain unproved. Shared MCP money-class and company-policy conformance remain unimplemented under SURFACE-001 and SURFACE-003. Native role sessions prove only the local preparation and human approval boundary.
 
 #### PIER-006 — Receive partial purchases atomically
 
