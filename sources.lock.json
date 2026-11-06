@@ -4291,7 +4291,7 @@
       "executable": false
     },
     "src/ui/controls.tsx": {
-      "sha256": "5365c33913c378ffbe0ff7482ce1f9b42ff1d5f0ae76cbd10262c397cc829980",
+      "sha256": "ab3a142b0e11348b9172e975f5668d36a13e4ea98cf3044780274a253dae8a54",
       "executable": false
     },
     "src/ui/correspondence.tsx": {
@@ -4479,7 +4479,7 @@
       "executable": false
     },
     "src/ui/orders/commercial.tsx": {
-      "sha256": "2f0707c892c8bf446adadaebdad37ed3c43f0159b156281ec4e65b3ba2891d2e",
+      "sha256": "f6526edd80785bbac7fb696ad0b3329e99d722bc7691a2886782cfbabef5fb76",
       "executable": false
     },
     "src/ui/orders/costs.ts": {
@@ -4487,7 +4487,7 @@
       "executable": false
     },
     "src/ui/orders/detail.tsx": {
-      "sha256": "a6cbbe0dd3dad9795a59e27505d212426f16fc574ad0171b334b8e63b49a5b74",
+      "sha256": "934d7f233779c192ff1eb0bb5d2fd86f541b692c288028c0bed1d49b7e2142a5",
       "executable": false
     },
     "src/ui/orders/document-intake.tsx": {
@@ -4519,7 +4519,7 @@
       "executable": false
     },
     "src/ui/orders/invoice-workbench.tsx": {
-      "sha256": "be6e1daa3283d6021e78a20b0cf343ffc22fde1dcdf5777a88e9b9221e209591",
+      "sha256": "f8a4ce88cc76c666d627dd9b0c0d89a8f0c83074d68ab28bcaa7d15bc933d0ea",
       "executable": false
     },
     "src/ui/orders/model.ts": {
@@ -4783,7 +4783,7 @@
       "executable": false
     },
     "tests/api/costing.test.mjs": {
-      "sha256": "a2f914f188163a7046b5df083f0f89db4547b008d2a3e7a4497c5814b74efd5d",
+      "sha256": "d41fbb5cc7d95028e6a17bc9d31e99123021ebd86299c87f220860bcfbd01498",
       "executable": false
     },
     "tests/api/dependency-custody.test.mjs": {
