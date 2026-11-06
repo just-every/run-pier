@@ -94,6 +94,7 @@ export function Commercial({
             <Field
               label="Revised destination ZIP"
               name="postalCode"
+              required={false}
               defaultValue={order.shipTo?.postalCode ?? ""}
             />
             <Field

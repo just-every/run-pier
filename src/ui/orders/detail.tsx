@@ -67,11 +67,11 @@ export function OrderCard({ state, order, run, busy, costs, resolve }: { state: 
           <td className="num line-ordered">{line.quantity}</td>
           <td className="num line-reserved">{line.reserved}</td>
           {shipped && <td className="num line-dispatched">{line.dispatched}</td>}
-          <td className="num line-price">{order.currency === 'CAD' ? 'CAD ' : ''}<Amount value={line.price} unknown="—" dollars /></td>
+          <td className="num line-price">{order.currency === 'CAD' ? 'CAD ' : ''}<Amount value={line.price} currency={order.currency ?? 'USD'} unknown="—" dollars /></td>
           <td className="num line-margin" title={margins[index] === null ? costs.failed ? 'Line costs could not be read' : 'No valued cost for this line yet' : 'Price over this line’s own cost: dispatched and reserved stock'}>{margins[index] === null ? '—' : `${margins[index]}%`}</td>
         </tr> })}</tbody>
     </table></div>
-    <div className="order-total">{order.lines.length > shown && <button type="button" className="link" onClick={() => setAll(!all)}>{all ? 'Show fewer lines' : `+ ${order.lines.length - shown} more lines`}</button>}<span>Order total {order.currency ?? 'USD'}</span><b><Amount value={order.total} unknown="Unpriced" dollars /></b>{average !== null ? <small>{average}% avg. margin</small> : costs.failed ? <small className="cost-failed">Margins could not be read</small> : null}</div>
+    <div className="order-total">{order.lines.length > shown && <button type="button" className="link" onClick={() => setAll(!all)}>{all ? 'Show fewer lines' : `+ ${order.lines.length - shown} more lines`}</button>}<span>Order total {order.currency ?? 'USD'}</span><b><Amount value={order.total} currency={order.currency ?? 'USD'} unknown="Unpriced" dollars /></b>{average !== null ? <small>{average}% avg. margin</small> : costs.failed ? <small className="cost-failed">Margins could not be read</small> : null}</div>
     <Exception key={`${order.id}-${order.version}`} state={state} order={order} run={run} busy={busy} resolve={resolve} />
   </section>
 }

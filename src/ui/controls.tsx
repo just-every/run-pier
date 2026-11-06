@@ -51,8 +51,8 @@ export function Evidence({ value }: { value: unknown }) {
 }
 
 /** Unknown financial values stay visible; the tooltip preserves the exact saved decimal. */
-export function Amount({ value, unknown = 'Unvalued', dollars = false }: { value: unknown; unknown?: string; dollars?: boolean }) {
+export function Amount({ value, unknown = 'Unvalued', dollars = false, currency = 'USD' }: { value: unknown; unknown?: string; dollars?: boolean; currency?: string }) {
   if (value === null || value === undefined) return <span>{unknown}</span>
   const shown = money(value)
-  return <span title={`${String(value)} USD`}>{dollars ? shown.replace(/^(-?)/, '$1$') : shown}</span>
+  return <span title={`${String(value)} ${currency}`}>{dollars ? shown.replace(/^(-?)/, '$1$') : shown}</span>
 }

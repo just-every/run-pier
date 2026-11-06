@@ -387,10 +387,12 @@ test('native shipment and prepay invoices retain terms, charge tax, credits and 
   assert.deepEqual([native.currency,native.usdRate,native.lines[0].price,native.lines[0].priceSnapshot.currency,native.total,native.usdTotal],['CAD','0.75','12.34','CAD','37.020000000000','27.770000000000']);
   assert.equal(native.lines[0].priceSnapshot.priceList,null);assert.equal(native.tax.certificate.number,'synthetic-pier-83');assert.equal(native.tax.providerCommit,'not-configured');
   native=await h.command('quote.approve',{orderId:native.id,version:native.version,reason:'Reviewed CAD price and positive USD rate'});
+  const priorApprovalVersion=native.version;
+  native=await h.command('quote.accept',{orderId:native.id,version:native.version});
   const originalVersion=native.version;
   await refused('quote.revise',{...cadInput,orderId:native.id,version:native.version,usdRate:'0',reason:'Refuse zero rate'},'DECIMAL');
   native=await h.command('quote.revise',{...cadInput,orderId:native.id,version:native.version,usdRate:'0.8',reason:'Owner reviewed a changed CAD conversion'});
-  assert.equal(native.quoteApproval,null);assert.equal(native.acceptedAt,null);assert.equal(native.quoteHistory.at(-1).usdRate,'0.75');assert.equal(native.quoteHistory.at(-1).quoteApproval.version,originalVersion);
+  assert.equal(native.quoteApproval,null);assert.equal(native.acceptedAt,null);assert.equal(native.quoteHistory.at(-1).usdRate,'0.75');assert.equal(native.quoteHistory.at(-1).quoteApproval.version,priorApprovalVersion);assert.ok(native.quoteHistory.at(-1).acceptedAt);
   await refused('quote.accept',{orderId:native.id,version:originalVersion},'STALE');
   await refused('quote.accept',{orderId:native.id,version:native.version},'QUOTE_APPROVAL');
   native=await h.command('quote.approve',{orderId:native.id,version:native.version,reason:'Reviewed revised rate and CAD margin'});
@@ -402,6 +404,7 @@ test('native shipment and prepay invoices retain terms, charge tax, credits and 
   for(const mismatch of [{currency:'USD'},{currency:'EUR'},{usdRate:'0'},{usdRate:'0.9'},{unitPrices:[{orderLineId:native.lines[0].id,price:'1'}]}])await refused('invoice.draft',{orderId:native.id,shipmentId:cadFirst.id,...mismatch},mismatch.usdRate==='0'?'DECIMAL':'INVOICE_CURRENCY');
   const draftId=randomUUID(),draftInput={orderId:native.id,shipmentId:cadFirst.id,invoiceDate:'2026-11-06',terms:{kind:'net30'},charges:[{kind:'freight',amount:'1.11',taxable:false}]};
   const nativeDraft=await h.command('invoice.draft',draftInput,{commandId:draftId});
+  await refused('invoice.review',{invoiceId:nativeDraft.id,version:nativeDraft.version-1},'STALE');
   const nativeInvoice=await authorize(nativeDraft);
   const cadSecond=await shipCad('1');const secondNative=await authorize(await h.command('invoice.draft',{...draftInput,shipmentId:cadSecond.id,charges:[{kind:'freight',amount:'0.55',taxable:false}]}));
   const e=await exported(), source=e.orders.find(o=>o.id===native.id),received=e.receipts.find(r=>r.id===cadReceipt.id);
@@ -435,6 +438,12 @@ test('native shipment and prepay invoices retain terms, charge tax, credits and 
   assert.deepEqual(await h.command('invoice.credit.authorize',creditAuth,{commandId:creditAuthId}),nativeCredit);
   assert.deepEqual(await snapshot(),beforeRestart);
   const login=await h.request('/auth/dev/enter?as=member',{headers:{'x-rer-dev-key':h.devKey}}),staff=login.headers.getSetCookie().map(v=>v.split(';')[0]).join('; '),member=await(await h.request('/api/pier/state',{as:staff})).json();
+  await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
+  const ownerOnly=await h.command('quote.create',{...cadInput,lines:[{itemId:cadItem.id,quantity:'1',price:'1'}]});
+  await refused('quote.create',cadInput,'FORBIDDEN',{as:staff});
+  await refused('quote.revise',{...cadInput,orderId:ownerOnly.id,version:ownerOnly.version,currency:'USD',usdRate:'1',reason:'Operator cannot change a CAD quote'},'FORBIDDEN',{as:staff});
+  await h.command('sales.quoteApprovalPolicy',{version:0,role:'operator',reason:'Existing USD approval delegation never grants CAD authority'});
+  await refused('quote.approve',{orderId:ownerOnly.id,version:ownerOnly.version,reason:'CAD still requires the current owner'},'FORBIDDEN',{as:staff});
   await h.command('role.set',{operatorId:member.actor.id,role:'owner'});
   const revokedInput={...cadInput,lines:[{itemId:cadItem.id,quantity:'1',price:'1'}]},revokedId=randomUUID();
   let revoked=await h.command('quote.create',revokedInput,{as:staff,commandId:revokedId});revoked=await h.command('quote.approve',{orderId:revoked.id,version:revoked.version,reason:'Exact current owner review'},{as:staff});
