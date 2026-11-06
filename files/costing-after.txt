@@ -1,0 +1,21 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ landed receipts, priced shipments and dated FIFO/average reports reconcile (3775.599146ms)
+✔ versioned case quotes retain discounted tax PDFs, exact approval and once-only acceptance (4346.643517ms)
+✔ customer CSV and XLSX intake resolves 40 lines, names unknown rows and prices three customer POs once (2444.783684ms)
+✔ recurring orders apply price, stock and credit policy once per due day and stop after pause or cancel (3274.747747ms)
+✔ direct dropship demand retains supplier PO, confirmation, tracking, cost and bounded customer credit without warehouse stock (8184.56572ms)
+✔ quote approver role defaults to Owner and policy or live role changes revoke open approvals (2670.613307ms)
+✔ native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids (7229.636068ms)
+✔ invoice-specific Stripe checkout verifies ACH success once and expires paid or changed links (4696.988696ms)
+✔ saved warehouse reports retain exact as-of snapshots and scheduled exports without exposing foreign stock (2354.58067ms)
+✔ native tax rules retain per-line destination and origin estimates, refuse unsafe exemptions and recover after restart (6978.094654ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47166.511107

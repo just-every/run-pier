@@ -1,0 +1,34 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✖ native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids (3838.578525ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5182.396986
+
+✖ failing tests:
+
+test at tests/api/costing.test.mjs:323:1
+✖ native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids (3838.578525ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at Object.command (file:///workspace/run-pier/tests/api/harness.mjs:107:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async refused (file:///workspace/run-pier/tests/api/costing.test.mjs:380:83)
+      at async TestContext.<anonymous> (file:///workspace/run-pier/tests/api/costing.test.mjs:386:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

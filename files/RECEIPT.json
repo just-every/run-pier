@@ -1,0 +1,124 @@
+{
+  "schema": 1,
+  "tag": "sx-pier-f81fix1",
+  "repository": "just-every/run-pier",
+  "branch": "cloud/sx-pier-f81fix1",
+  "head": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+  "base": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+  "main_at_integration": "5d7ffdd81f3b3c86da7252525a93dccaa5e7572f",
+  "checks": [
+    {
+      "command": "node --test tests/api/costing.test.mjs",
+      "exit": 0,
+      "tests": 10,
+      "passed": 10,
+      "log": "costing-after.txt",
+      "same_source_and_test_bytes_on_candidate": true
+    },
+    {
+      "command": "node --test --test-name-pattern='native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids' tests/api/costing.test.mjs",
+      "exit": 0,
+      "head": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+      "tests": 1,
+      "passed": 1,
+      "log": "exact-head-test.txt"
+    },
+    {
+      "command": "pnpm run typecheck",
+      "exit": 0,
+      "head": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+      "log": "typecheck.txt"
+    },
+    {
+      "command": "pnpm exec rer check --profile first-party",
+      "exit": 0,
+      "log": "first-party.txt"
+    },
+    {
+      "command": "node src/base/contract-docs.mjs write; node src/base/contract-docs.mjs check; git checkout origin/main -- ACCEPTANCE.md docs/CLAIMS.md",
+      "exit": 0,
+      "head": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+      "logs": [
+        "views-write.txt",
+        "views-check.txt"
+      ]
+    },
+    {
+      "command": "node scripts/edition-authoring/cli.mjs lock; node scripts/edition-authoring/cli.mjs check",
+      "exit": 0,
+      "head": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+      "lock_fresh": true
+    },
+    {
+      "command": "node probe-A.mjs",
+      "exit": 0,
+      "head": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+      "log": "probe-A.txt",
+      "door": "POST /api/pier/commands",
+      "missing_rate_status": 409,
+      "missing_rate_error": "DECIMAL",
+      "business_effects_unchanged": true,
+      "explicit_CAD_rate": "0.75",
+      "usd_value": "9.260000000000"
+    }
+  ],
+  "pre_fix_regression": {
+    "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+    "test_only_added": true,
+    "exit": 1,
+    "test": "native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids",
+    "failure": "AssertionError: true !== false; quote.revise was accepted despite omitted CAD rate",
+    "log": "regression-before.txt"
+  },
+  "contract_status": "PARTIAL unchanged",
+  "counts_before": {
+    "done": 30,
+    "partial": 57,
+    "missing": 11,
+    "total": 98
+  },
+  "counts_after": {
+    "done": 30,
+    "partial": 57,
+    "missing": 11,
+    "total": 98
+  },
+  "new_test_registrations": 0,
+  "product_push": {
+    "status": "success",
+    "attempt": 1,
+    "log": "product-push.txt"
+  },
+  "publication_scan": {
+    "commit": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+    "complete": null,
+    "historyScanned": null,
+    "findings": null,
+    "status": "NOT RUN in cloud; required guarded Mac lander duty"
+  },
+  "landing": {
+    "main_equals_candidate": false,
+    "run_site_id": null,
+    "status": "branch only; no default branch mutation"
+  },
+  "identity_check": {
+    "head": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+    "all_candidate_commits": 4,
+    "author_and_committer": "Run Edit Run fleet",
+    "trailers": "none",
+    "status": "pass"
+  },
+  "contract_main_equality": true,
+  "generated_views_main_equality": true,
+  "ci": {
+    "run_id": 42228367126,
+    "event": "push",
+    "observed_at": "2026-11-06T13:53:05Z",
+    "conclusion": null,
+    "head_sha": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1",
+    "html_url": "https://github.com/just-every/run-pier/actions/runs/42228367126",
+    "status": "in_progress"
+  },
+  "handoff": "PUSHED; exact-head Verify still in progress; no CI green or READY claim",
+  "github_calls": 3
+}

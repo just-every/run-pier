@@ -1,0 +1,5 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+{"finding":"A","door":"POST /api/pier/commands","command":"quote.revise","input":"USD accepted quote to CAD, usdRate omitted","status":409,"error":"DECIMAL","businessEffectsUnchanged":true}
+{"finding":"A","door":"POST /api/pier/commands","command":"quote.revise","explicitRate":"0.75","currency":"CAD","usdTotal":"9.260000000000","priorApprovalCleared":true,"sameCurrencyRetainsRate":true}
