@@ -2,7 +2,7 @@ import { returnCost } from './returns-cost';
 import { reservedKits } from './kits';
 import { forecast } from './replenishment';
 import { overdueDispatch } from "./floor/dispatch-board";
-import { decimal, fail, format, type State } from './model';
+import { decimal, fail, format, SCALE, type State } from './model';
 import { stockInactivity } from './stock-inactivity';
 import { amount, extended, money } from './money';
 import { takeLayers, valuationLedger, type Layer } from './valuation-ledger';
@@ -55,7 +55,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
       costed(line.orderLineId, layers);
       if (shipment.createdAt.slice(0, 10) < from || shipment.createdAt.slice(0, 10) > to) continue;
       const orderLine = order.lines.find((l: any) => l.id === line.orderLineId);
-      const revenue = typeof orderLine?.price === 'string' ? extended(line.quantity, orderLine.price) : null;
+      const revenue = typeof orderLine?.price === 'string' ? extended(line.quantity, orderLine.price) * decimal(order.usdRate ?? '1', true) / SCALE : null;
       const cost = valueOf(layers);
       rows.push({ shipmentId: shipment.id, orderId: order.id, itemId: line.itemId, customerId: order.customerId,
         channel: order.channel ?? 'manual', date: shipment.createdAt, quantity: line.quantity,
@@ -74,7 +74,7 @@ export function reports(s: State, params: URLSearchParams, now = new Date().toIS
   const kitMargins = [...new Set(s.kitDefinitions.map(k=>k.itemId))].map(itemId => {
     const shipped = rows.filter(row=>row.itemId===itemId), gross = marginTotal(shipped);
     const returned = s.returns.filter(r=>r.itemId===itemId && r.kit && r.createdAt.slice(0,10)>=from && r.createdAt.slice(0,10)<=to);
-    const credits = returned.map(r=>{ const sh=s.shipments.find(sh=>sh.id===r.shipmentId)!; const line=sh.lines.find((l:any)=>l.id===r.shipmentLineId); const order=s.orders.find(o=>o.id===sh.orderId)!;const price=order.lines.find((l:any)=>l.id===line.orderLineId)?.price;return {revenue:typeof price==='string'?extended(r.quantity,price):null,cost:returnCost(s,r,end)};});
+    const credits = returned.map(r=>{ const sh=s.shipments.find(sh=>sh.id===r.shipmentId)!; const line=sh.lines.find((l:any)=>l.id===r.shipmentLineId); const order=s.orders.find(o=>o.id===sh.orderId)!;const price=order.lines.find((l:any)=>l.id===line.orderLineId)?.price;return {revenue:typeof price==='string'?extended(r.quantity,price)*decimal(order.usdRate??'1',true)/SCALE:null,cost:returnCost(s,r,end)};});
     const revenue=gross.revenue===null||credits.some(r=>r.revenue===null)?null:amount(gross.revenue)-credits.reduce((n,r)=>n+r.revenue!,0n);
     const cost=gross.cost===null||credits.some(r=>r.cost===null)?null:amount(gross.cost)-credits.reduce((n,r)=>n+amount(r.cost!),0n);
     return {key:itemId,quantity:format(decimal(gross.quantity)-returned.reduce((n,r)=>n+decimal(r.quantity),0n)),returned:format(returned.reduce((n,r)=>n+decimal(r.quantity),0n)),revenue:display(revenue),cost:display(cost),margin:display(revenue===null||cost===null?null:revenue-cost)};

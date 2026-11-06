@@ -26,12 +26,13 @@ export function InvoiceDraftForm({ state, run, busy }: { state: PierState; run: 
       if (saved) { setOrderId(''); setCurrency('USD'); }
       return saved;
     }}>
-    <Select label="Invoice order" name="orderId" rows={orders.map(o => ({ ...o, label: o.reference }))} value={orderId} onChange={setOrderId}/>
+    <Select label="Invoice order" name="orderId" rows={orders.map(o => ({ ...o, label: o.reference }))} value={orderId} onChange={id => { setOrderId(id); setCurrency(orders.find(o => o.id === id)?.currency ?? 'USD'); }}/>
     <Select label="Invoice shipment" name="shipmentId" required={false} rows={records(state, 'shipments').map(s => ({ ...s, label: s.reference }))}/>
     <Field label="Invoice date" name="invoiceDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)}/>
     <label className="field"><span>Invoice payment terms</span><select name="terms" aria-label="Invoice payment terms"><option value="net30">Net 30</option><option value="dueReceipt">Due on receipt</option><option value="net15">Net 15</option><option value="net60">Net 60</option><option value="eom">End of month</option></select></label>
     <label className="field"><span>Invoice currency</span><select name="currency" aria-label="Invoice currency" value={currency} onChange={event => setCurrency(event.target.value)}><option value="USD">USD</option><option value="CAD">CAD</option></select></label>
-    <Field label="Retained USD exchange rate" name="usdRate" defaultValue="1" hint={currency === 'CAD' ? 'USD value of one CAD, retained with this invoice.' : undefined}/>
+    <Field key={orderId} label="Retained USD exchange rate" name="usdRate" defaultValue={order?.usdRate ?? '1'} hint={currency === 'CAD' ? 'USD value of one CAD, retained with this invoice.' : undefined}/>
+    {order?.currency === 'CAD' && <p>Accepted CAD quote · retained USD per CAD {order.usdRate}. Each partial shipment keeps its accepted CAD base-unit prices.</p>}
     {convertToCad && <fieldset key={order.id}><legend>Reviewed CAD prices for {order.reference}</legend>
       <p>Enter the CAD price for each order line in its base unit and explain the conversion.</p>
       {order.lines.map((line: any, index: number) => {

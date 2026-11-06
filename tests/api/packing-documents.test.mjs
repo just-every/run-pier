@@ -80,6 +80,24 @@ test('business PDFs retain every live document kind, Unicode, aliases, packs and
   await h.command('print.template.save',{kind:'invoice',version:template.version,title:'Harbor revised invoice',terms:'Net 30 from invoice date',footer:'Thank you, Café team',remitTo:'Harbor bank details on file',emailSubject:'{{title}} {{reference}}',emailBody:'{{company}} invoice {{reference}}. {{payNowUrl}}',logo:true});
   const revised=await h.command('print.generate',{kind:'invoice',sourceId:invoice.id});assert.ok(revised.templateVersion>old.templateVersion);assert.match(await pdfText(Buffer.from(revised.pdf,'base64')),/Harbor revised invoice/);assert.deepEqual(Buffer.from(await(await h.request(`/api/pier/sales-documents/${old.id}.pdf`)).arrayBuffer()),bytes);
   assert.equal((await h.request(`/api/pier/sales-documents/${old.id}.pdf`,{as:''})).status,401);
+  const customer=(await h.state()).parties.find(p=>p.id===b.customer.id);
+  await h.command('customer.resaleCertificate',{customerId:customer.id,version:customer.version,state:'CA',number:'synthetic-pier-84',document:'Reviewed resale reference',expires:'2027-12-31',reason:'Owner reviewed exemption'});
+  const cadInput={customerId:customer.id,warehouse:'North',shipTo:destination,currency:'CAD',usdRate:'0.75',validUntil:'2026-12-20',lines:[{itemId:b.item.id,quantity:'3',price:'12.34'}]};
+  let cadQuote=await h.command('quote.create',cadInput);cadQuote=await h.command('quote.approve',{orderId:cadQuote.id,version:cadQuote.version,reason:'Reviewed CAD source prices and rate'});
+  const cadDoc=await h.command('print.generate',{kind:'quote',sourceId:cadQuote.id}),cadBytes=Buffer.from(await(await h.request(`/api/pier/sales-documents/${cadDoc.id}.pdf`)).arrayBuffer());
+  assert.equal(cadDoc.recordVersion,cadQuote.version);const cadText=await pdfText(cadBytes);assert.match(cadText,/CAD/);assert.match(cadText,/0\.75/);assert.match(cadText,/37\.02/);assert.match(cadText,/27\.77/);
+  cadQuote=await h.command('quote.revise',{...cadInput,orderId:cadQuote.id,version:cadQuote.version,usdRate:'0.8',lines:[{itemId:b.item.id,quantity:'3',price:'13.25'}],reason:'Owner reviewed new rate and CAD price'});
+  assert.equal(cadQuote.quoteApproval,null);assert.equal(cadQuote.quoteHistory.at(-1).lines[0].price,'12.34');assert.equal(cadQuote.quoteHistory.at(-1).usdRate,'0.75');
+  cadQuote=await h.command('quote.approve',{orderId:cadQuote.id,version:cadQuote.version,reason:'Reapproved exact CAD revision'});cadQuote=await h.command('quote.accept',{orderId:cadQuote.id,version:cadQuote.version});
+  const cadShipment=await h.command('dispatch.create',{orderId:cadQuote.id,shipmentReference:'synthetic-pier-85',lines:[{orderLineId:cadQuote.lines[0].id,quantity:'2'}]});
+  let cadInvoice=await h.command('invoice.draft',{orderId:cadQuote.id,shipmentId:cadShipment.id});cadInvoice=await h.command('invoice.review',{invoiceId:cadInvoice.id,version:cadInvoice.version});cadInvoice=await h.command('invoice.authorize',{invoiceId:cadInvoice.id,version:cadInvoice.version});
+  const cadInvoiceDoc=await h.command('print.generate',{kind:'invoice',sourceId:cadInvoice.id}),cadInvoiceBytes=Buffer.from(await(await h.request(`/api/pier/sales-documents/${cadInvoiceDoc.id}.pdf`)).arrayBuffer()),invoiceText=await pdfText(cadInvoiceBytes);
+  assert.equal(cadInvoiceDoc.recordVersion,cadInvoice.version);assert.equal(cadInvoice.sourceQuoteVersion,cadQuote.acceptanceHistory.at(-1).version);assert.match(invoiceText,/CAD/);assert.match(invoiceText,/0\.8/);assert.match(invoiceText,/26\.50/);assert.match(invoiceText,/21\.20/);assert.match(invoiceText,/Base quantity: 2 each/);assert.doesNotMatch(invoiceText,/Base quantity: 3 each/);
+  let cadCredit=await h.command('invoice.credit.draft',{invoiceId:cadInvoice.id,kind:'price',reason:'Reviewed CAD correction',lines:[{invoiceLineId:cadInvoice.lines[0].id,amount:'1.25'}]});cadCredit=await h.command('invoice.credit.review',{creditId:cadCredit.id,version:cadCredit.version});cadCredit=await h.command('invoice.credit.authorize',{creditId:cadCredit.id,version:cadCredit.version});
+  const creditDoc=await h.command('print.generate',{kind:'credit-note',sourceId:cadCredit.id}),creditText=await pdfText(Buffer.from(creditDoc.pdf,'base64'));assert.match(creditText,/CAD/);assert.match(creditText,/0\.8/);assert.match(creditText,/1\.25/);assert.equal(cadCredit.usdTotal,'1.000000000000');
+  await h.restart();
+  assert.deepEqual(Buffer.from(await(await h.request(`/api/pier/sales-documents/${cadDoc.id}.pdf`)).arrayBuffer()),cadBytes);
+  assert.deepEqual(Buffer.from(await(await h.request(`/api/pier/sales-documents/${cadInvoiceDoc.id}.pdf`)).arrayBuffer()),cadInvoiceBytes);
   await h.invariant();
 });
 

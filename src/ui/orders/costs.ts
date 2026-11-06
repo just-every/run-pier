@@ -21,8 +21,8 @@ export function useLineCosts(version: number): LineCosts {
 }
 
 /** Gross margin of a unit price over the line's own unit cost, as a whole percentage: "38%". */
-export const margin = (price: unknown, cost: LineCost | undefined) => {
-  const value = Number(price), quantity = Number(cost?.quantity)
+export const margin = (price: unknown, cost: LineCost | undefined, usdRate: unknown = '1') => {
+  const value = Number(price) * Number(usdRate), quantity = Number(cost?.quantity)
   if (price === null || price === undefined || !(value > 0) || !cost || cost.cost === null || !(quantity > 0)) return null
   return Math.round((value - Number(cost.cost) / quantity) / value * 100)
 }
