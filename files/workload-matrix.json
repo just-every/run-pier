@@ -1,0 +1,89 @@
+{
+  "include": [
+    {
+      "name": "api-1",
+      "kind": "api",
+      "files": [
+        "tests/api/security-import.test.mjs",
+        "tests/api/purchase-send.test.mjs",
+        "tests/api/books-landed.test.mjs",
+        "tests/api/catalogue.test.mjs",
+        "tests/api/stock.test.mjs",
+        "tests/api/supplier-performance.test.mjs",
+        "tests/api/movein.test.mjs",
+        "tests/api/books-shop.test.mjs",
+        "tests/api/dependency-custody.test.mjs"
+      ],
+      "grep": ""
+    },
+    {
+      "name": "api-2",
+      "kind": "api",
+      "files": [
+        "tests/api/flows.test.mjs",
+        "tests/api/books.test.mjs",
+        "tests/api/item-agent.test.mjs",
+        "tests/api/packing-documents.test.mjs",
+        "tests/api/slotting.test.mjs",
+        "tests/api/shipping.test.mjs",
+        "tests/api/operational-exceptions.test.mjs",
+        "tests/api/managed-mail.test.mjs"
+      ],
+      "grep": ""
+    },
+    {
+      "name": "api-3",
+      "kind": "api",
+      "files": [
+        "tests/api/costing.test.mjs",
+        "tests/api/replenishment.test.mjs",
+        "tests/api/returns.test.mjs",
+        "tests/api/reorder-list.test.mjs",
+        "tests/api/supplier-substitutes.test.mjs",
+        "tests/api/warehouse-waves.test.mjs",
+        "tests/api/dispatch.test.mjs",
+        "tests/api/open.test.mjs"
+      ],
+      "grep": ""
+    },
+    {
+      "name": "api-4",
+      "kind": "api",
+      "files": [
+        "tests/api/channels.test.mjs",
+        "tests/api/floor.test.mjs",
+        "tests/api/supplier-returns.test.mjs",
+        "tests/api/webhooks.test.mjs",
+        "tests/api/edi.test.mjs",
+        "tests/api/native-exit.test.mjs",
+        "tests/api/supplier-bill-documents.test.mjs",
+        "tests/api/slow-stock.test.mjs"
+      ],
+      "grep": ""
+    },
+    {
+      "name": "browser-1",
+      "kind": "browser",
+      "files": [],
+      "grep": "(?:(?:native authenticator enrollment))|(?:(?:buyers compare reviewed replenishment|native tax rules))|(?:journey\\.spec\\.ts .*(?:owners dry-run and activate routing))|(?:(?:Managed supplier mail shows))|(?:journey\\.spec\\.ts .*(?:receipt FX, weight allocation))|(?:stock\\.spec\\.ts .*(?:KIT-001))|(?:dispatch\\.spec\\.ts .*(?:WMS-003))"
+    },
+    {
+      "name": "browser-2",
+      "kind": "browser",
+      "files": [],
+      "grep": "(?:(?:two distinct agents share one draft))|(?:catalogue\\.spec\\.ts .*(?:owner typed-field controls))|(?:(?:owner completes real UI journeys))|(?:supplier\\-substitutes\\.spec\\.ts .*)|(?:webhooks\\.spec\\.ts .*)|(?:stock\\.spec\\.ts .*(?:STOCK-001))"
+    },
+    {
+      "name": "browser-3",
+      "kind": "browser",
+      "files": [],
+      "grep": "(?:(?:owners assign overdue cases))|(?:(?:purchase approval names spend authority))|(?:reorder\\-list\\.spec\\.ts .*)|(?:integration\\-health\\.spec\\.ts .*)|(?:stock\\.spec\\.ts .*(?:TRACE-001))|(?:supplier\\-returns\\.spec\\.ts .*(?:BUY-003))"
+    },
+    {
+      "name": "portability",
+      "kind": "portability",
+      "files": [],
+      "grep": ""
+    }
+  ]
+}

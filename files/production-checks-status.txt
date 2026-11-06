@@ -1,0 +1,1 @@
+Focused local hosted-output/hydration command did not produce an assertion receipt within about four minutes in this VM. Stopped only recorded PIDs 2078 and 2103; SIGKILL escalation also stopped its esbuild child PID 2163. No failure assertion or passing claim inferred. Candidate CI owns the actual unchanged production checks.

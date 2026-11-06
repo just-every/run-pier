@@ -1,0 +1,8 @@
+ WARN  Unsupported engine: wanted: {"node":"22.20.0"} (current: {"node":"v24.19.0","pnpm":"10.12.4"})
+
+> inventory-pier@0.1.1 typecheck /home/agent/rer-consolidation/work/sx-pier-ci-critical-path-1/run-pier
+> tsc --build --incremental
+
+src/router.tsx(2,27): error TS2307: Cannot find module './routeTree.gen' or its corresponding type declarations.
+src/routes/app.tsx(5,38): error TS2345: Argument of type '"/app"' is not assignable to parameter of type 'undefined'.
+ ELIFECYCLE  Command failed with exit code 1.

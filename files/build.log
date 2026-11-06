@@ -1,0 +1,52 @@
+Using project Node 22.20.0 (current Node 24.19.0).
+Checking pinned pnpm
+10.12.4
+Building your application
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 306 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/.assetsignore                  0.02 kB
+dist/client/assets/amazon-D1JWuXtQ.png    10.09 kB
+dist/client/assets/woo-C8IdYxmp.png       12.75 kB
+dist/client/assets/shopify-X4yrOpIr.png   12.97 kB
+dist/client/assets/stall-B0FUjVGl.png     13.04 kB
+dist/client/assets/app-Cr1NUmwn.css       58.85 kB │ gzip:  10.83 kB
+dist/client/assets/index-Qu0y4mXq.js     313.87 kB │ gzip: 101.76 kB
+dist/client/assets/app-BWyCQHsg.js       584.66 kB │ gzip: 151.49 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 460ms
+vite v8.2.2 building ssr environment for production...
+transforming...
+✓ 1112 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/server/wrangler.json                                      1.62 kB │ gzip:     0.80 kB
+dist/server/.vite/manifest.json                                3.58 kB │ gzip:     0.76 kB
+dist/server/assets/amazon-D1JWuXtQ.png                        10.09 kB
+dist/server/assets/woo-C8IdYxmp.png                           12.75 kB
+dist/server/assets/shopify-X4yrOpIr.png                       12.97 kB
+dist/server/assets/stall-B0FUjVGl.png                         13.04 kB
+dist/server/assets/app-Cr1NUmwn.css                           58.85 kB │ gzip:    10.83 kB
+dist/server/assets/empty-plugin-adapters-D_0twvAa.js           0.28 kB │ gzip:     0.18 kB
+dist/server/assets/start-D8qDT34V.js                           0.28 kB │ gzip:     0.21 kB
+dist/server/assets/_tanstack-start-manifest_v-DLdtEMKN.js      0.63 kB │ gzip:     0.34 kB
+dist/server/assets/jsx-runtime-DVnUKLjZ.js                    18.24 kB │ gzip:     4.89 kB
+dist/server/assets/import-layouts-RR1hNlEU.js                 34.43 kB │ gzip:    11.05 kB
+dist/server/assets/router-yal_9cIx.js                         41.65 kB │ gzip:    11.03 kB
+dist/server/assets/Match-CnwysmEC.js                         144.97 kB │ gzip:    36.40 kB
+dist/server/assets/app-CGLhSK3i.js                         1,035.36 kB │ gzip:   197.46 kB
+dist/server/index.js                                       5,905.28 kB │ gzip: 1,658.39 kB
+
+✓ built in 924ms
+Your application is built
+build: complete (exit 0)

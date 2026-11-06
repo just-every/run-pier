@@ -1,0 +1,6 @@
+gh api repos/just-every/run-pier/actions/runs/42241249563 --jq {status,conclusion,head_sha,html_url}
+{
+  "message": "Bad credentials",
+  "documentation_url": "https://docs.github.com/rest",
+  "status": "401"
+}gh: Bad credentials (HTTP 401)

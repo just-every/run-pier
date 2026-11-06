@@ -1,0 +1,259 @@
+{
+  "before_browser_invocations": 20,
+  "after_browser_invocations": 19,
+  "before_browser_executions": 22,
+  "before_browser_unique": 21,
+  "after_browser_executions": 21,
+  "after_browser_unique": 21,
+  "missing": [],
+  "extra": [],
+  "duplicates_after": [],
+  "api_files_before": 33,
+  "api_files_after": 33,
+  "browser_shards": [
+    {
+      "shard": "browser-1",
+      "commands": [
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "--grep",
+          "native authenticator enrollment"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "--grep",
+          "buyers compare reviewed replenishment|native tax rules"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "journey.spec.ts",
+          "--grep",
+          "owners dry-run and activate routing"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "--grep",
+          "Managed supplier mail shows"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "journey.spec.ts",
+          "--grep",
+          "receipt FX, weight allocation"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "stock.spec.ts",
+          "--grep",
+          "KIT-001"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "dispatch.spec.ts",
+          "--grep",
+          "WMS-003"
+        ]
+      ],
+      "tests": [
+        {
+          "file": "journey.spec.ts",
+          "line": 1768,
+          "title": "native authenticator enrollment, required sessions and owner recovery are usable"
+        },
+        {
+          "file": "journey.spec.ts",
+          "line": 1851,
+          "title": "buyers compare reviewed replenishment scenarios and follow selected receipts to current ledger evidence"
+        },
+        {
+          "file": "journey.spec.ts",
+          "line": 1926,
+          "title": "native tax rules show owner configuration, review recovery and retained quote and invoice calculations"
+        },
+        {
+          "file": "journey.spec.ts",
+          "line": 455,
+          "title": "routing, shortage policies and audited refusals at 1440px"
+        },
+        {
+          "file": "journey.spec.ts",
+          "line": 455,
+          "title": "routing, shortage policies and audited refusals at 390px"
+        },
+        {
+          "file": "journey.spec.ts",
+          "line": 1536,
+          "title": "Managed supplier mail shows approved text, PDF refusal and retained uncertainty"
+        },
+        {
+          "file": "journey.spec.ts",
+          "line": 1232,
+          "title": "receipt FX, weight allocation, late bills and mapped write-off settings remain reviewable at 1440 and 390"
+        },
+        {
+          "file": "stock.spec.ts",
+          "line": 115,
+          "title": "KIT-001: define, assemble, pick, pack, print and inspect kits at 1440 and 390"
+        },
+        {
+          "file": "dispatch.spec.ts",
+          "line": 8,
+          "title": "WMS-003: warehouse dispatch states, reviewed ship-by schedule, close download and overdue report at 1440 and 390"
+        }
+      ]
+    },
+    {
+      "shard": "browser-2",
+      "commands": [
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "--grep",
+          "two distinct agents share one draft"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "catalogue.spec.ts",
+          "--grep",
+          "owner typed-field controls"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "--grep",
+          "owner completes real UI journeys"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "supplier-substitutes.spec.ts"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "webhooks.spec.ts"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "stock.spec.ts",
+          "--grep",
+          "STOCK-001"
+        ]
+      ],
+      "tests": [
+        {
+          "file": "journey.spec.ts",
+          "line": 1621,
+          "title": "two distinct agents share one draft while current human authority alone approves and commits it"
+        },
+        {
+          "file": "catalogue.spec.ts",
+          "line": 119,
+          "title": "owner typed-field controls define, edit, import and filter every record type with custody refusal at 1440 and 390"
+        },
+        {
+          "file": "journey.spec.ts",
+          "line": 39,
+          "title": "owner completes real UI journeys at 1440px"
+        },
+        {
+          "file": "supplier-substitutes.spec.ts",
+          "line": 7,
+          "title": "owners inspect supplier substitute evidence, refuse stale review and retain recommendation decisions"
+        },
+        {
+          "file": "webhooks.spec.ts",
+          "line": 10,
+          "title": "owners preview, rotate, reconcile and revoke signed order webhooks"
+        },
+        {
+          "file": "stock.spec.ts",
+          "line": 8,
+          "title": "STOCK-001: stock totals, empty items and warehouse filters with connector recovery"
+        }
+      ]
+    },
+    {
+      "shard": "browser-3",
+      "commands": [
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "--grep",
+          "owners assign overdue cases"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "--grep",
+          "purchase approval names spend authority"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "reorder-list.spec.ts"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "integration-health.spec.ts"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "stock.spec.ts",
+          "--grep",
+          "TRACE-001"
+        ],
+        [
+          "node",
+          "tests/browser/run.mjs",
+          "supplier-returns.spec.ts",
+          "--grep",
+          "BUY-003"
+        ]
+      ],
+      "tests": [
+        {
+          "file": "operational-exceptions.spec.ts",
+          "line": 6,
+          "title": "owners assign overdue cases, see premature closure refusal and retain documented cancellation"
+        },
+        {
+          "file": "journey.spec.ts",
+          "line": 1440,
+          "title": "purchase approval names spend authority and exposes supplier re-approval at 1440 and 390"
+        },
+        {
+          "file": "reorder-list.spec.ts",
+          "line": 7,
+          "title": "BUY-005: buyer selects suppliers and quantities, saves SKU defaults, changes planning scope and reads matching reports at 1440 and 390"
+        },
+        {
+          "file": "integration-health.spec.ts",
+          "line": 8,
+          "title": "SYNC-001: owners inspect native stock checkpoints and recover denied health at desktop and phone widths"
+        },
+        {
+          "file": "stock.spec.ts",
+          "line": 272,
+          "title": "TRACE-001: receive dated lots and serials, transfer, split ship, trace, quarantine and return at 1440 and 390"
+        },
+        {
+          "file": "supplier-returns.spec.ts",
+          "line": 8,
+          "title": "BUY-003: staff quarantine, authorize, dispatch and reconcile supplier evidence with connector recovery"
+        }
+      ]
+    }
+  ]
+}

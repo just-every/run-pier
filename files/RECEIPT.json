@@ -1,0 +1,84 @@
+{
+  "repository": "just-every/run-pier",
+  "branch": "cloud/sx-pier-ci-critical-path-1",
+  "head": "4835f6daef6512ad0c3ddb6a87e7e24d06f5cdad",
+  "base": "5d7ffdd81f3b3c86da7252525a93dccaa5e7572f",
+  "changed_files": [
+    ".github/workflows/verify.yml",
+    "sources.lock.json"
+  ],
+  "contract_status_before": {
+    "done": 30,
+    "partial": 57,
+    "missing": 11
+  },
+  "contract_status_after": {
+    "done": 30,
+    "partial": 57,
+    "missing": 11
+  },
+  "clause_status_changes": [],
+  "test_files_changed": [],
+  "local_checks": {
+    "actionlint": "PASS",
+    "workflow_yaml": "PASS",
+    "workflow_partition": "PASS; 8 nonempty shards",
+    "browser_discovery_coverage": "PASS; exact unique identity union 21 -> 21, executions 22 -> 21",
+    "api_file_coverage": "PASS; 33 -> 33, exactly once",
+    "build": "PASS with CI=true",
+    "typecheck": "PASS after build generated route tree",
+    "contract_write": "PASS",
+    "contract_check": "PASS",
+    "source_lock": "PASS",
+    "source_check": "PASS",
+    "hosted_and_hydration": "PASS after file-backed entry correction: 76 assets, identity health, 1 public page/load"
+  },
+  "publication_scan": "NOT RUN: cloud adaptation reserves COMPLETE full-history scan to Mac lander",
+  "product_repairs": "2e3a0301bd0b7bbe0a7be1c9cf0a363eeee3dff1 inspected only; original FIX1 and PASS WITH FOLLOW-UPS and product holds unchanged; f82 delta excluded",
+  "api_inspection_calls_used": 10,
+  "pushed_head": "4835f6daef6512ad0c3ddb6a87e7e24d06f5cdad",
+  "candidate_push": "PASS, fleet guard attempt 1",
+  "ci_status": "completed/failure",
+  "final_local_checks": {
+    "actionlint": "PASS",
+    "workflow_partition": "PASS, exactly 8 nonempty shards",
+    "browser_discovery": "PASS; original argument vectors and fresh installations retained, 21 distinct identities exactly once",
+    "api_file_coverage": "PASS; 33 files exactly once",
+    "contract_write_check": "PASS",
+    "source_lock_check": "PASS",
+    "hosted_output_and_hydration": "PASS via normal file entry, unchanged checks"
+  },
+  "local_check_production": "No assertion receipt; VM stall, only owned process IDs stopped",
+  "source_ancestry": "Rebased fresh main before first push. After published save, merged known origin/main (already up to date), no published history rewrite.",
+  "authentication_recovery": "REST status read succeeded on attempt 3/5 after launcher refresh/backoff; no alternate credential",
+  "timing_target": "Not proven; unchanged portability measured 11m28s in first save",
+  "first_save_failed_browser_jobs": [
+    127971885023,
+    127971885085,
+    127971885103
+  ],
+  "first_save_stalled_production_job": 127971884935,
+  "final_push_unix": 1793979735.0869324,
+  "published_save_head": "274d44c3fe994507dad29a6d9d78dd12c2cd7549",
+  "final_ci_run": {
+    "id": 42245395705,
+    "name": "Verify",
+    "event": "push",
+    "head_branch": "cloud/sx-pier-ci-critical-path-1",
+    "head_sha": "4835f6daef6512ad0c3ddb6a87e7e24d06f5cdad",
+    "status": "completed",
+    "conclusion": "failure",
+    "created_at": "2026-11-06T15:41:33Z",
+    "run_started_at": "2026-11-06T15:41:33Z",
+    "updated_at": "2026-11-06T15:56:23Z",
+    "run_attempt": 1,
+    "html_url": "https://github.com/just-every/run-pier/actions/runs/42245395705"
+  },
+  "workflow_created_to_updated_seconds": 890,
+  "terminal_state": "BLOCKED",
+  "blocker": "Exact-SHA Verify 42245395705 failed; ten-call GitHub inspection budget exhausted, so failing final jobs/logs were not inspected and no cause is asserted.",
+  "source_scope_verified": [
+    ".github/workflows/verify.yml",
+    "sources.lock.json"
+  ]
+}

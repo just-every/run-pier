@@ -1,0 +1,17 @@
+{
+  "observed_unix": 1793978104.9414847,
+  "runs": [
+    {
+      "id": 42241249563,
+      "name": "Verify",
+      "event": "push",
+      "head_branch": "cloud/sx-pier-ci-critical-path-1",
+      "head_sha": "274d44c3fe994507dad29a6d9d78dd12c2cd7549",
+      "status": "queued",
+      "conclusion": null,
+      "created_at": "2026-11-06T15:14:55Z",
+      "updated_at": "2026-11-06T15:15:04Z",
+      "html_url": "https://github.com/just-every/run-pier/actions/runs/42241249563"
+    }
+  ]
+}
