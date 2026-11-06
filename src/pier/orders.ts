@@ -167,7 +167,9 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     const reason=text(p.reason,'Quote revision reason');
     const {quoteHistory:priorHistory,...priorVersion}=structuredClone(q);
     q.quoteHistory=[...(priorHistory??[]),{...priorVersion,approval:priorVersion.quoteApproval,reason,at:c.now}];
-    const terms = { currency: q.currency ?? 'USD', usdRate: q.usdRate ?? '1', freight: q.charges?.find((r:any)=>r.kind==='freight')?.amount, handling: q.charges?.find((r:any)=>r.kind==='handling')?.amount, ...p, customerId:q.customerId };
+    const currency = p.currency ?? q.currency ?? 'USD';
+    const retainedRate = currency === (q.currency ?? 'USD') ? q.usdRate ?? '1' : undefined;
+    const terms = { currency, usdRate: retainedRate, freight: q.charges?.find((r:any)=>r.kind==='freight')?.amount, handling: q.charges?.find((r:any)=>r.kind==='handling')?.amount, ...p, customerId:q.customerId };
     q.lines=quoteLines(c,terms);
     q.shipTo=p.shipTo??null;
     c.s.reservations=c.s.reservations.filter(r=>r.orderId!==q.id);c.s.traceReservations=c.s.traceReservations.filter(t=>c.s.reservations.some(r=>r.id===t.reservationId));
