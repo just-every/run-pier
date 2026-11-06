@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "tag": "sx-pier-c-f82",
+  "repository": "just-every/run-pier",
+  "branch": "cloud/sx-pier-c-f82",
+  "head": "545d6788800fea081d486e52754c53f311a3b60f",
+  "base": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+  "main": "5d7ffdd81f3b3c86da7252525a93dccaa5e7572f",
+  "finding": "A: USD quote revised to CAD without usdRate must refuse atomically",
+  "commands": [
+    {
+      "command": "node --test --test-name-pattern='native shipment and prepay invoices' tests/api/costing.test.mjs",
+      "phase": "base code with regression assertion",
+      "exit": 1,
+      "result": "Missing-rate revision succeeded; expected body.ok false, got true"
+    },
+    {
+      "command": "node --test --test-name-pattern='native shipment and prepay invoices' tests/api/costing.test.mjs",
+      "phase": "fixed code",
+      "exit": 0,
+      "tests": 1
+    },
+    {
+      "command": "node --test --test-name-pattern='versioned case quotes|quote approver role|native tax rules|native shipment and prepay invoices' tests/api/costing.test.mjs",
+      "exit": 0,
+      "tests": 4
+    },
+    {
+      "command": "pnpm run typecheck",
+      "exit": 0
+    },
+    {
+      "command": "node src/base/contract-docs.mjs write",
+      "exit": 0,
+      "result": "Wrote 0 contract documents"
+    },
+    {
+      "command": "node src/base/contract-docs.mjs check",
+      "exit": 0
+    },
+    {
+      "command": "node scripts/edition-authoring/cli.mjs lock",
+      "exit": 0
+    },
+    {
+      "command": "node scripts/edition-authoring/cli.mjs check",
+      "exit": 0
+    },
+    {
+      "command": "pnpm exec rer check --profile first-party",
+      "exit": 0
+    },
+    {
+      "command": "node ../packet/probe.mjs",
+      "exit": 0,
+      "result": {
+        "finding": "A",
+        "door": "POST /api/pier/commands",
+        "command": "quote.revise",
+        "omittedRate": {
+          "httpStatus": 409,
+          "ok": false,
+          "error": "DECIMAL",
+          "businessStateUnchanged": true
+        },
+        "explicitRate": {
+          "currency": "CAD",
+          "usdRate": "0.75",
+          "approvalCleared": true,
+          "acceptanceCleared": true,
+          "originalCurrency": "USD",
+          "originalRate": "1"
+        }
+      }
+    },
+    {
+      "command": "python3 $HOME/rer-consolidation/.tools/cloud-push.py origin cloud/sx-pier-c-f82",
+      "exit": 0,
+      "attempt": 1
+    }
+  ],
+  "codeProof": {
+    "src/pier/orders.ts": {
+      "lines": "170-172",
+      "sha256": "5ed4f20ea4b9fa20028239f2794587055aa372750bc20bb3acba315bf9e57dc6"
+    },
+    "tests/api/costing.test.mjs": {
+      "lines": "378-399",
+      "sha256": "b585620d7e49f27f1d80ba5d3a773d3da6ab159ae27fd560202c66e48bfe8610"
+    }
+  },
+  "proofBinding": "Tests ran before commit; corresponding code and test bytes match this committed head. Rebase was a no-op.",
+  "contract": {
+    "status": "PARTIAL",
+    "before": {
+      "done": 30,
+      "partial": 57,
+      "missing": 11
+    },
+    "after": {
+      "done": 30,
+      "partial": 57,
+      "missing": 11
+    },
+    "candidateContractEqualsMain": true,
+    "generatedViewsCommitted": false,
+    "note": "Restored CONTRACT.md whole from main to remove inherited f81 Evidence and Gap edits; did not assign clause judgments."
+  },
+  "newTestRegistrations": 0,
+  "removedAssertions": 0,
+  "newPolicyDefaults": 0,
+  "uiChangesInFix": false,
+  "migrationChanges": false,
+  "publicationScan": {
+    "commit": "545d6788800fea081d486e52754c53f311a3b60f",
+    "complete": null,
+    "historyScanned": null,
+    "findings": null,
+    "status": "NOT RUN: guarded Mac lander owns the cloud candidate scan"
+  },
+  "ci": {
+    "conclusion": null,
+    "head_sha": "545d6788800fea081d486e52754c53f311a3b60f",
+    "html_url": "https://github.com/just-every/run-pier/actions/runs/42227810733",
+    "status": "in_progress",
+    "observedAt": "2026-11-06T13:49:39.813522+00:00",
+    "id": 42227810733,
+    "event": "push"
+  },
+  "productPushCount": 1,
+  "pr": null,
+  "githubApiCallsUsed": 3
+}

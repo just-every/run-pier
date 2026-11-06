@@ -1,0 +1,19 @@
+{
+  "finding": "A",
+  "door": "POST /api/pier/commands",
+  "command": "quote.revise",
+  "omittedRate": {
+    "httpStatus": 409,
+    "ok": false,
+    "error": "DECIMAL",
+    "businessStateUnchanged": true
+  },
+  "explicitRate": {
+    "currency": "CAD",
+    "usdRate": "0.75",
+    "approvalCleared": true,
+    "acceptanceCleared": true,
+    "originalCurrency": "USD",
+    "originalRate": "1"
+  }
+}
