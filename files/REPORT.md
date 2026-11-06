@@ -66,6 +66,12 @@ Pre-handoff self-check: (1) the new refusal assertion demonstrably fails against
 
 Main's exact SHA 5d7ffdd81f3b3c86da7252525a93dccaa5e7572f has successful Verify 41903655513 and Run site 41903655525. Scheduled Nightly acceptance 42087384894 is red; it is an older scheduled result and was not treated as a red main push or as an unrelated repair assignment.
 
-Candidate push Verify: 42227810733, event push, head 545d6788800fea081d486e52754c53f311a3b60f. The initial observation is retained in candidate-ci.json and subsequent bounded REST observations in ci-observations.json. No dispatch, rerun or PR was created. One watcher observes each run at intervals longer than 300 seconds. The final receipt will state the observed conclusion without claiming a different SHA's success.
+Candidate push Verify: 42227810733, event push, head 545d6788800fea081d486e52754c53f311a3b60f. The initial observation is retained in candidate-ci.json and subsequent bounded REST observations in ci-observations.json. No dispatch, rerun or PR was created. One watcher observes each run at intervals longer than 300 seconds. The final receipt records the observed pending state without claiming a different SHA's success.
 
 Publication scan receipt: commit=545d6788800fea081d486e52754c53f311a3b60f; complete=unestablished; historyScanned=unestablished; findings=unestablished. The cloud adaptation delegates this scan to the guarded Mac lander. This report does not claim READY from the scan or evidence transport. The product branch and evidence ref are separate custody records.
+
+## Terminal handoff
+
+At 2026-11-06T14:15:07.318745+00:00, exact-SHA push Verify 42227810733 remained in_progress with no conclusion. Eight GitHub API calls were used: one main discovery, one candidate discovery and six observations spaced more than 300 seconds apart; two calls remain reserved for any completed-failure diagnostic. The bounded watcher has exited. No completed failing candidate check was observed. No READY or green-CI claim is made: terminal custody is PUSHED, with the exact product SHA already verified on the remote branch. The guarded lander must observe the final Verify result and run its publication and landing gates.
+
+PUSHED branch=cloud/sx-pier-c-f82 head=545d6788800fea081d486e52754c53f311a3b60f

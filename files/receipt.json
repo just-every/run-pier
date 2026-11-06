@@ -123,11 +123,20 @@
     "head_sha": "545d6788800fea081d486e52754c53f311a3b60f",
     "html_url": "https://github.com/just-every/run-pier/actions/runs/42227810733",
     "status": "in_progress",
-    "observedAt": "2026-11-06T13:49:39.813522+00:00",
+    "observedAt": "2026-11-06T14:15:07.318745+00:00",
     "id": 42227810733,
     "event": "push"
   },
   "productPushCount": 1,
   "pr": null,
-  "githubApiCallsUsed": 3
+  "githubApiCallsUsed": 8,
+  "evidenceInitialVerification": "restored",
+  "remoteRefs": {
+    "refs/heads/cloud/sx-pier-c-f82": "545d6788800fea081d486e52754c53f311a3b60f",
+    "refs/heads/main": "5d7ffdd81f3b3c86da7252525a93dccaa5e7572f"
+  },
+  "ciObservationBudget": "Six observations at intervals longer than 300 seconds, plus discovery and main status; two API calls reserved for completed-failure diagnostics.",
+  "handoff": "PUSHED",
+  "knownRealCheckFailure": false,
+  "fullHistory": true
 }
