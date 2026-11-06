@@ -321,7 +321,8 @@ test('quote approver role defaults to Owner and policy or live role changes revo
 // Native invoices are operational originals. Provider posting remains an explicit
 // external obligation rather than being represented by an invented ledger result.
 test('native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids', async t => {
-  const h = await installation(); t.after(() => h.close()); const b = await basics(h);
+  let outbound=0;
+  const h = await installation({now:'2026-11-06T12:00:00.000Z',outboundService:async()=>{outbound++;throw new Error('Native CAD never requests a provider');}}); t.after(() => h.close()); const b = await basics(h);
   const po = await h.command('po.draft', { supplierId: b.supplier.id, promiseDate: '2026-11-01', reason: 'Invoice stock', lines: [{ itemId: b.item.id, quantity: '10', price: '1' }] });
   await h.command('po.approve', { poId: po.id, version: po.version }); await h.command('po.commit', { poId: po.id, version: po.version });
   await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-pier-1', lines: [{ poLineId: po.lines[0].id, locationId: b.source.id, quantity: '10', cost: '1' }] });
@@ -365,6 +366,84 @@ test('native shipment and prepay invoices retain terms, charge tax, credits and 
   assert.equal(state.customerBalances[b.customer.id].USD,'25.760000000000');assert.equal(state.customerBalances[b.customer.id].CAD,'12.960000000000');
   const exact = value => BigInt(value.replace('.', ''));
   assert.equal(state.invoices.filter(r => r.status === 'authorized' && r.currency === 'USD').reduce((n, r) => n + exact(r.total), 0n) - state.invoiceCredits.filter(r => r.status === 'authorized' && r.currency === 'USD').reduce((n, r) => n + exact(r.total), 0n), exact('25.760000000000'));
+  // Native CAD quotes retain source prices and a reviewed rate; USD tiers never cross currencies.
+  const cadItem = await h.command('item.save', {sku:'synthetic-pier-81',name:'Native CAD goods',unit:'each',packSize:'1'});
+  const cadPO = await h.command('po.draft',{supplierId:b.supplier.id,promiseDate:'2026-11-20',reason:'Native CAD stock',lines:[{itemId:cadItem.id,quantity:'6',price:'2.25'}]});
+  await h.command('po.approve',{poId:cadPO.id,version:cadPO.version});await h.command('po.commit',{poId:cadPO.id,version:cadPO.version});
+  const cadReceipt=await h.command('receipt.create',{poId:cadPO.id,supplierReference:'synthetic-pier-82',lines:[{poLineId:cadPO.lines[0].id,locationId:b.source.id,quantity:'6',cost:'2.25'}]});
+  await h.command('priceList.save',{customerId:b.customer.id,itemId:cadItem.id,price:'99'});
+  const customer=(await h.state()).parties.find(p=>p.id===b.customer.id);
+  await h.command('customer.resaleCertificate',{customerId:customer.id,version:customer.version,state:'CA',number:'synthetic-pier-83',document:'Owner-reviewed resale reference',expires:'2027-12-31',reason:'Reviewed current resale exemption'});
+  const cadInput={customerId:customer.id,warehouse:'North',shipTo:{state:'CA',country:'US'},currency:'CAD',usdRate:'0.75',validUntil:'2026-12-20',lines:[{itemId:cadItem.id,quantity:'3',price:'12.34'}]};
+  const exported=async()=>{const r=await h.request('/api/pier/export');assert.equal(r.status,200);return r.json();};
+  const snapshot=async()=>{const e=await exported(),s=await h.state();return Object.fromEntries(['orders','invoices','invoiceCredits','shipments','returns','movements','reservations','salesDocuments','priceLists'].map(k=>[k,e[k]]).concat([['positions',s.positions],['commands',s.commands]]));};
+  const refused=async(type,payload,error,opts={})=>{const before=await snapshot();await h.command(type,payload,{...opts,error});assert.deepEqual(await snapshot(),before,`${type} refuses atomically`);};
+  for(const usdRate of [undefined,'0','-1','bad','0.0000001'])await refused('quote.create',{...cadInput,usdRate},'DECIMAL');
+  await refused('quote.create',{...cadInput,currency:'EUR'},'CURRENCY');
+  await refused('quote.create',{...cadInput,lines:[{...cadInput.lines[0],currency:'USD'}]},'CURRENCY');
+  await refused('quote.create',{...cadInput,lines:[{itemId:cadItem.id,quantity:'3'}]},'CAD_PRICE');
+  const captureId=randomUUID();let native=await h.command('quote.create',cadInput,{commandId:captureId});
+  const captured=structuredClone(native);
+  assert.deepEqual([native.currency,native.usdRate,native.lines[0].price,native.lines[0].priceSnapshot.currency,native.total,native.usdTotal],['CAD','0.75','12.34','CAD','37.020000000000','27.770000000000']);
+  assert.equal(native.lines[0].priceSnapshot.priceList,null);assert.equal(native.tax.certificate.number,'synthetic-pier-83');assert.equal(native.tax.providerCommit,'not-configured');
+  native=await h.command('quote.approve',{orderId:native.id,version:native.version,reason:'Reviewed CAD price and positive USD rate'});
+  const originalVersion=native.version;
+  await refused('quote.revise',{...cadInput,orderId:native.id,version:native.version,usdRate:'0',reason:'Refuse zero rate'},'DECIMAL');
+  native=await h.command('quote.revise',{...cadInput,orderId:native.id,version:native.version,usdRate:'0.8',reason:'Owner reviewed a changed CAD conversion'});
+  assert.equal(native.quoteApproval,null);assert.equal(native.acceptedAt,null);assert.equal(native.quoteHistory.at(-1).usdRate,'0.75');assert.equal(native.quoteHistory.at(-1).quoteApproval.version,originalVersion);
+  await refused('quote.accept',{orderId:native.id,version:originalVersion},'STALE');
+  await refused('quote.accept',{orderId:native.id,version:native.version},'QUOTE_APPROVAL');
+  native=await h.command('quote.approve',{orderId:native.id,version:native.version,reason:'Reviewed revised rate and CAD margin'});
+  const acceptance={orderId:native.id,version:native.version},acceptId=randomUUID();
+  native=await h.command('quote.accept',acceptance,{commandId:acceptId});
+  const acceptedQuoteVersion=native.acceptanceHistory.at(-1).version;
+  const shipCad=async quantity=>h.command('dispatch.create',{orderId:native.id,shipmentReference:`synthetic-pier-CAD-${quantity}`,lines:[{orderLineId:native.lines[0].id,quantity}]});
+  const cadFirst=await shipCad('2');
+  for(const mismatch of [{currency:'USD'},{currency:'EUR'},{usdRate:'0'},{usdRate:'0.9'},{unitPrices:[{orderLineId:native.lines[0].id,price:'1'}]}])await refused('invoice.draft',{orderId:native.id,shipmentId:cadFirst.id,...mismatch},mismatch.usdRate==='0'?'DECIMAL':'INVOICE_CURRENCY');
+  const draftId=randomUUID(),draftInput={orderId:native.id,shipmentId:cadFirst.id,invoiceDate:'2026-11-06',terms:{kind:'net30'},charges:[{kind:'freight',amount:'1.11',taxable:false}]};
+  const nativeDraft=await h.command('invoice.draft',draftInput,{commandId:draftId});
+  const nativeInvoice=await authorize(nativeDraft);
+  const cadSecond=await shipCad('1');const secondNative=await authorize(await h.command('invoice.draft',{...draftInput,shipmentId:cadSecond.id,charges:[{kind:'freight',amount:'0.55',taxable:false}]}));
+  const e=await exported(), source=e.orders.find(o=>o.id===native.id),received=e.receipts.find(r=>r.id===cadReceipt.id);
+  const cents=value=>Math.round(Number(value)*100), rate=Number(source.usdRate);
+  for(const [record,shipment,freight] of [[nativeInvoice,cadFirst,111],[secondNative,cadSecond,55]]){
+    const expected=cents(source.lines[0].price)*Number(shipment.lines[0].quantity)+freight;
+    assert.equal(cents(record.total),expected);assert.equal(cents(record.usdTotal),Math.round(expected*rate));
+    assert.deepEqual([record.currency,record.usdRate,record.lines[0].unitPrice,record.lines[0].quantity,record.sourceQuoteVersion],['CAD','0.8','12.34',shipment.lines[0].quantity,acceptedQuoteVersion]);
+    assert.equal(record.dueDate,'2026-12-06');assert.equal(record.tax.amount,'0.000000000000');assert.equal(record.ledger.status,'pending-external-posting');
+  }
+  const nativeReturn=await h.command('return.create',{shipmentId:cadFirst.id,shipmentLineId:cadFirst.lines[0].id,locationId:b.source.id,quantity:'1',reason:'Return native CAD goods'});
+  const creditInput={invoiceId:nativeInvoice.id,kind:'return',returnId:nativeReturn.id,reason:'Credit exact original CAD price',lines:[{invoiceLineId:nativeInvoice.lines[0].id,quantity:'1'}]};
+  await refused('invoice.credit.draft',{...creditInput,currency:'USD'},'INVOICE_CURRENCY');
+  let nativeCredit=await h.command('invoice.credit.draft',creditInput);nativeCredit=await h.command('invoice.credit.review',{creditId:nativeCredit.id,version:nativeCredit.version});
+  const creditAuth={creditId:nativeCredit.id,version:nativeCredit.version},creditAuthId=randomUUID();nativeCredit=await h.command('invoice.credit.authorize',creditAuth,{commandId:creditAuthId});
+  assert.deepEqual([nativeCredit.currency,nativeCredit.usdRate,nativeCredit.total,nativeCredit.usdTotal],['CAD','0.8','12.340000000000','9.870000000000']);
+  const result=await(await h.request('/api/pier/reports?from=2026-11-01&to=2026-11-06&asOf=2026-11-06')).json();
+  const marginRows=result.margin.rows.filter(r=>r.orderId===native.id);
+  assert.equal(result.currency,'USD');assert.equal(marginRows.length,2);
+  for(const report of marginRows){
+    const sh=e.shipments.find(s=>s.id===report.shipmentId),qty=Number(sh.lines[0].quantity),cost=qty*Number(received.lines[0].cost),revenue=qty*Number(source.lines[0].price)*rate;
+    assert.equal(Number(report.cost),cost);assert.equal(Number(report.revenue),revenue);assert.equal(Number(report.margin),revenue-cost);
+  }
+  const balance=(await h.state()).customerBalances[customer.id];
+  assert.equal(balance.USD,state.customerBalances[customer.id].USD);
+  assert.equal(cents(balance.CAD),cents(cad.total)+cents(nativeInvoice.total)+cents(secondNative.total)-cents(nativeCredit.total));
+  const beforeRestart=await snapshot();await h.restart();assert.deepEqual(await snapshot(),beforeRestart);
+  assert.deepEqual(await h.command('quote.create',cadInput,{commandId:captureId}),captured);
+  assert.deepEqual(await h.command('quote.accept',acceptance,{commandId:acceptId}),native);
+  assert.deepEqual(await h.command('invoice.draft',draftInput,{commandId:draftId}),nativeDraft);
+  assert.deepEqual(await h.command('invoice.credit.authorize',creditAuth,{commandId:creditAuthId}),nativeCredit);
+  assert.deepEqual(await snapshot(),beforeRestart);
+  const login=await h.request('/auth/dev/enter?as=member',{headers:{'x-rer-dev-key':h.devKey}}),staff=login.headers.getSetCookie().map(v=>v.split(';')[0]).join('; '),member=await(await h.request('/api/pier/state',{as:staff})).json();
+  await h.command('role.set',{operatorId:member.actor.id,role:'owner'});
+  const revokedInput={...cadInput,lines:[{itemId:cadItem.id,quantity:'1',price:'1'}]},revokedId=randomUUID();
+  let revoked=await h.command('quote.create',revokedInput,{as:staff,commandId:revokedId});revoked=await h.command('quote.approve',{orderId:revoked.id,version:revoked.version,reason:'Exact current owner review'},{as:staff});
+  await h.command('role.set',{operatorId:member.actor.id,role:'viewer'});
+  await refused('quote.accept',{orderId:revoked.id,version:revoked.version},'APPROVER_REVOKED');
+  await refused('quote.create',cadInput,'FORBIDDEN',{as:staff});
+  await refused('invoice.draft',draftInput,'FORBIDDEN',{as:staff});
+  await refused('quote.create',revokedInput,'FORBIDDEN',{as:staff,commandId:revokedId});
+  assert.equal(outbound,0);await h.invariant();
 });
 
 test('invoice-specific Stripe checkout verifies ACH success once and expires paid or changed links', async t => {

@@ -35,6 +35,8 @@ export function quoteLines(c: Context, p: any) {
   if (!Array.isArray(p.lines) || !p.lines.length || p.lines.length > 1000)
     fail("LINES", "Add between one and 1,000 lines.");
   return p.lines.map((line: any) => {
+    if (line.currency !== undefined && line.currency !== (p.currency ?? 'USD'))
+      fail('CURRENCY', 'Each line price must use the quote currency.');
     const item = get(c.s, "items", line.itemId);
     if (item.archived) fail("ARCHIVED", "Archived items cannot enter a quote.");
     const packs = decimal(line.quantity, true),
@@ -44,7 +46,7 @@ export function quoteLines(c: Context, p: any) {
     if ((packs * pack) % SCALE)
       fail("PRECISION", "Case quantity exceeds six base-unit decimal places.");
     const quantity = (packs * pack) / SCALE;
-    const price = orderPrice(c, p.customerId, item.id, quantity, line.price);
+    const price = orderPrice(c, p.customerId, item.id, quantity, line.price, p.currency ?? 'USD');
     return {
       id: id(),
       itemId: item.id,
@@ -63,6 +65,12 @@ export function quoteLines(c: Context, p: any) {
   });
 }
 export function quoteTerms(c: Context, p: any, lines: any[]) {
+  const currency = p.currency ?? 'USD';
+  if (!['USD', 'CAD'].includes(currency)) fail('CURRENCY', 'Quotes support USD and owner-reviewed CAD.');
+  if (currency === 'CAD') requireRole(c, []);
+  const rate = currency === 'CAD' ? decimal(p.usdRate, true) : SCALE;
+  if (currency === 'USD' && p.usdRate !== undefined && decimal(p.usdRate, true) !== SCALE)
+    fail('CURRENCY_RATE', 'USD quotes require a USD rate of one.');
   const validUntil = isoDay(
     p.validUntil ??
       new Date(Date.parse(c.now) + 30 * 86400000).toISOString().slice(0, 10),
@@ -101,6 +109,10 @@ export function quoteTerms(c: Context, p: any, lines: any[]) {
   const tax = estimateTax(c, p.customerId, shipTo, p.warehouse ?? null, lines.map(l => ({ ...l, amount: l.price === null ? null : money(toCents(decimal(l.quantity) * decimal(l.price))) })), charges);
   const subtotal = net === null ? null : lines.reduce((n, l) => n + toCents(decimal(l.quantity) * decimal(l.price)), 0n) + charges.reduce((n, l) => n + amount(l.amount), 0n);
   return {
+    currency,
+    usdRate: format(rate),
+    rateReview: { actorId: c.actor.id, commandId: c.commandId, at: c.now, currency, usdRate: format(rate) },
+    usdTotal: subtotal === null || tax.amount === null ? null : money(toCents((subtotal + amount(tax.amount)) * rate / SCALE)),
     validUntil,
     discountPercent: format(discount),
     subtotal: subtotal === null ? null : money(subtotal),
@@ -118,6 +130,7 @@ export function quoteTerms(c: Context, p: any, lines: any[]) {
   };
 }
 export function currentQuote(c: Context, quote: Row) {
+  if (quote.currency === 'CAD') requireRole(c, []);
   if (quote.validUntil && quote.validUntil < c.now.slice(0, 10))
     fail(
       "QUOTE_EXPIRED",

@@ -69,3 +69,9 @@ A customer credit is explicitly authorized against a shipped line with quantity,
 The quote, send, routing and recurring defaults follow the 22 October owner ruling. Commercial approval defaults to Owner through the configurable approver role; explicit recipient consent remains owner-only. Staff retain the existing operational doors; new private originals and approval records are owner-only.
 
 See [Business documents and invoices](business-documents.md) for retained templates, invoices, credits and payment links, and [Evidence documents](evidence-documents.md) for private originals and reviewed extraction.
+
+## Native CAD quotes
+
+The current owner can choose CAD on a versioned quote, enter an explicit CAD price for every base-unit line and review a positive USD value for one CAD. USD customer price tiers never fill a CAD price. Quote discounts and owner-maintained tax estimates apply in the quote currency; an exemption requires the current reviewed destination certificate reference. Provider tax remains unconfigured.
+
+Review and accept the exact commercial version before dispatch. Changing a CAD price or its rate clears approval and acceptance; earlier versions and generated PDFs remain readable. Each partial-shipment invoice inherits the accepted CAD prices and rate. Its draft refuses a different currency, rate or replacement prices. Revise and reaccept an unshipped quote to change those terms. Linked credits keep the original invoice currency and rate, customer balances remain separate by currency, and inventory cost and margin reports stay in USD using the retained rate.

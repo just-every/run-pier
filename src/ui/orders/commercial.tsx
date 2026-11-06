@@ -29,6 +29,7 @@ export function Commercial({
   const approverRole = approvalPolicy(state)?.role ?? 'owner';
   return (
     <>
+      <section className="panel" aria-label="Quote currency evidence"><h2>Commercial currency</h2><p>{order.currency ?? 'USD'} · USD rate {order.usdRate ?? '1'} · USD value <Amount value={order.usdTotal ?? order.total}/></p></section>
       <TaxEvidence tax={order.tax}/>
       {quote && (
         <>
@@ -37,7 +38,7 @@ export function Commercial({
             title="Review quote prices and margin"
             submit="Approve exact quote"
             busy={busy}
-            disabled={!['owner', approverRole].includes(state.actor.role)}
+            disabled={order.currency === 'CAD' ? state.actor.role !== 'owner' : !['owner', approverRole].includes(state.actor.role)}
             note={`Version ${order.version} · discount ${order.discountPercent}% · tax ${order.tax?.source ?? "Pending"} · valid through ${order.validUntil}. Approver role: ${approverRole}. Approval binds these prices and the observed costs.`}
             onSubmit={(d) =>
               run("quote.approve", {
@@ -63,6 +64,8 @@ export function Commercial({
                 orderId: order.id,
                 version: order.version,
                 customerId: order.customerId,
+                currency: order.currency ?? 'USD',
+                ...(order.currency === 'CAD' ? { usdRate: text(d, 'usdRate') } : {}),
                 reason: text(d, "reason"),
                 shipTo: {
                   ...order.shipTo,
@@ -82,6 +85,7 @@ export function Commercial({
             }
           >
             <Field label="Quote revision reason" name="reason" />
+            {order.currency === 'CAD' && <Field label="Revised USD per CAD" name="usdRate" defaultValue={order.usdRate} inputMode="decimal"/>}
             <Field
               label="Revised destination state"
               name="state"

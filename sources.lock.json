@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "3588fdb3e00e6c7297b6ed3bcc15e956bcae9758254ff3e82d73b20d4ad3a0c3",
+      "sha256": "6e547efe7e7c59972953aeb9d776eb1a8125356794277ce6ee126b6d01072a79",
       "executable": false
     },
     "DEMO.md": {
@@ -387,7 +387,7 @@
       "executable": false
     },
     "docs/business-documents.md": {
-      "sha256": "fe151c4e4d1fc4c93d553ea8d3a42528ce9b2c31182e5417b253f78b5bf1d28e",
+      "sha256": "f5edfa0b87e7a878070d6558f23e7ac0a2736efeb03c222881909fc4799116e9",
       "executable": false
     },
     "docs/buying.md": {
@@ -475,7 +475,7 @@
       "executable": false
     },
     "docs/orders.md": {
-      "sha256": "44b64cfa65660152a4d26d2e436ea0805f7255681eba3fca9ea65a4a4f2e2115",
+      "sha256": "e1a3debe92c27d956da5439b057c481a75dbdc4dcb4f0f0aa6ba42d01595276e",
       "executable": false
     },
     "docs/permissions.md": {
@@ -3399,11 +3399,11 @@
       "executable": false
     },
     "src/pier/invoices/credits.ts": {
-      "sha256": "f088d561bebcc53fdaca3cb074a9a5088068caccb3b51730c38619010e6a346a",
+      "sha256": "d06814da9284e25b4b3469718473d35ba38f931a20cb7cdbe23e6ca28092fdac",
       "executable": false
     },
     "src/pier/invoices/draft.ts": {
-      "sha256": "f5c0d5b34f5113bdc9589627b84f0ceeb1160b579067f2d97060efb01720c17b",
+      "sha256": "33c3ca6a112b13069772ebf199d4a43a9a2b344634bc30534fabff0e8f52fa54",
       "executable": false
     },
     "src/pier/invoices/index.ts": {
@@ -3527,7 +3527,7 @@
       "executable": false
     },
     "src/pier/orders.ts": {
-      "sha256": "98a5382f1956ed301688f087ba5f4474e98a03cf33683bfc8b8647b383732ea0",
+      "sha256": "17c657df0b5e14efec6c6ee40af4c8ecf0bf30e9f90530a8ee6cd0b2ab64e2fa",
       "executable": false
     },
     "src/pier/outbound-webhooks.ts": {
@@ -3579,7 +3579,7 @@
       "executable": false
     },
     "src/pier/pricing.ts": {
-      "sha256": "6a2f7099da1a26862fc714f3d459753086f1a4bcdd65a8b737654864060573b9",
+      "sha256": "ec44e3742c61ee38e7fff2ad9931f9511bb4028bee173949098608f4411813df",
       "executable": false
     },
     "src/pier/print/assets/logo.ts": {
@@ -3627,11 +3627,11 @@
       "executable": false
     },
     "src/pier/print/order-sources.ts": {
-      "sha256": "e33a495ae4c0cb6def091d4c0a866c1e21f661b29f594be88da9a1b067700315",
+      "sha256": "3ef76260f69809a9d94a251980dcc778f01972fd74c39f16a05a8fa492bc6386",
       "executable": false
     },
     "src/pier/print/other-sources.ts": {
-      "sha256": "8c9406711ecef1ae636c4175853ee6001dcec1151c6570b7daf54dde7cb4a32a",
+      "sha256": "0a2efc9916a16d3c5f4cfccb71542c112c5308c077a2623ee88cbf32a9a1395c",
       "executable": false
     },
     "src/pier/print/pdf-types.ts": {
@@ -3755,7 +3755,7 @@
       "executable": false
     },
     "src/pier/reports.ts": {
-      "sha256": "7535573f07beb34261890a1822e1fdcaaa3aebd6540d9fa73450ac445ab06084",
+      "sha256": "15d5fa26166e16987e980152190bac638f00bc49e80374710ccee12cf5a8ca11",
       "executable": false
     },
     "src/pier/returns-cost.ts": {
@@ -3791,7 +3791,7 @@
       "executable": false
     },
     "src/pier/sales-quotes.ts": {
-      "sha256": "86b8e5a2df126c6da716fa9517b37881c9d00bcef6a5620d511b66534b96f4a3",
+      "sha256": "9464c490f858e56bf64241898ed5363a63dcc9fb94b8a10b2c94977117b8da55",
       "executable": false
     },
     "src/pier/sales-spreadsheet.ts": {
@@ -4291,7 +4291,7 @@
       "executable": false
     },
     "src/ui/controls.tsx": {
-      "sha256": "e464671ef0f2c27ac6cd3a8b04972e0fb4018a4fc91288199ebc24ab8b207a30",
+      "sha256": "5365c33913c378ffbe0ff7482ce1f9b42ff1d5f0ae76cbd10262c397cc829980",
       "executable": false
     },
     "src/ui/correspondence.tsx": {
@@ -4479,15 +4479,15 @@
       "executable": false
     },
     "src/ui/orders/commercial.tsx": {
-      "sha256": "fd0963384c32365e6a70f0d53f19f8e26b10540c969044ba33f5c4843e0eb980",
+      "sha256": "2f0707c892c8bf446adadaebdad37ed3c43f0159b156281ec4e65b3ba2891d2e",
       "executable": false
     },
     "src/ui/orders/costs.ts": {
-      "sha256": "6f5ed6abaa20c379302c1a8f438aed9ac1866ca6b35ba0c697162871e755b2fa",
+      "sha256": "50947958b7c04a4163697fb84329fec9acf8b9e4a90cb472fc56cee10792e9fb",
       "executable": false
     },
     "src/ui/orders/detail.tsx": {
-      "sha256": "d6012e52154fbfe66812b2ef32f018496b02b1529d3c13dbe74b17d88d320ada",
+      "sha256": "a6cbbe0dd3dad9795a59e27505d212426f16fc574ad0171b334b8e63b49a5b74",
       "executable": false
     },
     "src/ui/orders/document-intake.tsx": {
@@ -4511,11 +4511,11 @@
       "executable": false
     },
     "src/ui/orders/index.tsx": {
-      "sha256": "3fbf5d5f1c5f0c9f8a8c3740d8099518dc74b84710fe107d3b91d1cd8b20c644",
+      "sha256": "829ea80e0bc95433b199ef35598924106c9085086762e258130718d39f82f177",
       "executable": false
     },
     "src/ui/orders/invoice-draft-form.tsx": {
-      "sha256": "908e38710741eeff6648e97434c75e872d8608d875039f856e6472a86de44c5e",
+      "sha256": "97b08827c486f4b9bc98d926b7270e632b3acf47f695dc127969140e3471981b",
       "executable": false
     },
     "src/ui/orders/invoice-workbench.tsx": {
@@ -4783,7 +4783,7 @@
       "executable": false
     },
     "tests/api/costing.test.mjs": {
-      "sha256": "4c2f3ea028aa0ee6b8931955078f59f57706f9438d6393ed331a85c68cb38111",
+      "sha256": "a2f914f188163a7046b5df083f0f89db4547b008d2a3e7a4497c5814b74efd5d",
       "executable": false
     },
     "tests/api/dependency-custody.test.mjs": {
@@ -4855,7 +4855,7 @@
       "executable": false
     },
     "tests/api/packing-documents.test.mjs": {
-      "sha256": "3379931bf151c803a0e34b19c31a631739e658a5775d3c89dccbac512ea0560e",
+      "sha256": "308993a9a693658191bcf5bf21e55860e8365df35e2dac84a649212786e4a7b7",
       "executable": false
     },
     "tests/api/pantry-installation.mjs": {
@@ -4999,7 +4999,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "cc45509050ae84cef0313af58ff9761e1c5e9979e1047fe46446f5028fcc1a89",
+      "sha256": "c9fa1401199ce8af579bb848366434644d0e30265f64a45ae8903e54966448c5",
       "executable": false
     },
     "tests/browser/open.spec.ts": {

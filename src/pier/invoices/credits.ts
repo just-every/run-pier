@@ -4,6 +4,7 @@ import { append, expireLinks, find, records, requireNoCollection } from './state
 
 function creditDraft(c: Context, p: any) {
   const invoice = find(c.s, 'invoices', p.invoiceId);
+  if (p.currency !== undefined && p.currency !== invoice.currency) fail('INVOICE_CURRENCY', 'A linked credit retains its invoice currency.');
   if (invoice.status !== 'authorized') fail('INVOICE_STATE', 'Credits require a named authorized invoice.');
   if (!['return', 'price', 'freight'].includes(p.kind)) fail('INVOICE_CREDIT', 'Choose return, price adjustment or freight refund.');
   const returned = p.kind === 'return' ? get(c.s, 'returns', p.returnId) : null;

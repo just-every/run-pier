@@ -30,7 +30,7 @@ export function otherSource(c:Context,kind:string,sourceId:string):DocumentSourc
     const lines=record.lines.map((l:any)=>l.itemId&&l.quantity?itemLine(c,l,customer.id):{description:l.description??l.kind,...(l.quantity?{quantity:l.quantity}:{}),itemCode:l.itemId?(get(c.s,'items',l.itemId).references??[]).filter((r:any)=>r.partyId===customer.id).map((r:any)=>r.code).join(', '):undefined,price:l.unitPrice??l.price,total:l.amount});
     for(const charge of record.charges??[])lines.push({description:`${charge.kind}: ${charge.description??''}`,quantity:'1',total:charge.amount});
     return {source:record,sourceKind:credit?'invoiceCredits':'invoices',reference:record.reference,recipient:customer.name,lines,
-      fields:[{label:'Invoice date',value:record.invoiceDate??record.date},{label:'Due date',value:record.dueDate??''},{label:'Terms',value:paymentTerms(record.terms)},{label:'State',value:record.status},{label:'Currency / USD rate',value:`${record.currency} / ${record.usdRate??'1'}`}],
+      fields:[{label:'Source quote version',value:String(record.sourceQuoteVersion??'Not a quote')},{label:'Invoice date',value:record.invoiceDate??record.date},{label:'Due date',value:record.dueDate??''},{label:'Terms',value:paymentTerms(record.terms)},{label:'State',value:record.status},{label:'Currency / USD rate',value:`${record.currency} / ${record.usdRate??'1'}`}],
       totals:[{label:'Tax',value:record.tax?.amount??record.taxTotal??'Not committed'},{label:`Total ${record.currency}`,value:record.total},{label:'USD value',value:record.usdTotal??record.total},...(!credit?[{label:'Open balance',value:nativeBalance(c.s,record.id)}]:[])],
       payNowUrl:!credit?link?.url:undefined};
   }
