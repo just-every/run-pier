@@ -439,7 +439,15 @@ test('native shipment and prepay invoices retain terms, charge tax, credits and 
   assert.deepEqual(await snapshot(),beforeRestart);
   const login=await h.request('/auth/dev/enter?as=member',{headers:{'x-rer-dev-key':h.devKey}}),staff=login.headers.getSetCookie().map(v=>v.split(';')[0]).join('; '),member=await(await h.request('/api/pier/state',{as:staff})).json();
   await h.command('role.set',{operatorId:member.actor.id,role:'operator'});
-  const ownerOnly=await h.command('quote.create',{...cadInput,lines:[{itemId:cadItem.id,quantity:'1',price:'1'}]});
+  let fixed=await h.command('routing.save',{source:'manual',mode:'fixed',shortage:'hold',eligible:['North']});fixed=await h.command('routing.preview',{ruleId:fixed.id,version:fixed.version});await h.command('routing.activate',{ruleId:fixed.id,version:fixed.version});
+  let ownerOnly=await h.command('quote.create',{...cadInput,lines:[{itemId:cadItem.id,quantity:'1',price:'1'}]});
+  const staffState=await(await h.request('/api/pier/state',{as:staff})).json(),physicalQuote=staffState.orders.find(o=>o.id===ownerOnly.id);
+  assert.equal(physicalQuote.lines[0].quantity,'1');
+  for(const key of ['usdRate','usdTotal','rateReview','total'])assert.equal(physicalQuote[key],undefined,`CAD commercial ${key} stays owner-only`);
+  assert.equal(physicalQuote.lines[0].price,undefined);
+  const physicalResult=await h.command('order.reserve',{orderId:ownerOnly.id},{as:staff});
+  assert.equal(physicalResult.lines[0].quantity,'1');assert.equal(physicalResult.lines[0].price,undefined);assert.equal(physicalResult.usdRate,undefined);assert.equal(physicalResult.usdTotal,undefined);
+  ownerOnly=(await h.state()).orders.find(o=>o.id===ownerOnly.id);
   await refused('quote.create',cadInput,'FORBIDDEN',{as:staff});
   await refused('quote.revise',{...cadInput,orderId:ownerOnly.id,version:ownerOnly.version,currency:'USD',usdRate:'1',reason:'Operator cannot change a CAD quote'},'FORBIDDEN',{as:staff});
   await h.command('sales.quoteApprovalPolicy',{version:0,role:'operator',reason:'Existing USD approval delegation never grants CAD authority'});

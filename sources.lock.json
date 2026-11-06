@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "6e547efe7e7c59972953aeb9d776eb1a8125356794277ce6ee126b6d01072a79",
+      "sha256": "36592e032013ab401379d16d1475986a4d34e484fbb05ca087473a6b820f933a",
       "executable": false
     },
     "DEMO.md": {
@@ -3527,7 +3527,7 @@
       "executable": false
     },
     "src/pier/orders.ts": {
-      "sha256": "17c657df0b5e14efec6c6ee40af4c8ecf0bf30e9f90530a8ee6cd0b2ab64e2fa",
+      "sha256": "1e5339b8f2580dd3acc8a1fdbfa3fecfa513d324e50ad82475cf10b819d3394b",
       "executable": false
     },
     "src/pier/outbound-webhooks.ts": {
@@ -3771,7 +3771,7 @@
       "executable": false
     },
     "src/pier/role-reads.ts": {
-      "sha256": "b6a687b8eef266594bccc2b90af3f02acae7dcb08c34a27a3807ee2324402c3e",
+      "sha256": "daa6759f2768695055f9590d7a103f26485cdab03cc66ef7b5a0826c5b52f8db",
       "executable": false
     },
     "src/pier/role-visibility.ts": {
@@ -4783,7 +4783,7 @@
       "executable": false
     },
     "tests/api/costing.test.mjs": {
-      "sha256": "d41fbb5cc7d95028e6a17bc9d31e99123021ebd86299c87f220860bcfbd01498",
+      "sha256": "f1112e1c5008b39ae6f52fc3af6f5ceb07871302b265ddf7b3b623058a24412d",
       "executable": false
     },
     "tests/api/dependency-custody.test.mjs": {
