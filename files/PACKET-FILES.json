@@ -52,5 +52,6 @@
   "screens/390-cad-invoice-recovery-viewport.png",
   "screens/390-cad-authorized-invoice.png",
   "screens/390-cad-authorized-invoice-viewport.png",
-  "PACKET-FILES.json"
+  "PACKET-FILES.json",
+  "EVIDENCE-TRANSFER.txt"
 ]
