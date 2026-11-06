@@ -1,0 +1,16 @@
+{
+  "label": "first-party-final",
+  "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+  "command": [
+    "npx",
+    "-y",
+    "@runeditrun/rer",
+    "check",
+    "--profile",
+    "first-party"
+  ],
+  "started": "2026-11-06T13:02:56.059839+00:00",
+  "ended": "2026-11-06T13:02:56.910738+00:00",
+  "seconds": 0.851,
+  "exit": 0
+}

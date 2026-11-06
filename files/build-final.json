@@ -1,0 +1,14 @@
+{
+  "label": "build-final",
+  "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+  "command": [
+    "npx",
+    "-y",
+    "@runeditrun/rer",
+    "build"
+  ],
+  "started": "2026-11-06T13:02:47.867719+00:00",
+  "ended": "2026-11-06T13:02:55.547542+00:00",
+  "seconds": 7.68,
+  "exit": 0
+}

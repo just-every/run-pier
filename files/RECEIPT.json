@@ -1,0 +1,182 @@
+{
+  "tag": "sx-pier-c-f81",
+  "repository": "just-every/run-pier",
+  "branch": "cloud/sx-pier-c-f81",
+  "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+  "remote_refs": {
+    "refs/heads/cloud/sx-pier-c-f81": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+    "refs/heads/main": "5d7ffdd81f3b3c86da7252525a93dccaa5e7572f"
+  },
+  "clean": true,
+  "status_before": {
+    "done": 30,
+    "partial": 57,
+    "missing": 11
+  },
+  "status_after": {
+    "done": 30,
+    "partial": 57,
+    "missing": 11
+  },
+  "clause": "SALES-006",
+  "clause_before": "partial",
+  "clause_after": "partial",
+  "checks": {
+    "touched-api-final": {
+      "label": "touched-api-final",
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=1",
+        "--test-name-pattern=native shipment|native tax rules retain|versioned case|quote approver role|landed receipts|business PDFs|pack slip contains|explicit quote",
+        "tests/api/costing.test.mjs",
+        "tests/api/packing-documents.test.mjs"
+      ],
+      "started": "2026-11-06T13:01:14.451500+00:00",
+      "ended": "2026-11-06T13:02:00.479952+00:00",
+      "seconds": 46.028,
+      "exit": 0
+    },
+    "role-regression": {
+      "label": "role-regression",
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "command": [
+        "node",
+        "--test",
+        "--test-name-pattern=commercial role reads|scoped warehouse receipts",
+        "tests/api/security-import.test.mjs"
+      ],
+      "started": "2026-11-06T13:02:00.549015+00:00",
+      "ended": "2026-11-06T13:02:09.596195+00:00",
+      "seconds": 9.047,
+      "exit": 0
+    },
+    "browser-final": {
+      "label": "browser-final",
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "command": [
+        "timeout",
+        "1200",
+        "node",
+        "tests/browser/run.mjs",
+        "journey.spec.ts",
+        "--grep",
+        "native tax rules show"
+      ],
+      "started": "2026-11-06T13:01:15.981584+00:00",
+      "ended": "2026-11-06T13:02:54.671720+00:00",
+      "seconds": 98.69,
+      "exit": 0
+    },
+    "build-final": {
+      "label": "build-final",
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "command": [
+        "npx",
+        "-y",
+        "@runeditrun/rer",
+        "build"
+      ],
+      "started": "2026-11-06T13:02:47.867719+00:00",
+      "ended": "2026-11-06T13:02:55.547542+00:00",
+      "seconds": 7.68,
+      "exit": 0
+    },
+    "typecheck-final": {
+      "label": "typecheck-final",
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "command": [
+        "pnpm",
+        "run",
+        "typecheck"
+      ],
+      "started": "2026-11-06T13:02:55.609256+00:00",
+      "ended": "2026-11-06T13:02:56.002359+00:00",
+      "seconds": 0.393,
+      "exit": 0
+    },
+    "first-party-final": {
+      "label": "first-party-final",
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "command": [
+        "npx",
+        "-y",
+        "@runeditrun/rer",
+        "check",
+        "--profile",
+        "first-party"
+      ],
+      "started": "2026-11-06T13:02:56.059839+00:00",
+      "ended": "2026-11-06T13:02:56.910738+00:00",
+      "seconds": 0.851,
+      "exit": 0
+    },
+    "source-lock-final": {
+      "label": "source-lock-final",
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "command": [
+        "node",
+        "scripts/edition-authoring/cli.mjs",
+        "check"
+      ],
+      "started": "2026-11-06T13:02:56.961578+00:00",
+      "ended": "2026-11-06T13:02:57.189962+00:00",
+      "seconds": 0.228,
+      "exit": 0
+    },
+    "contract-views-final": {
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "commands": [
+        [
+          "node",
+          "src/base/contract-docs.mjs",
+          "write"
+        ],
+        [
+          "node",
+          "src/base/contract-docs.mjs",
+          "check"
+        ],
+        [
+          "git",
+          "checkout",
+          "origin/main",
+          "--",
+          "ACCEPTANCE.md",
+          "docs/CLAIMS.md"
+        ]
+      ],
+      "exit": 0,
+      "generated_views_committed": false,
+      "at": "2026-11-06T13:02:57.434060+00:00"
+    },
+    "expected-stale-views": {
+      "label": "expected-stale-views",
+      "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "command": [
+        "node",
+        "src/base/contract-docs.mjs",
+        "check"
+      ],
+      "started": "2026-11-06T13:09:41.852935+00:00",
+      "ended": "2026-11-06T13:09:41.972087+00:00",
+      "seconds": 0.119,
+      "exit": 1
+    }
+  },
+  "verify": {
+    "id": 42221995815,
+    "event": "push",
+    "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+    "status": "completed",
+    "conclusion": "failure",
+    "exception": "generated-view-only",
+    "root_job": 127906123023,
+    "aggregate_job": 127906242854
+  },
+  "publication_scan": "Mac lander responsibility; not run in cloud",
+  "landing": "not performed",
+  "pr": null,
+  "recorded_at": "2026-11-06T13:09:42.448124+00:00"
+}

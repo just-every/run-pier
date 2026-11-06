@@ -1,0 +1,14 @@
+sx-pier-c-f81 — actual work plan
+Repository: just-every/run-pier. Product branch: cloud/sx-pier-c-f81.
+Baseline: 5d7ffdd81f3b3c86da7252525a93dccaa5e7572f. Contract counts: 30 done, 57 partial, 11 missing (98 total).
+Target: SALES-006, partial. Keep acceptance text unchanged.
+1. Map native currency gap to the existing quote, invoice, credit, reports and PDF public doors.
+2. Admit only explicit CAD quote prices with a current owner and a positive USD-per-CAD rate; never reuse a USD price tier for CAD.
+3. Retain currency, source prices, approval and acceptance versions, exchange rate and USD values. Material revisions invalidate approval and preserve earlier versions and documents.
+4. Carry the accepted quote into exact partial-shipment invoices; refuse currency, rate and price mismatches. Preserve linked-credit currency, separated balances and USD physical cost and margin.
+5. Extend the existing money and document API sanity journeys, plus the native tax browser journey already invoked by Verify. Use real authenticated Worker and D1 public commands. Exercise supported and refused paths, restart and command replay, revoked authority, independently calculated exported values and retained PDF bytes. No new provider requests or permanent test registrations.
+6. Operate creation, refusal and recovery, revision, renewed approval, acceptance and two partial invoices at 1440. Capture changed screens once at 1440 and 390.
+7. Run touched API files, typecheck, first-party contract check, contract generation and source lock check; restore generated views. Preserve a save on the named branch, merge newer main before final candidate, regenerate lock last, inspect all candidate identities and push through the guard.
+8. Discover exact-SHA Verify through REST and publish explicit non-secret report and receipts only on evidence/sx-pier-c-f81. The maintained lander owns the publication scan and main landing.
+Held remainder: Avalara sandbox and Shopify store are unavailable; live QBO work is on the separate unlanded candidate. External invoice and credit posting, tax commits and reversals, wider currencies and price lists, broader policies and delegation, channel charged-tax and payment closure and actual document delivery remain omitted. Full SALES-006 stays partial.
+No next unblocked native clause touching these files is supplied beyond the selected CAD work; TAX-001's native table slice already exists and its live provider obligations remain held.

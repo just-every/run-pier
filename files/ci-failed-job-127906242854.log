@@ -1,0 +1,7 @@
+verify	Require the plan and every shard	﻿2026-11-06T13:00:48.9094284Z ##[group]Run test "$PLAN" = success
+verify	Require the plan and every shard	2026-11-06T13:00:48.9095165Z test "$PLAN" = success
+verify	Require the plan and every shard	2026-11-06T13:00:48.9096031Z if [ "$SKIP" = true ]; then exit 0; fi
+verify	Require the plan and every shard	2026-11-06T13:00:48.9097007Z for result in $RESULTS; do test "$result" = success; done
+verify	Require the plan and every shard	2026-11-06T13:00:48.9325918Z shell: /usr/bin/bash -e {0}
+verify	Require the plan and every shard	2026-11-06T13:00:48.9329628Z ##[endgroup]
+verify	Require the plan and every shard	2026-11-06T13:00:48.9521780Z ##[error]Process completed with exit code 1.

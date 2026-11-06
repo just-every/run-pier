@@ -1,0 +1,17 @@
+{
+  "label": "browser",
+  "head": "1c63b4a60176c145d448194b9678a5ce335a7a22",
+  "command": [
+    "timeout",
+    "1200",
+    "node",
+    "tests/browser/run.mjs",
+    "journey.spec.ts",
+    "--grep",
+    "native tax rules show"
+  ],
+  "started": "2026-11-06T12:55:58.172229+00:00",
+  "ended": "2026-11-06T12:57:38.186407+00:00",
+  "seconds": 100.014,
+  "exit": 0
+}

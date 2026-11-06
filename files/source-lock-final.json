@@ -1,0 +1,13 @@
+{
+  "label": "source-lock-final",
+  "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+  "command": [
+    "node",
+    "scripts/edition-authoring/cli.mjs",
+    "check"
+  ],
+  "started": "2026-11-06T13:02:56.961578+00:00",
+  "ended": "2026-11-06T13:02:57.189962+00:00",
+  "seconds": 0.228,
+  "exit": 0
+}

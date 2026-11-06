@@ -1,0 +1,6 @@
+rer-verify	Run node src/base/contract-docs.mjs check	﻿2026-11-06T13:00:43.6185244Z ##[group]Run node src/base/contract-docs.mjs check
+rer-verify	Run node src/base/contract-docs.mjs check	2026-11-06T13:00:43.6185487Z node src/base/contract-docs.mjs check
+rer-verify	Run node src/base/contract-docs.mjs check	2026-11-06T13:00:43.6201602Z shell: /usr/bin/bash -e {0}
+rer-verify	Run node src/base/contract-docs.mjs check	2026-11-06T13:00:43.6203680Z ##[endgroup]
+rer-verify	Run node src/base/contract-docs.mjs check	2026-11-06T13:00:43.6718893Z ACCEPTANCE.md: generated content differs; run contract-docs write.
+rer-verify	Run node src/base/contract-docs.mjs check	2026-11-06T13:00:43.6763316Z ##[error]Process completed with exit code 1.

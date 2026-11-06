@@ -1,0 +1,235 @@
+{
+  "jobs": [
+    {
+      "id": 127906069728,
+      "run_id": 42221995815,
+      "head_sha": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "name": "plan",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-11-06T13:00:25Z",
+      "completed_at": "2026-11-06T13:00:30Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-06T13:00:25Z",
+          "completed_at": "2026-11-06T13:00:26Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-06T13:00:26Z",
+          "completed_at": "2026-11-06T13:00:27Z"
+        },
+        {
+          "name": "Run set -euo pipefail",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-06T13:00:27Z",
+          "completed_at": "2026-11-06T13:00:27Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-06T13:00:27Z",
+          "completed_at": "2026-11-06T13:00:27Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-06T13:00:27Z",
+          "completed_at": "2026-11-06T13:00:27Z"
+        }
+      ],
+      "html_url": "https://github.com/just-every/run-pier/actions/runs/42221995815/job/127906069728"
+    },
+    {
+      "id": 127906123023,
+      "run_id": 42221995815,
+      "head_sha": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "name": "rer-verify",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-11-06T13:00:32Z",
+      "completed_at": "2026-11-06T13:00:46Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-06T13:00:32Z",
+          "completed_at": "2026-11-06T13:00:33Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-06T13:00:33Z",
+          "completed_at": "2026-11-06T13:00:35Z"
+        },
+        {
+          "name": "Reclaim unused hosted runner toolchain space",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-06T13:00:35Z",
+          "completed_at": "2026-11-06T13:00:35Z"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-06T13:00:35Z",
+          "completed_at": "2026-11-06T13:00:39Z"
+        },
+        {
+          "name": "Run corepack enable && corepack prepare pnpm@10.12.4 --activate",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-06T13:00:39Z",
+          "completed_at": "2026-11-06T13:00:40Z"
+        },
+        {
+          "name": "Run pnpm install --frozen-lockfile",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-06T13:00:40Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Run node src/base/contract-docs.mjs check",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 7,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Install Chromium",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 8,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Run pnpm exec rer check --profile first-party",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 9,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Run pnpm exec rer verify --no-queue",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 10,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Run pnpm exec rer build --site --no-queue",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 11,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Verify connector recovery and capture desktop and phone screens",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 12,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 25,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 26,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27,
+          "started_at": "2026-11-06T13:00:43Z",
+          "completed_at": "2026-11-06T13:00:43Z"
+        }
+      ],
+      "html_url": "https://github.com/just-every/run-pier/actions/runs/42221995815/job/127906123023"
+    },
+    {
+      "id": 127906242854,
+      "run_id": 42221995815,
+      "head_sha": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-11-06T13:00:48Z",
+      "completed_at": "2026-11-06T13:00:50Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-06T13:00:48Z",
+          "completed_at": "2026-11-06T13:00:48Z"
+        },
+        {
+          "name": "Require the plan and every shard",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 2,
+          "started_at": "2026-11-06T13:00:48Z",
+          "completed_at": "2026-11-06T13:00:48Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-06T13:00:48Z",
+          "completed_at": "2026-11-06T13:00:49Z"
+        }
+      ],
+      "html_url": "https://github.com/just-every/run-pier/actions/runs/42221995815/job/127906242854"
+    }
+  ]
+}

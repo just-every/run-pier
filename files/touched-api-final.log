@@ -1,0 +1,22 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ landed receipts, priced shipments and dated FIFO/average reports reconcile (3773.608593ms)
+✔ versioned case quotes retain discounted tax PDFs, exact approval and once-only acceptance (5212.829285ms)
+✔ quote approver role defaults to Owner and policy or live role changes revoke open approvals (3099.928399ms)
+✔ native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids (8061.522649ms)
+✔ native tax rules retain per-line destination and origin estimates, refuse unsafe exemptions and recover after restart (8883.148864ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ pack slip contains only current partial cartons and reading cannot dispatch (2907.209355ms)
+✔ business PDFs retain every live document kind, Unicode, aliases, packs and edited template versions (8259.416923ms)
+✔ explicit quote and invoice PDF sends retain recipients and signed bounces become failed without resending (3664.948597ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45970.669118

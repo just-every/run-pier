@@ -1,0 +1,14 @@
+{
+  "label": "role-regression",
+  "head": "406ba8284a5fc1e54327eed15d0c2c82bda8a0a2",
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=commercial role reads|scoped warehouse receipts",
+    "tests/api/security-import.test.mjs"
+  ],
+  "started": "2026-11-06T13:02:00.549015+00:00",
+  "ended": "2026-11-06T13:02:09.596195+00:00",
+  "seconds": 9.047,
+  "exit": 0
+}

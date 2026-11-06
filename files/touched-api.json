@@ -1,0 +1,15 @@
+{
+  "label": "touched-api",
+  "head": "1c63b4a60176c145d448194b9678a5ce335a7a22",
+  "command": [
+    "node",
+    "--test",
+    "--test-concurrency=1",
+    "tests/api/costing.test.mjs",
+    "tests/api/packing-documents.test.mjs"
+  ],
+  "started": "2026-11-06T12:55:56.668310+00:00",
+  "ended": "2026-11-06T12:57:09.232843+00:00",
+  "seconds": 72.565,
+  "exit": 0
+}

@@ -1,0 +1,27 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ landed receipts, priced shipments and dated FIFO/average reports reconcile (3902.043427ms)
+✔ versioned case quotes retain discounted tax PDFs, exact approval and once-only acceptance (4734.054837ms)
+✔ customer CSV and XLSX intake resolves 40 lines, names unknown rows and prices three customer POs once (3234.680315ms)
+✔ recurring orders apply price, stock and credit policy once per due day and stop after pause or cancel (3992.89146ms)
+✔ direct dropship demand retains supplier PO, confirmation, tracking, cost and bounded customer credit without warehouse stock (9372.278995ms)
+✔ quote approver role defaults to Owner and policy or live role changes revoke open approvals (3269.483833ms)
+✔ native shipment and prepay invoices retain terms, charge tax, credits and unpaid voids (8186.020064ms)
+✔ invoice-specific Stripe checkout verifies ACH success once and expires paid or changed links (5913.954438ms)
+✔ saved warehouse reports retain exact as-of snapshots and scheduled exports without exposing foreign stock (2718.141115ms)
+✔ native tax rules retain per-line destination and origin estimates, refuse unsafe exemptions and recover after restart (8694.168045ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ pack slip contains only current partial cartons and reading cannot dispatch (2852.535077ms)
+✔ business PDFs retain every live document kind, Unicode, aliases, packs and edited template versions (9139.109585ms)
+✔ explicit quote and invoice PDF sends retain recipients and signed bounces become failed without resending (4356.5818ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 72475.000858

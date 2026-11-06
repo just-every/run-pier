@@ -1,0 +1,5 @@
+ WARN  Unsupported engine: wanted: {"node":"22.20.0"} (current: {"node":"v24.19.0","pnpm":"10.12.4"})
+
+> inventory-pier@0.1.1 typecheck /home/agent/rer-consolidation/work/sx-pier-c-f81/run-pier
+> tsc --build --incremental
+
