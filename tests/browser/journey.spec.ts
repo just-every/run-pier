@@ -1633,12 +1633,15 @@ test('two distinct agents share one draft while current human authority alone ap
     for (const persona of ['member', 'admin']) {
       const agentContext = await browser.newContext()
       const agentPage = await agentContext.newPage()
-      agents.push({ context: agentContext, page: agentPage })
+      const agent = { context: agentContext, page: agentPage, restoreRole: undefined as object | undefined }
+      agents.push(agent)
       const entry = new URL(process.env.PIER_OPEN!)
       const fragment = new URLSearchParams(entry.hash.slice(1)); fragment.set('as', persona); entry.hash = fragment.toString()
       try { await agentPage.goto(entry.href); await agentPage.waitForURL(url => !url.hash.includes('rer-dev') && url.pathname === '/app') }
       catch { throw new Error('The local agent could not sign in through its native development door.') }
       const session = await (await agentContext.request.get(`${base}/auth/session`)).json()
+      const previous = (await (await context.request.get(`${base}/api/pier/state`)).json()).roles.find((role: any) => role.id === session.operator.id)
+      agent.restoreRole = { operatorId: session.operator.id, role: previous?.role ?? 'viewer', permissions: previous?.permissions, visibility: previous?.visibility, preparationGrant: previous?.preparationGrant }
       await command('role.set', { operatorId: session.operator.id, role: 'agent' })
     }
     const first = agents[0], second = agents[1]
@@ -1694,6 +1697,23 @@ test('two distinct agents share one draft while current human authority alone ap
     const to = await command('order.create', { customerId: customer.id, promiseDate: '2026-11-06', lines: [{ itemId: item.id, quantity: '2' }] })
     let count = await command('count.capture', { locationId: bin.id })
     count = await command('count.record', { countId: count.id, version: count.version, lines: [{ itemId: item.id, status: 'sellable', quantity: '3' }], reason: `${tag} physical recount` })
+    await page.goto(`${base}/app#activity`); await page.reload()
+    const grantForm = section(page, 'Set an invited operator’s role')
+    await grantForm.getByLabel('Operator', { exact: true }).selectOption(firstSession.operator.id)
+    await grantForm.getByLabel('Limit agent to preparation evidence', { exact: true }).check()
+    await grantForm.getByLabel('Preparation evidence identities (one per line)', { exact: true }).fill([item.id, bin.id, supplier.id, po.id, from.id, to.id, count.id].join('\n'))
+    await submit(page, grantForm, 'Save')
+    await grantForm.getByLabel('Operator', { exact: true }).selectOption(firstSession.operator.id)
+    await expect(grantForm.getByLabel('Preparation evidence identities (one per line)', { exact: true })).toHaveValue([item.id, bin.id, supplier.id, po.id, from.id, to.id, count.id].join('\n'))
+    const scoped = await (await first.context.request.get(`${base}/api/pier/state`)).json()
+    expect(scoped.orders.map((order: any) => order.id).sort()).toEqual([from.id, to.id].sort())
+    expect(scoped.items.map((entry: any) => entry.id)).toEqual([item.id])
+    expect(scoped.orders.every((order: any) => !order.customerId && order.lines.every((line: any) => line.price === undefined))).toBe(true)
+    if (shots) for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await grantForm.screenshot({ path: join(shots, `${width}-agent-preparation-grant.png`) })
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 })
     const prepare = async (assumptions: string) => {
       const response = await first.context.request.post(`${base}/api/pier/commands`, { headers: { origin: base }, data: {
         commandId: crypto.randomUUID(), type: 'proposal.prepare', payload: { kind: 'reallocation', assumptions, evidence: [from.id, to.id], plan: { fromOrderId: from.id, toOrderId: to.id, itemId: item.id, quantity: '1' } },
@@ -1726,9 +1746,11 @@ test('two distinct agents share one draft while current human authority alone ap
     await expect(review.locator('.proposal-evidence')).toContainText(customer.name)
     await review.getByText('Show details', { exact: true }).click()
     await expect(review.getByRole('heading', { name: 'Stock position at preparation', exact: true })).toBeVisible()
+    await expect(review).toContainText('Limited to 7 owner-granted sources at preparation')
     const promises = review.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Order', exact: true }) })
     await expect(promises).toContainText(from.reference)
     await expect(promises).toContainText(to.reference)
+    await expect(promises).toContainText('Outside preparation grant')
     await capture(review, 'evidence')
     await submit(page, review, await review.getByRole('button', { name: /^Approve exact version / }).innerText())
     await command('count.approve', { countId: count.id, version: count.version })
@@ -1761,7 +1783,10 @@ test('two distinct agents share one draft while current human authority alone ap
     expect(applied.counts).toEqual(beforeApply.counts)
     expect(applied.purchaseOrders).toEqual(beforeApply.purchaseOrders)
     expect(applied.proposals.find((row: any) => row.id === fresh.id).approval.actorId).not.toBe(firstSession.operator.id)
-  } finally { for (const agent of agents) await agent.context.close() }
+  } finally {
+    try { for (const agent of agents) if (agent.restoreRole) await command('role.set', agent.restoreRole) }
+    finally { await Promise.all(agents.map(agent => agent.context.close())) }
+  }
 })
 
 
