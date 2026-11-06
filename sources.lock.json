@@ -347,7 +347,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "36592e032013ab401379d16d1475986a4d34e484fbb05ca087473a6b820f933a",
+      "sha256": "3588fdb3e00e6c7297b6ed3bcc15e956bcae9758254ff3e82d73b20d4ad3a0c3",
       "executable": false
     },
     "DEMO.md": {
@@ -3527,7 +3527,7 @@
       "executable": false
     },
     "src/pier/orders.ts": {
-      "sha256": "1e5339b8f2580dd3acc8a1fdbfa3fecfa513d324e50ad82475cf10b819d3394b",
+      "sha256": "31cec06e5020c300d95d342f42a257a1b3af7b91e1db0dbc81a8d6e4994af5db",
       "executable": false
     },
     "src/pier/outbound-webhooks.ts": {
@@ -4783,7 +4783,7 @@
       "executable": false
     },
     "tests/api/costing.test.mjs": {
-      "sha256": "f1112e1c5008b39ae6f52fc3af6f5ceb07871302b265ddf7b3b623058a24412d",
+      "sha256": "ad30447ad3569d881fda4c64f5b67d3dcadbbf9dfc88ae73b51293a5f0dbfec2",
       "executable": false
     },
     "tests/api/dependency-custody.test.mjs": {
