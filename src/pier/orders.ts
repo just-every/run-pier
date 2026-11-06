@@ -84,7 +84,7 @@ export function reserve(c: Context, o: Row) {
 export function orderView(c: Context, o: Row, privateCommercial=c.actor.role==='owner') {
   return {
     ...o,
-    ...(privateCommercial?{}:{salesRepId:undefined,salesRep:undefined,repHistory:undefined,creditClearance:undefined,quoteApproval:undefined,quoteHistory:undefined,tax:o.tax?{status:o.tax.status,source:o.tax.source,amount:o.tax.amount,rate:o.tax.rate,providerCommit:o.tax.providerCommit}:undefined}),
+    ...(privateCommercial?{}:{salesRepId:undefined,salesRep:undefined,repHistory:undefined,creditClearance:undefined,rateReview:undefined,quoteApproval:undefined,quoteHistory:undefined,tax:o.tax?{status:o.tax.status,source:o.tax.source,amount:o.tax.amount,rate:o.tax.rate,providerCommit:o.tax.providerCommit}:undefined}),
     lines: o.lines.map((l: any) => {
       const q = l.kit ? reservedKits(c.s, l) : c.s.reservations
         .filter((r) => r.orderLineId === l.id)
