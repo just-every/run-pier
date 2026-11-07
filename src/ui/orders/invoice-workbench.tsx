@@ -17,7 +17,7 @@ export function InvoiceWorkbench({state,run,busy}:{state:PierState;run:RunComman
     </Form>
     <InvoiceDraftForm state={state} run={run} busy={busy}/>
     <section className="panel"><h2>Native customer invoices</h2><Table headings={['Invoice','Date / terms','Amount','State / review']}>
-      {invoices.map(invoice=><tr key={invoice.id}><td>{invoice.reference}<p>{orders.find(o=>o.id===invoice.orderId)?.reference}</p></td><td>{invoice.invoiceDate}<p>Due {invoice.dueDate}</p></td><td>{invoice.currency} <Amount value={invoice.total}/><p>USD <Amount value={invoice.usdTotal}/></p><p>Open balance <Amount value={invoice.balance}/></p></td><td>{invoice.status}<p>{invoice.ledger?.status}</p>
+      {invoices.map(invoice=><tr key={invoice.id}><td>{invoice.reference}<p>{orders.find(o=>o.id===invoice.orderId)?.reference}</p></td><td>{invoice.invoiceDate}<p>Due {invoice.dueDate}</p></td><td>{invoice.currency} <Amount value={invoice.total} currency={invoice.currency}/><p>USD <Amount value={invoice.usdTotal}/></p><p>Open balance <Amount value={invoice.balance} currency={invoice.currency}/></p></td><td>{invoice.status}<p>{invoice.ledger?.status}</p>
         {invoice.status==='draft'&&<button disabled={busy} onClick={()=>run('invoice.review',{invoiceId:invoice.id,version:invoice.version})}>Review exact invoice</button>}
         {invoice.status==='reviewed'&&<button disabled={busy} onClick={()=>run('invoice.authorize',{invoiceId:invoice.id,version:invoice.version})}>Authorize immutable invoice</button>}
         {invoice.status==='authorized'&&<>{invoice.balance!=='0.000000000000'&&!String(invoice.balance).startsWith('-')&&<button disabled={busy} onClick={()=>run('invoice.payLink',{invoiceId:invoice.id,version:invoice.version})}>Create invoice payment link</button>}<button disabled={busy} onClick={()=>run('print.generate',{kind:invoice.policy==='prepay'?'proforma':'invoice',sourceId:invoice.id})}>Generate invoice PDF</button></>}
@@ -40,7 +40,7 @@ export function InvoiceWorkbench({state,run,busy}:{state:PierState;run:RunComman
       <Select label="Credit physical return" name="returnId" required={false} rows={records(state,'returns').map(r=>({...r,label:r.reason??r.id}))}/>
       <Field label="Credit returned quantity" name="quantity" required={false}/><Field label="Credit adjustment amount" name="amount" required={false}/><Field label="Credit note reason" name="reason"/>
     </Form>
-    {credits.map(credit=><section className="panel" key={credit.id}><h3>{credit.reference}</h3><p>{credit.status} · {credit.currency} <Amount value={credit.total}/></p>
+    {credits.map(credit=><section className="panel" key={credit.id}><h3>{credit.reference}</h3><p>{credit.status} · {credit.currency} <Amount value={credit.total} currency={credit.currency}/></p>
       {credit.status==='draft'&&<button disabled={busy} onClick={()=>run('invoice.credit.review',{creditId:credit.id,version:credit.version})}>Review exact credit</button>}
       {credit.status==='reviewed'&&<button disabled={busy} onClick={()=>run('invoice.credit.authorize',{creditId:credit.id,version:credit.version})}>Authorize credit note</button>}
     </section>)}

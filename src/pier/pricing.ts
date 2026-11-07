@@ -74,7 +74,11 @@ export function orderPrice(
   itemId: string,
   quantity: bigint,
   suppliedPrice: unknown,
+  currency = "USD",
 ) {
+  if (!['USD', 'CAD'].includes(currency)) fail('CURRENCY', 'Choose USD or CAD.');
+  if (currency === 'CAD' && (typeof suppliedPrice !== 'string' || !suppliedPrice.trim()))
+    fail('CAD_PRICE', 'Enter an explicit CAD base-unit price for every line. USD customer tiers cannot price CAD quotes.');
   const today = c.now.slice(0, 10);
   const tier =
     suppliedPrice === undefined
@@ -116,7 +120,7 @@ export function orderPrice(
     priceSnapshot: {
       source: tier ? "priceList" : "supplied",
       price,
-      currency: "USD",
+      currency,
       priceList: tier ? structuredClone(tier) : null,
       actorId: c.actor.id,
       commandId: c.commandId,

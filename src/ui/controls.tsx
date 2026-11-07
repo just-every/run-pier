@@ -32,12 +32,12 @@ export function Table({ headings, children, numeric = [], className = '' }: { he
 }
 // Up to four facts read across one row; a longer record reads as label/value pairs.
 export function Facts({ values }: { values: { label: string; value: ReactNode }[] }) { return <dl className={values.length > 4 ? 'facts facts-list' : 'facts'}>{values.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value ?? '—'}</dd></div>)}</dl> }
-export function Lines({ items, price = false, optionalPrice = false, quantityLabel = 'Quantity (base units)', onChange }: { items: RecordData[]; price?: boolean; optionalPrice?: boolean; quantityLabel?:string; onChange: (lines: { itemId: string; quantity: string; price?: string }[]) => void }) {
+export function Lines({ items, price = false, optionalPrice = false, priceCurrency = 'USD', quantityLabel = 'Quantity (base units)', onChange }: { items: RecordData[]; price?: boolean; optionalPrice?: boolean; priceCurrency?: string; quantityLabel?:string; onChange: (lines: { itemId: string; quantity: string; price?: string }[]) => void }) {
   const [lines, setLines] = useState([{ itemId: '', quantity: '', price: '' }])
   // A fresh (or reset) editor tells its owner it holds one empty line.
   useEffect(() => { onChange(lines) }, [])
   function update(index: number, key: string, value: string) { const next = lines.map((line, i) => i === index ? { ...line, [key]: value } : line); setLines(next); onChange(next) }
-  return <div className="line-editor">{lines.map((line, i) => <div className="line-row" key={i}><Select label={`Item ${i + 1}`} rows={items} value={line.itemId} onChange={value => update(i, 'itemId', value)} /><Field label={quantityLabel} value={line.quantity} onChange={value => update(i, 'quantity', value)} inputMode="decimal" />{price && <Field label="Unit price (USD)" required={!optionalPrice} hint={optionalPrice ? 'Blank applies the customer price list; no matching price stays unpriced.' : undefined} value={line.price} onChange={value => update(i, 'price', value)} inputMode="decimal" />}<button type="button" disabled={lines.length === 1} onClick={() => { const next = lines.filter((_, n) => n !== i); setLines(next); onChange(next) }}>Remove</button></div>)}<button type="button" onClick={() => { const next = [...lines, { itemId: '', quantity: '', price: '' }]; setLines(next); onChange(next) }}>+ Add line</button></div>
+  return <div className="line-editor">{lines.map((line, i) => <div className="line-row" key={i}><Select label={`Item ${i + 1}`} rows={items} value={line.itemId} onChange={value => update(i, 'itemId', value)} /><Field label={quantityLabel} value={line.quantity} onChange={value => update(i, 'quantity', value)} inputMode="decimal" />{price && <Field label={`Unit price (${priceCurrency})`} required={!optionalPrice} hint={priceCurrency === 'CAD' ? 'Enter an explicit CAD base-unit price; USD customer tiers are unavailable.' : optionalPrice ? 'Blank applies the customer price list; no matching price stays unpriced.' : undefined} value={line.price} onChange={value => update(i, 'price', value)} inputMode="decimal" />}<button type="button" disabled={lines.length === 1} onClick={() => { const next = lines.filter((_, n) => n !== i); setLines(next); onChange(next) }}>Remove</button></div>)}<button type="button" onClick={() => { const next = [...lines, { itemId: '', quantity: '', price: '' }]; setLines(next); onChange(next) }}>+ Add line</button></div>
 }
 export function Evidence({ value }: { value: unknown }) {
   if (value === null || value === undefined) return null
@@ -51,8 +51,8 @@ export function Evidence({ value }: { value: unknown }) {
 }
 
 /** Unknown financial values stay visible; the tooltip preserves the exact saved decimal. */
-export function Amount({ value, unknown = 'Unvalued', dollars = false }: { value: unknown; unknown?: string; dollars?: boolean }) {
+export function Amount({ value, unknown = 'Unvalued', dollars = false, currency = 'USD' }: { value: unknown; unknown?: string; dollars?: boolean; currency?: string }) {
   if (value === null || value === undefined) return <span>{unknown}</span>
   const shown = money(value)
-  return <span title={`${String(value)} USD`}>{dollars ? shown.replace(/^(-?)/, '$1$') : shown}</span>
+  return <span title={`${String(value)} ${currency}`}>{dollars ? shown.replace(/^(-?)/, '$1$') : shown}</span>
 }

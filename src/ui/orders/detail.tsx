@@ -35,7 +35,7 @@ export function OrderCard({ state, order, run, busy, costs, resolve }: { state: 
   const lastShipment = shipments.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).at(-1)
   const done = picking ? picks.filter(line => line.status === 'picked').length : order.lines.filter((line: any) => difference(sum([line.dispatched, line.cancelled]), line.quantity) === '0').length
   const total = picking ? picks.length : order.lines.length, progress = total ? Math.round(done / total * 100) : 0
-  const margins = order.lines.map((line: any) => margin(line.price, costs.lines[line.id]))
+  const margins = order.lines.map((line: any) => margin(line.price, costs.lines[line.id], order.usdRate ?? '1'))
   const priced = order.lines.map((line: any, index: number) => ({ revenue: Number(line.lineTotal), margin: margins[index] })).filter((row: { revenue: number; margin: number | null }) => row.margin !== null && row.revenue > 0)
   const revenue = priced.reduce((sum: number, row: { revenue: number }) => sum + row.revenue, 0)
   const average = revenue ? Math.round(priced.reduce((sum: number, row: { revenue: number; margin: number }) => sum + row.revenue * row.margin, 0) / revenue) : null
@@ -67,11 +67,11 @@ export function OrderCard({ state, order, run, busy, costs, resolve }: { state: 
           <td className="num line-ordered">{line.quantity}</td>
           <td className="num line-reserved">{line.reserved}</td>
           {shipped && <td className="num line-dispatched">{line.dispatched}</td>}
-          <td className="num line-price"><Amount value={line.price} unknown="—" dollars /></td>
+          <td className="num line-price">{order.currency === 'CAD' ? 'CAD ' : ''}<Amount value={line.price} currency={order.currency ?? 'USD'} unknown="—" dollars /></td>
           <td className="num line-margin" title={margins[index] === null ? costs.failed ? 'Line costs could not be read' : 'No valued cost for this line yet' : 'Price over this line’s own cost: dispatched and reserved stock'}>{margins[index] === null ? '—' : `${margins[index]}%`}</td>
         </tr> })}</tbody>
     </table></div>
-    <div className="order-total">{order.lines.length > shown && <button type="button" className="link" onClick={() => setAll(!all)}>{all ? 'Show fewer lines' : `+ ${order.lines.length - shown} more lines`}</button>}<span>Order total</span><b><Amount value={order.total} unknown="Unpriced" dollars /></b>{average !== null ? <small>{average}% avg. margin</small> : costs.failed ? <small className="cost-failed">Margins could not be read</small> : null}</div>
+    <div className="order-total">{order.lines.length > shown && <button type="button" className="link" onClick={() => setAll(!all)}>{all ? 'Show fewer lines' : `+ ${order.lines.length - shown} more lines`}</button>}<span>Order total {order.currency ?? 'USD'}</span><b><Amount value={order.total} currency={order.currency ?? 'USD'} unknown="Unpriced" dollars /></b>{average !== null ? <small>{average}% avg. margin</small> : costs.failed ? <small className="cost-failed">Margins could not be read</small> : null}</div>
     <Exception key={`${order.id}-${order.version}`} state={state} order={order} run={run} busy={busy} resolve={resolve} />
   </section>
 }

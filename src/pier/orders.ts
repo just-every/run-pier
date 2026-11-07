@@ -84,7 +84,7 @@ export function reserve(c: Context, o: Row) {
 export function orderView(c: Context, o: Row, privateCommercial=c.actor.role==='owner') {
   return {
     ...o,
-    ...(privateCommercial?{}:{salesRepId:undefined,salesRep:undefined,repHistory:undefined,creditClearance:undefined,quoteApproval:undefined,quoteHistory:undefined,tax:o.tax?{status:o.tax.status,source:o.tax.source,amount:o.tax.amount,rate:o.tax.rate,providerCommit:o.tax.providerCommit}:undefined}),
+    ...(privateCommercial?{}:{salesRepId:undefined,salesRep:undefined,repHistory:undefined,creditClearance:undefined,rateReview:undefined,quoteApproval:undefined,quoteHistory:undefined,tax:o.tax?{status:o.tax.status,source:o.tax.source,amount:o.tax.amount,rate:o.tax.rate,providerCommit:o.tax.providerCommit}:undefined}),
     lines: o.lines.map((l: any) => {
       const q = l.kit ? reservedKits(c.s, l) : c.s.reservations
         .filter((r) => r.orderLineId === l.id)
@@ -162,11 +162,13 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
   }
   if (type === 'quote.revise') {
     const q=get(c.s,'orders',p.orderId);fresh(q,p.version);
+    if(q.currency==='CAD')requireRole(c,[]);
     if(q.documentType!=='quote'||q.lines.some((l:any)=>decimal(l.dispatched)>0n)||c.s.waves.some(w=>w.lines.some((l:any)=>l.orderId===q.id&&decimal(l.picked)>0n)))fail('QUOTE_STATE','Only unpicked, unshipped quote-derived demand can be revised.');
     const reason=text(p.reason,'Quote revision reason');
     const {quoteHistory:priorHistory,...priorVersion}=structuredClone(q);
     q.quoteHistory=[...(priorHistory??[]),{...priorVersion,approval:priorVersion.quoteApproval,reason,at:c.now}];
-    const terms = { freight: q.charges?.find((r:any)=>r.kind==='freight')?.amount, handling: q.charges?.find((r:any)=>r.kind==='handling')?.amount, ...p, customerId:q.customerId };
+    const currency = p.currency ?? q.currency ?? 'USD';
+    const terms = { currency, usdRate: currency === (q.currency ?? 'USD') ? q.usdRate ?? '1' : undefined, freight: q.charges?.find((r:any)=>r.kind==='freight')?.amount, handling: q.charges?.find((r:any)=>r.kind==='handling')?.amount, ...p, customerId:q.customerId };
     q.lines=quoteLines(c,terms);
     q.shipTo=p.shipTo??null;
     c.s.reservations=c.s.reservations.filter(r=>r.orderId!==q.id);c.s.traceReservations=c.s.traceReservations.filter(t=>c.s.reservations.some(r=>r.id===t.reservationId));
@@ -176,21 +178,22 @@ export function orders(c: Context, type: string, p: any): Row | undefined {
     reserve(c,q);return orderView(c,q);
   }
   if (type === 'quote.create') {
-    if(p.currency && p.currency!=='USD') fail('CURRENCY','Quotes currently use USD.');
+    if(p.currency !== undefined && !['USD','CAD'].includes(p.currency)) fail('CURRENCY','Quotes support USD and owner-reviewed CAD.');
     if(p.warehouse && !c.s.locations.some(l=>l.kind==='bin'&&l.warehouse===p.warehouse)) fail('WAREHOUSE','Choose an existing warehouse.');
     const lines=quoteLines(c,p);
-    const quote=row(c,'orders',{reference:nextReference(c.s.orders,'SO'),customerId:p.customerId,...repDefaults(c.s,p.customerId),warehouse:p.warehouse||null,promiseDate:p.promiseDate||null,channel:'manual',currency:'USD',documentType:'quote',lines});
+    const quote=row(c,'orders',{reference:nextReference(c.s.orders,'SO'),customerId:p.customerId,...repDefaults(c.s,p.customerId),warehouse:p.warehouse||null,promiseDate:p.promiseDate||null,channel:'manual',currency:p.currency??'USD',documentType:'quote',lines});
     routeOrder(c,quote,{...p,routingSource:p.routingSource??'manual'});Object.assign(quote,quoteTerms(c,{...p,warehouse:quote.routing?.reserveWarehouses?.length>1?null:quote.warehouse},lines));reserve(c,quote);
     return orderView(c,quote);
   }
   if (type === 'quote.accept') {
     const quote = get(c.s, 'orders', p.orderId);
+    if(quote.currency==='CAD')requireRole(c,[]);
     if(quote.acceptedAt) return orderView(c,quote);
     fresh(quote, p.version);currentQuote(c,quote);
     // Acceptance binds the exact human-reviewed commercial version.
     requireQuoteApproval(c, quote);
     if (quote.documentType !== 'quote' || quote.acceptedAt) fail('QUOTE_STATE', 'Choose an open quote.');
-    quote.acceptedAt = c.now; quote.acceptedBy = c.actor.id;quote.acceptanceHistory=[...(quote.acceptanceHistory??[]),{actorId:c.actor.id,at:c.now,version:quote.version,total:quote.total}]; quote.version++;
+    quote.acceptedAt = c.now; quote.acceptedBy = c.actor.id;quote.acceptanceHistory=[...(quote.acceptanceHistory??[]),{actorId:c.actor.id,at:c.now,version:quote.version,total:quote.total,currency:quote.currency,usdRate:quote.usdRate??'1',usdTotal:quote.usdTotal??quote.total}]; quote.version++;
     return orderView(c, quote);
   }
   if (type === "order.channelPayment") {

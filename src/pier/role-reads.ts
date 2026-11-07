@@ -55,7 +55,7 @@ export function roleState(full: State, actor: Actor, view: any) {
     if (['operator', 'sales'].includes(actor.role)) {
       output.parties = full.parties.filter(party => party.kind === 'customer').map(party => pickFields(party, ['kind', 'name']));
       if (pricesVisible(actor)) {
-        output.orders = view.orders;
+        output.orders = view.orders.map((order: any) => order.documentType === 'quote' && order.currency === 'CAD' ? output.orders.find((physical: any) => physical.id === order.id) : order).filter(Boolean);
         output.priceLists = full.priceLists;
       }
     }
@@ -76,7 +76,7 @@ export function commandProjection(value: any, actor: Actor): any {
     ...pickFields(value, ['reference', 'supplierId', 'approved', 'status', 'promiseDate', 'destinationWarehouse', 'poId', 'supplierReference', 'receivingId', 'variance', 'overReason']),
     lines: value.lines.map((line: any) => pickFields(line, ['itemId', 'poLineId', 'locationId', 'quantity', 'received', 'movementId', 'trace'])),
   };
-  if (!pricesVisible(actor) && Array.isArray(value.lines) && value.customerId) value = {
+  if ((!pricesVisible(actor) || value.documentType === 'quote' && value.currency === 'CAD') && Array.isArray(value.lines) && value.customerId) value = {
     ...pickFields(value, ['reference', 'status', 'warehouse', 'promiseDate', 'documentType', 'acceptedAt', 'quoteApproval']),
     lines: value.lines.map((line: any) => pickFields(line, ['itemId', 'quantity', 'dispatched', 'cancelled', 'reserved', 'backorder', 'kit'])),
   };
