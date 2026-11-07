@@ -16,6 +16,7 @@ jobs:
       actions: read
     outputs:
       skip: ${{ steps.reuse.outputs.skip }}
+      matrix: ${{ steps.workloads.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,7 +63,54 @@ jobs:
           fi
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
-  rer-verify:
+      - name: Partition the existing application verification commands
+        id: workloads
+        shell: python
+        run: |
+          import json, os, shlex
+          from pathlib import Path
+
+          commands = [shlex.split(c) for c in json.loads(Path('package.json').read_text())['scripts']['verify:app'].split(' && ')]
+          # These run once in build-checks or portability. Anything else must be
+          # a supported browser selection; new command shapes fail closed.
+          fixed = [shlex.split(c) for c in [
+              'pnpm run build', 'pnpm run typecheck', 'pnpm run test:api',
+              'pnpm run test:site', 'node tests/email-link.mjs', 'node tests/portable.mjs']]
+          for command in fixed:
+              if commands.count(command) != 1:
+                  raise ValueError(f'Expected one verification command: {command}')
+          browser = [c for c in commands if c not in fixed]
+          # The spend-authority journey was also invoked by the connector step;
+          # verify:app already selects it. Keep one execution of that assertion.
+          browser += [
+              ['node', 'tests/browser/run.mjs', 'stock.spec.ts', '--grep', 'STOCK-001'],
+              ['node', 'tests/browser/run.mjs', 'supplier-returns.spec.ts', '--grep', 'BUY-003'],
+              ['node', 'tests/browser/run.mjs', 'dispatch.spec.ts', '--grep', 'WMS-003']]
+          browser_groups = [[], [], []]
+          for index, command in enumerate(browser):
+              if command[:2] != ['node', 'tests/browser/run.mjs']:
+                  raise ValueError(f'Unmapped verification command: {command}')
+              # Keep each original public setup/dev boundary: routing, security
+              # policies and retained records are installation state. Sharing a
+              # runtime across selections would contaminate later assertions.
+              browser_groups[index % 3].append(command)
+          matrix = []
+          groups, sizes = [[], [], [], []], [0, 0, 0, 0]
+          for file in sorted(Path('tests/api').glob('*.test.mjs'), key=lambda p: (-p.stat().st_size, str(p))):
+              group = min(range(4), key=lambda i: sizes[i])
+              groups[group].append(str(file))
+              sizes[group] += file.stat().st_size
+          if any(not group for group in groups):
+              raise ValueError('Every API shard must execute files')
+          for index, files in enumerate(groups):
+              matrix.append(dict(name=f'api-{index + 1}', kind='api', files=files, commands=[]))
+          for index, group in enumerate(browser_groups):
+              matrix.append(dict(name=f'browser-{index + 1}', kind='browser', files=[], commands=group))
+          matrix.append(dict(name='portability', kind='portability', files=[], commands=[]))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('matrix=' + json.dumps(dict(include=matrix), separators=(',', ':')) + '\n')
+
+  build-checks:
     needs: plan
     if: needs.plan.outputs.skip != 'true'
     runs-on: ubuntu-24.04
@@ -70,6 +118,7 @@ jobs:
     env:
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
+      X_LOCAL_EXPLORER: 'false'
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -107,34 +156,120 @@ jobs:
             node scripts/ci/chromium-probe.mjs
           }
       - run: pnpm exec rer check --profile first-party
-      - run: pnpm exec rer verify --no-queue
-        env:
-          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-browser
-          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-browser/screenshots
+      # Decompose verify:app across this job and the eight shards below. Do not
+      # invoke rer verify here: that would execute the complete suite again.
+      - run: pnpm run build
+      - run: pnpm run typecheck
+      - run: pnpm run test:site
+      - run: node tests/email-link.mjs
+      - name: Verify the emitted production Worker and hydration
+        run: |
+          # Miniflare's synchronous RPC worker inherits execArgv. An
+          # --input-type=module stdin entry deadlocks that file-backed worker.
+          mkdir -p .cache/ci
+          cat > .cache/ci/verify-production.mjs <<'JS'
+          import { resolveProject } from '@runeditrun/rer/internal/cli/project.mjs';
+          import { checkHostedOutput } from '@runeditrun/rer/internal/cli/hosted-output.mjs';
+          import { checkHydration } from '@runeditrun/rer/internal/cli/hydration/check.mjs';
+          // These are the two checks rer verify runs after verify:app, with
+          // the same deployed declaration and public pages from the adapter.
+          const project = await resolveProject(process.cwd());
+          const declaration = project.adapter.deployDeclaration ?? project.adapter.deploy?.declaration;
+          console.log(JSON.stringify(await checkHostedOutput(project.root, { declaration })));
+          await checkHydration(project.root, {
+            pages: project.adapter.publicPages, declaration,
+            report: lines => lines.forEach(line => console.log(line)),
+          });
+          JS
+          node .cache/ci/verify-production.mjs
       # The run site: homepage, /run and the docs from the repository's Markdown,
       # refused on any broken, instance-only or other-origin reference.
       - run: pnpm exec rer build --site --no-queue
-      - name: Verify connector recovery and capture desktop and phone screens
-        env:
-          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-sync-browser
-          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-sync-browser/screenshots
+
+  shards:
+    needs: plan
+    if: needs.plan.outputs.skip != 'true'
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+      X_LOCAL_EXPLORER: 'false'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reclaim unused hosted runner toolchain space
+        if: runner.environment == 'github-hosted' && runner.os == 'Linux'
+        shell: bash
         run: |
-          timeout 1200 node tests/browser/run.mjs stock.spec.ts --grep STOCK-001
-          timeout 1200 node tests/browser/run.mjs supplier-returns.spec.ts --grep BUY-003
-          timeout 1200 node tests/browser/run.mjs journey.spec.ts --grep 'purchase approval names spend authority'
-          timeout 1200 node tests/browser/run.mjs dispatch.spec.ts --grep WMS-003
-      - uses: actions/upload-artifact@v4
-        if: always()
+          set -euo pipefail
+          # rer dev and preview require 15 GiB free. This disposable JavaScript job
+          # does not use Android, .NET or Haskell; preserve Node, browsers and caches.
+          df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
+          for toolchain in /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup; do
+            if df -Pk "$GITHUB_WORKSPACE" "$RUNNER_TEMP" | awk '
+              NR > 1 && $4 < 20 * 1024 * 1024 { insufficient = 1 }
+              END { exit insufficient }
+            '; then
+              break
+            fi
+            sudo rm -rf -- "$toolchain"
+          done
+          df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
+      - uses: actions/setup-node@v4
         with:
-          name: connector-recovery-screens
-          path: |
-            ${{ runner.temp }}/pier-sync-browser
-            ${{ runner.temp }}/pier-browser
+          node-version: '22.20.0'
+      - run: corepack enable && corepack prepare pnpm@10.12.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        if: matrix.kind == 'browser'
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install chromium
+          # Hosted ubuntu-24.04 already carries Chromium's libraries. Use apt only when a real launch fails.
+          node scripts/ci/chromium-probe.mjs || {
+            timeout 420 pnpm exec playwright install-deps chromium
+            node scripts/ci/chromium-probe.mjs
+          }
+      - name: Execute this shard's existing assertions
+        env:
+          PIER_BROWSER_OUTPUT: ${{ runner.temp }}/pier-browser
+          PIER_SCREENSHOTS: ${{ runner.temp }}/pier-browser/screenshots
+          KIND: ${{ matrix.kind }}
+          FILES: ${{ toJSON(matrix.files) }}
+          COMMANDS: ${{ toJSON(matrix.commands) }}
+        run: |
+          node --input-type=module <<'JS'
+          import { spawnSync } from 'node:child_process';
+          const { KIND, FILES, COMMANDS } = process.env;
+          const commands = KIND === 'api'
+            ? [[process.execPath, '--test', '--test-concurrency=1', ...JSON.parse(FILES)]]
+            : KIND === 'browser'
+              ? JSON.parse(COMMANDS).map(([, ...args]) => ['timeout', '1200', process.execPath, ...args])
+              : KIND === 'portability' ? [[process.execPath, 'tests/portable.mjs']] : null;
+          if (!commands?.length) throw new Error('Unknown or empty verification shard');
+          for (const [executable, ...args] of commands) {
+            const result = spawnSync(executable, args, { stdio: 'inherit' });
+            if (result.error) throw result.error;
+            if (result.signal) throw new Error(`Verification terminated by ${result.signal}`);
+            if (result.status !== 0) { process.exitCode = result.status; break; }
+          }
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.kind == 'browser'
+        with:
+          name: connector-recovery-screens-${{ matrix.name }}
+          path: ${{ runner.temp }}/pier-browser
           if-no-files-found: ignore
           retention-days: 7
 
   verify:
-    needs: [plan, rer-verify]
+    needs: [plan, build-checks, shards]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 1

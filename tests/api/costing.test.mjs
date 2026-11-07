@@ -397,6 +397,21 @@ test('native shipment and prepay invoices retain terms, charge tax, credits and 
   await refused('quote.create',{...cadInput,currency:'EUR'},'CURRENCY');
   await refused('quote.create',{...cadInput,lines:[{...cadInput.lines[0],currency:'USD'}]},'CURRENCY');
   await refused('quote.create',{...cadInput,lines:[{itemId:cadItem.id,quantity:'3'}]},'CAD_PRICE');
+  converted=await h.command('quote.create',{...cadInput,currency:'USD',usdRate:'1',lines:[{itemId:cadItem.id,quantity:'1',price:'10'}]});
+  converted=await h.command('quote.approve',{orderId:converted.id,version:converted.version,reason:'Reviewed original USD quote'});
+  converted=await h.command('quote.accept',{orderId:converted.id,version:converted.version});
+  const originalUSD=structuredClone(converted);
+  const {usdRate:omittedRate,...cadRevision}=cadInput;
+  const conversion={...cadRevision,orderId:converted.id,version:converted.version,lines:[{itemId:cadItem.id,quantity:'1',price:'12.34'}],reason:'Change USD quote to explicit CAD prices'};
+  for(const rateInput of [{},{usdRate:null},{usdRate:''},{usdRate:'0'},{usdRate:'-1'},{usdRate:'bad'}])
+    await refused('quote.revise',{...conversion,...rateInput},'DECIMAL');
+  const conversionId=randomUUID();
+  converted=await h.command('quote.revise',{...conversion,usdRate:'0.75'},{commandId:conversionId});
+  assert.deepEqual([converted.currency,converted.usdRate,converted.lines[0].price,converted.quoteApproval,converted.acceptedAt],['CAD','0.75','12.34',null,null]);
+  assert.deepEqual([converted.rateReview.commandId,converted.rateReview.usdRate],[conversionId,'0.75']);
+  assert.deepEqual([converted.quoteHistory.at(-1).currency,converted.quoteHistory.at(-1).usdRate,converted.quoteHistory.at(-1).quoteApproval,converted.quoteHistory.at(-1).acceptedAt],['USD','1',originalUSD.quoteApproval,originalUSD.acceptedAt]);
+  converted=await h.command('quote.revise',{...conversion,version:converted.version,reason:'Retain the reviewed rate within CAD'});
+  assert.equal(converted.usdRate,'0.75');
   const captureId=randomUUID();let native=await h.command('quote.create',cadInput,{commandId:captureId});
   const captured=structuredClone(native);
   assert.deepEqual([native.currency,native.usdRate,native.lines[0].price,native.lines[0].priceSnapshot.currency,native.total,native.usdTotal],['CAD','0.75','12.34','CAD','37.020000000000','27.770000000000']);

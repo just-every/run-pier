@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "d1f808593b2001f4a0b25eec43d5a6a5dd0c6389b3a45dee2e95d0f9ee7e97bc",
+      "sha256": "27c1c22778facc0dc525e1a5eabfcfa669a0bd4b6ed41d4c065cfd3db855859e",
       "executable": false
     },
     ".gitignore": {
@@ -331,7 +331,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "0bc9087759cf47fd0d53b2d5466a24751e5164f49b61306f5525a4fe4988811e",
+      "sha256": "5f9dbe65f59ce4d4a6d337cf25ba57683b9549c628f628445d36e8942ffd0ff5",
       "executable": false
     },
     "base-copies.json": {
@@ -3007,11 +3007,11 @@
       "executable": false
     },
     "src/pier/api.ts": {
-      "sha256": "a5ce4516bf857494f08aded1cb1a5e3e9b6e2a4a064c755f7d6b4ddc25f11117",
+      "sha256": "c5fe501f983edbc0572b5a005013cdb96490de892858cb857ef44b26d041e89e",
       "executable": false
     },
     "src/pier/audit.ts": {
-      "sha256": "cc5e654dea7a6e12d436ccb0cf652665ecb4d188e3c4cb7c2bf121e47d10f86d",
+      "sha256": "48b040489ca21d29ded9beca85bc5cf4f12630e2d023acc5aeb94df93fd54658",
       "executable": false
     },
     "src/pier/backorder-release.ts": {
@@ -3115,7 +3115,7 @@
       "executable": false
     },
     "src/pier/catalogue.ts": {
-      "sha256": "b6c23dcea084d1ba4484c00542fc218798972002f6abff2fce983ee887c56fa2",
+      "sha256": "be959e7d466056f2cdd53a7a3238c5d025e3dbbcefc10b48fe048e33c04028f3",
       "executable": false
     },
     "src/pier/channel-payment.ts": {
@@ -3487,7 +3487,7 @@
       "executable": false
     },
     "src/pier/model.ts": {
-      "sha256": "b81d5b682828762faa0d1518f6b0543946a2af8ad2b2d3f834cdb18bf00d8b04",
+      "sha256": "45a4ec099bf511ec0fc121de7ecbcb2425982482e4cc328b0bde7604af93f519",
       "executable": false
     },
     "src/pier/money.ts": {
@@ -3567,7 +3567,7 @@
       "executable": false
     },
     "src/pier/permissions.ts": {
-      "sha256": "cdd8f685d682d77ae629dc5d2c4a483481ab694a8236478a418937c6cccfd241",
+      "sha256": "45c4d59a881d7cc58a71d376f8044fc31e9db28db9b6c100b556090f0ea5bd7d",
       "executable": false
     },
     "src/pier/physical-admission.ts": {
@@ -3576,6 +3576,10 @@
     },
     "src/pier/physical-documents.ts": {
       "sha256": "3ba20eb416eef11a0baa43d3b117c448a1dfe5c028abfa5ef5594aebd05085fb",
+      "executable": false
+    },
+    "src/pier/preparation-scope.ts": {
+      "sha256": "5acf504baa16fd5e64e881c12cd788b5d46e3a7035279dc6fb4939ca1a8d3a87",
       "executable": false
     },
     "src/pier/pricing.ts": {
@@ -3667,7 +3671,7 @@
       "executable": false
     },
     "src/pier/privacy-state.ts": {
-      "sha256": "b8f31912d152dc09c64feeaf272dac52bdc91a17d7d0a252b5e9bb259f9309f9",
+      "sha256": "624272fb57d8316ba4ac5a09e92b7704b0667d2394de5adac8a13153db6f18e7",
       "executable": false
     },
     "src/pier/privacy.ts": {
@@ -3675,7 +3679,7 @@
       "executable": false
     },
     "src/pier/proposals.ts": {
-      "sha256": "d35a49fb9b5db16124a8d2152e1d08344e63719dd97d786e585eacfa6151551d",
+      "sha256": "e5e1556600b945e200479e62b943cf5917a9c5a83888dd026d588be250f03361",
       "executable": false
     },
     "src/pier/provider-audit.ts": {
@@ -3851,7 +3855,7 @@
       "executable": false
     },
     "src/pier/storage.ts": {
-      "sha256": "fab7fbb34c93955041340542e946d650eb8610b4eeba333a2594e643e64fbc9e",
+      "sha256": "8c0b2eacef819b968b12e7c0ce27584f51390e4add046d3a041f86de16720a4d",
       "executable": false
     },
     "src/pier/supplier-inspections.ts": {
@@ -4455,7 +4459,7 @@
       "executable": false
     },
     "src/ui/operator-grants.tsx": {
-      "sha256": "90bfcc96cab5d6dc584f3ff930cc331f0e1907cdd07c0b2bf51948f7f83659c9",
+      "sha256": "5cc1b702590fc5e3df84a2addbed55be035bd9564966afd26163d818cc15f434",
       "executable": false
     },
     "src/ui/operators.tsx": {
@@ -4567,11 +4571,11 @@
       "executable": false
     },
     "src/ui/proposal-review.tsx": {
-      "sha256": "28bfdeded421247ff7076a5d480dba79a2bf2a4ae910d1b759ad9f9bb0fd8a0a",
+      "sha256": "6693904002cd98c559e4bd9f7fdd95df62ac5670339782de3dfeb25883db12a0",
       "executable": false
     },
     "src/ui/proposals.tsx": {
-      "sha256": "97483a9d12811a78fb114b77703b24c81dd40bc4624a2bff948026af0db72dad",
+      "sha256": "d10c1ab6c6b96d7ec381ab2d6152fd3bb9e02901d3a98506eab34006c180ecdd",
       "executable": false
     },
     "src/ui/purchase-followup.tsx": {
@@ -4687,7 +4691,7 @@
       "executable": false
     },
     "src/ui/style/records.css": {
-      "sha256": "9880c4f50987533dd143a8cafaa068d2efe1b6eaba200343be4e8247acea75ed",
+      "sha256": "3118d7b5de5c3fc3d8b7ec58fb89b7aaa3ac10f8c0ff02fc56917d33530665b0",
       "executable": false
     },
     "src/ui/style/replenishment.css": {
@@ -4783,7 +4787,7 @@
       "executable": false
     },
     "tests/api/costing.test.mjs": {
-      "sha256": "56cc49d6e8effff005cb896b058a26ef51295db7f75f2644e5111ce651bbac21",
+      "sha256": "43bc3cde8077b5cad6f611043e5e89356213035ef8bfaf8b554fab337bdb340c",
       "executable": false
     },
     "tests/api/dependency-custody.test.mjs": {
@@ -4807,7 +4811,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "f756fc2ccf84477f885bca486a77136c07bdf56a89dac8beb1f711acd1bd149f",
+      "sha256": "91e117ad3c317dff26f3c5a89f79bb7209106924cc59f3e0d5a0f4ff841d9232",
       "executable": false
     },
     "tests/api/harness.mjs": {
@@ -4895,7 +4899,7 @@
       "executable": false
     },
     "tests/api/security-import.test.mjs": {
-      "sha256": "f1d3c245a318fb9ec9dc3de1f41a261300039dad8fea3f0035f19f477391a2d7",
+      "sha256": "8e050e68e2431c95e2049418f9dac69e416d0fe6ba3605bd1c2a0bc57bfb2a81",
       "executable": false
     },
     "tests/api/shipping-edge.mjs": {
@@ -4999,7 +5003,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "c9fa1401199ce8af579bb848366434644d0e30265f64a45ae8903e54966448c5",
+      "sha256": "69f0cd4aacb7396dc3e81fc8e92483d9b2e1ef36ba2ea967613481d268729f1d",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
