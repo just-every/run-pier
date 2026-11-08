@@ -85,3 +85,4 @@
 .pier-app .supplier-substitutes .badge,
 .pier-app .supplier-substitutes td[data-label]::before { font-size: 13px; }
 .pier-app .supplier-substitutes li { overflow-wrap: anywhere; }
+.pier-app .proposal-panel dt, .pier-app .proposal-panel .badge, .pier-app .proposal-panel .table-wrap th, .pier-app .proposal-panel .table-wrap td[data-label]::before { font-size: 13px; }

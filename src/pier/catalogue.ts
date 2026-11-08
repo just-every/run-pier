@@ -1,3 +1,4 @@
+import { parsePreparationGrant } from './preparation-scope';
 import { typedFields } from './custom-fields';
 import { parsePermissions } from './permissions';
 import { parseVisibility } from './role-visibility';
@@ -29,6 +30,8 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
     if (p.operatorId === c.actor.id)
       fail("ROLE", "Use native owner management to change your own authority.");
     if (p.role === "owner" && p.permissions !== undefined) fail("ROLE", "Owner authority cannot be restricted by a physical stock grant. Choose a staff role.");
+    const preparationGrant = parsePreparationGrant(p.preparationGrant, p.role, c.s);
+    if (preparationGrant && p.permissions !== undefined) fail("SCOPE", "Preparation and physical work use separate grants.");
     const permissions = parsePermissions(p.permissions, c.s);
     const visibility = parseVisibility(p.visibility, p.role);
     const old = c.s.roles.find((r) => r.id === p.operatorId);
@@ -36,10 +39,11 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       old.role = p.role;
       old.permissions = permissions;
       old.visibility = visibility;
+      old.preparationGrant = preparationGrant;
       old.version++;
       return old;
     }
-    return row(c, "roles", { id: text(p.operatorId), role: p.role, permissions, visibility });
+    return row(c, "roles", { id: text(p.operatorId), role: p.role, permissions, visibility, preparationGrant });
   }
   if (
     !["item.save", "location.save", "party.save", "supplierItem.save"].includes(

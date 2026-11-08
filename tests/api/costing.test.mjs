@@ -378,11 +378,26 @@ test('native shipment and prepay invoices retain terms, charge tax, credits and 
   const exported=async()=>{const r=await h.request('/api/pier/export');assert.equal(r.status,200);return r.json();};
   const snapshot=async()=>{const e=await exported(),s=await h.state();return Object.fromEntries(['orders','invoices','invoiceCredits','shipments','returns','movements','reservations','salesDocuments','priceLists'].map(k=>[k,e[k]]).concat([['positions',s.positions],['commands',s.commands]]));};
   const refused=async(type,payload,error,opts={})=>{const before=await snapshot();await h.command(type,payload,{...opts,error});assert.deepEqual(await snapshot(),before,`${type} refuses atomically`);};
+  const usdInput={...cadInput,currency:'USD',lines:[{itemId:cadItem.id,quantity:'1',price:'12.34'}]};delete usdInput.usdRate;
+  let converted=await h.command('quote.create',usdInput);
+  converted=await h.command('quote.approve',{orderId:converted.id,version:converted.version,reason:'Reviewed original USD price'});
+  converted=await h.command('quote.accept',{orderId:converted.id,version:converted.version});
+  const currencyRevision={...usdInput,currency:'CAD',orderId:converted.id,version:converted.version,reason:'Owner changes the quote currency to CAD'};
+  await refused('quote.revise',currencyRevision,'DECIMAL');
+  for(const usdRate of [null,'','0','-1','bad','0.0000001'])
+    await refused('quote.revise',{...currencyRevision,usdRate},'DECIMAL');
+  converted=await h.command('quote.revise',{...currencyRevision,usdRate:'0.75'});
+  assert.deepEqual([converted.currency,converted.usdRate,converted.usdTotal,converted.rateReview.usdRate],['CAD','0.75','9.260000000000','0.75']);
+  assert.equal(converted.rateReview.actorId,(await h.state()).actor.id);
+  assert.equal(converted.quoteApproval,null);assert.equal(converted.acceptedAt,null);
+  assert.deepEqual([converted.quoteHistory.at(-1).currency,converted.quoteHistory.at(-1).usdRate],['USD','1']);
+  converted=await h.command('quote.revise',{...currencyRevision,version:converted.version,reason:'Retain the reviewed rate for unchanged CAD pricing'});
+  assert.deepEqual([converted.currency,converted.usdRate,converted.usdTotal,converted.quoteHistory.at(-1).usdRate],['CAD','0.75','9.260000000000','0.75']);
   for(const usdRate of [undefined,'0','-1','bad','0.0000001'])await refused('quote.create',{...cadInput,usdRate},'DECIMAL');
   await refused('quote.create',{...cadInput,currency:'EUR'},'CURRENCY');
   await refused('quote.create',{...cadInput,lines:[{...cadInput.lines[0],currency:'USD'}]},'CURRENCY');
   await refused('quote.create',{...cadInput,lines:[{itemId:cadItem.id,quantity:'3'}]},'CAD_PRICE');
-  let converted=await h.command('quote.create',{...cadInput,currency:'USD',usdRate:'1',lines:[{itemId:cadItem.id,quantity:'1',price:'10'}]});
+  converted=await h.command('quote.create',{...cadInput,currency:'USD',usdRate:'1',lines:[{itemId:cadItem.id,quantity:'1',price:'10'}]});
   converted=await h.command('quote.approve',{orderId:converted.id,version:converted.version,reason:'Reviewed original USD quote'});
   converted=await h.command('quote.accept',{orderId:converted.id,version:converted.version});
   const originalUSD=structuredClone(converted);
