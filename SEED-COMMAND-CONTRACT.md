@@ -1,6 +1,6 @@
 # Pier command contract
 
-Pier uses package mode: exact `@runeditrun/rer` 0.2.63 in package.json and pnpm-lock.yaml, public aliases `rer VERB`, and the edition adapter in scripts/installer/local.mjs. There is no vendored dispatcher or CLI tree. Runtime pins are Node 22.20.0 and pnpm 10.12.4. OPERATIONS.json is the machine-readable command/effect descriptor; `rer describe` lists current flags.
+Pier uses package mode: exact `@runeditrun/rer` 0.2.134 in package.json and pnpm-lock.yaml, public aliases `rer VERB`, and the edition adapter in scripts/installer/local.mjs. There is no vendored dispatcher or CLI tree. Runtime pins are Node 22.20.0 and pnpm 10.12.4. OPERATIONS.json is the machine-readable command/effect descriptor; `rer describe` lists current flags.
 
 | Command | Effect |
 |---|---|
@@ -13,7 +13,8 @@ Pier uses package mode: exact `@runeditrun/rer` 0.2.63 in package.json and pnpm-
 | `rer reset --yes` | Confirmed removal of inventoried local state/private settings; no remote effect. |
 | `rer export --output FILE` | Complete supported local installation archive, private file permissions, integrity checks and declared credential/transient exclusions. |
 | `rer import --input FILE --yes` | Validated atomic restoration to an empty local destination, with native identity policy in OPERATIONS.md. |
-| `rer deploy` | Owner-account Cloudflare deployment through Base deploy-kit; explicit authorized credentials/provider configuration required. `--dry-run` makes no provider request. |
+| `rer deploy` | Owner-account Cloudflare deployment through Base deploy-kit. Use `MAIL_PROVIDER=none` to deploy without a mail sender or key. `--dry-run` makes no provider request. |
+| `rer signin` | Use the deploying checkout and its Cloudflare credentials to create a single-use link for the hosted owner. |
 | `rer doctor` | Read-only tool/configuration diagnostics. |
 | `rer describe` | Read-only implemented commands, pins and effects. |
 | `rer check` | Read-only first-party command/operations/source structure validation. |

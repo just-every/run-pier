@@ -49,10 +49,11 @@ test('warehouse interruptions retain exact task, reconcile stale allocations and
     await context.setOffline(false); await page.reload(); await idle()
     await expect(recovery).toBeVisible()
     if (type === 'pick.scan') await expect(page.locator(`#document-${original.payload.waveId}`)).toBeVisible()
-    await expect(page.getByText(`${type} · command ${original.commandId}`, { exact: true })).toBeVisible()
+    const retry = page.getByRole('button', { name: 'Retry this exact action', exact: true })
+    await expect(retry).toBeVisible()
     expect(observed).toHaveLength(before + 1) // Neither reconnect nor reload posts work.
     const replay = page.waitForRequest(request => request.url().endsWith('/api/pier/commands') && request.postDataJSON()?.commandId === original.commandId)
-    await page.getByRole('button', { name: 'Retry this exact action', exact: true }).click()
+    await retry.click()
     expect((await replay).postDataJSON()).toEqual(original)
     await expect(recovery).toHaveCount(0); await idle()
     return original

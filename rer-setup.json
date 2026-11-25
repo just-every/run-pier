@@ -84,7 +84,11 @@
       "options": [
         {
           "value": "development",
-          "label": "Do not send email"
+          "label": "Local development"
+        },
+        {
+          "value": "none",
+          "label": "Off (hosted owner signs in with rer signin)"
         },
         {
           "value": "rer",

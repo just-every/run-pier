@@ -5,8 +5,8 @@ Pier runs on your own Cloudflare account: one Worker and one D1 database per env
 ## What you need
 
 - `CLOUDFLARE_ACCOUNT_ID` selects the account that will own the Worker and its database. `CLOUDFLARE_API_TOKEN` permits the upload and database management. Create an account API token at [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) with the account permissions **Workers Scripts: Edit** and **D1: Edit**, and copy your account ID from the Cloudflare dashboard.
-- A mail provider for sign-in links and the daily dispatch summary: Resend, SendGrid or Cloudflare Email, with an API key and a sender address that provider has verified.
 - Your own email address, which becomes the hosted owner.
+- For email delivery, a verified sender and API key for Resend, SendGrid or Cloudflare Email Sending. With mail off, the owner signs in with `rer signin`.
 
 ## Deploy
 
@@ -16,19 +16,17 @@ Put the settings in a private file only you can read, outside the Pier folder (f
 CLOUDFLARE_ACCOUNT_ID=your-account-id
 CLOUDFLARE_API_TOKEN=your-api-token
 OWNER_EMAIL=you@example.com
-MAIL_PROVIDER=sendgrid
-MAIL_FROM="Pier <pier@example.com>"
-MAIL_API_KEY=your-mail-api-key
+MAIL_PROVIDER=none
 ```
 
-`MAIL_PROVIDER` is `resend`, `sendgrid` or `cloudflare`. Keep the quotes around `MAIL_FROM`: the name and angle brackets are one value. Stop the local Pier first if it is running (`rer dev --stop`), because `rer deploy` refuses while it runs. Then, in the Pier folder:
+For mail off, leave the sender and mail credentials unset. To send email, choose `resend`, `sendgrid` or `cloudflare` and set `MAIL_FROM` to your verified sender and `MAIL_API_KEY` to the provider's key. For Cloudflare Email Sending, also set `MAIL_ACCOUNT_ID`. Stop the local Pier first if it is running (`rer dev --stop`). Then, in the Pier folder:
 
 ```sh
 rer deploy --dry-run --env-file ~/pier-deploy.env
 rer deploy --environment production --env-file ~/pier-deploy.env
 ```
 
-With no Cloudflare account or API token supplied, the preflight lists both inputs and their purposes, then stops before a build or upload. Once they are supplied, the dry run builds Pier and checks the target settings without uploading. The deploy creates the Worker and its database, prints the address (for example `https://pier-production.your-subdomain.workers.dev`) and claims the owner with a one-time setup token. Open the address, choose **Sign in**, enter the `OWNER_EMAIL` address and follow the link in your inbox. Finish setup at `/setup`.
+The dry run builds Pier and checks the target settings without Cloudflare credentials or requests. The real deploy creates the Worker and its database, prints its address and claims the owner. With mail off, run `rer signin --environment production --env-file ~/pier-deploy.env` from the deploying checkout. Open the private one-time link and press **Confirm**. With mail enabled, open the app, choose **Sign in**, enter your owner address and follow the link in your inbox. Finish setup at `/setup`.
 
 ## Make the hosted owner your real address
 

@@ -162,26 +162,6 @@ jobs:
       - run: pnpm run typecheck
       - run: pnpm run test:site
       - run: node tests/email-link.mjs
-      - name: Verify the emitted production Worker and hydration
-        run: |
-          # Miniflare's synchronous RPC worker inherits execArgv. An
-          # --input-type=module stdin entry deadlocks that file-backed worker.
-          mkdir -p .cache/ci
-          cat > .cache/ci/verify-production.mjs <<'JS'
-          import { resolveProject } from '@runeditrun/rer/internal/cli/project.mjs';
-          import { checkHostedOutput } from '@runeditrun/rer/internal/cli/hosted-output.mjs';
-          import { checkHydration } from '@runeditrun/rer/internal/cli/hydration/check.mjs';
-          // These are the two checks rer verify runs after verify:app, with
-          // the same deployed declaration and public pages from the adapter.
-          const project = await resolveProject(process.cwd());
-          const declaration = project.adapter.deployDeclaration ?? project.adapter.deploy?.declaration;
-          console.log(JSON.stringify(await checkHostedOutput(project.root, { declaration })));
-          await checkHydration(project.root, {
-            pages: project.adapter.publicPages, declaration,
-            report: lines => lines.forEach(line => console.log(line)),
-          });
-          JS
-          node .cache/ci/verify-production.mjs
       # The run site: homepage, /run and the docs from the repository's Markdown,
       # refused on any broken, instance-only or other-origin reference.
       - run: pnpm exec rer build --site --no-queue

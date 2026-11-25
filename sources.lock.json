@@ -291,7 +291,7 @@
   ],
   "files": {
     ".github/workflows/nightly-acceptance.yml": {
-      "sha256": "bd1b0b3299d037adb98e1ab0767315dcdbc2edcf816d99e929d1d59b6d267877",
+      "sha256": "0b2a7584ef791c61a1c942bc7e8dcedc2ed984a40e2cd1befd25a3c808683887",
       "executable": false
     },
     ".github/workflows/rer-managed.yml": {
@@ -307,7 +307,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "27c1c22778facc0dc525e1a5eabfcfa669a0bd4b6ed41d4c065cfd3db855859e",
+      "sha256": "5949eb63215e00e7590510ced980b9bddb811fd1e09dc734cb300afa9e3b4229",
       "executable": false
     },
     ".gitignore": {
@@ -327,7 +327,7 @@
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "f0d2b5815e6d1209bdceef0b8b60072f5ea9435bd501d7bc3f64fe8cbd3e180c",
+      "sha256": "b9415dcfbae6cd1d11a58da0754c37bdbee9a9280320384d08ebc8782371f84c",
       "executable": false
     },
     "API.md": {
@@ -363,7 +363,7 @@
       "executable": false
     },
     "deploy.json": {
-      "sha256": "3a6dfed5368bf863a11028115558b7ee127e6840d39e7b1e024696f98c820136",
+      "sha256": "5f98d3b601532b3cd1cf9b7d2f790509a2e972a80c0d113af098c758312fe00a",
       "executable": false
     },
     "docs/activity.md": {
@@ -451,7 +451,7 @@
       "executable": false
     },
     "docs/hosting.md": {
-      "sha256": "ed063294118b980abeef651cce990d33c1229884642c733bc9355def79cc3431",
+      "sha256": "bb7ceb61062237d99a5b8c3faedccbeb2336302789c62ab0459de9fed37bd1a3",
       "executable": false
     },
     "docs/item-agent-developer.md": {
@@ -559,7 +559,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "e8175fba4526f138d8aa9c61935430dbe73948752f73e80ad7774b0bc3907334",
+      "sha256": "a245fefae23f285fb139b0852b571d9f72710667c52696520206a4966ddd4761",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -671,11 +671,11 @@
       "executable": false
     },
     "OPERATIONS.md": {
-      "sha256": "d0a49cb77d0760e33ab98068485c023098a6c7f04fdd953a59f47b199a385e47",
+      "sha256": "f4d6faf60c929ac7059a15a7eaa949a5ff32aa42ba2148be600109e7a416d1f0",
       "executable": false
     },
     "package.json": {
-      "sha256": "cf9ad1df982a9e20f2b1a3f7839ab8e2e337590331f350d784714fa8e770b9b2",
+      "sha256": "52679bf6b10fc0b17c98210c924e07831b150c8190a8bc939545fada66520647",
       "executable": false
     },
     "packaging.json": {
@@ -683,7 +683,7 @@
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "18350f3c53c5d93816497557389adedc271abc1781b26b02be0a605b0c7c3b53",
+      "sha256": "1e396aa5927c8260a9286018e03a803eeef0f44325fc89830182ba08c7e2ac47",
       "executable": false
     },
     "public/apple-touch-icon.png": {
@@ -963,7 +963,7 @@
       "executable": false
     },
     "README.md": {
-      "sha256": "6adb91fefaa4ab0498b2ea41845bcbbc6d2b926a214565960a2ecacaddf5c720",
+      "sha256": "3777e23e7626d3a557fe0ccd2ba188e12f15f643613fe91ac0f27daec1484c34",
       "executable": false
     },
     "release-history/0.1.0.json": {
@@ -975,11 +975,11 @@
       "executable": false
     },
     "rer-project.json": {
-      "sha256": "a718736da3507ac8db9b6588523d437cf0253c53e4425f3beac604060b7ea977",
+      "sha256": "71ef92285bfb4c603aecc4a40052118fa7f9678ae3d374e894ea6b8e3941f010",
       "executable": false
     },
     "rer-setup.json": {
-      "sha256": "f18ecb9d0fb07cac3f79fb711915ef8854a3a3beeb14b6778648be0e2f6be89c",
+      "sha256": "d01cb81542102c265bab4df6e71f10471b2f06218abca0fbd6e9269f049acb15",
       "executable": false
     },
     "RULINGS.md": {
@@ -987,7 +987,7 @@
       "executable": false
     },
     "RUN-LOCALLY.md": {
-      "sha256": "13895b908a765abf9ee81fd0acf9d233cd7699a323e63cf9921cee8bbf0f0c93",
+      "sha256": "542fd413fee15726ffc8930c25e73defe369e801e25de464ca220716b8d03feb",
       "executable": false
     },
     "scripts/build-deployment-spec.mjs": {
@@ -1150,12 +1150,8 @@
       "sha256": "366522c13b63b03d7919f30667e74c222f793e9b0b8ac71310cb6551837ee1eb",
       "executable": false
     },
-    "scripts/installer/hosted-preflight.mjs": {
-      "sha256": "cbd5864af0ef480258f416c447b38ccdad6388a100ba042101c3e587c6f47138",
-      "executable": false
-    },
     "scripts/installer/local.mjs": {
-      "sha256": "12520cde602133a51e3da485dc12213fcb4e01cb921d962396f8e1ccb054ebd4",
+      "sha256": "fe24b87b0c5d2941f203962788662b5c0f78f009c39788c5cef6900ff250cde2",
       "executable": false
     },
     "scripts/installer/seed.mjs": {
@@ -1175,7 +1171,7 @@
       "executable": false
     },
     "SEED-COMMAND-CONTRACT.md": {
-      "sha256": "f3f54bf609627f89c55cd8bfbadb1ea294ddbde93709444b68300b89121b9b64",
+      "sha256": "910fa6c82765a2423a4f0602bc469336f5e898147e76fd392a24fc110529a2c9",
       "executable": false
     },
     "seed.json": {
@@ -1187,7 +1183,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "9db72d3c6cb03d2e00b2039e78dd18dcc6f749710930148180e13cd67c203143",
+      "sha256": "ddee12d31a48d67b06d0c2d8ab1db2b32990e9becfddd2f565e32e8023111aa7",
       "executable": false
     },
     "src/base/contract-docs.mjs": {
@@ -1319,7 +1315,7 @@
       "executable": false
     },
     "src/mail.server.mjs": {
-      "sha256": "692961144b1255d3f2fa7e5c48a0f7c772f9f98f029d4478d716a678f7e98315",
+      "sha256": "64857109433504b05ba87f1d76f5ea8481fc7fb50e7fd2a51cbdb2ad47ab0e1d",
       "executable": false
     },
     "src/modules/ai/client.mjs": {
@@ -5003,7 +4999,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "69f0cd4aacb7396dc3e81fc8e92483d9b2e1ef36ba2ea967613481d268729f1d",
+      "sha256": "1d0da1c301c7939a7e6af1746028b975eaca5e2ea7e6cae3be129bf5d1938bce",
       "executable": false
     },
     "tests/browser/open.spec.ts": {
@@ -5059,7 +5055,7 @@
       "executable": false
     },
     "tests/browser/warehouse-offline.spec.ts": {
-      "sha256": "42f888369ba3f83250a4f0f31d15b303284624f56ffce91ff5c0b56ccab1f2c9",
+      "sha256": "5188dafe1b6b7e67848d1a6a9b3facdc8f2495717a400f420a05bfa7b8dea9ee",
       "executable": false
     },
     "tests/browser/warehouse-returns.spec.ts": {
@@ -5075,7 +5071,7 @@
       "executable": false
     },
     "tests/email-link.mjs": {
-      "sha256": "a87856e50ac1fd2a65054b389c8a7e0d7dc2090a2de2fca453d0d8e8d71cbb3c",
+      "sha256": "488db00823cc2b84c18688d11c9510936e170c697769119c3f84db2197eab82f",
       "executable": false
     },
     "tests/fixtures/books/qbo.json": {
@@ -5391,7 +5387,7 @@
       "executable": false
     },
     "wrangler.jsonc": {
-      "sha256": "8ed079ea4bf3762a14a2d4e6c4dae1b21924e406150d34dc72d27cb7a640268a",
+      "sha256": "6adaf1491bb317b00c945fcb7a254ce1d57e898ecbef5ad5519f65b80e4a4fa4",
       "executable": false
     }
   }
