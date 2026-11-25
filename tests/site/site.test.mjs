@@ -33,17 +33,18 @@ test('the run site builds, its primary action opens /run, and every link and fil
   }
 })
 
-// Public CLI refusal: no build or upload may begin while hosting inputs are absent.
-test('hosted preflight refuses missing account inputs before building or contacting a provider', () => {
-  const env = { ...process.env };
-  delete env.CLOUDFLARE_ACCOUNT_ID; delete env.CLOUDFLARE_API_TOKEN;
-  const result = spawnSync(join(root, 'node_modules/.bin/rer'), ['deploy', '--dry-run'], { cwd: root, env, encoding: 'utf8' });
-  const output = result.stdout + result.stderr;
-  assert.equal(result.status, 3, output);
-  for (const name of JSON.parse(readFileSync(join(root, 'OPERATIONS.json'), 'utf8')).requiredEnvironment)
-    assert.ok(output.includes(name), 'preflight must name every declared hosting input');
-  assert.match(output, /rer deploy --dry-run --env-file/);
-  assert.doesNotMatch(output, /vite v|transforming|Uploading|https:\/\/api.cloudflare.com/);
+test('mail-off dry run builds a deployment plan without credentials or provider requests', () => {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) =>
+    !/^(?:CLOUDFLARE_|CF_|MAIL_|RESEND_API_KEY$|SENDGRID_API_KEY$)/.test(name)));
+  env.MAIL_PROVIDER = 'none';
+  const result = spawnSync(join(root, 'node_modules/.bin/rer'), ['deploy', '--dry-run', '--non-interactive', '--json'], { cwd: root, env, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const outcome = result.stdout.trim().split('\n').map(line => JSON.parse(line)).find(event => event.event === 'result');
+  assert.equal(outcome.dryRun, true);
+  assert.equal(outcome.deployed, false);
+  assert.equal(outcome.providerChecked, false);
+  assert.ok(outcome.plan.vars.includes('MAIL_PROVIDER'));
+  assert.ok(outcome.plan.secrets.filter(({ binding }) => binding.startsWith('MAIL_')).every(({ optional }) => optional));
 });
 
 test('setup explains a read-only checkout and its published recovery command completes the same installation', async () => {
