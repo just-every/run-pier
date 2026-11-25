@@ -482,7 +482,7 @@ test.describe('owners dry-run and activate routing and review an audited reroute
       const current = (await h.state()).routingRules.filter((r: any) => r.source === 'manual').sort((a: any, z: any) => z.revision - a.revision)[0]
       const review = h.panel(`Manual orders · routing revision ${current.revision}`)
       await review.getByRole('button', { name: 'Dry-run last 30 days', exact: true }).click()
-      await expect(review.getByRole('cell', { name: order.reference, exact: true })).toBeVisible()
+      await expect(review.getByRole('cell').getByText(order.reference, { exact: true })).toBeVisible()
       await review.getByRole('button', { name: 'Activate reviewed rule', exact: true }).click()
       await expect(review.getByText(/Activated/)).toBeVisible()
       await h.shot(width, `routing-${shortage}-control`)
