@@ -43,8 +43,8 @@ test('mail-off dry run builds a deployment plan without credentials or provider 
   assert.equal(outcome.dryRun, true);
   assert.equal(outcome.deployed, false);
   assert.equal(outcome.providerChecked, false);
-  assert.ok(outcome.plan.vars.includes('MAIL_PROVIDER'));
-  assert.ok(outcome.plan.secrets.filter(({ binding }) => binding.startsWith('MAIL_')).every(({ optional }) => optional));
+  assert.ok(outcome.plan.d1.length > 0, 'the deploy target includes its database');
+  assert.ok(!outcome.neededForRealDeploy.some(item => /\bMAIL_/.test(item)), 'mail settings are unnecessary for a real mail-off deploy');
 });
 
 test('setup explains a read-only checkout and its published recovery command completes the same installation', async () => {
