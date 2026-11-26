@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 — 2026-11-27
+
+The hosted demo starts again: Pier's sample distributor is now seeded under its current roles and the agent's preparation grant, so the first start no longer stops with a sign-in error.
+
 ## 0.1.1 — 2026-11-26
 
 Pier is open source inventory and order management for wholesalers and distributors. It runs in your own Cloudflare account.

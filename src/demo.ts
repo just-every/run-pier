@@ -112,8 +112,15 @@ async function story(env: Bindings, cast: Cast, team: [string, string, string, s
     'edi.receive': 'jordan', 'edi.acknowledge': 'jordan',
   }
   const run = async (days: number, type: string, payload: Record<string, unknown>) => {
-    const time = at(days)
-    return (await execute(env, cast[by[type]] ?? cast.owner, `demo-seed-${String(++sequence).padStart(3, '0')}`, type, payload, () => time)).result
+    const time = at(days), actor = cast[by[type]] ?? cast.owner
+    // Admission reads the role's current version, grants and visibility: role.set changes them, so the actor carries the live ones.
+    const role = await env.DB.prepare("SELECT data FROM pier_records WHERE kind='roles' AND id=?").bind(actor.id).first<{ data: string }>()
+    const held = role ? JSON.parse(role.data) : null
+    actor.permissionVersion = held?.version ?? 0
+    actor.permissions = held?.permissions
+    actor.visibility = held?.visibility
+    actor.preparationGrant = held?.preparationGrant
+    return (await execute(env, actor, `demo-seed-${String(++sequence).padStart(3, '0')}`, type, payload, () => time)).result
   }
 
   // Five weeks ago: the move from inFlow, staged from its export files and reviewed stage by stage.
@@ -237,6 +244,8 @@ async function story(env: Bindings, cast: Cast, team: [string, string, string, s
 
   // The agent's proposal, last so its evidence is current: reorder mugs to cover the shortfall.
   const reorder = await run(0.03, 'po.draft', { supplierId: harbor, promiseDate: day(10), destinationWarehouse: 'Reno DC', reason: 'Blue Mug 12oz short for Hartwell Hardware after the Harbor Ceramics delivery arrived 20 short', lines: [{ itemId: sku('blu'), quantity: '600', price: '6.24' }] })
+  // The agent prepares only from the evidence its preparation grant names: the stock items, Harbor Ceramics, and these orders and purchase orders.
+  await run(0.025, 'role.set', { operatorId: 'demo-agent', role: 'agent', preparationGrant: { evidenceIds: [...catalogue.map(row => sku(row[0])), harbor, hartwellOrder.id, cobaltOrder.id, po2.id, reorder.id] } })
   await run(0.02, 'proposal.prepare', { kind: 'replenishment', assumptions: `Hartwell Hardware's ${hartwellOrder.reference} is 28 Blue Mug 12oz short after ${po2.reference} arrived 20 short. Reorder 600 from Harbor Ceramics ($3,744.00, draft ${reorder.reference}) to cover open demand and restore the reorder point; re-promise ${hartwellOrder.reference} once the supplier confirms a date.`, evidence: [hartwellOrder.id, cobaltOrder.id, po2.id], plan: { poId: reorder.id } })
 }
 
