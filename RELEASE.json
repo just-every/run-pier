@@ -8,7 +8,11 @@
     "migrations/core/0017_pier_channels.sql",
     "migrations/core/0018_pier_books.sql",
     "migrations/core/0019_pier_audit.sql",
-    "migrations/core/0020_dependency_keys_sealed.sql"
+    "migrations/core/0020_dependency_keys_sealed.sql",
+    "migrations/core/0021_stock_feed.sql",
+    "migrations/core/0022_stock_consumer_health.sql",
+    "migrations/core/0022_strong_auth.sql",
+    "migrations/core/0023_security_grants.sql"
   ],
   "breaking": false,
   "agentUpdateInstructions": "Install the pinned dependencies and use the declared setup, build and verification commands. Keep existing migration names and bytes unchanged."
