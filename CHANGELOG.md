@@ -6,10 +6,6 @@ Pier is open source inventory and order management for wholesalers and distribut
 
 Prepare Pier for hosted installation with a deployment descriptor, digest-bound setup, managed mail relay and verified source provenance. Existing stock and order workflows remain available.
 
-### Not in this release
-
-Provider-dependent EDI sending and live marketplace certification are not part of this release.
-
 ## 28 October 2026 — contract cleanup to the RER contract standard
 
 CONTRACT.md was rewritten to the RER contract standard from main `b23893e4b0b46c454a14f98a8602ba508f350ddd`. Nothing was cut and no status was promoted; `docs/contract/COVERAGE.json` places every old sentence and `docs/contract/ID-MAP.json` maps every old id.
